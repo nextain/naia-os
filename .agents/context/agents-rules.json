@@ -1,0 +1,288 @@
+{
+	"project_identity": {
+		"name": "Cafelua OS",
+		"nature": "Bazzite-based personal AI OS with virtual avatar",
+		"philosophy": "OS itself is the AI's tool. Assemble, don't build from scratch.",
+		"core_concept": "USB boot → Alpha avatar greets → AI controls OS"
+	},
+	"architecture": {
+		"layers": {
+			"shell": "Tauri 2 + Three.js (Avatar UI, user interaction)",
+			"agent": "Node.js (LLM connection, tools, sub-agents)",
+			"gateway": "WebSocket daemon (channels, skills, memory)",
+			"os": "Bazzite (Fedora Atomic, immutable, BlueBuild)"
+		},
+		"communication": {
+			"shell_to_agent": "stdio JSON lines (Tauri spawns agent-core as child process)",
+			"shell_to_gateway": "WebSocket (localhost)",
+			"gateway_to_agent": "stdio JSON lines",
+			"gateway_to_channels": "per-channel SDK (discord.js, grammY, etc.)"
+		},
+		"source_directories": {
+			"shell": "Tauri desktop app (Avatar + UI)",
+			"agent": "AI agent core (LLM, tools, sub-agents)",
+			"gateway": "Always-on daemon (channels, skills, memory)",
+			"os": "BlueBuild recipe + systemd services"
+		}
+	},
+	"coding_conventions": {
+		"language": "TypeScript (shell frontend, agent, gateway), Rust (Tauri backend)",
+		"package_manager": "pnpm (monorepo workspaces)",
+		"runtime": "Node.js 22+ (agent, gateway), Bun optional",
+		"formatter": "Biome (format + lint)",
+		"biome_config": {
+			"indent": "tab",
+			"quote_style": "double",
+			"semicolons": "always",
+			"trailing_comma": "all",
+			"line_width": 100
+		},
+		"naming": {
+			"files": "kebab-case (e.g. agent-core.ts, avatar-renderer.ts)",
+			"directories": "kebab-case",
+			"classes": "PascalCase",
+			"functions": "camelCase",
+			"constants": "UPPER_SNAKE_CASE",
+			"types_interfaces": "PascalCase (no I- prefix)",
+			"rust_files": "snake_case"
+		},
+		"imports": {
+			"order": ["node builtins", "external packages", "internal modules", "relative"],
+			"style": "named imports preferred, no default exports"
+		},
+		"comments": {
+			"language": "English for code comments, Korean for docs",
+			"rule": "Only where logic isn't self-evident. No redundant comments."
+		},
+		"error_handling": {
+			"rule": "Only validate at system boundaries (user input, external APIs, LLM responses)",
+			"pattern": "Result<T, Error> in Rust, try-catch at boundaries in TypeScript"
+		}
+	},
+	"project_structure": {
+		"monorepo": true,
+		"workspaces": ["shell", "agent", "gateway"],
+		"shell": {
+			"framework": "Tauri 2",
+			"frontend": "Vue 3 or React (TBD, depends on AIRI reuse)",
+			"3d": "Three.js + @pixiv/three-vrm",
+			"styling": "UnoCSS or TailwindCSS",
+			"build": "Vite"
+		},
+		"agent": {
+			"runtime": "Node.js",
+			"llm": "Multi-provider (Anthropic, OpenAI, Google, etc.)",
+			"tools": "file_read, file_write, apply_diff, execute_command, browser, search",
+			"protocol": "stdio JSON lines",
+			"bundle": "esbuild → single JS file"
+		},
+		"gateway": {
+			"runtime": "Node.js",
+			"server": "WebSocket (ws library)",
+			"channels": "discord.js, grammY, etc.",
+			"storage": "SQLite + vector search",
+			"service": "systemd user service"
+		},
+		"os": {
+			"base": "Bazzite (Fedora Atomic)",
+			"build": "BlueBuild recipe",
+			"ci": "GitHub Actions → ghcr.io → ISO",
+			"no_fork": "Layer on top of Bazzite, never fork"
+		}
+	},
+	"testing": {
+		"philosophy": "Integration-first TDD. Test real usage, not isolated units.",
+		"framework": {
+			"unit_integration": "Vitest",
+			"e2e_shell": "@tauri-apps/cli (tauri-driver) + WebDriver",
+			"e2e_os": "QEMU VM boot (libvirt in CI)",
+			"mocking": "msw (Mock Service Worker)",
+			"rust": "cargo test"
+		},
+		"tdd_phases": [
+			"RED: Write integration/E2E test for actual usage scenario",
+			"GREEN: Minimal code to make it pass",
+			"REFACTOR: Improve while tests stay green"
+		],
+		"test_structure": {
+			"unit": "<module>/__tests__/*.test.ts",
+			"integration": "tests/integration/*.test.ts",
+			"e2e": "tests/e2e/*.spec.ts",
+			"rust": "<crate>/src/*.rs (#[cfg(test)])"
+		},
+		"e2e_scenarios": {
+			"shell": [
+				"App launches → Avatar renders → idle animation plays",
+				"User types message → LLM responds → Avatar lip-syncs",
+				"User requests file edit → Permission prompt → File modified",
+				"App crashes → Auto-restart → Session restored"
+			],
+			"agent": [
+				"stdin message → LLM call → stdout response (streaming)",
+				"Tool call → Permission check → Execution → Result",
+				"Sub-agent spawn → Parallel execution → Results merged"
+			],
+			"os": [
+				"ISO boot → Login → Cafelua Shell auto-starts",
+				"First boot → Onboarding wizard → API key setup → First chat"
+			]
+		},
+		"commands": {
+			"unit": "pnpm test:unit",
+			"integration": "pnpm test:integration",
+			"e2e": "pnpm test:e2e",
+			"all": "pnpm test",
+			"coverage": "pnpm test:coverage"
+		},
+		"coverage_goals": {
+			"agent_core": "80%+ (LLM connection, tools, protocol)",
+			"shell_components": "70%+ (UI interactions)",
+			"gateway": "80%+ (message routing, skills)",
+			"e2e": "All critical user flows covered"
+		}
+	},
+	"logging": {
+		"forbidden": ["console.log", "console.warn", "console.error"],
+		"rule": "Use structured logger only. No raw console output.",
+		"logger": {
+			"import": "import { Logger } from '@cafelua/shared/logger'",
+			"levels": {
+				"debug": "Development debugging, detailed execution flow",
+				"info": "Important operations completed, state changes",
+				"warn": "Potential issues, degraded performance",
+				"error": "Actual errors, exceptions"
+			},
+			"format": "[ComponentName] message",
+			"examples": {
+				"correct": "Logger.info('[AgentCore] LLM response received', { model, tokens })",
+				"wrong": "console.log('got response')"
+			}
+		},
+		"audit_log": {
+			"purpose": "Record all AI actions for security and transparency",
+			"storage": "SQLite (~/.cafelua/audit.db)",
+			"fields": ["timestamp", "tier", "action", "target", "result"],
+			"retention": "90 days default, configurable"
+		}
+	},
+	"security": {
+		"permission_tiers": {
+			"tier_0_free": "File read, info queries, conversation, search",
+			"tier_1_notify": "File create/modify (in ~/), non-destructive commands, app launch",
+			"tier_2_approve": "File delete, package install/remove, system config, git push, external API",
+			"tier_3_blocked": "System file modification, other user data, security settings, credential exfiltration"
+		},
+		"sandbox": {
+			"default_scope": "User home directory only",
+			"dangerous_commands": "Run in Podman container (disposable)",
+			"network_isolation": "Sensitive operations in network-restricted container"
+		},
+		"os_security": {
+			"immutable_base": "rpm-ostree prevents system corruption, rollback available",
+			"selinux": "Enforcing mode, per-process access control",
+			"flatpak": "App sandboxing for installed applications",
+			"podman": "Rootless containers for isolation"
+		},
+		"credentials": {
+			"storage": "~/.cafelua/credentials/ (encrypted, system keyring or age)",
+			"rule": "Agent can USE keys but never SEE or TRANSMIT raw values",
+			"never_log": "API keys, tokens, passwords must never appear in logs or audit"
+		},
+		"remote_access": {
+			"default": "localhost only (127.0.0.1)",
+			"allowed": "Tailscale VPN or SSH tunnel",
+			"channel_permissions": "External channels (Discord, Telegram) limited to Tier 0-1"
+		}
+	},
+	"development_process": {
+		"branch_strategy": {
+			"main": "Stable, always deployable (BlueBuild builds from main)",
+			"dev": "Integration branch for ongoing work",
+			"feature": "feature/<name> (short-lived, PR to dev)",
+			"release": "Automatic via BlueBuild on main push"
+		},
+		"commit_convention": {
+			"format": "<type>(<scope>): <description>",
+			"types": ["feat", "fix", "refactor", "test", "docs", "chore", "ci"],
+			"scopes": ["shell", "agent", "gateway", "os", "context"],
+			"language": "English for commits",
+			"examples": [
+				"feat(shell): add VRM avatar idle animation",
+				"fix(agent): handle LLM timeout gracefully",
+				"ci(os): add BlueBuild GitHub Action"
+			]
+		},
+		"pr_process": [
+			"Create feature branch from dev",
+			"Write tests first (TDD)",
+			"Implement minimal code",
+			"Ensure all tests pass",
+			"PR to dev with description",
+			"Squash merge to dev",
+			"Periodic dev → main merge for release"
+		],
+		"ci_pipeline": {
+			"on_push": ["lint (Biome)", "typecheck", "unit tests", "build"],
+			"on_pr": ["All above + integration tests"],
+			"on_main": ["All above + E2E tests + BlueBuild image + ISO generation"]
+		},
+		"code_review": {
+			"rule": "AI-assisted review encouraged. Human review for security-critical changes.",
+			"checklist_code_quality": [
+				"Tests added/updated for new behavior?",
+				"No duplicate code (same logic in 2+ places)?",
+				"No unused imports/functions/files (knip clean)?",
+				"No zombie code from previous implementation?",
+				"Logging uses structured logger (no console.log)?"
+			],
+			"checklist_security": [
+				"Permission tier correctly assigned for new tools?",
+				"Audit log records all new AI actions?",
+				"No hardcoded credentials or API keys?",
+				"Dangerous operations use Podman sandbox?",
+				"External network access justified?",
+				"LLM prompt changes reviewed for safety?"
+			],
+			"checklist_architecture": [
+				"Code is in the correct module (shell/agent/gateway/os)?",
+				"stdio protocol changes are backwards compatible?",
+				"No unnecessary new files (could extend existing)?",
+				"6 months from now — still understandable?"
+			]
+		}
+	},
+	"context_management": {
+		"dual_directory": {
+			".agents": "AI-optimized (English, JSON/YAML, token-efficient)",
+			".users": "Human-readable (Korean, Markdown, detailed)"
+		},
+		"sot": ".agents/context/agents-rules.json is the Single Source of Truth",
+		"mirror_rule": "Changes to .agents/ must be reflected in .users/ and vice versa",
+		"cascade_rules": {
+			"trigger_context_change": "Update .users/ mirror",
+			"trigger_new_module": "Update project-index in parent",
+			"trigger_rule_change": "Propagate to all dependent contexts",
+			"order": "self → parent → siblings → children → mirror"
+		},
+		"on_demand_loading": {
+			"rule": "Read workflow files only when performing specific tasks",
+			"always_read": ["agents-rules.json"],
+			"on_demand": ["workflows/*", "skills/*"]
+		}
+	},
+	"ai_workflow": {
+		"response_language": "Korean",
+		"mandatory_pre_checks": [
+			"Read agents-rules.json before any work",
+			"Identify work nature (shell/agent/gateway/os)",
+			"TDD mandatory (integration first)",
+			"Check security tier for new tools/commands"
+		],
+		"work_logs": {
+			"location": "linked work-log repo (docs-work-logs)",
+			"format": "YYYYMMDD-{number}-{topic}.md",
+			"folders": ["todo/", "doing/", "done/"],
+			"language": "Korean preferred"
+		}
+	}
+}

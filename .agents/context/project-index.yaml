@@ -1,0 +1,51 @@
+description: Cafelua OS context index. Maps AI contexts to human docs.
+
+sot: .agents/context/agents-rules.json
+
+mirror_pairs:
+  # AI context (JSON/YAML) ↔ Human doc (Markdown)
+  - agents: .agents/context/agents-rules.json
+    users: .users/context/agents-rules.md
+    description: Project rules, conventions, testing, logging, security, dev process
+
+  - agents: .agents/context/project-index.yaml
+    users: null
+    description: This index file (AI-only)
+
+  - agents: .agents/context/vision.yaml
+    users: .users/context/vision.md
+    description: Project vision, core concept, usage scenarios
+
+  - agents: .agents/context/plan.yaml
+    users: .users/context/plan.md
+    description: Implementation plan, phases, deliverables, timeline
+
+  - agents: .agents/context/careti-reuse.yaml
+    users: .users/context/careti-reuse.md
+    description: Code/pattern reuse strategy from project-careti
+
+  - agents: .agents/context/testing.yaml
+    users: null
+    description: Concrete testing strategy per module, E2E scenarios, phase verification
+
+  - agents: .agents/workflows/development-cycle.yaml
+    users: .users/workflows/development-cycle.md
+    description: PLAN→CHECK→BUILD→VERIFY→CLEAN→COMMIT cycle, review gates, AI rules
+
+mirroring_rules:
+  - When .users/ doc is updated, update corresponding .agents/ context
+  - When .agents/ context is updated, update corresponding .users/ doc
+  - AI can read .agents/ for token-efficient context
+  - AI can read .users/ for detailed human-level understanding
+  - New document = create both .agents/ and .users/ versions
+
+on_demand_loading:
+  always_read:
+    - .agents/context/agents-rules.json
+  read_when_needed:
+    - .agents/context/vision.yaml (when discussing direction/purpose)
+    - .agents/context/plan.yaml (when planning or implementing phases)
+    - .agents/context/careti-reuse.yaml (when porting code from careti)
+    - .agents/context/testing.yaml (when writing or running tests)
+    - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
+    - .agents/workflows/* (when executing specific workflows)

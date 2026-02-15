@@ -1,0 +1,26 @@
+description: Cafelua OS vision (token-optimized mirror of .users/context/vision.md)
+
+core_concept: "OS itself is the AI's tool. AI controls the OS, not just runs on it."
+
+differentiators:
+  - vs_vscode_extension: "Always on, not tied to IDE"
+  - vs_cli_agent: "Full OS control, not just terminal"
+  - vs_chatbot: "Can execute, not just talk"
+  - vs_moltbot: "USB-bootable OS, not brew install"
+
+user_scenarios:
+  daily: "Schedule check, meeting prep, reminders"
+  development: "Build errors → auto-analyze → fix → rebuild"
+  gaming: "Join Minecraft, autonomous actions, co-play"
+  system: "Disk cleanup, service management, monitoring"
+
+parent_projects:
+  bazzite: "Immutable Linux OS, GPU drivers, gaming optimization"
+  airi: "VRM avatar rendering, plugin SDK, game agents (Minecraft/Factorio)"
+  moltbot: "Gateway daemon, channel integration (18+), Skills (50+)"
+  opencode: "Client/Server separation, provider abstraction, LSP"
+  careti: "LLM providers (31), tools (20+), sub-agents, persona system"
+
+target_audience: "Anyone who wants a personal AI OS. Not developer-only."
+
+long_term: "Cafelua OS = AI's home. Alpha lives here."

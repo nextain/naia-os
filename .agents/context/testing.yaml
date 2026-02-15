@@ -1,0 +1,461 @@
+description: Concrete testing strategy per module
+
+philosophy: |
+  Integration-first TDD. Test real I/O, not mocked internals.
+  Agent core is tested via stdio (pipe JSON in, assert JSON out).
+  Shell is tested via Tauri WebDriver (tauri-driver).
+  Gateway is tested via WebSocket client.
+  OS is tested by booting in a VM.
+
+frameworks:
+  unit_integration: Vitest
+  e2e_shell: "@tauri-apps/cli (tauri-driver) + WebDriver"
+  e2e_os: "QEMU VM boot (libvirt in CI)"
+  rust: "cargo test"
+  mocking: "msw (Mock Service Worker) for LLM API mocking"
+
+agent:
+  description: "Node.js AI core. Communicates via stdio JSON lines."
+  test_approach: "Spawn agent as child process, pipe stdin, assert stdout."
+
+  unit:
+    location: "agent/src/**/__tests__/*.test.ts"
+    examples:
+      - "Tool permission check: input tier + action → allowed/denied"
+      - "JSON protocol parsing: malformed input → error response"
+      - "Audit log entry creation: action → correct log format"
+
+  integration:
+    location: "agent/tests/integration/*.test.ts"
+    how: |
+      Spawn agent-core as child process with --stdio flag.
+      Write JSON to stdin. Read JSON from stdout.
+      Assert response structure, streaming chunks, tool calls.
+    examples:
+      - name: "Basic chat round-trip"
+        input: '{"type":"request","method":"chat","message":{"content":"hello"}}'
+        assert: "stdout contains streaming response chunks + final response"
+        mock: "LLM API mocked with msw"
+
+      - name: "Tool call: file_read"
+        input: '{"type":"request","method":"chat","message":{"content":"read /tmp/test.txt"}}'
+        setup: "Create /tmp/test.txt with known content"
+        assert: "Tool call executed, file content in response"
+        mock: "LLM API returns tool_use for file_read"
+
+      - name: "Permission denied (Tier 3)"
+        input: '{"type":"request","method":"chat","message":{"content":"delete /etc/passwd"}}'
+        assert: "Tier 3 block, no execution, audit log entry"
+
+      - name: "Sub-agent spawn"
+        input: '{"type":"request","method":"chat","message":{"content":"analyze this project"}}'
+        assert: "Multiple sub-agent results merged in response"
+
+      - name: "Streaming cancellation"
+        input: "Send request, then send cancel before completion"
+        assert: "Stream stops, partial response returned"
+
+  e2e:
+    location: "agent/tests/e2e/*.test.ts"
+    how: "Full flow with real LLM API (rate-limited, optional in CI)"
+    examples:
+      - "Send real message to Claude → get real response → verify format"
+    ci_skip: "Requires API key. Run manually or in nightly CI."
+
+shell:
+  description: "Tauri 2 app with Three.js VRM avatar."
+  test_approach: "Tauri WebDriver for app-level E2E. Vitest for component logic."
+
+  unit:
+    location: "shell/src/**/__tests__/*.test.ts"
+    examples:
+      - "Chat message formatting: raw LLM response → display format"
+      - "Emotion extraction: LLM text → emotion enum"
+      - "Permission prompt logic: tier + action → show/hide modal"
+
+  component:
+    location: "shell/src/**/__tests__/*.test.ts"
+    how: "Test UI components with testing-library (no real Tauri)"
+    examples:
+      - "Chat panel: type message → submit → loading state → response displayed"
+      - "Permission modal: show → approve → callback fired"
+      - "Settings panel: change API key → saved to config"
+    note: "Avatar 3D rendering is NOT component-tested (too heavy). Covered by E2E."
+
+  e2e:
+    location: "shell/tests/e2e/*.spec.ts"
+    how: |
+      Use tauri-driver (WebDriver protocol) to control the Tauri app.
+      Launches real app, interacts via WebDriver commands.
+      Agent-core is mocked (stdin/stdout fixture responses).
+    examples:
+      - name: "App launch"
+        steps: ["Launch app", "Wait for avatar canvas", "Assert avatar visible"]
+        assert: "Avatar element exists, no crash"
+
+      - name: "Chat flow"
+        steps: ["Type message", "Click send", "Wait for response"]
+        assert: "Response text appears in chat panel"
+
+      - name: "Permission approval"
+        steps: ["Trigger Tier 2 action", "Permission modal appears", "Click approve"]
+        assert: "Action executed, result shown"
+
+      - name: "App recovery"
+        steps: ["Kill agent-core process", "Wait for auto-restart", "Send message"]
+        assert: "Conversation continues after restart"
+
+gateway:
+  description: "WebSocket daemon. Always running."
+  test_approach: "Connect as WebSocket client, send messages, assert responses."
+
+  unit:
+    location: "gateway/src/**/__tests__/*.test.ts"
+    examples:
+      - "Message routing: channel + message → correct agent session"
+      - "Skill matching: user input → matched skill"
+      - "Memory storage: conversation → SQLite entry"
+      - "Vector search: query → relevant memories"
+
+  integration:
+    location: "gateway/tests/integration/*.test.ts"
+    how: |
+      Start gateway server on random port.
+      Connect WebSocket client.
+      Send protocol messages, assert responses.
+    examples:
+      - name: "WebSocket handshake"
+        steps: ["Connect to ws://localhost:{port}", "Send connect frame"]
+        assert: "Receive ack frame with session ID"
+
+      - name: "Chat via gateway"
+        steps: ["Connect", "Send chat message", "Receive streaming response"]
+        assert: "Response contains LLM output (agent-core mocked)"
+
+      - name: "Skill invocation"
+        steps: ["Connect", "Send 'what time is it'"]
+        assert: "Time skill activates, returns current time"
+
+      - name: "Memory recall"
+        steps: ["Send message A", "New session", "Ask about message A"]
+        assert: "Memory retrieves and includes message A context"
+
+  channel_tests:
+    how: "Mock channel SDKs (discord.js, grammY). No real bot tokens in CI."
+    examples:
+      - "Discord message received → forwarded to agent → response sent back"
+      - "Telegram command → skill invoked → result sent to chat"
+
+os:
+  description: "Bazzite custom image (BlueBuild)."
+  test_approach: "Boot ISO in QEMU VM, check services and apps."
+
+  smoke:
+    location: "os/tests/smoke.sh"
+    how: |
+      Boot ISO in headless QEMU VM.
+      Wait for login prompt (or auto-login).
+      SSH into VM, check systemd services.
+    examples:
+      - "systemctl --user is-active cafelua-agent.service → active"
+      - "Node.js available: node --version → v22+"
+      - "Cafelua Shell desktop entry exists"
+      - "~/.cafelua/ directory created"
+
+  ci:
+    how: "GitHub Actions with QEMU. Boot ISO, run smoke tests, screenshot."
+    timeout: "5 minutes max for VM boot + checks"
+    note: "GPU-dependent tests (avatar rendering) skipped in CI. Manual verification."
+
+ci_pipeline:
+  on_push:
+    - "Biome lint + format check"
+    - "TypeScript typecheck (tsc --noEmit)"
+    - "Agent unit + integration tests"
+    - "Shell unit + component tests"
+    - "Gateway unit + integration tests"
+    - "Rust tests (cargo test)"
+  on_pr:
+    - "All above"
+    - "Shell E2E (tauri-driver, agent mocked)"
+    - "Gateway E2E (full WebSocket flow)"
+  on_main:
+    - "All above"
+    - "BlueBuild image build"
+    - "OS smoke test (QEMU)"
+    - "ISO generation"
+  nightly:
+    - "Agent E2E with real LLM API (rate-limited)"
+    - "Full OS E2E (VM boot + app launch + chat)"
+
+test_commands:
+  all: "pnpm test"
+  agent_unit: "pnpm --filter agent test:unit"
+  agent_integration: "pnpm --filter agent test:integration"
+  shell_unit: "pnpm --filter shell test:unit"
+  shell_component: "pnpm --filter shell test:component"
+  shell_e2e: "pnpm --filter shell test:e2e"
+  gateway_unit: "pnpm --filter gateway test:unit"
+  gateway_integration: "pnpm --filter gateway test:integration"
+  os_smoke: "bash os/tests/smoke.sh"
+  coverage: "pnpm test:coverage"
+
+e2e_full_flow:
+  description: "End-to-end tests that cross module boundaries. The real deal."
+
+  scenarios:
+    boot_to_chat:
+      name: "Boot → Avatar → Chat"
+      precondition: "OS image built, API key configured"
+      steps:
+        - "Boot VM from ISO (QEMU)"
+        - "Auto-login → desktop session starts"
+        - "Cafelua Shell auto-launches (systemd + desktop entry)"
+        - "Avatar renders (VRM, idle animation)"
+        - "Type 'hello' in chat panel"
+        - "LLM responds, avatar lip-syncs"
+      assert:
+        - "Shell process running"
+        - "Avatar canvas element visible"
+        - "Response text appears in chat"
+        - "No errors in audit log"
+      covers: "os → shell → agent → LLM"
+
+    tool_execution:
+      name: "Request file edit → Approval → Execution"
+      steps:
+        - "User types: 'create a file called test.md with hello world'"
+        - "Agent plans tool call (file_write)"
+        - "Permission modal appears (Tier 1: notify)"
+        - "File created at ~/test.md"
+        - "Agent confirms completion"
+      assert:
+        - "~/test.md exists with correct content"
+        - "Audit log contains file_write entry"
+        - "Chat shows confirmation"
+      covers: "shell → agent → tools → filesystem → audit"
+
+    permission_block:
+      name: "Dangerous command → Tier 3 block"
+      steps:
+        - "User types: 'delete /etc/hosts'"
+        - "Agent attempts tool call"
+        - "Tier 3 block activates"
+        - "User sees 'blocked' message"
+      assert:
+        - "/etc/hosts unchanged"
+        - "Audit log: TIER3 BLOCKED"
+        - "No permission modal shown (auto-blocked)"
+      covers: "agent → security → audit"
+
+    crash_recovery:
+      name: "Agent crash → Auto-restart → Session continues"
+      steps:
+        - "Start conversation, get response"
+        - "Kill agent-core process (simulate crash)"
+        - "Tauri detects exit, restarts agent-core (500ms)"
+        - "Send another message"
+      assert:
+        - "Second message gets response"
+        - "No data loss"
+        - "Audit log: restart event"
+      covers: "shell → agent (lifecycle)"
+
+    external_channel:
+      name: "Discord message → Agent → Discord reply"
+      precondition: "Gateway running with Discord channel"
+      steps:
+        - "Send DM to bot on Discord"
+        - "Gateway routes to agent"
+        - "Agent responds"
+        - "Reply appears in Discord"
+      assert:
+        - "Discord reply within 10s"
+        - "Response is coherent"
+        - "Audit log: channel=discord"
+      covers: "gateway → agent → discord channel"
+
+    game_session:
+      name: "Minecraft co-play"
+      precondition: "Minecraft server running, Mineflayer configured"
+      steps:
+        - "User types: 'join the minecraft server'"
+        - "Agent connects via Mineflayer"
+        - "User types: 'mine some wood'"
+        - "Agent performs woodcutting"
+        - "Agent reports back: 'Got 12 oak logs'"
+      assert:
+        - "Bot connected to server"
+        - "Inventory contains oak logs"
+        - "Chat shows progress updates"
+      covers: "shell → agent → game service"
+      phase: 5
+
+code_review:
+  description: "Review process for all code changes"
+
+  automated_checks:
+    - name: "Lint"
+      tool: "Biome"
+      command: "pnpm lint"
+      blocks_merge: true
+
+    - name: "Type check"
+      tool: "tsc --noEmit"
+      command: "pnpm typecheck"
+      blocks_merge: true
+
+    - name: "Unit + Integration tests"
+      command: "pnpm test"
+      blocks_merge: true
+
+    - name: "Security scan"
+      tool: "npm audit / cargo audit"
+      command: "pnpm audit && cd shell/src-tauri && cargo audit"
+      blocks_merge: false
+      note: "Advisory only, review findings manually"
+
+    - name: "Credential leak check"
+      tool: "gitleaks or trufflehog"
+      command: "gitleaks detect --source ."
+      blocks_merge: true
+
+  human_review_checklist:
+    always:
+      - "Does the change match the stated intent? (no scope creep)"
+      - "Are tests added for new behavior?"
+      - "Does the structured logger replace any console.log?"
+      - "Are commit messages following convention?"
+
+    security_related:
+      - "Is the correct permission tier assigned?"
+      - "Are new tools registered in the audit system?"
+      - "No API keys or credentials in code/config?"
+      - "Podman sandbox used for dangerous operations?"
+      - "External network access justified?"
+
+    agent_changes:
+      - "stdio protocol backwards compatible?"
+      - "LLM prompt changes reviewed for safety?"
+      - "Tool results sanitized before passing to LLM?"
+      - "Sub-agent limits enforced (max depth, max concurrent)?"
+
+    shell_changes:
+      - "Avatar rendering performance acceptable?"
+      - "UI accessible (keyboard nav, screen reader basics)?"
+      - "Responsive layout works at different sizes?"
+
+    os_changes:
+      - "BlueBuild recipe still builds?"
+      - "systemd service starts correctly?"
+      - "No regression in boot time?"
+
+  review_process:
+    - "Author creates PR to dev branch"
+    - "CI runs all automated checks"
+    - "AI-assisted review (Claude/Copilot) for initial pass"
+    - "Human review for security-critical or architectural changes"
+    - "Squash merge after approval"
+
+phase_verification:
+  description: "What to verify before marking each phase as complete"
+
+  phase_0:
+    name: "Deploy pipeline"
+    checklist:
+      - "[ ] BlueBuild recipe (os/recipe.yml) passes build"
+      - "[ ] GitHub Actions workflow runs on push"
+      - "[ ] Image published to ghcr.io"
+      - "[ ] ISO generated and downloadable from Releases"
+      - "[ ] USB boot succeeds in VM (QEMU)"
+      - "[ ] USB boot succeeds on real hardware (manual)"
+    smoke_test: "Boot VM → login prompt appears → Node.js installed"
+
+  phase_1:
+    name: "Avatar on screen"
+    checklist:
+      - "[ ] VRM model loads without error"
+      - "[ ] Idle animation plays (eye blink, subtle movement)"
+      - "[ ] Tauri app launches on Bazzite"
+      - "[ ] Autostart works after login"
+      - "[ ] Window resize works"
+      - "[ ] No GPU crash (test on NVIDIA + AMD)"
+    smoke_test: "Boot → login → Alpha avatar visible in 5 seconds"
+    e2e: "boot_to_chat (partial: boot → avatar visible)"
+
+  phase_2:
+    name: "Chat with Alpha"
+    checklist:
+      - "[ ] Agent core starts via stdio"
+      - "[ ] Tauri stdio bridge works (message round-trip)"
+      - "[ ] Chat panel accepts text input"
+      - "[ ] LLM response streams correctly"
+      - "[ ] Avatar lip-sync during response"
+      - "[ ] Avatar emotion changes"
+      - "[ ] Onboarding flow (first boot API key setup)"
+      - "[ ] Error handling (no API key, network error, invalid key)"
+    smoke_test: "Type 'hello' → Alpha responds with lip-sync"
+    e2e: "boot_to_chat (full)"
+    demo_ready: true
+
+  phase_3:
+    name: "Alpha does work"
+    checklist:
+      - "[ ] file_read tool works"
+      - "[ ] file_write tool works"
+      - "[ ] apply_diff (SmartEditEngine) works"
+      - "[ ] execute_command works"
+      - "[ ] browser_action works"
+      - "[ ] search_files works"
+      - "[ ] Tier 0 actions execute without prompt"
+      - "[ ] Tier 1 actions notify after execution"
+      - "[ ] Tier 2 actions show approval modal"
+      - "[ ] Tier 3 actions blocked automatically"
+      - "[ ] Audit log records all actions"
+      - "[ ] Sub-agent spawns and returns results"
+      - "[ ] Work progress panel shows current task"
+    smoke_test: "'Create a file' → file appears, audit logged"
+    e2e: "tool_execution + permission_block + crash_recovery"
+
+  phase_4:
+    name: "Always-on daemon"
+    checklist:
+      - "[ ] Gateway starts as systemd user service"
+      - "[ ] Gateway survives Shell close"
+      - "[ ] Shell reconnects to Gateway on reopen"
+      - "[ ] Discord bot receives and responds to DM"
+      - "[ ] Telegram bot receives and responds"
+      - "[ ] External channels limited to Tier 0-1"
+      - "[ ] Memory persists across sessions"
+      - "[ ] Memory recall works ('what did I say yesterday?')"
+      - "[ ] Skills: time, weather, system status, memo"
+      - "[ ] Custom skill loading from ~/.cafelua/skills/"
+    smoke_test: "Close Shell → Discord DM → Alpha responds → Reopen Shell → context preserved"
+    e2e: "external_channel"
+
+  phase_5:
+    name: "Gaming with Alpha"
+    checklist:
+      - "[ ] Minecraft bot connects to server"
+      - "[ ] Bot responds to chat commands"
+      - "[ ] Bot performs autonomous actions (mine, build, fight)"
+      - "[ ] Game events reflected in Alpha's conversation"
+      - "[ ] Game overlay shows Alpha avatar"
+      - "[ ] Voice chat works during gaming"
+    smoke_test: "'Join minecraft' → bot connects → 'mine wood' → bot mines"
+    e2e: "game_session"
+
+mocking_strategy:
+  llm_api: |
+    Use msw (Mock Service Worker) to intercept HTTP requests to LLM APIs.
+    Fixture files with pre-recorded responses for deterministic tests.
+    agent/tests/fixtures/llm-responses/*.json
+  channels: |
+    Mock discord.js Client, grammY Bot with test doubles.
+    No real bot tokens in CI.
+  filesystem: |
+    Use temp directories (os.tmpdir()) for file tool tests.
+    Clean up after each test.
+  agent_core_for_shell: |
+    Mock agent-core with a simple stdin/stdout script that returns fixture responses.
+    shell/tests/fixtures/mock-agent.js

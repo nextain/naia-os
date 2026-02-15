@@ -1,0 +1,194 @@
+description: |
+  Development cycle that prevents code duplication, zombie code, and unreviewed drift.
+  Every AI coding session follows this cycle. No exceptions.
+
+problem: |
+  Typical issues when developing with AI:
+  1. Same feature built again in a different file (duplication)
+  2. Previous implementation left behind when new one is created (zombie code)
+  3. Temporary code becomes permanent (tech debt)
+  4. Unknown which files are actually used (untracked code)
+
+cycle:
+  name: "PLAN > CHECK > BUILD > VERIFY > CLEAN > COMMIT"
+
+  step_1_plan:
+    name: "PLAN"
+    description: "Determine what to build, where to put it, and whether it already exists"
+    actions:
+      - "Summarize requirement in one sentence"
+      - "Search existing code for same/similar functionality (Grep/Glob)"
+      - "If exists: modify/extend existing code (do NOT create new)"
+      - "If not: decide which module (shell/agent/gateway) it belongs to"
+      - "List affected files"
+    output: "Work plan (what, where, why)"
+    anti_patterns:
+      - "Creating new file without checking existing code"
+      - "Writing temp code with 'clean up later' intent"
+      - "Creating similar util function in a different location"
+
+  step_2_check:
+    name: "CHECK"
+    description: "Pre-check for conflicts and duplication with existing code"
+    actions:
+      - "Read files to be changed, understand current state"
+      - "Check import/export dependency graph (who uses this code?)"
+      - "Search for same-named functions/classes/types elsewhere"
+      - "Verify test files exist"
+    output: "No conflicts/duplicates confirmed, or plan changed to modify existing code"
+    anti_patterns:
+      - "Modifying files without reading them first"
+      - "Breaking existing exports without checking consumers"
+
+  step_3_build:
+    name: "BUILD"
+    description: "Implement with TDD. Minimum only."
+    actions:
+      - "Write test first (RED)"
+      - "Minimal code to pass (GREEN)"
+      - "Refactor (REFACTOR)"
+    rules:
+      - "One feature at a time. Never mix multiple features."
+      - "Minimize new files. Add to existing files when possible."
+      - "Utils/helpers in one place only (shared/ or module utils/)"
+      - "Temp code must have // TODO: comment + issue number"
+    anti_patterns:
+      - "Implementing without tests"
+      - "Mixing multiple features in one PR"
+      - "Creating duplicate utils like 'helpers.ts', 'utils2.ts'"
+
+  step_4_verify:
+    name: "VERIFY"
+    description: "Confirm implementation is correct, nothing unnecessary, no security issues"
+    actions:
+      - "All tests pass (pnpm test)"
+      - "Lint + typecheck pass (pnpm lint && pnpm typecheck)"
+      - "Review changed files (git diff --stat)"
+      - "Check for unintended file changes"
+      - "Re-confirm new files are truly necessary"
+    security_review:
+      - "Correct permission tier assigned for new tools/commands"
+      - "Audit log records new AI actions"
+      - "No credentials exposed in code or logs"
+      - "Dangerous operations use Podman sandbox"
+      - "LLM prompt changes reviewed for safety"
+    output: "Changes are within intended scope, no security issues"
+    anti_patterns:
+      - "Committing with failing tests"
+      - "Missing unintended file changes"
+      - "Adding new tools without checking security tier"
+
+  step_5_clean:
+    name: "CLEAN"
+    description: "Remove previous implementation remnants, unused code, duplicates"
+    actions:
+      - "Delete previous implementation code if replaced"
+      - "Remove unused imports"
+      - "Remove unused functions/variables"
+      - "Delete unused files"
+      - "Remove resolved TODO comments"
+      - "Remove console.log (verify Logger replacement)"
+    output: "No unnecessary code remains"
+    check_command: |
+      # Find unused exports
+      pnpm knip --no-exit-code
+    anti_patterns:
+      - "Only commenting out old code instead of deleting"
+      - "Keeping unused code 'just in case'"
+      - "Preserving old code as _oldFunction, _backup"
+
+  step_6_commit:
+    name: "COMMIT"
+    description: "Clean commit. One commit = one logical change."
+    actions:
+      - "Final check with git status"
+      - "Stage only related files (git add -p or per-file)"
+      - "Commit message: type(scope): description"
+      - "PR includes change summary + test results"
+    rules:
+      - "One commit per feature/fix"
+      - "No WIP commits (squash to clean up)"
+      - "Double-check with git diff before committing"
+
+review_gates:
+  description: "Gates that must pass before code reaches main"
+
+  gate_1_self_review:
+    when: "Before commit"
+    who: "Author (AI or human)"
+    checklist:
+      - "Stayed within scope defined in PLAN?"
+      - "If new file created, could it have been added to existing file?"
+      - "No duplicate code (same logic in 2+ places)?"
+      - "No unused code left behind?"
+      - "Tests added?"
+      - "No console.log?"
+
+  gate_2_automated:
+    when: "On PR creation (CI)"
+    checks:
+      - "Biome lint pass"
+      - "TypeScript typecheck pass"
+      - "All tests pass"
+      - "knip: no unused exports"
+      - "gitleaks: no credential leaks"
+      - "cargo audit: no known vulnerabilities (Rust)"
+
+  gate_3_human_review:
+    when: "Before PR merge"
+    focus:
+      code_quality:
+        - "No duplicate code (same logic in 2+ places)"
+        - "No unused imports/functions/files (knip clean)"
+        - "No zombie code from previous implementation"
+        - "Structured logger used (no console.log)"
+      security:
+        - "Permission tier correct for new tools"
+        - "Audit log records new AI actions"
+        - "No hardcoded credentials or API keys"
+        - "Dangerous operations use Podman sandbox"
+        - "LLM prompt changes reviewed for safety"
+      architecture:
+        - "Code in correct module (shell/agent/gateway/os)"
+        - "stdio protocol changes are backwards compatible"
+        - "No unnecessary new files"
+        - "Understandable 6 months from now"
+      performance:
+        - "No unnecessary LLM calls"
+        - "No infinite loop risk"
+    skip_when: "Simple doc/config changes (CI only is sufficient)"
+
+  gate_4_post_merge:
+    when: "After dev > main merge"
+    checks:
+      - "BlueBuild image builds successfully"
+      - "OS smoke test passes (VM boot)"
+      - "ISO generation succeeds"
+
+ai_specific_rules:
+  description: "Additional rules for AI pair programming"
+
+  before_coding:
+    - "Read existing code first (Read before Write)"
+    - "Search if same feature already exists (Grep/Glob)"
+    - "Define clear scope (one feature at a time)"
+
+  during_coding:
+    - "Minimize new file creation. Prefer modifying existing files."
+    - "Always search before adding util functions (prevent duplicates)"
+    - "Temp code = TODO comment required"
+    - "Don't change too much at once (huge diffs are unreviewable)"
+
+  after_coding:
+    - "Review changed file list (only intended files changed?)"
+    - "Remove previous implementation remnants"
+    - "Remove unused code (run knip)"
+    - "Verify tests pass"
+
+  session_handoff:
+    description: "Cleanup when ending AI session for next session"
+    actions:
+      - "Commit completed work"
+      - "Incomplete work: TODO comment + work log entry"
+      - "Specify context to read in next session"
+      - "Never: commit half-built code"

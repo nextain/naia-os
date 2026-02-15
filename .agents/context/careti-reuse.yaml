@@ -1,0 +1,73 @@
+description: Code/pattern reuse from project-careti (mirror of .users/context/careti-reuse.md)
+
+direct_code_reuse:
+  stdio_protocol:
+    source: "project-careti/desktop/src-tauri/src/lib.rs + src/standalone/stdio-adapter.ts"
+    target: "shell/src-tauri/ + agent/"
+    reuse_level: "near 100%"
+    what: "Tauri ↔ Node.js stdio bridge, JSON lines, auto-restart"
+
+  llm_providers:
+    source: "project-careti/src/api/providers/"
+    target: "agent/src/providers/"
+    reuse_level: "high (extract from VS Code dependencies)"
+    what: "31 providers, streaming, retry logic, model list"
+
+  tools:
+    source: "project-careti/src/core/ + careti-src/"
+    target: "agent/src/tools/"
+    reuse_level: "high"
+    what: "file_read, file_write, apply_diff(SmartEditEngine), execute_command, browser, search"
+
+  sub_agents:
+    source: "project-careti/src/core/task/"
+    target: "agent/src/sub-agents/"
+    reuse_level: "medium (simplify)"
+    what: "Sub-task spawn, parallel execution, context passing"
+
+  mcp:
+    source: "project-careti/src/services/mcp/"
+    target: "agent/src/mcp/"
+    reuse_level: "medium"
+    what: "MCP server connection, tool discovery"
+
+pattern_reuse:
+  persona_system:
+    source: "project-careti/src/core/prompts/"
+    what: "System prompt structure, persona profiles, custom instructions"
+
+  platform_abstraction:
+    source: "webview-ui/src/config/platform.config.ts"
+    what: "PlatformType enum, build-time injection, per-platform config"
+
+  esbuild_bundling:
+    source: "project-careti/esbuild.mjs"
+    what: "Bundle agent-core to single JS file for Tauri to spawn"
+
+context_management_reuse:
+  dual_directory:
+    source: "project-careti .agents/ + .users/ structure"
+    what: "AI-optimized + human-readable parallel contexts"
+
+  cascade_rules:
+    source: "agents-rules.json cascadeRules"
+    what: "Context propagation on changes"
+
+  work_logs:
+    source: "docs-work-logs/ YYYYMMDD-{n}-{topic}.md pattern"
+    what: "Structured work tracking with todo/doing/done"
+
+do_not_reuse:
+  - "VS Code extension structure (not an IDE extension)"
+  - "webview-ui React app wholesale (new Avatar-centric UI)"
+  - "Cline fork code (no upstream dependency)"
+  - "gRPC server (stdio is sufficient)"
+  - "i18n system (Korean/English only at start)"
+  - "Account/auth system (local OS, no accounts needed)"
+
+reuse_strategy_per_phase:
+  phase_1: "AIRI stage-ui-three (Avatar). No Careti code yet."
+  phase_2: "Careti stdio bridge + LLM providers (copy + clean)"
+  phase_3: "Careti tools (copy + clean). Add permission layer."
+  phase_4: "MoltBot Gateway pattern (reference, new implementation)"
+  phase_5: "AIRI Minecraft agent (reference, new implementation)"

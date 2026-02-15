@@ -1,0 +1,80 @@
+description: Implementation plan (token-optimized mirror of .users/context/plan.md)
+
+strategy: "Deploy first, add features incrementally. Every push = new ISO."
+
+phases:
+  phase_0:
+    name: "Deploy pipeline"
+    timeline: "Day 1-3"
+    deliverable: "GitHub push → BlueBuild → ghcr.io image → ISO (GitHub Releases)"
+    tasks:
+      - "os/recipe.yml (BlueBuild recipe, base: bazzite)"
+      - ".github/workflows/build.yml (GitHub Actions)"
+      - "ISO generation (ublue-os/isogenerator)"
+    done_when: "USB boot = Bazzite + Node.js (no custom yet)"
+
+  phase_1:
+    name: "Avatar on screen"
+    timeline: "Week 1"
+    deliverable: "Boot → Alpha VRM avatar auto-starts on screen"
+    tasks:
+      - "Extract VRM renderer from AIRI stage-ui-three"
+      - "Create Tauri 2 shell with Avatar + basic layout"
+      - "Autostart desktop entry in OS image"
+    done_when: "USB boot → Alpha avatar visible with idle animation"
+    reuse: "AIRI: Three.js + @pixiv/three-vrm"
+
+  phase_2:
+    name: "Chat with Alpha"
+    timeline: "Week 2"
+    deliverable: "Text chat with Alpha, avatar lip-sync + emotions"
+    tasks:
+      - "Agent core: LLM provider (Claude API), stdio protocol"
+      - "Tauri stdio bridge (spawn agent-core as child process)"
+      - "Chat panel UI + streaming response"
+      - "Avatar emotion mapping + lip-sync"
+      - "Onboarding: API key setup on first boot"
+    done_when: "USB boot → API key → chat with Alpha (lip-sync + emotions)"
+    reuse: "Careti: stdio-adapter.ts, lib.rs, LLM providers"
+    public_demo: true
+
+  phase_3:
+    name: "Alpha does work"
+    timeline: "Week 3-4"
+    deliverable: "Alpha can edit files, run terminal commands, search web"
+    tasks:
+      - "Tool system: file_read, file_write, apply_diff, execute_command, browser, search"
+      - "Permission tiers (0-3) + approval UI"
+      - "Audit log (SQLite)"
+      - "Work progress panel"
+      - "Sub-agents (parallel execution)"
+    done_when: "Alpha executes real OS tasks with permission system"
+    reuse: "Careti: tools, SmartEditEngine, sub-agent pattern"
+
+  phase_4:
+    name: "Always-on daemon"
+    timeline: "Week 5-7"
+    deliverable: "Gateway daemon + external channels + memory"
+    tasks:
+      - "Gateway WebSocket server (systemd user service)"
+      - "Discord bot + Telegram bot channels"
+      - "Memory persistence (SQLite + vector search)"
+      - "Skills system (weather, memo, system status)"
+    done_when: "OS boot → auto-start → external channel access → remembers context"
+    reuse: "MoltBot: Gateway pattern, channel SDKs, Skills"
+
+  phase_5:
+    name: "Gaming with Alpha"
+    timeline: "Week 8+"
+    deliverable: "Co-play Minecraft, game overlay avatar"
+    tasks:
+      - "Minecraft agent (Mineflayer, autonomous actions)"
+      - "Generic game support (screen capture + vision model)"
+      - "Game overlay avatar + voice chat"
+    done_when: "Alpha joins Minecraft and plays autonomously"
+    reuse: "AIRI: services/minecraft/, Mineflayer"
+
+attention_points:
+  phase_0: "Deploy pipeline = highest priority. Everything else layers on top."
+  phase_2: "Public demo point. Must be polished enough to share."
+  security: "Permission tiers active from Phase 3. Audit log from day one."
