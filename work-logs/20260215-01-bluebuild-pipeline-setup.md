@@ -1,7 +1,7 @@
 # Phase 0: BlueBuild 배포 파이프라인 + 브랜드 설정
 
-**날짜**: 2026-02-15
-**상태**: 진행중
+**날짜**: 2026-02-15 ~ 2026-02-16
+**상태**: 완료 (USB 부팅 테스트 대기)
 
 ## 목표
 
@@ -21,22 +21,23 @@ cafelua.com에서 가져온 브랜드 에셋을 커밋한다.
 - `cafe_lua_logo_cleaned.png` - PNG 로고
 - `theme.json` - 브랜드 테마 (색상, 폰트, 스페이싱)
 
-### 2. OS 디렉토리 (os/)
+### 2. BlueBuild 표준 디렉토리 구조
 
-BlueBuild 기반 커스텀 Bazzite 이미지 구성:
+BlueBuild 규격에 맞춰 구성 (2/16 수정):
 
 | 파일 | 설명 |
 |------|------|
-| `os/recipe.yml` | BlueBuild 레시피 (Bazzite 베이스, Node.js, Tauri deps, pnpm) |
-| `os/scripts/install-pnpm.sh` | corepack을 통한 pnpm 글로벌 설치 |
-| `os/files/usr/share/applications/cafelua-shell.desktop` | 데스크탑 엔트리 (Phase 1 placeholder) |
+| `recipes/recipe.yml` | BlueBuild 레시피 (Bazzite 베이스, Node.js, Tauri deps, pnpm) |
+| `config/scripts/install-pnpm.sh` | npm을 통한 pnpm 글로벌 설치 |
+| `config/scripts/branding.sh` | OS 브랜딩 (Cafelua OS) |
+| `config/files/usr/share/applications/cafelua-shell.desktop` | 데스크탑 엔트리 (Phase 1 placeholder) |
 | `os/tests/smoke.sh` | VM 부팅 후 스모크 테스트 (Node 22+, pnpm, podman) |
 
 ### 3. CI 워크플로우 (.github/workflows/)
 
 | 파일 | 트리거 | 설명 |
 |------|--------|------|
-| `build.yml` | push to main (os/** 변경 시) | BlueBuild 이미지 빌드 → ghcr.io push |
+| `build.yml` | push to main (recipes/**, config/** 변경 시) | BlueBuild 이미지 빌드 → ghcr.io push |
 | `iso.yml` | workflow_dispatch (수동) | ISO 생성 → GitHub Releases 업로드 |
 
 ### 4. OS 브랜딩 (branding.sh)
@@ -44,18 +45,29 @@ BlueBuild 기반 커스텀 Bazzite 이미지 구성:
 `/usr/lib/os-release`를 덮어써서 부팅 후 "Cafelua OS"로 표시되도록 변경:
 - `NAME="Cafelua OS"`
 - `PRETTY_NAME="Cafelua OS (Bazzite)"`
-- `neofetch`, 설정 화면, `cat /etc/os-release`에서 확인 가능
+
+## 빌드 트러블슈팅 (2/16)
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| recipe.yml not found | BlueBuild는 `recipes/` 디렉토리 기대 | `os/` → `recipes/` + `config/` 이동 |
+| corepack not found | Fedora nodejs에 corepack 미포함 | `npm install -g pnpm`으로 변경 |
+| files module 실패 | `source: files`가 `config/files/files` 탐색 | `source: usr`, `destination: /usr`로 수정 |
+| dracut 실패 (F39 커널) | ISO 생성기 기본 version=39 | `version: "43"` 명시, v1.4.0 고정 |
+| skopeo unauthorized | ghcr.io 패키지가 private | 패키지를 public으로 변경 |
 
 ## 참고
 
 - BlueBuild 레시피 타입: `rpm-ostree` (dnf가 아님)
 - Cosign 서명: `SIGNING_SECRET` GitHub Secret 필요
-- ISO 생성: `jasonn3/build-container-installer` 사용
-- Bazzite `latest` 태그 사용 (Fedora 버전 자동 추적)
+- ISO 생성: `jasonn3/build-container-installer@v1.4.0` (Fedora 43)
+- Bazzite `latest` 태그 사용 (현재 Fedora 43 기반)
+- ghcr.io 패키지는 public 설정 필수
 
-## 다음 단계
+## 완료 체크리스트
 
-- [ ] git push 후 GitHub Actions 빌드 성공 확인
-- [ ] ghcr.io에 `cafelua-os:latest` 이미지 확인
-- [ ] `SIGNING_SECRET` GitHub Secret 설정 (cosign)
-- [ ] ISO 수동 생성 → USB 부팅 테스트
+- [x] git push 후 GitHub Actions 빌드 성공 확인
+- [x] ghcr.io에 `cafelua-os:latest` 이미지 확인
+- [x] `SIGNING_SECRET` GitHub Secret 설정 (cosign)
+- [x] ISO 수동 생성 성공 (6.5GB)
+- [ ] USB 부팅 테스트
