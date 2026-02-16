@@ -88,9 +88,64 @@ Phase 4 (Week 5-7): 데몬 → 완성된 AI OS
 Phase 5 (Week 8+):  게임 → AI랑 마인크래프트
 ```
 
+## Google Gemini 설정 가이드
+
+### 1. API 키 발급
+
+1. [Google AI Studio](https://aistudio.google.com/) 접속 → 로그인
+2. 좌측 메뉴 **Get API Key** → **Create API Key** 클릭
+3. 프로젝트 선택 (없으면 새로 생성) → API 키 복사
+
+### 2. Cloud API 활성화 (TTS/STT용)
+
+AI Studio에서 발급한 키는 기본적으로 Gemini만 사용 가능합니다.
+음성 기능(TTS/STT)을 쓰려면 Google Cloud Console에서 추가 API를 활성화해야 합니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. AI Studio 키가 속한 **같은 프로젝트** 선택
+3. **APIs & Services** → **Enable APIs and Services** 클릭
+4. 아래 두 API를 검색하여 각각 **Enable** 클릭:
+   - **Cloud Text-to-Speech API** (TTS — AI 음성 합성)
+   - **Cloud Speech-to-Text API** (STT — 음성 인식)
+
+> 두 API 모두 매월 무료 할당량이 있습니다:
+> - TTS: 월 400만 글자 무료 (WaveNet)
+> - STT: 월 60분 무료
+
+### 3. Cafelua OS에서 설정
+
+1. 앱 실행 후 우측 상단 ⚙️ (설정) 클릭
+2. 아래와 같이 입력:
+
+| 항목 | 값 |
+|------|------|
+| **프로바이더** | `gemini` |
+| **모델** | `gemini-2.5-flash` (권장) 또는 `gemini-2.5-pro` |
+| **API 키** | AI Studio에서 발급한 키 붙여넣기 |
+
+3. **저장** 클릭
+
+### 4. 기능별 동작
+
+| 기능 | 설명 | 필요 API |
+|------|------|----------|
+| **대화** | 텍스트 입력 → AI 응답 | Gemini API (기본) |
+| **TTS (음성 합성)** | AI 응답 완료 후 자동 음성 재생 + 립싱크 | Cloud Text-to-Speech |
+| **STT (음성 인식)** | 🎤 버튼 누른 채로 말하기 → 텍스트 변환 | Cloud Speech-to-Text |
+
+### 5. 다른 프로바이더 사용 시
+
+| 프로바이더 | 대화 | TTS | STT |
+|-----------|------|-----|-----|
+| **Gemini** | ✅ | ✅ 자동 | ✅ 마이크 버튼 |
+| **xAI (Grok)** | ✅ | ❌ | ❌ |
+| **Claude** | ✅ | ❌ | ❌ |
+
+> TTS/STT는 현재 Google API 키를 재사용하는 Gemini 프로바이더에서만 작동합니다.
+
 ## 상태
 
-Phase 0: 설계 완료, 구현 준비 중
+Phase 2: 대화 + 감정 표정 + TTS 립싱크 + STT 구현 완료
 
 ## 참고
 

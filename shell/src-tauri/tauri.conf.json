@@ -14,10 +14,13 @@
 		"windows": [
 			{
 				"title": "Cafelua Shell",
-				"width": 1280,
-				"height": 800,
+				"width": 380,
+				"height": 900,
 				"resizable": true,
-				"fullscreen": false
+				"fullscreen": false,
+				"decorations": false,
+				"transparent": false,
+				"visible": false
 			}
 		],
 		"security": {

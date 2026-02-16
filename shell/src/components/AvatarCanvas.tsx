@@ -1,4 +1,5 @@
 import type { VRM } from "@pixiv/three-vrm";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import {
 	AmbientLight,
@@ -10,9 +11,11 @@ import {
 	Object3D,
 	PerspectiveCamera,
 	Scene,
+	TextureLoader,
 	Vector3,
 	WebGLRenderer,
 } from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { randFloat } from "three/src/math/MathUtils.js";
 import { Logger } from "../lib/logger";
 import {
@@ -21,11 +24,45 @@ import {
 	reAnchorRootPositionTrack,
 } from "../lib/vrm/animation";
 import { loadVrm } from "../lib/vrm/core";
+import { createEmotionController } from "../lib/vrm/expression";
 import { randomSaccadeInterval } from "../lib/vrm/eye-motions";
+import { createMouthController } from "../lib/vrm/mouth";
 import { useAvatarStore } from "../stores/avatar";
 
 const LOOK_AT_TARGET = { x: 0, y: 0, z: -1 };
 const MAX_DELTA = 0.05;
+const CAMERA_STORAGE_KEY = "cafelua-camera";
+
+interface SavedCamera {
+	px: number;
+	py: number;
+	pz: number;
+	tx: number;
+	ty: number;
+	tz: number;
+}
+
+function loadCameraState(): SavedCamera | null {
+	try {
+		const raw = localStorage.getItem(CAMERA_STORAGE_KEY);
+		if (!raw) return null;
+		return JSON.parse(raw) as SavedCamera;
+	} catch {
+		return null;
+	}
+}
+
+function saveCameraState(camera: PerspectiveCamera, target: Vector3): void {
+	const state: SavedCamera = {
+		px: camera.position.x,
+		py: camera.position.y,
+		pz: camera.position.z,
+		tx: target.x,
+		ty: target.y,
+		tz: target.z,
+	};
+	localStorage.setItem(CAMERA_STORAGE_KEY, JSON.stringify(state));
+}
 
 const BLINK_DURATION = 0.2;
 const MIN_BLINK_INTERVAL = 1;
@@ -107,8 +144,25 @@ function updateSaccade(vrm: VRM, delta: number, state: AnimationState) {
 	state.timeSinceLastSaccade += delta;
 }
 
+function setDefaultBackground(scene: Scene) {
+	const bgCanvas = document.createElement("canvas");
+	bgCanvas.width = 2;
+	bgCanvas.height = 512;
+	const ctx = bgCanvas.getContext("2d");
+	if (ctx) {
+		const grad = ctx.createLinearGradient(0, 0, 0, 512);
+		grad.addColorStop(0, "#1a1412");
+		grad.addColorStop(0.5, "#2b2220");
+		grad.addColorStop(1, "#3b2f2f");
+		ctx.fillStyle = grad;
+		ctx.fillRect(0, 0, 2, 512);
+	}
+	scene.background = new CanvasTexture(bgCanvas);
+}
+
 export function AvatarCanvas() {
 	const containerRef = useRef<HTMLDivElement>(null);
+	const debugRef = useRef<HTMLDivElement>(null);
 	const modelPath = useAvatarStore((s) => s.modelPath);
 	const animationPath = useAvatarStore((s) => s.animationPath);
 	const setLoaded = useAvatarStore((s) => s.setLoaded);
@@ -124,6 +178,8 @@ export function AvatarCanvas() {
 		const animState = createAnimationState();
 		let vrm: VRM | null = null;
 		let mixer: AnimationMixer | null = null;
+		let emotionCtrl: ReturnType<typeof createEmotionController> | null = null;
+		let mouthCtrl: ReturnType<typeof createMouthController> | null = null;
 
 		// Renderer
 		const renderer = new WebGLRenderer({ antialias: true, alpha: true });
@@ -133,19 +189,32 @@ export function AvatarCanvas() {
 
 		// Scene with gradient background
 		const scene = new Scene();
-		const bgCanvas = document.createElement("canvas");
-		bgCanvas.width = 2;
-		bgCanvas.height = 512;
-		const ctx = bgCanvas.getContext("2d");
-		if (ctx) {
-			const grad = ctx.createLinearGradient(0, 0, 0, 512);
-			grad.addColorStop(0, "#1a1412"); // dark top
-			grad.addColorStop(0.5, "#2b2220"); // mid warm
-			grad.addColorStop(1, "#3b2f2f"); // espresso bottom
-			ctx.fillStyle = grad;
-			ctx.fillRect(0, 0, 2, 512);
+
+		// Load background image (config path or bundled default)
+		try {
+			const configRaw = localStorage.getItem("cafelua-config");
+			const config = configRaw ? JSON.parse(configRaw) : null;
+			const bgSrc = config?.backgroundImage
+				? convertFileSrc(config.backgroundImage)
+				: "/assets/lounge-sunny.webp";
+			const loader = new TextureLoader();
+			loader.load(
+				bgSrc,
+				(texture) => {
+					if (!disposed) scene.background = texture;
+				},
+				undefined,
+				() => {
+					Logger.warn(
+						"AvatarCanvas",
+						"Failed to load background image, using gradient",
+					);
+					setDefaultBackground(scene);
+				},
+			);
+		} catch {
+			setDefaultBackground(scene);
 		}
-		scene.background = new CanvasTexture(bgCanvas);
 
 		// Lighting — required for VRM MToon/PBR materials
 		const ambientLight = new AmbientLight(0xffffff, 0.7);
@@ -163,12 +232,47 @@ export function AvatarCanvas() {
 			100,
 		);
 
+		// OrbitControls
+		const controls = new OrbitControls(camera, renderer.domElement);
+		controls.enableDamping = true;
+		controls.dampingFactor = 0.1;
+		controls.enablePan = true;
+		controls.enableZoom = true;
+		controls.minDistance = 0.1;
+		controls.maxDistance = 10;
+		controls.maxPolarAngle = Math.PI; // no vertical limit
+		controls.minPolarAngle = 0;
+
+		// Set initial camera position immediately
+		const savedCam = loadCameraState();
+		if (savedCam) {
+			camera.position.set(savedCam.px, savedCam.py, savedCam.pz);
+			controls.target.set(savedCam.tx, savedCam.ty, savedCam.tz);
+			Logger.info("AvatarCanvas", "Camera restored from saved state");
+		} else {
+			camera.position.set(0.0, 1.52, -0.71);
+			controls.target.set(-0.02, 1.42, -0.19);
+			Logger.info("AvatarCanvas", "Camera set to default position");
+		}
+		controls.update();
+
+		// Save camera on control change
+		let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+		controls.addEventListener("change", () => {
+			if (saveTimeout) clearTimeout(saveTimeout);
+			saveTimeout = setTimeout(() => {
+				saveCameraState(camera, controls.target);
+			}, 500);
+		});
+
 		// Render loop
 		function tick() {
 			if (disposed) return;
 			frameId = requestAnimationFrame(tick);
 
 			const delta = Math.min(clock.getDelta(), MAX_DELTA);
+
+			controls.update();
 
 			if (mixer) {
 				mixer.update(delta);
@@ -178,11 +282,22 @@ export function AvatarCanvas() {
 				vrm.humanoid?.update();
 				updateBlink(vrm, delta, animState);
 				updateSaccade(vrm, delta, animState);
+				emotionCtrl?.update(delta);
+				mouthCtrl?.update(delta);
 				vrm.expressionManager?.update();
 				vrm.springBoneManager?.update(delta);
 			}
 
 			renderer.render(scene, camera);
+
+			// Debug: show camera position
+			if (debugRef.current) {
+				const p = camera.position;
+				const t = controls.target;
+				debugRef.current.textContent =
+					`pos: ${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}\n` +
+					`tgt: ${t.x.toFixed(2)}, ${t.y.toFixed(2)}, ${t.z.toFixed(2)}`;
+			}
 		}
 
 		async function init() {
@@ -204,16 +319,11 @@ export function AvatarCanvas() {
 			}
 
 			vrm = result._vrm;
+			emotionCtrl = createEmotionController(vrm);
+			mouthCtrl = createMouthController(vrm);
 			Logger.info("AvatarCanvas", "VRM model loaded", {
 				center: `${result.modelCenter.x.toFixed(2)},${result.modelCenter.y.toFixed(2)},${result.modelCenter.z.toFixed(2)}`,
 			});
-
-			camera.position.set(
-				result.modelCenter.x + result.initialCameraOffset.x,
-				result.modelCenter.y + result.initialCameraOffset.y,
-				result.modelCenter.z + result.initialCameraOffset.z,
-			);
-			camera.lookAt(result.modelCenter);
 
 			const vrmAnimation = await loadVRMAnimation(animationPath);
 			if (disposed || !vrmAnimation) return;
@@ -230,6 +340,16 @@ export function AvatarCanvas() {
 
 			setLoaded(true);
 		}
+
+		// Subscribe to pendingAudio changes
+		let prevAudio: string | null = null;
+		const unsubAudio = useAvatarStore.subscribe((state) => {
+			if (state.pendingAudio !== prevAudio && state.pendingAudio && mouthCtrl) {
+				prevAudio = state.pendingAudio;
+				mouthCtrl.playAudio(state.pendingAudio);
+				useAvatarStore.getState().setPendingAudio(null);
+			}
+		});
 
 		init();
 		clock.start();
@@ -249,6 +369,12 @@ export function AvatarCanvas() {
 			disposed = true;
 			window.removeEventListener("resize", onResize);
 			cancelAnimationFrame(frameId);
+			unsubAudio();
+			mouthCtrl?.stop();
+			if (saveTimeout) clearTimeout(saveTimeout);
+			// Save camera position on unmount
+			saveCameraState(camera, controls.target);
+			controls.dispose();
 			renderer.dispose();
 			if (container.contains(renderer.domElement)) {
 				container.removeChild(renderer.domElement);
@@ -261,6 +387,21 @@ export function AvatarCanvas() {
 		<div
 			ref={containerRef}
 			style={{ width: "100%", height: "100%", position: "relative" }}
-		/>
+		>
+			<div
+				ref={debugRef}
+				style={{
+					position: "absolute",
+					bottom: 4,
+					left: 4,
+					fontSize: 9,
+					fontFamily: "monospace",
+					color: "rgba(255,255,255,0.5)",
+					whiteSpace: "pre",
+					pointerEvents: "none",
+					zIndex: 1,
+				}}
+			/>
+		</div>
 	);
 }
