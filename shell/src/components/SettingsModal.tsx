@@ -17,13 +17,13 @@ const PROVIDERS: { id: ProviderId; label: string }[] = [
 ];
 
 const TTS_VOICES: { id: string; label: string; price: string }[] = [
+	{ id: "ko-KR-Neural2-A", label: "여성 A (Neural2)", price: "$16/1M자" },
+	{ id: "ko-KR-Neural2-B", label: "여성 B (Neural2)", price: "$16/1M자" },
+	{ id: "ko-KR-Neural2-C", label: "남성 C (Neural2)", price: "$16/1M자" },
 	{ id: "ko-KR-Wavenet-A", label: "여성 A (WaveNet)", price: "$16/1M자" },
 	{ id: "ko-KR-Wavenet-B", label: "여성 B (WaveNet)", price: "$16/1M자" },
 	{ id: "ko-KR-Wavenet-C", label: "남성 C (WaveNet)", price: "$16/1M자" },
 	{ id: "ko-KR-Wavenet-D", label: "남성 D (WaveNet)", price: "$16/1M자" },
-	{ id: "ko-KR-Neural2-A", label: "여성 A (Neural2)", price: "$16/1M자" },
-	{ id: "ko-KR-Neural2-B", label: "여성 B (Neural2)", price: "$16/1M자" },
-	{ id: "ko-KR-Neural2-C", label: "남성 C (Neural2)", price: "$16/1M자" },
 	{ id: "ko-KR-Standard-A", label: "여성 A (Standard)", price: "$4/1M자" },
 	{ id: "ko-KR-Standard-B", label: "여성 B (Standard)", price: "$4/1M자" },
 	{ id: "ko-KR-Standard-C", label: "남성 C (Standard)", price: "$4/1M자" },
@@ -67,13 +67,14 @@ export function SettingsModal({ onClose }: Props) {
 		existing?.backgroundImage ?? "",
 	);
 	const [ttsVoice, setTtsVoice] = useState(
-		existing?.ttsVoice ?? "ko-KR-Wavenet-A",
+		existing?.ttsVoice ?? "ko-KR-Neural2-A",
 	);
 	const [googleApiKey, setGoogleApiKey] = useState(
 		existing?.googleApiKey ?? "",
 	);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [error, setError] = useState("");
+	const [isPreviewing, setIsPreviewing] = useState(false);
 
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
@@ -89,6 +90,26 @@ export function SettingsModal({ onClose }: Props) {
 		setTheme(id);
 		// Live preview
 		document.documentElement.setAttribute("data-theme", id);
+	}
+
+	async function handleVoicePreview() {
+		const key =
+			googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
+		if (!key || isPreviewing) return;
+		setIsPreviewing(true);
+		try {
+			const base64 = await invoke<string>("preview_tts", {
+				apiKey: key,
+				voice: ttsVoice,
+				text: "안녕하세요, 저는 알파예요.",
+			});
+			const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+			await audio.play();
+		} catch {
+			// preview failure is non-critical
+		} finally {
+			setIsPreviewing(false);
+		}
 	}
 
 	function handleReset() {
@@ -175,7 +196,7 @@ export function SettingsModal({ onClose }: Props) {
 				</div>
 
 				<div className="settings-section-divider">
-					<span>{t("settings.provider")}</span>
+					<span>{t("settings.aiSection")}</span>
 				</div>
 
 				<div className="settings-field">
@@ -241,17 +262,29 @@ export function SettingsModal({ onClose }: Props) {
 
 				<div className="settings-field">
 					<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
-					<select
-						id="tts-voice-select"
-						value={ttsVoice}
-						onChange={(e) => setTtsVoice(e.target.value)}
-					>
-						{TTS_VOICES.map((v) => (
-							<option key={v.id} value={v.id}>
-								{v.label} — {v.price}
-							</option>
-						))}
-					</select>
+					<div className="voice-picker">
+						<select
+							id="tts-voice-select"
+							value={ttsVoice}
+							onChange={(e) => setTtsVoice(e.target.value)}
+						>
+							{TTS_VOICES.map((v) => (
+								<option key={v.id} value={v.id}>
+									{v.label} — {v.price}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							className="voice-preview-btn"
+							onClick={handleVoicePreview}
+							disabled={isPreviewing}
+						>
+							{isPreviewing
+								? t("settings.voicePreviewing")
+								: t("settings.voicePreview")}
+						</button>
+					</div>
 				</div>
 
 				<div className="settings-field">

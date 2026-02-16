@@ -1,6 +1,6 @@
 const TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
-const DEFAULT_VOICE = "ko-KR-Wavenet-A";
+const DEFAULT_VOICE = "ko-KR-Neural2-A";
 
 export async function synthesizeSpeech(
 	text: string,

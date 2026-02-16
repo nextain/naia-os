@@ -341,13 +341,12 @@ export function AvatarCanvas() {
 			setLoaded(true);
 		}
 
-		// Subscribe to pendingAudio changes
-		let prevAudio: string | null = null;
-		const unsubAudio = useAvatarStore.subscribe((state) => {
-			if (state.pendingAudio !== prevAudio && state.pendingAudio && mouthCtrl) {
-				prevAudio = state.pendingAudio;
-				mouthCtrl.playAudio(state.pendingAudio);
-				useAvatarStore.getState().setPendingAudio(null);
+		// Subscribe to isSpeaking changes for lip sync
+		let prevSpeaking = false;
+		const unsubSpeaking = useAvatarStore.subscribe((state) => {
+			if (state.isSpeaking !== prevSpeaking) {
+				prevSpeaking = state.isSpeaking;
+				mouthCtrl?.setSpeaking(state.isSpeaking);
 			}
 		});
 
@@ -369,7 +368,7 @@ export function AvatarCanvas() {
 			disposed = true;
 			window.removeEventListener("resize", onResize);
 			cancelAnimationFrame(frameId);
-			unsubAudio();
+			unsubSpeaking();
 			mouthCtrl?.stop();
 			if (saveTimeout) clearTimeout(saveTimeout);
 			// Save camera position on unmount

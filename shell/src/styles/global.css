@@ -675,3 +675,35 @@ body,
 .bg-clear-btn:hover {
 	color: var(--error);
 }
+
+.voice-picker {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.voice-picker select {
+	flex: 1;
+	min-width: 0;
+}
+
+.voice-preview-btn {
+	padding: 4px 10px;
+	border-radius: 4px;
+	border: none;
+	background: var(--espresso-light);
+	color: var(--cream-dim);
+	font-size: 12px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.voice-preview-btn:hover:not(:disabled) {
+	background: var(--wood);
+	color: var(--cream);
+}
+
+.voice-preview-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}

@@ -28,6 +28,19 @@ vi.mock("@tauri-apps/api/event", () => ({
 	listen: vi.fn().mockResolvedValue(() => {}),
 }));
 
+// Mock Audio element (not available in jsdom)
+vi.stubGlobal(
+	"Audio",
+	class {
+		src = "";
+		onended: (() => void) | null = null;
+		onerror: (() => void) | null = null;
+		play() {
+			return Promise.resolve();
+		}
+	},
+);
+
 describe("ChatPanel", () => {
 	afterEach(() => {
 		cleanup();
@@ -84,7 +97,7 @@ describe("ChatPanel", () => {
 		expect(screen.getByText(/응답 중/)).toBeDefined();
 	});
 
-	it("sets pendingAudio on audio chunk", async () => {
+	it("sets isSpeaking and pendingAudio on audio chunk", async () => {
 		// Set up API key so sendChatMessage is actually called
 		localStorage.setItem(
 			"cafelua-config",
@@ -110,6 +123,8 @@ describe("ChatPanel", () => {
 			data: "base64audio==",
 		});
 
+		// isSpeaking should be set (Audio element playback triggers this)
+		expect(useAvatarStore.getState().isSpeaking).toBe(true);
 		expect(useAvatarStore.getState().pendingAudio).toBe("base64audio==");
 
 		localStorage.removeItem("cafelua-config");

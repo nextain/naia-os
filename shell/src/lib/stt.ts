@@ -19,13 +19,18 @@ export async function transcribeAudio(
 		}
 		const base64Audio = btoa(binary);
 
+		// Detect format from blob type
+		const isWav = audioBlob.type.includes("wav");
+		const encoding = isWav ? "LINEAR16" : "WEBM_OPUS";
+		const sampleRateHertz = isWav ? 16000 : 48000;
+
 		const response = await fetch(`${STT_URL}?key=${apiKey}`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				config: {
-					encoding: "WEBM_OPUS",
-					sampleRateHertz: 48000,
+					encoding,
+					sampleRateHertz,
 					languageCode: "ko-KR",
 				},
 				audio: { content: base64Audio },

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
 import { sendChatMessage } from "../lib/chat-service";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
@@ -19,6 +20,50 @@ function formatCost(cost: number): string {
 	return `$${cost.toFixed(3)}`;
 }
 
+// Keep reference to prevent garbage collection during playback
+let currentAudio: HTMLAudioElement | null = null;
+
+/** Play base64 MP3 via HTML Audio element (reliable in webkit2gtk). */
+function playBase64Audio(base64: string): void {
+	Logger.info("ChatPanel", "Audio chunk received", {
+		length: base64.length,
+	});
+	const avatarStore = useAvatarStore.getState();
+	avatarStore.setSpeaking(true);
+	avatarStore.setPendingAudio(base64);
+
+	// Stop previous audio if still playing
+	if (currentAudio) {
+		currentAudio.pause();
+		currentAudio = null;
+	}
+
+	const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+	currentAudio = audio; // prevent GC
+	audio.onended = () => {
+		Logger.info("ChatPanel", "Audio playback ended");
+		currentAudio = null;
+		avatarStore.setSpeaking(false);
+	};
+	audio.onerror = (e) => {
+		Logger.warn("ChatPanel", "Audio playback error", {
+			error: String(e),
+		});
+		currentAudio = null;
+		avatarStore.setSpeaking(false);
+	};
+	audio.play().then(
+		() => Logger.info("ChatPanel", "Audio play() started"),
+		(err) => {
+			Logger.warn("ChatPanel", "Audio play() rejected", {
+				error: String(err),
+			});
+			currentAudio = null;
+			avatarStore.setSpeaking(false);
+		},
+	);
+}
+
 interface ChatPanelProps {
 	onOpenSettings?: () => void;
 }
@@ -28,8 +73,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 	const [isRecording, setIsRecording] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
-	const recorderRef = useRef<MediaRecorder | null>(null);
-	const chunksRef = useRef<Blob[]>([]);
+	const recorderRef = useRef<AudioRecorder | null>(null);
 
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
@@ -106,7 +150,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 				break;
 			}
 			case "audio":
-				useAvatarStore.getState().setPendingAudio(chunk.data);
+				playBase64Audio(chunk.data);
 				break;
 			case "usage":
 				store.finishStreaming();
@@ -134,38 +178,8 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 		if (isRecording || isStreaming) return;
 
 		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			const recorder = new MediaRecorder(stream);
-			chunksRef.current = [];
-
-			recorder.ondataavailable = (e) => {
-				if (e.data.size > 0) chunksRef.current.push(e.data);
-			};
-
-			recorder.onstop = async () => {
-				stream.getTracks().forEach((track) => track.stop());
-				setIsRecording(false);
-
-				const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
-				if (blob.size === 0) return;
-
-				const configRaw = localStorage.getItem("cafelua-config");
-				const config = configRaw ? JSON.parse(configRaw) : null;
-				// Use dedicated Google API key, fall back to main key for Gemini
-				const googleKey =
-					config?.googleApiKey ||
-					(config?.provider === "gemini" ? config?.apiKey : null);
-				if (!googleKey) return;
-
-				const text = await transcribeAudio(blob, googleKey);
-				if (text) {
-					setInput((prev) => (prev ? `${prev} ${text}` : text));
-					inputRef.current?.focus();
-				}
-			};
-
+			const recorder = await startRecording();
 			recorderRef.current = recorder;
-			recorder.start();
 			setIsRecording(true);
 		} catch (err) {
 			Logger.warn("ChatPanel", "Microphone access failed", {
@@ -175,9 +189,34 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 		}
 	}
 
-	function handleMicStop() {
-		if (recorderRef.current?.state === "recording") {
-			recorderRef.current.stop();
+	async function handleMicStop() {
+		const recorder = recorderRef.current;
+		if (!recorder) return;
+		recorderRef.current = null;
+
+		try {
+			const wavBlob = await recorder.stop();
+			setIsRecording(false);
+
+			if (wavBlob.size <= 44) return; // WAV header only = silence
+
+			const configRaw = localStorage.getItem("cafelua-config");
+			const config = configRaw ? JSON.parse(configRaw) : null;
+			const googleKey =
+				config?.googleApiKey ||
+				(config?.provider === "gemini" ? config?.apiKey : null);
+			if (!googleKey) return;
+
+			const text = await transcribeAudio(wavBlob, googleKey);
+			if (text) {
+				setInput((prev) => (prev ? `${prev} ${text}` : text));
+				inputRef.current?.focus();
+			}
+		} catch (err) {
+			Logger.warn("ChatPanel", "STT processing failed", {
+				error: String(err),
+			});
+			setIsRecording(false);
 		}
 	}
 

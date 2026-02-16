@@ -4,6 +4,7 @@ const translations = {
 	// Settings
 	"settings.title": { ko: "설정", en: "Settings" },
 	"settings.provider": { ko: "프로바이더", en: "Provider" },
+	"settings.aiSection": { ko: "AI 설정", en: "AI Settings" },
 	"settings.model": { ko: "모델", en: "Model" },
 	"settings.apiKey": { ko: "API 키", en: "API Key" },
 	"settings.apiKeyRequired": {
@@ -53,6 +54,8 @@ const translations = {
 		en: "Customize name, personality, speech style, behavior. Emotion tags are added automatically.",
 	},
 	"settings.ttsVoice": { ko: "TTS 음성", en: "TTS Voice" },
+	"settings.voicePreview": { ko: "미리 듣기", en: "Preview" },
+	"settings.voicePreviewing": { ko: "재생 중...", en: "Playing..." },
 	"chat.recording": { ko: "녹음 중...", en: "Recording..." },
 	"chat.micError": {
 		ko: "마이크를 사용할 수 없습니다.",

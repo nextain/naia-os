@@ -5,6 +5,9 @@ use std::sync::Mutex;
 use std::thread;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
+#[cfg(target_os = "linux")]
+use webkit2gtk::PermissionRequestExt;
+
 // agent-core process handle
 struct AgentProcess {
     child: Child,
@@ -257,6 +260,48 @@ async fn cancel_stream(
 }
 
 #[tauri::command]
+async fn preview_tts(api_key: String, voice: String, text: String) -> Result<String, String> {
+    let url = format!(
+        "https://texttospeech.googleapis.com/v1/text:synthesize?key={}",
+        api_key
+    );
+    let language_code = &voice[..5]; // e.g. "ko-KR"
+    let body = serde_json::json!({
+        "input": { "text": text },
+        "voice": { "languageCode": language_code, "name": voice },
+        "audioConfig": { "audioEncoding": "MP3" }
+    });
+
+    let client = reqwest::Client::new();
+    let res = client
+        .post(&url)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("TTS request failed: {}", e))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        return Err(format!("TTS API error {}: {}", status, body));
+    }
+
+    #[derive(Deserialize)]
+    struct TtsResponse {
+        #[serde(rename = "audioContent")]
+        audio_content: Option<String>,
+    }
+
+    let data: TtsResponse = res
+        .json()
+        .await
+        .map_err(|e| format!("TTS response parse error: {}", e))?;
+
+    data.audio_content
+        .ok_or_else(|| "No audio content in response".to_string())
+}
+
+#[tauri::command]
 async fn reset_window_state(app: AppHandle) -> Result<(), String> {
     if let Some(path) = window_state_path(&app) {
         let _ = std::fs::remove_file(&path);
@@ -276,6 +321,7 @@ pub fn run() {
             send_to_agent_command,
             cancel_stream,
             reset_window_state,
+            preview_tts,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -300,6 +346,18 @@ pub fn run() {
                     eprintln!("[Cafelua] Window docked: {}x{} at ({},{})", width, height, x, y);
                 }
                 let _ = window.show();
+            }
+
+            // Enable microphone/media permissions for webkit2gtk
+            #[cfg(target_os = "linux")]
+            if let Some(webview_window) = app.get_webview_window("main") {
+                let _ = webview_window.with_webview(|webview| {
+                    use webkit2gtk::WebViewExt;
+                    webview.inner().connect_permission_request(|_, request| {
+                        request.allow();
+                        true
+                    });
+                });
             }
 
             match spawn_agent_core(&app_handle) {
