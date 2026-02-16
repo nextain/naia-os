@@ -29,7 +29,7 @@ modules:
 
   - type: files
     files:
-      - source: files
-        destination: /
+      - source: usr
+        destination: /usr
 
   - type: signing
