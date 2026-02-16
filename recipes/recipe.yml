@@ -18,6 +18,13 @@ modules:
       - gcc-c++
       - make
       - pkg-config
+      # Korean input
+      - fcitx5
+      - fcitx5-hangul
+      - fcitx5-configtool
+      - fcitx5-gtk
+      - fcitx5-qt
+      - google-noto-sans-cjk-kr-fonts
       # Utilities
       - sqlite
       - podman
