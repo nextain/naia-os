@@ -4,12 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - "os/**"
+      - "recipes/**"
+      - "config/**"
       - ".github/workflows/build.yml"
   pull_request:
     branches: [main]
     paths:
-      - "os/**"
+      - "recipes/**"
+      - "config/**"
   workflow_dispatch:
 
 env:
@@ -31,7 +33,7 @@ jobs:
       - name: Build Image
         uses: blue-build/github-action@v1
         with:
-          recipe: os/recipe.yml
+          recipe: recipe.yml
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}

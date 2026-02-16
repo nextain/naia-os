@@ -48,7 +48,9 @@ cafelua-os/
 ├── shell/          # Cafelua Shell (Tauri 2, Three.js Avatar)
 ├── agent/          # AI 에이전트 코어 (LLM 연결, 도구)
 ├── gateway/        # 항상 실행되는 데몬 (채널, Skills, 메모리)
-└── os/             # Bazzite 커스텀 이미지 (BlueBuild recipe)
+├── recipes/        # BlueBuild recipe
+├── config/         # BlueBuild config (scripts, files)
+└── os/             # OS 테스트, 유틸리티
 ```
 
 ## 컨벤션 (요약)
