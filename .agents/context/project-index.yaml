@@ -39,6 +39,11 @@ mirroring_rules:
   - AI can read .users/ for detailed human-level understanding
   - New document = create both .agents/ and .users/ versions
 
+work_logs:
+  location: work-logs/
+  convention: "YYYYMMDD-NN-<topic>.md"
+  note: All cafelua-os work logs live here (not in docs-work-logs)
+
 on_demand_loading:
   always_read:
     - .agents/context/agents-rules.json

@@ -50,7 +50,8 @@ cafelua-os/
 ├── gateway/        # 항상 실행되는 데몬 (채널, Skills, 메모리)
 ├── recipes/        # BlueBuild recipe
 ├── config/         # BlueBuild config (scripts, files)
-└── os/             # OS 테스트, 유틸리티
+├── os/             # OS 테스트, 유틸리티
+└── work-logs/      # 개발 작업 로그 (이 프로젝트 전용)
 ```
 
 ## 컨벤션 (요약)
