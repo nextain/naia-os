@@ -63,6 +63,18 @@ const translations = {
 		ko: "마이크를 사용할 수 없습니다.",
 		en: "Microphone is not available.",
 	},
+
+	// Tools
+	"tool.execute_command": { ko: "명령 실행", en: "Execute Command" },
+	"tool.read_file": { ko: "파일 읽기", en: "Read File" },
+	"tool.write_file": { ko: "파일 쓰기", en: "Write File" },
+	"tool.search_files": { ko: "파일 검색", en: "Search Files" },
+	"tool.web_search": { ko: "웹 검색", en: "Web Search" },
+	"tool.unknown": { ko: "도구 실행", en: "Tool Execution" },
+	"settings.toolsSection": { ko: "도구 (Tools)", en: "Tools" },
+	"settings.enableTools": { ko: "도구 사용", en: "Enable Tools" },
+	"settings.gatewayUrl": { ko: "Gateway URL", en: "Gateway URL" },
+	"settings.gatewayToken": { ko: "Gateway 토큰", en: "Gateway Token" },
 } as const;
 
 type TranslationKey = keyof typeof translations;

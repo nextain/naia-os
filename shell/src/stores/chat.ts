@@ -1,16 +1,33 @@
 import { create } from "zustand";
-import type { ChatMessage, CostEntry, ProviderId } from "../lib/types";
+import { Logger } from "../lib/logger";
+import type {
+	ChatMessage,
+	CostEntry,
+	ProviderId,
+	ToolCall,
+} from "../lib/types";
 
 interface ChatState {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	streamingContent: string;
+	streamingToolCalls: ToolCall[];
 	provider: ProviderId;
 	totalSessionCost: number;
 
 	addMessage: (msg: Pick<ChatMessage, "role" | "content">) => void;
 	startStreaming: () => void;
 	appendStreamChunk: (text: string) => void;
+	addStreamingToolUse: (
+		toolCallId: string,
+		toolName: string,
+		args: Record<string, unknown>,
+	) => void;
+	updateStreamingToolResult: (
+		toolCallId: string,
+		success: boolean,
+		output: string,
+	) => void;
 	finishStreaming: () => void;
 	addCostEntry: (entry: CostEntry) => void;
 	setProvider: (provider: ProviderId) => void;
@@ -24,6 +41,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 	messages: [],
 	isStreaming: false,
 	streamingContent: "",
+	streamingToolCalls: [],
 	provider: "gemini",
 	totalSessionCost: 0,
 
@@ -35,17 +53,58 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			],
 		})),
 
-	startStreaming: () => set({ isStreaming: true, streamingContent: "" }),
+	startStreaming: () =>
+		set({ isStreaming: true, streamingContent: "", streamingToolCalls: [] }),
 
 	appendStreamChunk: (text) =>
 		set((s) => ({ streamingContent: s.streamingContent + text })),
 
+	addStreamingToolUse: (toolCallId, toolName, args) =>
+		set((s) => {
+			if (s.streamingToolCalls.some((tc) => tc.toolCallId === toolCallId)) {
+				return s;
+			}
+			return {
+				streamingToolCalls: [
+					...s.streamingToolCalls,
+					{ toolCallId, toolName, args, status: "running" as const },
+				],
+			};
+		}),
+
+	updateStreamingToolResult: (toolCallId, success, output) =>
+		set((s) => {
+			const found = s.streamingToolCalls.some(
+				(tc) => tc.toolCallId === toolCallId,
+			);
+			if (!found) {
+				Logger.warn("ChatStore", "tool_result for unknown toolCallId", {
+					toolCallId,
+				});
+				return s;
+			}
+			return {
+				streamingToolCalls: s.streamingToolCalls.map((tc) =>
+					tc.toolCallId === toolCallId
+						? {
+								...tc,
+								status: (success ? "success" : "error") as "success" | "error",
+								output,
+							}
+						: tc,
+				),
+			};
+		}),
+
 	finishStreaming: () => {
-		const { isStreaming, streamingContent } = get();
+		const { isStreaming, streamingContent, streamingToolCalls } = get();
 		if (!isStreaming) return;
+		const toolCalls =
+			streamingToolCalls.length > 0 ? streamingToolCalls : undefined;
 		set((s) => ({
 			isStreaming: false,
 			streamingContent: "",
+			streamingToolCalls: [],
 			messages: [
 				...s.messages,
 				{
@@ -53,6 +112,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 					role: "assistant" as const,
 					content: streamingContent,
 					timestamp: Date.now(),
+					toolCalls,
 				},
 			],
 		}));
@@ -61,11 +121,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 	addCostEntry: (entry) =>
 		set((s) => {
 			const messages = [...s.messages];
+			let attached = false;
 			for (let i = messages.length - 1; i >= 0; i--) {
 				if (messages[i].role === "assistant") {
 					messages[i] = { ...messages[i], cost: entry };
+					attached = true;
 					break;
 				}
+			}
+			if (!attached) {
+				Logger.warn("ChatStore", "No assistant message to attach cost entry");
 			}
 			return {
 				messages,

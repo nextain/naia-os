@@ -1,5 +1,3 @@
-import { Logger } from "./logger";
-
 /**
  * Web Audio API-based recorder for webkit2gtk (no MediaRecorder support).
  * Captures raw PCM via ScriptProcessorNode and encodes as WAV.

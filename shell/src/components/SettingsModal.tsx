@@ -75,6 +75,15 @@ export function SettingsModal({ onClose }: Props) {
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
 	const [sttEnabled, setSttEnabled] = useState(existing?.sttEnabled ?? true);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
+	const [enableTools, setEnableTools] = useState(
+		existing?.enableTools ?? false,
+	);
+	const [gatewayUrl, setGatewayUrl] = useState(
+		existing?.gatewayUrl ?? "ws://localhost:3579",
+	);
+	const [gatewayToken, setGatewayToken] = useState(
+		existing?.gatewayToken ?? "",
+	);
 	const [error, setError] = useState("");
 	const [isPreviewing, setIsPreviewing] = useState(false);
 
@@ -142,6 +151,9 @@ export function SettingsModal({ onClose }: Props) {
 			googleApiKey: googleApiKey.trim() || undefined,
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
+			enableTools,
+			gatewayUrl: gatewayUrl !== "ws://localhost:3579" ? gatewayUrl : undefined,
+			gatewayToken: gatewayToken.trim() || undefined,
 		});
 		setLocale(locale);
 		onClose();
@@ -309,6 +321,43 @@ export function SettingsModal({ onClose }: Props) {
 								: t("settings.voicePreview")}
 						</button>
 					</div>
+				</div>
+
+				<div className="settings-section-divider">
+					<span>{t("settings.toolsSection")}</span>
+				</div>
+
+				<div className="settings-field settings-toggle-row">
+					<label htmlFor="tools-toggle">{t("settings.enableTools")}</label>
+					<input
+						id="tools-toggle"
+						type="checkbox"
+						checked={enableTools}
+						onChange={(e) => setEnableTools(e.target.checked)}
+					/>
+				</div>
+
+				<div className="settings-field">
+					<label htmlFor="gateway-url-input">{t("settings.gatewayUrl")}</label>
+					<input
+						id="gateway-url-input"
+						type="text"
+						value={gatewayUrl}
+						onChange={(e) => setGatewayUrl(e.target.value)}
+						placeholder="ws://localhost:3579"
+					/>
+				</div>
+
+				<div className="settings-field">
+					<label htmlFor="gateway-token-input">
+						{t("settings.gatewayToken")}
+					</label>
+					<input
+						id="gateway-token-input"
+						type="password"
+						value={gatewayToken}
+						onChange={(e) => setGatewayToken(e.target.value)}
+					/>
 				</div>
 
 				<div className="settings-field">

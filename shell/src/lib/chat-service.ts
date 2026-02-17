@@ -11,7 +11,12 @@ interface SendChatOptions {
 	ttsVoice?: string;
 	ttsApiKey?: string;
 	systemPrompt?: string;
+	enableTools?: boolean;
+	gatewayUrl?: string;
+	gatewayToken?: string;
 }
+
+const RESPONSE_TIMEOUT_MS = 120_000; // Safety: clean up listener if no finish/error
 
 export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 	const {
@@ -23,6 +28,9 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 		ttsVoice,
 		ttsApiKey,
 		systemPrompt,
+		enableTools,
+		gatewayUrl,
+		gatewayToken,
 	} = opts;
 
 	const request = {
@@ -33,6 +41,9 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 		...(ttsVoice && { ttsVoice }),
 		...(ttsApiKey && { ttsApiKey }),
 		...(systemPrompt && { systemPrompt }),
+		...(enableTools != null && { enableTools }),
+		...(gatewayUrl && { gatewayUrl }),
+		...(gatewayToken && { gatewayToken }),
 	};
 
 	// Listen for agent responses before sending to avoid race conditions
@@ -47,6 +58,7 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 			onChunk(chunk);
 
 			if (chunk.type === "finish" || chunk.type === "error") {
+				clearTimeout(timeoutId);
 				unlisten();
 			}
 		} catch {
@@ -54,9 +66,21 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 		}
 	});
 
-	await invoke("send_to_agent_command", {
-		message: JSON.stringify(request),
-	});
+	// Safety timeout: clean up listener if agent never sends finish/error
+	const timeoutId = setTimeout(() => {
+		unlisten();
+		onChunk({ type: "error", requestId, message: "Agent response timeout" });
+	}, RESPONSE_TIMEOUT_MS);
+
+	try {
+		await invoke("send_to_agent_command", {
+			message: JSON.stringify(request),
+		});
+	} catch (err) {
+		clearTimeout(timeoutId);
+		unlisten();
+		throw err;
+	}
 }
 
 export async function cancelChat(requestId: string): Promise<void> {

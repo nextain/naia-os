@@ -15,11 +15,11 @@
 | 2 | Agent ↔ Gateway 연결 | ✅ 완료 | `ee98168` |
 | 3 | LLM Function Calling | 🟡 Gemini만 완료 | `85cb670` |
 | — | 코드 리뷰 보안 수정 | ✅ 완료 | `3464586` |
-| 4 | Shell UI | 🔲 다음 작업 | - |
+| 4 | Shell UI — 도구 표시 + 설정 | 🟡 부분 완료 | 미커밋 |
 
-**테스트**: Agent 68/68, Shell 63/63, Rust 5/5 (**136 total, 전부 통과**)
+**테스트**: Agent 68/68, Shell 89/89, Rust 5/5 (**162 total, 전부 통과**)
 
-**다음 할 일**: 단계 4 — Shell UI (ToolProgress, PermissionModal, ChatPanel 도구 핸들링)
+**다음 할 일**: 커밋 → 단계 4 나머지 (PermissionModal) → 단계 5 전체 통합
 
 ---
 
@@ -71,13 +71,16 @@ Alpha Shell (Tauri 2) → stdio → Agent (Node.js, LLM+TTS)
 - [ ] xAI function calling (→ 기술 부채)
 - [ ] Anthropic tool use (→ 기술 부채)
 
-### 단계 4: Shell UI 🔲
+### 단계 4: Shell UI 🟡
 
-- [ ] ToolProgress 컴포넌트 ("파일을 읽고 있어요..." 상태 표시)
-- [ ] PermissionModal 컴포넌트 (도구 실행 승인/거부)
-- [ ] ChatPanel 도구 청크 핸들링 (tool_use/tool_result 렌더링)
-- [ ] Settings 도구 섹션 (도구 on/off 토글)
-- [ ] Shell에서 `enableTools`/`gatewayUrl` AgentRequest에 포함
+- [x] ToolActivity 컴포넌트 (도구 실행 인라인 표시 — running/success/error)
+- [x] ChatPanel 도구 청크 핸들링 (tool_use/tool_result 렌더링)
+- [x] Settings 도구 섹션 (enableTools 체크박스, gatewayUrl, gatewayToken)
+- [x] Shell에서 `enableTools`/`gatewayUrl`/`gatewayToken` AgentRequest에 포함
+- [x] Zustand store 확장 (streamingToolCalls + 3개 액션)
+- [x] i18n 도구명 한국어 번역 (5개 도구 + unknown)
+- [x] CSS: 8개 테마 자동 지원, --error 변수 추가
+- [ ] PermissionModal 컴포넌트 (도구 실행 승인/거부) — **Phase 3.4 나머지**
 
 ---
 
@@ -134,3 +137,46 @@ UI 연결 완료 후 순차적으로 해결. 잊지 말 것.
 - 코드 리뷰 → command injection 수정 (shellEscape, validatePath)
 - ToolDefinition 중복 제거, FunctionCallingConfigMode enum, Shell AgentRequest 동기화
 - 커밋: `3464586` (136 tests)
+
+**세션 3** — Shell UI 도구 표시 + 설정 (단계 4 부분):
+
+*구현 (TDD):*
+- ToolCall 타입 + ChatMessage 확장 (`types.ts`)
+- Zustand store: `streamingToolCalls` + `addStreamingToolUse` + `updateStreamingToolResult` (`chat.ts`)
+- ToolActivity 컴포넌트 — 인라인 도구 표시, 접기/펼치기, 상태 아이콘 (`ToolActivity.tsx`)
+- ChatPanel: tool_use/tool_result 청크 핸들링 + ToolActivity 렌더링
+- chat-service: enableTools/gatewayUrl/gatewayToken 전달
+- Config 확장: enableTools, gatewayUrl, gatewayToken
+- Settings: "도구 (Tools)" 섹션 추가 (SettingsModal.tsx)
+- CSS: .tool-activity 스타일, 8개 테마 지원, --error 변수 4개 추가
+- i18n: 도구명 한국어 번역 10개 키 추가
+
+*코드 리뷰 3회전:*
+1. 1차 리뷰 → CRITICAL 5건 + MEDIUM 9건 발견
+   - CR-1: usage/finish race condition (분석 후 안전 확인)
+   - CR-2: invoke() 실패 시 listener 누수 → try/catch 추가
+   - CR-3: 응답 없을 때 listener 영구 잔류 → 120s 타임아웃 추가
+   - CR-4: render 경로에서 raw localStorage → loadConfig() 교체
+   - CR-5: addCostEntry 침묵 실패 → Logger.warn 추가
+2. 2차 리뷰 → CRITICAL 5건 + MEDIUM 3건 수정 확인
+3. 3차 리뷰 → SHOULD FIX 3건 발견+수정
+   - SF-1: enableTools false 저장 시 누락 → 수정
+   - SF-2: toolCallId 중복 처리 → dedup 추가
+   - SF-3: 미등록 toolCallId 무시 → Logger.warn 추가
+
+*검증:*
+- Shell 테스트: 89/89 통과 (기존 63 → +26 신규)
+- TSC: 깨끗 (pre-existing 3건도 수정 — 미사용 import/변수)
+- Biome: 깨끗
+- Vite build: 성공
+- **Tauri build: 성공** (`cargo tauri build`)
+- **앱 실행 확인**: 창 떠서 agent-core 연결 확인
+
+*교훈:*
+- 개발 프로세스(PLAN→CHECK→BUILD→VERIFY→CLEAN→COMMIT) 처음에 건너뜀
+  → 유저가 2회 지적 → 코드 리뷰 + E2E 추가
+- Gateway 서버(`gateway/`)는 아직 미구현 (Phase 4) — 클라이언트(`agent/src/gateway/`)만 존재
+- PermissionModal은 스코프 아웃 — Phase 3.4 나머지로 연기
+
+*테스트 현황*: Agent 68/68, **Shell 89/89**, Rust 5/5 = **162 total**
+*미커밋 — 커밋 전 사용자 확인 필요*

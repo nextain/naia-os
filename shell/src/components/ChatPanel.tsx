@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
 import { sendChatMessage } from "../lib/chat-service";
+import { loadConfig } from "../lib/config";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import { buildSystemPrompt } from "../lib/persona";
 import { transcribeAudio } from "../lib/stt";
-import type { AgentResponseChunk } from "../lib/types";
+import type { AgentResponseChunk, ProviderId } from "../lib/types";
 import { parseEmotion } from "../lib/vrm/expression";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
+import { ToolActivity } from "./ToolActivity";
 
 function generateRequestId(): string {
 	return `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -78,14 +80,12 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
 	const streamingContent = useChatStore((s) => s.streamingContent);
+	const streamingToolCalls = useChatStore((s) => s.streamingToolCalls);
 	const totalSessionCost = useChatStore((s) => s.totalSessionCost);
 	const provider = useChatStore((s) => s.provider);
 
-	// Read STT toggle from config
-	const configRaw = localStorage.getItem("cafelua-config");
-	const sttEnabled = configRaw
-		? JSON.parse(configRaw).sttEnabled !== false
-		: true;
+	// Read STT toggle from config (safe: loadConfig handles parse errors)
+	const sttEnabled = loadConfig()?.sttEnabled !== false;
 
 	const setEmotion = useAvatarStore((s) => s.setEmotion);
 
@@ -104,9 +104,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 		const requestId = generateRequestId();
 		const store = useChatStore.getState();
 
-		// Load config from localStorage
-		const configRaw = localStorage.getItem("cafelua-config");
-		const config = configRaw ? JSON.parse(configRaw) : null;
+		const config = loadConfig();
 		if (!config?.apiKey) {
 			useChatStore.getState().appendStreamChunk(t("chat.noApiKey"));
 			useChatStore.getState().finishStreaming();
@@ -118,20 +116,24 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 			.map((m) => ({ role: m.role, content: m.content }));
 
 		const ttsEnabled = config.ttsEnabled !== false;
+		const activeProvider = config.provider || provider;
 		try {
 			await sendChatMessage({
 				message: text,
 				provider: {
-					provider: config.provider || provider,
+					provider: activeProvider,
 					model: config.model || "gemini-2.5-flash",
 					apiKey: config.apiKey,
 				},
 				history: history.slice(0, -1), // exclude last (just added) user msg
-				onChunk: handleChunk,
+				onChunk: (chunk) => handleChunk(chunk, activeProvider),
 				requestId,
 				ttsVoice: ttsEnabled ? config.ttsVoice : undefined,
 				ttsApiKey: ttsEnabled ? config.googleApiKey : undefined,
 				systemPrompt: buildSystemPrompt(config.persona),
+				enableTools: config.enableTools,
+				gatewayUrl: config.gatewayUrl,
+				gatewayToken: config.gatewayToken,
 			});
 		} catch (err) {
 			useChatStore
@@ -141,7 +143,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 		}
 	}
 
-	function handleChunk(chunk: AgentResponseChunk) {
+	function handleChunk(chunk: AgentResponseChunk, activeProvider: ProviderId) {
 		const store = useChatStore.getState();
 
 		switch (chunk.type) {
@@ -159,13 +161,23 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 			case "audio":
 				playBase64Audio(chunk.data);
 				break;
+			case "tool_use":
+				store.addStreamingToolUse(chunk.toolCallId, chunk.toolName, chunk.args);
+				break;
+			case "tool_result":
+				store.updateStreamingToolResult(
+					chunk.toolCallId,
+					chunk.success,
+					chunk.output,
+				);
+				break;
 			case "usage":
 				store.finishStreaming();
 				store.addCostEntry({
 					inputTokens: chunk.inputTokens,
 					outputTokens: chunk.outputTokens,
 					cost: chunk.cost,
-					provider: provider,
+					provider: activeProvider,
 					model: chunk.model,
 				});
 				break;
@@ -207,8 +219,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 
 			if (wavBlob.size <= 44) return; // WAV header only = silence
 
-			const configRaw = localStorage.getItem("cafelua-config");
-			const config = configRaw ? JSON.parse(configRaw) : null;
+			const config = loadConfig();
 			const googleKey =
 				config?.googleApiKey ||
 				(config?.provider === "gemini" ? config?.apiKey : null);
@@ -262,6 +273,9 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 			<div className="chat-messages">
 				{messages.map((msg) => (
 					<div key={msg.id} className={`chat-message ${msg.role}`}>
+						{msg.toolCalls?.map((tc) => (
+							<ToolActivity key={tc.toolCallId} tool={tc} />
+						))}
 						<div className="message-content">
 							{msg.role === "assistant"
 								? parseEmotion(msg.content).cleanText
@@ -280,6 +294,9 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 				{/* Streaming content */}
 				{isStreaming && (
 					<div className="chat-message assistant streaming">
+						{streamingToolCalls.map((tc) => (
+							<ToolActivity key={tc.toolCallId} tool={tc} />
+						))}
 						<div className="message-content">
 							{streamingContent ? parseEmotion(streamingContent).cleanText : ""}
 							<span className="cursor-blink">▌</span>

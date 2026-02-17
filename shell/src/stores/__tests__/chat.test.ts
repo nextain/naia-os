@@ -117,4 +117,88 @@ describe("useChatStore", () => {
 		useChatStore.getState().setProvider("xai");
 		expect(useChatStore.getState().provider).toBe("xai");
 	});
+
+	// === Tool call tracking ===
+
+	it("has empty streamingToolCalls initially", () => {
+		expect(useChatStore.getState().streamingToolCalls).toEqual([]);
+	});
+
+	it("startStreaming resets streamingToolCalls", () => {
+		const store = useChatStore.getState();
+		store.addStreamingToolUse("tc-1", "read_file", { path: "/a" });
+		store.startStreaming();
+		expect(useChatStore.getState().streamingToolCalls).toEqual([]);
+	});
+
+	it("addStreamingToolUse adds a running tool call", () => {
+		const store = useChatStore.getState();
+		store.addStreamingToolUse("tc-1", "execute_command", {
+			command: "ls",
+		});
+		const calls = useChatStore.getState().streamingToolCalls;
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toEqual({
+			toolCallId: "tc-1",
+			toolName: "execute_command",
+			args: { command: "ls" },
+			status: "running",
+		});
+	});
+
+	it("updateStreamingToolResult updates status and output", () => {
+		const store = useChatStore.getState();
+		store.addStreamingToolUse("tc-1", "read_file", { path: "/a" });
+		store.updateStreamingToolResult("tc-1", true, "file contents");
+		const calls = useChatStore.getState().streamingToolCalls;
+		expect(calls[0].status).toBe("success");
+		expect(calls[0].output).toBe("file contents");
+	});
+
+	it("updateStreamingToolResult sets error status on failure", () => {
+		const store = useChatStore.getState();
+		store.addStreamingToolUse("tc-1", "write_file", { path: "/b" });
+		store.updateStreamingToolResult("tc-1", false, "permission denied");
+		const calls = useChatStore.getState().streamingToolCalls;
+		expect(calls[0].status).toBe("error");
+		expect(calls[0].output).toBe("permission denied");
+	});
+
+	it("finishStreaming includes toolCalls in the message", () => {
+		const store = useChatStore.getState();
+		store.startStreaming();
+		store.appendStreamChunk("result");
+		store.addStreamingToolUse("tc-1", "web_search", { query: "test" });
+		store.updateStreamingToolResult("tc-1", true, "results");
+		store.finishStreaming();
+
+		const msg = useChatStore.getState().messages[0];
+		expect(msg.toolCalls).toHaveLength(1);
+		expect(msg.toolCalls![0].toolCallId).toBe("tc-1");
+		expect(msg.toolCalls![0].status).toBe("success");
+	});
+
+	it("finishStreaming omits toolCalls when empty", () => {
+		const store = useChatStore.getState();
+		store.startStreaming();
+		store.appendStreamChunk("no tools");
+		store.finishStreaming();
+
+		const msg = useChatStore.getState().messages[0];
+		expect(msg.toolCalls).toBeUndefined();
+	});
+
+	it("addStreamingToolUse deduplicates by toolCallId", () => {
+		const store = useChatStore.getState();
+		store.addStreamingToolUse("tc-1", "read_file", { path: "/a" });
+		store.addStreamingToolUse("tc-1", "read_file", { path: "/a" });
+		expect(useChatStore.getState().streamingToolCalls).toHaveLength(1);
+	});
+
+	it("updateStreamingToolResult ignores unknown toolCallId", () => {
+		const store = useChatStore.getState();
+		store.updateStreamingToolResult("unknown-id", true, "data");
+		// No crash, no state change
+		expect(useChatStore.getState().streamingToolCalls).toEqual([]);
+	});
 });

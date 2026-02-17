@@ -97,6 +97,109 @@ describe("ChatPanel", () => {
 		expect(screen.getByText(/응답 중/)).toBeDefined();
 	});
 
+	it("renders ToolActivity for tool_use chunk during streaming", async () => {
+		// Set up API key so sendChatMessage is actually called
+		localStorage.setItem(
+			"cafelua-config",
+			JSON.stringify({
+				apiKey: "test-key",
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+			}),
+		);
+
+		render(<ChatPanel />);
+		const input = screen.getByPlaceholderText(/메시지|message/i);
+		fireEvent.change(input, { target: { value: "파일 읽어줘" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		expect(capturedOnChunk).not.toBeNull();
+		capturedOnChunk!({
+			type: "tool_use",
+			requestId: "req-1",
+			toolCallId: "tc-1",
+			toolName: "read_file",
+			args: { path: "/test.txt" },
+		});
+
+		// Store should have the tool call
+		const { streamingToolCalls } = useChatStore.getState();
+		expect(streamingToolCalls).toHaveLength(1);
+		expect(streamingToolCalls[0].toolName).toBe("read_file");
+		expect(streamingToolCalls[0].status).toBe("running");
+
+		localStorage.removeItem("cafelua-config");
+	});
+
+	it("updates tool call on tool_result chunk", async () => {
+		localStorage.setItem(
+			"cafelua-config",
+			JSON.stringify({
+				apiKey: "test-key",
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+			}),
+		);
+
+		render(<ChatPanel />);
+		const input = screen.getByPlaceholderText(/메시지|message/i);
+		fireEvent.change(input, { target: { value: "파일 읽어줘" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+
+		await new Promise((r) => setTimeout(r, 50));
+
+		capturedOnChunk!({
+			type: "tool_use",
+			requestId: "req-1",
+			toolCallId: "tc-1",
+			toolName: "read_file",
+			args: { path: "/test.txt" },
+		});
+
+		capturedOnChunk!({
+			type: "tool_result",
+			requestId: "req-1",
+			toolCallId: "tc-1",
+			toolName: "read_file",
+			output: "file contents",
+			success: true,
+		});
+
+		const { streamingToolCalls } = useChatStore.getState();
+		expect(streamingToolCalls[0].status).toBe("success");
+		expect(streamingToolCalls[0].output).toBe("file contents");
+
+		localStorage.removeItem("cafelua-config");
+	});
+
+	it("renders ToolActivity for completed messages with toolCalls", () => {
+		useChatStore.setState({
+			messages: [
+				{
+					id: "msg-1",
+					role: "assistant",
+					content: "파일을 읽었습니다.",
+					timestamp: Date.now(),
+					toolCalls: [
+						{
+							toolCallId: "tc-1",
+							toolName: "read_file",
+							args: { path: "/test.txt" },
+							status: "success",
+							output: "contents",
+						},
+					],
+				},
+			],
+		});
+
+		render(<ChatPanel />);
+		// Should render the tool activity label
+		expect(screen.getByText(/파일 읽기|Read File/)).toBeDefined();
+	});
+
 	it("sets isSpeaking and pendingAudio on audio chunk", async () => {
 		// Set up API key so sendChatMessage is actually called
 		localStorage.setItem(

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createEmotionController, parseEmotion } from "../expression";
-import type { EmotionName } from "../expression";
 
 describe("parseEmotion", () => {
 	it("parses [HAPPY] tag", () => {

@@ -21,7 +21,8 @@ describe("chat-service", () => {
 	});
 
 	afterEach(() => {
-		vi.restoreAllMocks();
+		vi.clearAllMocks();
+		vi.resetModules();
 	});
 
 	it("sendChatMessage invokes Tauri command and listens for events", async () => {
@@ -62,7 +63,7 @@ describe("chat-service", () => {
 			},
 		);
 
-		const result = await sendChatMessage({
+		await sendChatMessage({
 			message: "Hi",
 			provider: {
 				provider: "gemini",
@@ -97,5 +98,64 @@ describe("chat-service", () => {
 		expect(mockInvoke).toHaveBeenCalledWith("cancel_stream", {
 			requestId: "req-1",
 		});
+	});
+
+	it("cleans up listener when invoke throws", async () => {
+		const { sendChatMessage } = await import("../chat-service");
+		mockInvoke.mockRejectedValueOnce(new Error("backend crash"));
+
+		const onChunk = vi.fn();
+
+		await expect(
+			sendChatMessage({
+				message: "Hi",
+				provider: {
+					provider: "gemini",
+					model: "gemini-2.5-flash",
+					apiKey: "test-key",
+				},
+				history: [],
+				onChunk,
+				requestId: "req-fail",
+			}),
+		).rejects.toThrow("backend crash");
+
+		// Listener must be cleaned up
+		expect(mockUnlisten).toHaveBeenCalled();
+	});
+
+	it("includes enableTools: false in request when explicitly set", async () => {
+		const { sendChatMessage } = await import("../chat-service");
+
+		mockListen.mockImplementation(
+			async (_event: string, handler: (event: { payload: string }) => void) => {
+				setTimeout(() => {
+					handler({
+						payload: JSON.stringify({
+							type: "finish",
+							requestId: "req-tools",
+						}),
+					});
+				}, 10);
+				return mockUnlisten;
+			},
+		);
+
+		await sendChatMessage({
+			message: "test",
+			provider: {
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+				apiKey: "key",
+			},
+			history: [],
+			onChunk: vi.fn(),
+			requestId: "req-tools",
+			enableTools: false,
+		});
+
+		const sentMessage = mockInvoke.mock.calls[0][1].message;
+		const parsed = JSON.parse(sentMessage);
+		expect(parsed.enableTools).toBe(false);
 	});
 });

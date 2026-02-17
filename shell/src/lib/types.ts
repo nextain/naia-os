@@ -18,12 +18,21 @@ export interface CostEntry {
 	model: string;
 }
 
+export interface ToolCall {
+	toolCallId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	status: "running" | "success" | "error";
+	output?: string;
+}
+
 export interface ChatMessage {
 	id: string;
 	role: "user" | "assistant";
 	content: string;
 	timestamp: number;
 	cost?: CostEntry;
+	toolCalls?: ToolCall[];
 }
 
 // === Agent Protocol (stdin/stdout JSON lines) ===

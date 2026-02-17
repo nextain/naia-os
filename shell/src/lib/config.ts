@@ -25,6 +25,9 @@ export interface AppConfig {
 	ttsVoice?: string;
 	googleApiKey?: string;
 	persona?: string;
+	enableTools?: boolean;
+	gatewayUrl?: string;
+	gatewayToken?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {

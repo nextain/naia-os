@@ -75,6 +75,43 @@ describe("SettingsModal", () => {
 		});
 	});
 
+	it("renders tools section with enableTools checkbox", () => {
+		render(<SettingsModal onClose={() => {}} />);
+		expect(screen.getByLabelText(/도구 사용|Enable Tools/i)).toBeDefined();
+	});
+
+	it("renders gateway URL and token inputs", () => {
+		render(<SettingsModal onClose={() => {}} />);
+		expect(screen.getByLabelText(/Gateway URL/i)).toBeDefined();
+		expect(screen.getByLabelText(/Gateway 토큰|Gateway Token/i)).toBeDefined();
+	});
+
+	it("saves tools config", () => {
+		const onClose = vi.fn();
+		render(<SettingsModal onClose={onClose} />);
+
+		// Set API key first
+		const apiKeyInput = screen.getByLabelText(/^API/i);
+		fireEvent.change(apiKeyInput, { target: { value: "test-key" } });
+
+		// Enable tools
+		const toolsCheckbox = screen.getByLabelText(/도구 사용|Enable Tools/i);
+		fireEvent.click(toolsCheckbox);
+
+		// Set gateway URL
+		const gatewayUrlInput = screen.getByLabelText(/Gateway URL/i);
+		fireEvent.change(gatewayUrlInput, {
+			target: { value: "ws://localhost:9999" },
+		});
+
+		fireEvent.click(screen.getByText(/save|저장/i));
+		expect(onClose).toHaveBeenCalled();
+
+		const saved = JSON.parse(localStorage.getItem("cafelua-config") || "{}");
+		expect(saved.enableTools).toBe(true);
+		expect(saved.gatewayUrl).toBe("ws://localhost:9999");
+	});
+
 	it("section dividers show distinct labels (no duplicate provider)", () => {
 		render(<SettingsModal onClose={() => {}} />);
 		const dividers = screen.getAllByText(

@@ -25,6 +25,7 @@
 	--sage: #a29bfe;
 	--tech-blue: #74b9ff;
 	--amber: #ffeaa7;
+	--error: #ff6b6b;
 }
 
 [data-theme="ocean"] {
@@ -38,6 +39,7 @@
 	--sage: #2ecc71;
 	--tech-blue: #00cec9;
 	--amber: #fdcb6e;
+	--error: #e74c3c;
 }
 
 [data-theme="forest"] {
@@ -51,6 +53,7 @@
 	--sage: #badc58;
 	--tech-blue: #7bed9f;
 	--amber: #f6e58d;
+	--error: #e74c3c;
 }
 
 [data-theme="rose"] {
@@ -64,6 +67,7 @@
 	--sage: #fd79a8;
 	--tech-blue: #a29bfe;
 	--amber: #ffeaa7;
+	--error: #ff6b6b;
 }
 
 /* Light themes */
@@ -719,4 +723,93 @@ body,
 .voice-preview-btn:disabled {
 	opacity: 0.5;
 	cursor: default;
+}
+
+/* Tool Activity */
+.tool-activity {
+	border-left: 2px solid var(--cream-dim);
+	margin: 4px 0;
+	font-size: 12px;
+}
+
+.tool-activity.tool-running {
+	border-left-color: var(--amber);
+}
+
+.tool-activity.tool-success {
+	border-left-color: var(--sage);
+}
+
+.tool-activity.tool-error {
+	border-left-color: var(--error);
+}
+
+.tool-activity-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	width: 100%;
+	background: none;
+	border: none;
+	font: inherit;
+	font-size: 12px;
+	text-align: left;
+	cursor: pointer;
+	user-select: none;
+	color: var(--cream-dim);
+	transition: color 0.15s;
+}
+
+.tool-activity-header:hover {
+	color: var(--cream);
+}
+
+.tool-status-icon {
+	font-size: 11px;
+	width: 14px;
+	text-align: center;
+}
+
+.tool-running .tool-status-icon {
+	color: var(--amber);
+}
+
+.tool-success .tool-status-icon {
+	color: var(--sage);
+}
+
+.tool-error .tool-status-icon {
+	color: var(--error);
+}
+
+.tool-name {
+	font-weight: 500;
+}
+
+.tool-expand {
+	margin-left: auto;
+	font-size: 10px;
+	opacity: 0.6;
+}
+
+.tool-activity-body {
+	padding: 4px 8px 6px 22px;
+	font-family: var(--mono);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.tool-args {
+	color: var(--cream-dim);
+	white-space: pre-wrap;
+	word-break: break-all;
+	opacity: 0.7;
+}
+
+.tool-output {
+	margin-top: 4px;
+	color: var(--cream);
+	white-space: pre-wrap;
+	word-break: break-all;
 }
