@@ -15,11 +15,13 @@
 | 2 | Agent ↔ Gateway 연결 | ✅ 완료 | `ee98168` |
 | 3 | LLM Function Calling | 🟡 Gemini만 완료 | `85cb670` |
 | — | 코드 리뷰 보안 수정 | ✅ 완료 | `3464586` |
-| 4 | Shell UI — 도구 표시 + 설정 | 🟡 부분 완료 | 미커밋 |
+| 4 | Shell UI — 도구 표시 + 설정 | ✅ 완료 | `1c74ef9` |
+| 5 | Permission tiers + approval UI | ✅ 완료 | `98afabf` |
+| 6 | Audit log (SQLite) | ✅ 완료 | `78c4eb3` |
 
-**테스트**: Agent 68/68, Shell 89/89, Rust 5/5 (**162 total, 전부 통과**)
+**테스트**: Agent 68/68, Shell 89/89, Rust 29/29 (**186 total, 전부 통과**)
 
-**다음 할 일**: 커밋 → 단계 4 나머지 (PermissionModal) → 단계 5 전체 통합
+**다음 할 일**: Work progress panel → Sub-agents
 
 ---
 
@@ -80,7 +82,25 @@ Alpha Shell (Tauri 2) → stdio → Agent (Node.js, LLM+TTS)
 - [x] Zustand store 확장 (streamingToolCalls + 3개 액션)
 - [x] i18n 도구명 한국어 번역 (5개 도구 + unknown)
 - [x] CSS: 8개 테마 자동 지원, --error 변수 추가
-- [ ] PermissionModal 컴포넌트 (도구 실행 승인/거부) — **Phase 3.4 나머지**
+- [x] PermissionModal 컴포넌트 (도구 실행 승인 — once/always/reject) — `98afabf`
+
+### 단계 5: Permission System ✅
+
+- [x] Agent: ToolPermission 3-tier 시스템 (types.ts, permission.ts)
+- [x] Agent: approval_request/approval_response 프로토콜 확장
+- [x] Shell: PermissionModal 컴포넌트 (once/always/reject + 도구 설명)
+- [x] Shell: Tauri approval_response 명령
+- [x] 테스트: 커밋 `98afabf`
+
+### 단계 6: Audit Log (SQLite) ✅
+
+- [x] `rusqlite` (bundled) 의존성 추가
+- [x] `audit.rs` — init_db, insert_event, maybe_log_event, query_events, query_stats
+- [x] WAL 모드, 4KB payload truncation (UTF-8 boundary safe)
+- [x] BufReader 스레드에서 tool_use/tool_result/approval_request/usage/error 자동 기록
+- [x] send_to_agent에서 approval_decision 캡처
+- [x] Tauri 명령: get_audit_log (동적 필터 + 페이지네이션), get_audit_stats
+- [x] 24개 테스트 — 커밋 `78c4eb3`
 
 ---
 
@@ -179,4 +199,21 @@ UI 연결 완료 후 순차적으로 해결. 잊지 말 것.
 - PermissionModal은 스코프 아웃 — Phase 3.4 나머지로 연기
 
 *테스트 현황*: Agent 68/68, **Shell 89/89**, Rust 5/5 = **162 total**
-*미커밋 — 커밋 전 사용자 확인 필요*
+*커밋: `1c74ef9`*
+
+**세션 4** — Permission tiers + approval modal:
+- Agent: ToolPermission 타입 정의 (tier 0-3)
+- Agent: approval_request → shell에 도구 실행 승인 요청 프로토콜
+- Shell: PermissionModal 컴포넌트 (once/always/reject, 도구명+설명 표시)
+- Shell: Tauri approval_response 명령으로 Agent stdin에 결정 전달
+- 커밋: `98afabf`
+
+**세션 5** — Audit log (SQLite):
+- Phase 3.5 계획 수립 → 설계 결정 (rusqlite bundled, 단일 테이블, Arc<Mutex<Connection>>)
+- TDD: 24개 테스트 작성 (RED) → 구현 (GREEN)
+- audit.rs: init_db(WAL), insert_event, maybe_log_event, query_events(동적 필터+페이지네이션), query_stats(비용 합산)
+- lib.rs 통합: BufReader 인터셉트, approval_decision 캡처, Tauri 명령 2개
+- 코드 리뷰: UTF-8 멀티바이트 truncation 버그 발견 → is_char_boundary()로 수정 + 테스트 추가
+- 커밋: `78c4eb3` (Rust 29/29)
+
+*테스트 현황*: Agent 68/68, Shell 89/89, **Rust 29/29** = **186 total**
