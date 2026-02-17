@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
 import { sendChatMessage } from "../lib/chat-service";
 import { addAllowedTool, isToolAllowed, loadConfig } from "../lib/config";
@@ -182,9 +183,10 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 		switch (chunk.type) {
 			case "text": {
 				store.appendStreamChunk(chunk.text);
-				// Parse emotion from first text chunk
-				if (store.streamingContent.length === chunk.text.length) {
-					const { emotion } = parseEmotion(chunk.text);
+				// Parse emotion from accumulated text (tag may span multiple chunks)
+				const accumulated = store.streamingContent;
+				if (accumulated.length <= 30 && accumulated.length >= 4) {
+					const { emotion } = parseEmotion(accumulated);
 					if (emotion !== "neutral") {
 						setEmotion(emotion);
 					}
@@ -380,9 +382,11 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 							<ToolActivity key={tc.toolCallId} tool={tc} />
 						))}
 						<div className="message-content">
-							{msg.role === "assistant"
-								? parseEmotion(msg.content).cleanText
-								: msg.content}
+							{msg.role === "assistant" ? (
+								<Markdown>{parseEmotion(msg.content).cleanText}</Markdown>
+							) : (
+								msg.content
+							)}
 						</div>
 						{msg.cost && (
 							<span className="cost-badge">
@@ -401,7 +405,9 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 							<ToolActivity key={tc.toolCallId} tool={tc} />
 						))}
 						<div className="message-content">
-							{streamingContent ? parseEmotion(streamingContent).cleanText : ""}
+							{streamingContent ? (
+								<Markdown>{parseEmotion(streamingContent).cleanText}</Markdown>
+							) : null}
 							<span className="cursor-blink">▌</span>
 						</div>
 					</div>
