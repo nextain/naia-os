@@ -14,12 +14,24 @@ describe("getToolTier", () => {
 		expect(getToolTier("search_files")).toBe(0);
 	});
 
+	it("returns 0 for browser", () => {
+		expect(getToolTier("browser")).toBe(0);
+	});
+
 	it("returns 1 for write_file", () => {
 		expect(getToolTier("write_file")).toBe(1);
 	});
 
 	it("returns 1 for web_search", () => {
 		expect(getToolTier("web_search")).toBe(1);
+	});
+
+	it("returns 1 for apply_diff", () => {
+		expect(getToolTier("apply_diff")).toBe(1);
+	});
+
+	it("returns 1 for sessions_spawn", () => {
+		expect(getToolTier("sessions_spawn")).toBe(1);
 	});
 
 	it("returns 2 for execute_command", () => {
@@ -35,11 +47,14 @@ describe("needsApproval", () => {
 	it("returns false for tier 0 tools", () => {
 		expect(needsApproval("read_file")).toBe(false);
 		expect(needsApproval("search_files")).toBe(false);
+		expect(needsApproval("browser")).toBe(false);
 	});
 
 	it("returns true for tier 1 tools", () => {
 		expect(needsApproval("write_file")).toBe(true);
 		expect(needsApproval("web_search")).toBe(true);
+		expect(needsApproval("apply_diff")).toBe(true);
+		expect(needsApproval("sessions_spawn")).toBe(true);
 	});
 
 	it("returns true for tier 2 tools", () => {
@@ -61,6 +76,25 @@ describe("getToolDescription", () => {
 	it("describes web_search with the query arg", () => {
 		const desc = getToolDescription("web_search", { query: "vitest docs" });
 		expect(desc).toContain("vitest docs");
+	});
+
+	it("describes browser with the url arg", () => {
+		const desc = getToolDescription("browser", {
+			url: "https://example.com",
+		});
+		expect(desc).toContain("https://example.com");
+	});
+
+	it("describes apply_diff with the path arg", () => {
+		const desc = getToolDescription("apply_diff", { path: "/tmp/code.ts" });
+		expect(desc).toContain("/tmp/code.ts");
+	});
+
+	it("describes sessions_spawn with the task arg", () => {
+		const desc = getToolDescription("sessions_spawn", {
+			task: "Analyze logs",
+		});
+		expect(desc).toContain("Analyze logs");
 	});
 
 	it("returns a description for unknown tools", () => {

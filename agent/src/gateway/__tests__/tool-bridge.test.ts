@@ -65,14 +65,17 @@ afterAll(() => {
 });
 
 describe("GATEWAY_TOOLS", () => {
-	it("defines 5 core tools", () => {
-		expect(GATEWAY_TOOLS).toHaveLength(5);
+	it("defines 8 core tools", () => {
+		expect(GATEWAY_TOOLS).toHaveLength(8);
 		const names = GATEWAY_TOOLS.map((t) => t.name);
 		expect(names).toContain("execute_command");
 		expect(names).toContain("read_file");
 		expect(names).toContain("write_file");
 		expect(names).toContain("search_files");
 		expect(names).toContain("web_search");
+		expect(names).toContain("apply_diff");
+		expect(names).toContain("browser");
+		expect(names).toContain("sessions_spawn");
 	});
 
 	it("each tool has name, description, and parameters", () => {
@@ -197,6 +200,49 @@ describe("executeTool", () => {
 		});
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("Invalid");
+	});
+
+	it("executes apply_diff (search-and-replace)", async () => {
+		const result = await executeTool(client, "apply_diff", {
+			path: "/tmp/test.ts",
+			search: "contents",
+			replace: "data",
+		});
+		expect(result.success).toBe(true);
+		expect(result.output).toContain("Applied diff");
+	});
+
+	it("apply_diff fails when search text not found", async () => {
+		const result = await executeTool(client, "apply_diff", {
+			path: "/tmp/test.ts",
+			search: "nonexistent text xyz",
+			replace: "replacement",
+		});
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("not found");
+	});
+
+	it("executes browser via skills", async () => {
+		const result = await executeTool(client, "browser", {
+			url: "https://example.com",
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it("browser fails with empty url", async () => {
+		const result = await executeTool(client, "browser", { url: "" });
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("required");
+	});
+
+	it("apply_diff fails with empty search", async () => {
+		const result = await executeTool(client, "apply_diff", {
+			path: "/tmp/test.ts",
+			search: "",
+			replace: "replacement",
+		});
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("empty");
 	});
 
 	it("returns error for unknown tool", async () => {

@@ -10,7 +10,10 @@ const TOOL_TIERS: Record<string, number> = {
 	read_file: 0,
 	search_files: 0,
 	write_file: 1,
+	apply_diff: 1,
+	browser: 0,
 	web_search: 1,
+	sessions_spawn: 1,
 	execute_command: 2,
 };
 
@@ -31,6 +34,9 @@ const TOOL_DESCRIPTIONS: Record<
 	web_search: (args) => `웹 검색: ${args.query ?? ""}`,
 	read_file: (args) => `파일 읽기: ${args.path ?? ""}`,
 	search_files: (args) => `파일 검색: ${args.pattern ?? ""}`,
+	apply_diff: (args) => `파일 편집: ${args.path ?? ""}`,
+	browser: (args) => `웹 페이지: ${args.url ?? ""}`,
+	sessions_spawn: (args) => `서브 에이전트: ${args.task ?? ""}`,
 };
 
 export function getToolDescription(

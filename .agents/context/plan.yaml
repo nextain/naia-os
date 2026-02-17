@@ -91,11 +91,12 @@ phases:
     timeline: "Week 3-4"
     deliverable: "Alpha can edit files, run terminal commands, search web"
     tasks:
-      - "Tool system: file_read, file_write, apply_diff, execute_command, browser, search"
-      - "Permission tiers (0-3) + approval UI"
-      - "Audit log (SQLite)"
-      - "Work progress panel"
-      - "Sub-agents (parallel execution)"
+      - "Tool system: file_read ✅, file_write ✅, apply_diff ✅, execute_command ✅, browser ✅, search ✅, web_search ✅"
+      - "Permission tiers (0-3) + approval UI ✅"
+      - "Audit log (SQLite) ✅"
+      - "Work progress panel ✅"
+      - "Sub-agents ✅ (sequential + parallel spawn via Gateway RPC)"
+    status: "complete"
     done_when: "Alpha executes real OS tasks with permission system"
     reuse: "Careti: tools, SmartEditEngine, sub-agent pattern"
 

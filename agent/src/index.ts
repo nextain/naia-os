@@ -169,7 +169,16 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			});
 
 			// Execute each tool (with approval check for tier 1-2)
-			for (const call of toolCalls) {
+			// Partition: sessions_spawn runs in parallel, others sequential
+			const spawnCalls = toolCalls.filter(
+				(c) => c.name === "sessions_spawn",
+			);
+			const otherCalls = toolCalls.filter(
+				(c) => c.name !== "sessions_spawn",
+			);
+
+			// Process sequential tools first
+			for (const call of otherCalls) {
 				if (needsApproval(call.name)) {
 					const decision = await waitForApproval(
 						requestId,
@@ -196,7 +205,6 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 						});
 						continue;
 					}
-					// decision is "once" or "always" — proceed to execute
 				}
 
 				const result = await executeTool(gateway, call.name, call.args);
@@ -214,6 +222,70 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 					toolCallId: call.id,
 					name: call.name,
 				});
+			}
+
+			// Process sessions_spawn calls in parallel (approval sequential, execution parallel)
+			if (spawnCalls.length > 0) {
+				// Approval phase (sequential — one modal at a time)
+				const approvedSpawns: typeof spawnCalls = [];
+				for (const call of spawnCalls) {
+					if (needsApproval(call.name)) {
+						const decision = await waitForApproval(
+							requestId,
+							call.id,
+							call.name,
+							call.args,
+						);
+
+						if (decision === "reject") {
+							const rejectOutput = "User rejected tool execution";
+							writeLine({
+								type: "tool_result",
+								requestId,
+								toolCallId: call.id,
+								toolName: call.name,
+								output: rejectOutput,
+								success: false,
+							});
+							chatMessages.push({
+								role: "tool",
+								content: `Error: ${rejectOutput}`,
+								toolCallId: call.id,
+								name: call.name,
+							});
+							continue;
+						}
+					}
+					approvedSpawns.push(call);
+				}
+
+				// Execution phase (parallel)
+				const results = await Promise.all(
+					approvedSpawns.map((call) =>
+						executeTool(gateway, call.name, call.args).then(
+							(result) => ({ call, result }),
+						),
+					),
+				);
+
+				for (const { call, result } of results) {
+					writeLine({
+						type: "tool_result",
+						requestId,
+						toolCallId: call.id,
+						toolName: call.name,
+						output: result.output || result.error || "",
+						success: result.success,
+					});
+					chatMessages.push({
+						role: "tool",
+						content: result.success
+							? result.output
+							: `Error: ${result.error}`,
+						toolCallId: call.id,
+						name: call.name,
+					});
+				}
 			}
 		}
 

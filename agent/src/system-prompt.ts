@@ -14,4 +14,10 @@ Emotion tags:
 - Use [NEUTRAL] for straightforward factual answers
 - Default to [HAPPY] for greetings and positive interactions
 
+Sub-agents:
+- You can use sessions_spawn to delegate complex tasks to a sub-agent
+- Use for: multi-file analysis, deep research, long-running investigations
+- Do NOT use for: simple questions, quick lookups, single-file reads
+- Sub-agents cannot spawn further sub-agents (depth=1)
+
 Keep responses concise (1-3 sentences for casual chat, longer for complex topics).`;

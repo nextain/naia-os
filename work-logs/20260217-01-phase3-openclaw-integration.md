@@ -19,10 +19,14 @@
 | 5 | Permission tiers + approval UI | ✅ 완료 | `98afabf` |
 | 6 | Audit log (SQLite) | ✅ 완료 | `78c4eb3` |
 | 7 | Work Progress Panel + 탭 시스템 | ✅ 완료 | `3d1f942` |
+| 8 | Sub-agents (sessions_spawn) | ✅ 완료 | — |
+| 9 | 병렬 sub-agent 실행 | ✅ 완료 | — |
+| 10 | apply_diff 도구 | ✅ 완료 | — |
+| 11 | browser 도구 | ✅ 완료 | — |
 
-**테스트**: Agent 68/68, Shell 124/124, Rust 29/29 (**221 total, 전부 통과**)
+**테스트**: Agent 108/108, Shell 124/124, Rust 29/29 (**261 total, 전부 통과**)
 
-**다음 할 일**: Sub-agents
+**Phase 3 완료** — done_when: "Alpha executes real OS tasks with permission system" ✅
 
 ---
 
@@ -242,3 +246,36 @@ UI 연결 완료 후 순차적으로 해결. 잊지 말 것.
 - 커밋: `3d1f942` (Shell 124/124)
 
 *테스트 현황*: Agent 68/68, **Shell 124/124**, Rust 29/29 = **221 total**
+
+**세션 7** — Sub-agents (Phase 3.8):
+- 계획 수립 → 설계 결정 (Gateway spawn, 비동기, depth=1, 기존 ToolActivity 재사용)
+- TDD: sessions-spawn.test.ts 6개 테스트 (RED→GREEN)
+  - RPC 순서 검증 (spawn→wait→transcript)
+  - label 전달, sessionKey subagent: 형식, 타임아웃, 미연결 에러
+- sessions-spawn.ts 구현 (3단계 Gateway RPC)
+- tool-bridge에 sessions_spawn ToolDefinition + executeTool 분기 추가
+- tool-tiers에 Tier 1 + 설명 추가
+- system-prompt에 sub-agent 사용 지침 추가
+- i18n에 tool.sessions_spawn 번역 추가
+- 코드 리뷰 → 8건 수정:
+  1. SessionsSpawnResult 중복 → ToolResult 재사용
+  2. dead code 제거 (spawnParams, origOn)
+  3. "passes label" 테스트 → paramsByMethod 실제 검증
+  4. "session key" 테스트 → subagent: prefix 실제 검증
+  5. RPC 순서 테스트 추가
+  6. tool-bridge.test sessions_spawn assert 추가
+  7. tool-tiers.test tier/approval/description 3건 추가
+  8. e2e 테스트 2건 추가 (성공 흐름 + 실패 흐름)
+- Shell 빌드 확인
+
+*테스트 현황*: **Agent 98/98**, Shell 124/124, Rust 29/29 = **251 total**
+
+**세션 7 계속** — 병렬 sub-agent + apply_diff + browser:
+- 병렬 sub-agent: index.ts tool-loop에서 sessions_spawn을 Promise.all로 실행
+  - 승인은 순차, 실행만 병렬 (3×50ms → ~60ms, 타이밍 테스트로 검증)
+- apply_diff: search/replace 기반 파일 편집 도구
+  - read(cat) → search 확인 → replace → write, empty search 방어
+- browser: Gateway skills.invoke 기반 웹 페이지 읽기 도구 (Tier 0)
+- 모든 도구에 대해 tool-bridge 테스트, tool-tiers 테스트, i18n 키 추가
+
+*테스트 현황*: **Agent 108/108**, Shell 124/124, Rust 29/29 = **261 total**

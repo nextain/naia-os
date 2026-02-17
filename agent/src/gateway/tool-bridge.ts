@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "../providers/types.js";
 import type { GatewayClient } from "./client.js";
+import { executeSessionsSpawn } from "./sessions-spawn.js";
 
 export type { ToolDefinition };
 
@@ -99,6 +100,57 @@ export const GATEWAY_TOOLS: ToolDefinition[] = [
 				query: { type: "string", description: "Search query" },
 			},
 			required: ["query"],
+		},
+	},
+	{
+		name: "apply_diff",
+		description:
+			"Apply a search-and-replace edit to a file. Provide the exact text to find and its replacement. Use for precise, targeted file modifications.",
+		parameters: {
+			type: "object",
+			properties: {
+				path: { type: "string", description: "File path to edit" },
+				search: {
+					type: "string",
+					description: "Exact text to find in the file",
+				},
+				replace: {
+					type: "string",
+					description: "Text to replace the found text with",
+				},
+			},
+			required: ["path", "search", "replace"],
+		},
+	},
+	{
+		name: "browser",
+		description:
+			"Fetch and read the content of a web page. Returns the page text content (HTML stripped to readable text).",
+		parameters: {
+			type: "object",
+			properties: {
+				url: { type: "string", description: "URL of the web page to read" },
+			},
+			required: ["url"],
+		},
+	},
+	{
+		name: "sessions_spawn",
+		description:
+			"Spawn a sub-agent to handle a complex task asynchronously. The sub-agent runs in a separate session and returns its result when done. Use for tasks requiring deep analysis, multi-file exploration, or independent research.",
+		parameters: {
+			type: "object",
+			properties: {
+				task: {
+					type: "string",
+					description: "Description of the task for the sub-agent to perform",
+				},
+				label: {
+					type: "string",
+					description: "Short label for display (optional)",
+				},
+			},
+			required: ["task"],
 		},
 	},
 ];
@@ -239,6 +291,91 @@ export async function executeTool(
 					error: `Web search failed: ${String(err)}`,
 				};
 			}
+		}
+
+		case "apply_diff": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
+			const search = args.search as string;
+			const replace = args.replace as string;
+			if (!search) {
+				return {
+					success: false,
+					output: "",
+					error: "search text cannot be empty",
+				};
+			}
+			try {
+				// Read file, replace, write back
+				const readResult = (await client.request("exec.bash", {
+					command: `cat ${shellEscape(path)}`,
+				})) as { stdout?: string; exitCode?: number; stderr?: string };
+				if ((readResult.exitCode ?? 0) !== 0) {
+					return {
+						success: false,
+						output: "",
+						error: readResult.stderr || "Failed to read file",
+					};
+				}
+				const content = readResult.stdout || "";
+				if (!content.includes(search)) {
+					return {
+						success: false,
+						output: "",
+						error: "Search text not found in file",
+					};
+				}
+				const newContent = content.replace(search, replace);
+				const escapedPath = shellEscape(path);
+				const escapedContent = shellEscape(newContent);
+				const writeResult = (await client.request("exec.bash", {
+					command: `printf '%s' ${escapedContent} > ${escapedPath}`,
+				})) as { exitCode?: number; stderr?: string };
+				return {
+					success: (writeResult.exitCode ?? 0) === 0,
+					output: `Applied diff to ${path}`,
+					error:
+						writeResult.exitCode !== 0 ? writeResult.stderr : undefined,
+				};
+			} catch (err) {
+				return { success: false, output: "", error: String(err) };
+			}
+		}
+
+		case "browser": {
+			const url = args.url as string;
+			if (!url) {
+				return { success: false, output: "", error: "URL is required" };
+			}
+			try {
+				const result = await client.request("skills.invoke", {
+					skill: "browser",
+					args: { url },
+				});
+				return {
+					success: true,
+					output:
+						typeof result === "string"
+							? result
+							: JSON.stringify(result),
+				};
+			} catch (err) {
+				return {
+					success: false,
+					output: "",
+					error: `Browser failed: ${String(err)}`,
+				};
+			}
+		}
+
+		case "sessions_spawn": {
+			return executeSessionsSpawn(client, {
+				task: args.task as string,
+				label: args.label as string | undefined,
+			});
 		}
 
 		default:
