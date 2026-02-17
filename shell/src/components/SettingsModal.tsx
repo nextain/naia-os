@@ -80,7 +80,7 @@ export function SettingsModal({ onClose }: Props) {
 		existing?.enableTools ?? false,
 	);
 	const [gatewayUrl, setGatewayUrl] = useState(
-		existing?.gatewayUrl ?? "ws://localhost:3579",
+		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
 	const [gatewayToken, setGatewayToken] = useState(
 		existing?.gatewayToken ?? "",
@@ -154,7 +154,7 @@ export function SettingsModal({ onClose }: Props) {
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
 			enableTools,
-			gatewayUrl: gatewayUrl !== "ws://localhost:3579" ? gatewayUrl : undefined,
+			gatewayUrl: gatewayUrl !== "ws://localhost:18789" ? gatewayUrl : undefined,
 			gatewayToken: gatewayToken.trim() || undefined,
 		});
 		setLocale(locale);
@@ -346,7 +346,7 @@ export function SettingsModal({ onClose }: Props) {
 						type="text"
 						value={gatewayUrl}
 						onChange={(e) => setGatewayUrl(e.target.value)}
-						placeholder="ws://localhost:3579"
+						placeholder="ws://localhost:18789"
 					/>
 				</div>
 

@@ -31,16 +31,14 @@ if [ ! -f "${OPENCLAW_DIR}/openclaw.json" ]; then
     cat > "${OPENCLAW_DIR}/openclaw.json" <<'CONF'
 {
   "gateway": {
+    "mode": "local",
     "port": 18789,
     "bind": "loopback",
     "auth": { "mode": "token" }
   },
   "agents": {
     "defaults": {
-      "workspace": "~/.cafelua/workspace",
-      "security": "allowlist",
-      "ask": "on-miss",
-      "askFallback": "deny"
+      "workspace": "~/.cafelua/workspace"
     }
   }
 }

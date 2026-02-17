@@ -5,7 +5,7 @@ set -euo pipefail
 # Installs openclaw as a local npm package in ~/.cafelua/openclaw/
 
 OPENCLAW_DIR="${HOME}/.cafelua/openclaw"
-OPENCLAW_VERSION="2026.2.14"
+OPENCLAW_VERSION="2026.2.15"
 
 echo "[cafelua] Setting up OpenClaw Gateway..."
 

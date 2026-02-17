@@ -116,7 +116,7 @@ describe("approval flow", () => {
 			},
 			messages: [{ role: "user", content: "run ls" }],
 			enableTools: true,
-			gatewayUrl: "ws://localhost:3579",
+			gatewayUrl: "ws://localhost:18789",
 		});
 
 		const approvalReq = (await waitForOutput(
@@ -175,7 +175,7 @@ describe("approval flow", () => {
 			},
 			messages: [{ role: "user", content: "read file" }],
 			enableTools: true,
-			gatewayUrl: "ws://localhost:3579",
+			gatewayUrl: "ws://localhost:18789",
 		});
 
 		// No approval_request should be emitted
@@ -222,7 +222,7 @@ describe("approval flow", () => {
 			},
 			messages: [{ role: "user", content: "delete file" }],
 			enableTools: true,
-			gatewayUrl: "ws://localhost:3579",
+			gatewayUrl: "ws://localhost:18789",
 		});
 
 		await waitForOutput(outputs, "approval_request");
@@ -280,7 +280,7 @@ describe("approval flow", () => {
 			},
 			messages: [{ role: "user", content: "write file" }],
 			enableTools: true,
-			gatewayUrl: "ws://localhost:3579",
+			gatewayUrl: "ws://localhost:18789",
 		});
 
 		// Wait for approval_request
