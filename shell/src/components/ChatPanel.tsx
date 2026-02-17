@@ -163,7 +163,9 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 				ttsApiKey: ttsEnabled ? config.googleApiKey : undefined,
 				systemPrompt: buildSystemPrompt(config.persona),
 				enableTools: config.enableTools,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl: config.enableTools
+					? config.gatewayUrl || "ws://localhost:18789"
+					: undefined,
 				gatewayToken: config.gatewayToken,
 			});
 		} catch (err) {

@@ -1,5 +1,6 @@
 import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
+import { loadDeviceIdentity } from "./gateway/device-identity.js";
 import { GATEWAY_TOOLS, executeTool } from "./gateway/tool-bridge.js";
 import {
 	getToolDescription,
@@ -100,7 +101,11 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		// Connect to Gateway if tools enabled
 		if (enableTools && gatewayUrl) {
 			gateway = new GatewayClient();
-			await gateway.connect(gatewayUrl, { token: gatewayToken || "" });
+			const device = loadDeviceIdentity();
+			await gateway.connect(gatewayUrl, {
+				token: gatewayToken || "",
+				device,
+			});
 		}
 
 		// Build conversation messages

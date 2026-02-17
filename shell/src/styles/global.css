@@ -529,7 +529,7 @@ body,
 }
 
 .settings-field select,
-.settings-field input {
+.settings-field input:not([type="checkbox"]) {
 	width: 100%;
 	padding: 8px 10px;
 	background: var(--espresso-dark);
@@ -556,7 +556,7 @@ body,
 }
 
 .settings-field select:focus,
-.settings-field input:focus {
+.settings-field input:not([type="checkbox"]):focus {
 	border-color: var(--wood);
 }
 

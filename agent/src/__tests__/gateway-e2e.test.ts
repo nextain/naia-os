@@ -22,8 +22,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GatewayClient } from "../gateway/client.js";
+import { loadDeviceIdentity } from "../gateway/device-identity.js";
 import { executeTool } from "../gateway/tool-bridge.js";
-import type { DeviceIdentity } from "../gateway/types.js";
 
 const GATEWAY_URL = "ws://localhost:18789";
 const LIVE_E2E = process.env.CAFE_LIVE_GATEWAY_E2E === "1";
@@ -42,26 +42,6 @@ function loadGatewayToken(): string | null {
 		return config.gateway?.auth?.token || null;
 	} catch {
 		return null;
-	}
-}
-
-// Load device identity for gateway auth (Ed25519 keypair)
-function loadDeviceIdentity(): DeviceIdentity | undefined {
-	const identityPath = join(
-		homedir(),
-		".openclaw",
-		"identity",
-		"device.json",
-	);
-	try {
-		const identity = JSON.parse(readFileSync(identityPath, "utf-8"));
-		return {
-			id: identity.deviceId,
-			publicKey: identity.publicKeyPem,
-			privateKeyPem: identity.privateKeyPem,
-		};
-	} catch {
-		return undefined;
 	}
 }
 
