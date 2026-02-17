@@ -12,6 +12,7 @@ Load these when relevant to the current task:
 | Context | When to read |
 |---------|-------------|
 | `.agents/context/vision.yaml` | Discussing direction, purpose, positioning |
+| `.agents/context/architecture.yaml` | **Gateway/agent integration (ALWAYS read before gateway work)** |
 | `.agents/context/plan.yaml` | Planning or implementing any phase |
 | `.agents/context/careti-reuse.yaml` | Porting code from project-careti |
 | `.agents/context/testing.yaml` | Writing or running tests |

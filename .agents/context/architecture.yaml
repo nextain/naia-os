@@ -1,0 +1,132 @@
+description: Cafelua OS hybrid architecture (mirror of .users/context/architecture.md)
+
+design_philosophy: |
+  Cafelua OS is NOT built from scratch. It's a hybrid assembly of 3 proven ecosystems:
+  OpenClaw (Gateway/exec), project-careti (LLM/tools), OpenCode (architecture pattern).
+  Each contributes its strongest capability. The result is greater than any single source.
+
+why_hybrid:
+  pure_openclaw_problems:
+    - "CLI-only UX — no avatar, no visual feedback, no emotion"
+    - "No Tauri/desktop-native shell — terminal-first design"
+    - "Tight coupling to Claude Code as the only agent model"
+    - "No multi-provider LLM support (Gemini, xAI, etc.)"
+  pure_careti_problems:
+    - "VS Code extension — not an OS, not always-on"
+    - "No daemon architecture — dies when IDE closes"
+    - "No external channels (Discord, Telegram, etc.)"
+    - "No skills system, no memory persistence"
+  pure_opencode_problems:
+    - "TUI-only — no VRM avatar, no desktop app"
+    - "No Gateway/daemon concept"
+    - "No channel integration"
+  hybrid_solution: |
+    Take OpenClaw's daemon+exec+channels+skills ecosystem as the runtime backend.
+    Take Careti's multi-provider LLM+tool definitions+stdio protocol as the agent core.
+    Take OpenCode's client/server architecture pattern for clean separation.
+    Wrap it in a Tauri desktop shell with VRM avatar for accessible UX.
+
+three_pillars:
+  pillar_1_openclaw:
+    role: "Runtime backend (daemon + execution environment)"
+    provides:
+      - "Gateway WebSocket server (systemd, always-on)"
+      - "exec.bash, file operations via Gateway RPC"
+      - "Security: device auth, token scopes, exec approvals"
+      - "Channels: Discord, Telegram, WhatsApp, Slack, IRC, etc."
+      - "Skills: 50+ built-in (weather, time, memo, etc.)"
+      - "Memory: conversation persistence, context recall"
+      - "Sessions: multi-session management, sub-agent spawn"
+      - "ACP (Agent Control Protocol): client↔agent bridge"
+      - "TTS: integrated text-to-speech providers"
+    connection_protocol:
+      handshake: "connect.challenge → connect (protocol v3)"
+      auth: "device identity + token scopes (Ed25519 signed nonce)"
+      client_id: "cli (paired device identifier)"
+      methods: "88 methods (agent, sessions.*, exec.*, skills.*, channels.*, etc.)"
+    what_cafelua_uses:
+      - "Gateway daemon as systemd user service"
+      - "exec.bash for command execution"
+      - "exec.approvals for permission system"
+      - "sessions.* for session management"
+      - "skills.* for built-in and custom skills"
+      - "channels.* for Discord/Telegram"
+      - "agent method for agent interaction"
+
+  pillar_2_careti:
+    role: "Agent intelligence (LLM + tools + persona)"
+    provides:
+      - "Multi-provider LLM: Gemini (default), xAI (Grok), Claude"
+      - "Tool definitions: GATEWAY_TOOLS (8 tools)"
+      - "Function calling: Gemini native (xAI/Claude = tech debt)"
+      - "Alpha persona: system prompt, emotion mapping"
+      - "Cost tracking: per-request cost display"
+      - "stdio JSON lines protocol: Shell ↔ Agent"
+    what_cafelua_uses:
+      - "LLM providers (gemini.ts, xai.ts, anthropic.ts)"
+      - "Tool loop (max 10 iterations, abort support)"
+      - "Permission tiers 0-3"
+      - "stdio protocol (chat_request/text/tool_use/tool_result/etc.)"
+
+  pillar_3_opencode:
+    role: "Architecture pattern (client/server separation)"
+    provides:
+      - "Clean client/server separation"
+      - "Provider abstraction layer"
+      - "LSP-style communication pattern"
+    what_cafelua_uses:
+      - "Shell (client) / Agent (server) separation via stdio"
+      - "Provider factory pattern (buildProvider)"
+      - "Clean module boundaries (shell/agent/gateway)"
+
+runtime_architecture:
+  diagram: |
+    ┌─────────────────────────────────────────────────────────┐
+    │  Cafelua Shell (Tauri 2 + React + Three.js VRM Avatar) │
+    │  Role: Desktop UI, avatar rendering, chat panel        │
+    │  Source: Cafelua + AIRI (VRM) + shadcn/ui              │
+    └──────────────────────┬──────────────────────────────────┘
+                           │ stdio JSON lines
+    ┌──────────────────────▼──────────────────────────────────┐
+    │  Cafelua Agent (Node.js)                                │
+    │  Role: LLM connection, tool orchestration, Alpha persona│
+    │  Source: Careti providers + OpenCode pattern             │
+    │  Features: multi-LLM, TTS, emotion, cost tracking       │
+    └──────────────────────┬──────────────────────────────────┘
+                           │ WebSocket (ws://127.0.0.1:18789)
+    ┌──────────────────────▼──────────────────────────────────┐
+    │  OpenClaw Gateway (systemd user service)                │
+    │  Role: Execution, security, channels, skills, memory    │
+    │  Source: OpenClaw ecosystem (npm: openclaw)              │
+    │  Auth: device identity + token scopes (protocol v3)     │
+    │  Methods: 88 (exec.bash, agent, sessions.*, skills.*)   │
+    └─────────────────────────────────────────────────────────┘
+
+  data_flow:
+    chat: "User → Shell → Agent → LLM → Agent → Shell → User"
+    tool_exec: "LLM → Agent (tool_use) → Gateway (exec.bash) → OS → result → LLM"
+    approval: "Gateway → Agent (approval_request) → Shell (modal) → user decision → Agent → Gateway"
+    external: "Discord msg → Gateway → Agent → LLM → Agent → Gateway → Discord reply"
+
+security_layers:
+  layer_1_os: "Bazzite immutable rootfs + SELinux"
+  layer_2_gateway: "OpenClaw device auth + token scopes + exec approvals"
+  layer_3_agent: "Permission tiers 0-3 + tool-level blocking"
+  layer_4_shell: "User approval modal + tools on/off toggle"
+  principle: "Defense in depth. Every layer is independent."
+
+gateway_client_protocol:
+  description: "How Cafelua Agent connects to OpenClaw Gateway"
+  steps:
+    1_ws_connect: "WebSocket connect to ws://127.0.0.1:18789"
+    2_challenge: "Receive connect.challenge event with nonce"
+    3_handshake: "Send connect request with auth token, protocol v3, client info"
+    4_hello_ok: "Receive hello-ok with available methods and features"
+    5_rpc: "Send/receive req/res frames for tool execution"
+  auth_params:
+    token: "gateway.auth.token from config (shared secret)"
+    client_id: "cli (matches paired device clientId)"
+    platform: "linux"
+    mode: "cli"
+    min_protocol: 3
+    max_protocol: 3
