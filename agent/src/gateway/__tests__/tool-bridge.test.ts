@@ -6,6 +6,7 @@ import { GATEWAY_TOOLS, executeTool } from "../tool-bridge.js";
 let mockServer: WebSocketServer;
 let serverPort: number;
 let client: GatewayClient;
+let lastCommand: string;
 
 beforeAll(async () => {
 	mockServer = new WebSocketServer({ port: 0 });
@@ -17,7 +18,8 @@ beforeAll(async () => {
 			if (msg.type === "req") {
 				if (msg.method === "exec.bash") {
 					const cmd = msg.params.command as string;
-					if (cmd.startsWith("cat ")) {
+					lastCommand = cmd;
+					if (cmd.includes("cat ")) {
 						ws.send(
 							JSON.stringify({
 								type: "res",
@@ -145,6 +147,56 @@ describe("executeTool", () => {
 			query: "test query",
 		});
 		expect(result.success).toBe(true);
+	});
+
+	it("escapes shell metacharacters in read_file path", async () => {
+		const maliciousPath = '/tmp/test"; rm -rf / #';
+		const result = await executeTool(client, "read_file", {
+			path: maliciousPath,
+		});
+		expect(result.success).toBe(true);
+		// Path must be wrapped in single quotes to prevent injection
+		expect(lastCommand).toMatch(/^cat '/);
+		expect(lastCommand).not.toMatch(/^cat "/);
+	});
+
+	it("escapes shell metacharacters in write_file path", async () => {
+		const result = await executeTool(client, "write_file", {
+			path: "/tmp/test$(whoami).txt",
+			content: "safe content",
+		});
+		expect(result.success).toBe(true);
+		// Path must be single-quoted (prevents $() expansion)
+		expect(lastCommand).toContain("'/tmp/test$(whoami).txt'");
+	});
+
+	it("escapes backticks and $() in search_files", async () => {
+		const result = await executeTool(client, "search_files", {
+			pattern: '*.ts"; rm -rf / #',
+			path: "/home/user",
+		});
+		expect(result.success).toBe(true);
+		// Pattern must be single-quoted to prevent injection
+		expect(lastCommand).toContain("-name '*.ts");
+		expect(lastCommand).toContain("find '/home/user'");
+	});
+
+	it("escapes single quotes in write_file content", async () => {
+		const result = await executeTool(client, "write_file", {
+			path: "/tmp/safe.txt",
+			content: "it's a test",
+		});
+		expect(result.success).toBe(true);
+		// Single quotes inside content must be escaped with '\''
+		expect(lastCommand).toContain("'\\''");
+	});
+
+	it("blocks null bytes in path", async () => {
+		const result = await executeTool(client, "read_file", {
+			path: "/tmp/test\x00.txt",
+		});
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("Invalid");
 	});
 
 	it("returns error for unknown tool", async () => {

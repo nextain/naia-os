@@ -36,6 +36,9 @@ export interface AgentRequest {
 	systemPrompt?: string;
 	ttsVoice?: string;
 	ttsApiKey?: string;
+	enableTools?: boolean;
+	gatewayUrl?: string;
+	gatewayToken?: string;
 }
 
 export type AgentResponseChunk =

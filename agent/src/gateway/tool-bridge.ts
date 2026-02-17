@@ -1,17 +1,26 @@
+import type { ToolDefinition } from "../providers/types.js";
 import type { GatewayClient } from "./client.js";
 
-/** Tool definition exposed to LLM via function calling */
-export interface ToolDefinition {
-	name: string;
-	description: string;
-	parameters: Record<string, unknown>;
-}
+export type { ToolDefinition };
 
 /** Result from tool execution */
 export interface ToolResult {
 	success: boolean;
 	output: string;
 	error?: string;
+}
+
+/** Escape a string for safe use inside a shell single-quoted context */
+function shellEscape(s: string): string {
+	return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
+/** Validate path has no null bytes or other dangerous characters */
+function validatePath(path: string): string | null {
+	if (path.includes("\0")) {
+		return "Invalid path: contains null byte";
+	}
+	return null;
 }
 
 /** Default tools available when Gateway is connected */
@@ -145,9 +154,14 @@ export async function executeTool(
 		}
 
 		case "read_file": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
 			try {
 				const result = (await client.request("exec.bash", {
-					command: `cat "${args.path}"`,
+					command: `cat ${shellEscape(path)}`,
 				})) as { stdout?: string; exitCode?: number };
 				return {
 					success: (result.exitCode ?? 0) === 0,
@@ -159,14 +173,20 @@ export async function executeTool(
 		}
 
 		case "write_file": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
 			try {
-				const content = (args.content as string).replace(/'/g, "'\\''");
+				const escapedPath = shellEscape(path);
+				const escapedContent = shellEscape(args.content as string);
 				const result = (await client.request("exec.bash", {
-					command: `mkdir -p "$(dirname "${args.path}")" && printf '%s' '${content}' > "${args.path}"`,
+					command: `mkdir -p "$(dirname ${escapedPath})" && printf '%s' ${escapedContent} > ${escapedPath}`,
 				})) as { exitCode?: number; stderr?: string };
 				return {
 					success: (result.exitCode ?? 0) === 0,
-					output: `File written: ${args.path}`,
+					output: `File written: ${path}`,
 					error: result.exitCode !== 0 ? result.stderr : undefined,
 				};
 			} catch (err) {
@@ -175,11 +195,17 @@ export async function executeTool(
 		}
 
 		case "search_files": {
+			const pattern = args.pattern as string;
+			const searchPath = (args.path as string) || "~";
+			const patternErr = validatePath(pattern);
+			const pathErr = validatePath(searchPath);
+			if (patternErr || pathErr) {
+				return { success: false, output: "", error: patternErr || pathErr || "Invalid input" };
+			}
 			try {
-				const searchPath = (args.path as string) || "~";
 				const command = args.content
-					? `grep -rl "${args.pattern}" ${searchPath} 2>/dev/null | head -20`
-					: `find ${searchPath} -name "${args.pattern}" 2>/dev/null | head -20`;
+					? `grep -rl ${shellEscape(pattern)} ${shellEscape(searchPath)} 2>/dev/null | head -20`
+					: `find ${shellEscape(searchPath)} -name ${shellEscape(pattern)} 2>/dev/null | head -20`;
 				const result = (await client.request("exec.bash", {
 					command,
 				})) as { stdout?: string; exitCode?: number };

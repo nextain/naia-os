@@ -29,7 +29,15 @@ vi.mock("@google/genai", () => {
 			generateContentStream: mockGenerateContentStream,
 		};
 	}
-	return { GoogleGenAI: MockGoogleGenAI };
+	return {
+		GoogleGenAI: MockGoogleGenAI,
+		FunctionCallingConfigMode: {
+			AUTO: "AUTO",
+			ANY: "ANY",
+			NONE: "NONE",
+			MODE_UNSPECIFIED: "MODE_UNSPECIFIED",
+		},
+	};
 });
 
 // Mock openai
