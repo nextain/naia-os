@@ -20,6 +20,7 @@ export interface AppConfig {
 	locale?: Locale;
 	theme?: ThemeId;
 	backgroundImage?: string;
+	vrmModel?: string;
 	ttsEnabled?: boolean;
 	sttEnabled?: boolean;
 	ttsVoice?: string;

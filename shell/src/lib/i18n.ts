@@ -220,6 +220,17 @@ const translations = {
 		ko: "기억 추출 중...",
 		en: "Extracting memories...",
 	},
+
+	// Avatar & Background (VRM/BG picker)
+	"settings.avatarSection": { ko: "아바타", en: "Avatar" },
+	"settings.vrmModel": { ko: "VRM 모델", en: "VRM Model" },
+	"settings.vrmCustom": { ko: "파일 선택...", en: "Choose File..." },
+	"settings.backgroundSection": {
+		ko: "배경",
+		en: "Background",
+	},
+	"settings.bgCustom": { ko: "파일 선택...", en: "Choose File..." },
+	"settings.bgNone": { ko: "기본 그라데이션", en: "Default Gradient" },
 } as const;
 
 type TranslationKey = keyof typeof translations;

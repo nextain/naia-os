@@ -310,9 +310,14 @@ export function AvatarCanvas() {
 		}
 
 		async function init() {
-			Logger.info("AvatarCanvas", "Loading VRM model", { modelPath });
+			// Convert absolute file paths for custom VRM models
+			const vrmUrl = modelPath.startsWith("/")
+				&& !modelPath.startsWith("/avatars/")
+				? convertFileSrc(modelPath)
+				: modelPath;
+			Logger.info("AvatarCanvas", "Loading VRM model", { modelPath, vrmUrl });
 
-			const result = await loadVrm(modelPath, {
+			const result = await loadVrm(vrmUrl, {
 				scene,
 				lookAt: true,
 				onProgress: (progress) => {

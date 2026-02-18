@@ -1,4 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import {
 	type ThemeId,
@@ -12,6 +13,7 @@ import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import { DEFAULT_PERSONA } from "../lib/persona";
 import type { ProviderId } from "../lib/types";
+import { useAvatarStore } from "../stores/avatar";
 
 const PROVIDERS: { id: ProviderId; label: string }[] = [
 	{ id: "gemini", label: "Google Gemini" },
@@ -38,6 +40,23 @@ const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "en", label: "English" },
 ];
 
+const VRM_SAMPLES: { path: string; label: string }[] = [
+	{
+		path: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+		label: "Shino (Dark)",
+	},
+	{
+		path: "/avatars/Sendagaya-Shino-light-uniform.vrm",
+		label: "Shino (Light)",
+	},
+	{ path: "/avatars/vrm-ol-girl.vrm", label: "Girl" },
+	{ path: "/avatars/vrm-sample-boy.vrm", label: "Boy" },
+];
+
+const BG_SAMPLES: { path: string; label: string }[] = [
+	{ path: "/assets/lounge-sunny.webp", label: "Lounge" },
+];
+
 const THEMES: { id: ThemeId; label: string; preview: string }[] = [
 	{ id: "espresso", label: "Espresso", preview: "#3b2f2f" },
 	{ id: "midnight", label: "Midnight", preview: "#1a1a2e" },
@@ -51,6 +70,7 @@ const THEMES: { id: ThemeId; label: string; preview: string }[] = [
 
 export function SettingsTab() {
 	const existing = loadConfig();
+	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
 	const [provider, setProvider] = useState<ProviderId>(
 		existing?.provider ?? "gemini",
 	);
@@ -62,6 +82,9 @@ export function SettingsTab() {
 		existing?.locale ?? getLocale(),
 	);
 	const [theme, setTheme] = useState<ThemeId>(existing?.theme ?? "espresso");
+	const [vrmModel, setVrmModel] = useState(
+		existing?.vrmModel ?? "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+	);
 	const [backgroundImage, setBackgroundImage] = useState(
 		existing?.backgroundImage ?? "",
 	);
@@ -114,6 +137,30 @@ export function SettingsTab() {
 		document.documentElement.setAttribute("data-theme", id);
 	}
 
+	async function handlePickVrmFile() {
+		const selected = await open({
+			title: "VRM 파일 선택",
+			filters: [{ name: "VRM", extensions: ["vrm"] }],
+			multiple: false,
+		});
+		if (selected) {
+			setVrmModel(selected);
+		}
+	}
+
+	async function handlePickBgFile() {
+		const selected = await open({
+			title: "배경 이미지 선택",
+			filters: [
+				{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp"] },
+			],
+			multiple: false,
+		});
+		if (selected) {
+			setBackgroundImage(selected);
+		}
+	}
+
 	async function handleVoicePreview() {
 		const key =
 			googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
@@ -149,6 +196,7 @@ export function SettingsTab() {
 			setError(t("settings.apiKeyRequired"));
 			return;
 		}
+		const defaultVrm = "/avatars/Sendagaya-Shino-dark-uniform.vrm";
 		saveConfig({
 			...existing,
 			provider,
@@ -156,6 +204,7 @@ export function SettingsTab() {
 			apiKey: apiKey.trim(),
 			locale,
 			theme,
+			vrmModel: vrmModel !== defaultVrm ? vrmModel : undefined,
 			backgroundImage: backgroundImage || undefined,
 			ttsEnabled,
 			sttEnabled,
@@ -168,6 +217,7 @@ export function SettingsTab() {
 			gatewayToken: gatewayToken.trim() || undefined,
 		});
 		setLocale(locale);
+		setAvatarModelPath(vrmModel);
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2000);
 	}
@@ -202,6 +252,113 @@ export function SettingsTab() {
 							title={th.label}
 						/>
 					))}
+				</div>
+			</div>
+
+			<div className="settings-section-divider">
+				<span>{t("settings.avatarSection")}</span>
+			</div>
+
+			<div className="settings-field">
+				<label>{t("settings.vrmModel")}</label>
+				<div className="vrm-picker">
+					{VRM_SAMPLES.map((v) => (
+						<button
+							key={v.path}
+							type="button"
+							className={`vrm-card ${vrmModel === v.path ? "active" : ""}`}
+							onClick={() => setVrmModel(v.path)}
+							title={v.label}
+						>
+							<span className="vrm-card-icon">&#x1F464;</span>
+							<span className="vrm-card-label">{v.label}</span>
+						</button>
+					))}
+					{/* Show custom VRM card if selected */}
+					{!VRM_SAMPLES.some((v) => v.path === vrmModel) && vrmModel && (
+						<button
+							type="button"
+							className="vrm-card active"
+							title={vrmModel}
+						>
+							<span className="vrm-card-icon">&#x1F464;</span>
+							<span className="vrm-card-label">
+								{vrmModel.split("/").pop()?.replace(".vrm", "") ?? "Custom"}
+							</span>
+						</button>
+					)}
+					<button
+						type="button"
+						className="vrm-card vrm-card-add"
+						onClick={handlePickVrmFile}
+						title={t("settings.vrmCustom")}
+					>
+						<span className="vrm-card-icon">+</span>
+						<span className="vrm-card-label">{t("settings.vrmCustom")}</span>
+					</button>
+				</div>
+			</div>
+
+			<div className="settings-field">
+				<label>{t("settings.background")}</label>
+				<div className="bg-picker">
+					<button
+						type="button"
+						className={`bg-card ${!backgroundImage ? "active" : ""}`}
+						onClick={() => setBackgroundImage("")}
+						title={t("settings.bgNone")}
+					>
+						<span
+							className="bg-card-preview"
+							style={{
+								background: "linear-gradient(180deg, #1a1412 0%, #3b2f2f 100%)",
+							}}
+						/>
+						<span className="bg-card-label">{t("settings.bgNone")}</span>
+					</button>
+					{BG_SAMPLES.map((bg) => (
+						<button
+							key={bg.path}
+							type="button"
+							className={`bg-card ${backgroundImage === bg.path ? "active" : ""}`}
+							onClick={() => setBackgroundImage(bg.path)}
+							title={bg.label}
+						>
+							<span
+								className="bg-card-preview"
+								style={{ backgroundImage: `url(${bg.path})` }}
+							/>
+							<span className="bg-card-label">{bg.label}</span>
+						</button>
+					))}
+					{/* Show custom BG card if selected */}
+					{backgroundImage
+						&& !BG_SAMPLES.some((bg) => bg.path === backgroundImage) && (
+						<button
+							type="button"
+							className="bg-card active"
+							title={backgroundImage}
+						>
+							<span
+								className="bg-card-preview"
+								style={{
+									backgroundImage: `url(${convertFileSrc(backgroundImage)})`,
+								}}
+							/>
+							<span className="bg-card-label">
+								{backgroundImage.split("/").pop() ?? "Custom"}
+							</span>
+						</button>
+					)}
+					<button
+						type="button"
+						className="bg-card bg-card-add"
+						onClick={handlePickBgFile}
+						title={t("settings.bgCustom")}
+					>
+						<span className="bg-card-preview bg-card-add-icon">+</span>
+						<span className="bg-card-label">{t("settings.bgCustom")}</span>
+					</button>
 				</div>
 			</div>
 
@@ -389,28 +546,6 @@ export function SettingsTab() {
 					</button>
 				</div>
 			)}
-
-			<div className="settings-field">
-				<label htmlFor="bg-input">{t("settings.background")}</label>
-				<div className="background-picker">
-					<input
-						id="bg-input"
-						type="text"
-						value={backgroundImage}
-						onChange={(e) => setBackgroundImage(e.target.value)}
-						placeholder="/path/to/image.png"
-					/>
-					{backgroundImage && (
-						<button
-							type="button"
-							className="bg-clear-btn"
-							onClick={() => setBackgroundImage("")}
-						>
-							{t("settings.backgroundClear")}
-						</button>
-					)}
-				</div>
-			</div>
 
 			<div className="settings-actions">
 				<button

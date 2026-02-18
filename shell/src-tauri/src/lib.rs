@@ -829,6 +829,7 @@ async fn reset_window_state(app: AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             agent: Mutex::new(None),
             gateway: Mutex::new(None),

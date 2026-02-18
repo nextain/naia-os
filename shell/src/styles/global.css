@@ -759,30 +759,119 @@ body,
 	border-color: var(--cream);
 }
 
-/* Background Picker */
-.background-picker {
+/* VRM Model Picker */
+.vrm-picker {
 	display: flex;
 	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.vrm-card {
+	display: flex;
+	flex-direction: column;
 	align-items: center;
-}
-
-.background-picker input[type="text"] {
-	flex: 1;
-	min-width: 0;
-}
-
-.bg-clear-btn {
-	padding: 4px 10px;
-	border-radius: 4px;
-	border: none;
-	background: var(--espresso-light);
+	gap: 4px;
+	padding: 8px 6px;
+	border-radius: 6px;
+	border: 2px solid var(--espresso-light);
+	background: var(--espresso-medium);
 	color: var(--cream-dim);
-	font-size: 12px;
 	cursor: pointer;
+	width: 72px;
+	font-size: 11px;
+	transition: border-color 0.15s;
 }
 
-.bg-clear-btn:hover {
-	color: var(--error);
+.vrm-card:hover {
+	border-color: var(--cream-dim);
+}
+
+.vrm-card.active {
+	border-color: var(--cream);
+	color: var(--cream);
+}
+
+.vrm-card-icon {
+	font-size: 22px;
+	line-height: 1;
+}
+
+.vrm-card-label {
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	width: 100%;
+}
+
+.vrm-card-add {
+	border-style: dashed;
+}
+
+.vrm-card-add .vrm-card-icon {
+	font-size: 20px;
+	opacity: 0.6;
+}
+
+/* Background Image Picker */
+.bg-picker {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.bg-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 0;
+	border-radius: 6px;
+	border: 2px solid var(--espresso-light);
+	background: var(--espresso-medium);
+	color: var(--cream-dim);
+	cursor: pointer;
+	width: 80px;
+	overflow: hidden;
+	font-size: 11px;
+	transition: border-color 0.15s;
+}
+
+.bg-card:hover {
+	border-color: var(--cream-dim);
+}
+
+.bg-card.active {
+	border-color: var(--cream);
+	color: var(--cream);
+}
+
+.bg-card-preview {
+	width: 100%;
+	height: 48px;
+	background-size: cover;
+	background-position: center;
+}
+
+.bg-card-label {
+	padding: 2px 4px 4px;
+	text-align: center;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	width: 100%;
+}
+
+.bg-card-add {
+	border-style: dashed;
+}
+
+.bg-card-add-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 20px;
+	opacity: 0.6;
 }
 
 .settings-toggle-row {
