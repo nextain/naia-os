@@ -1,6 +1,10 @@
 name: Generate ISO
 
 on:
+  workflow_run:
+    workflows: ["Release Cafelua Shell"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       image_tag:
@@ -16,6 +20,9 @@ jobs:
   build-iso:
     name: Generate ISO
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: write
 
@@ -30,10 +37,10 @@ jobs:
           arch: x86_64
           image_name: ${{ env.IMAGE_NAME }}
           image_repo: ${{ env.IMAGE_REGISTRY }}
-          image_tag: ${{ inputs.image_tag }}
+          image_tag: ${{ inputs.image_tag || 'latest' }}
           variant: Kinoite
           version: "43"
-          iso_name: cafelua-os-${{ inputs.image_tag }}.iso
+          iso_name: cafelua-os-${{ inputs.image_tag || 'latest' }}.iso
           enable_cache_dnf: "false"
           enable_cache_skopeo: "false"
           enable_flatpak_dependencies: "false"
@@ -41,7 +48,7 @@ jobs:
       - name: Upload ISO as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cafelua-os-${{ inputs.image_tag }}
+          name: cafelua-os-${{ inputs.image_tag || 'latest' }}
           path: ${{ steps.build.outputs.iso_path }}
           retention-days: 7
           if-no-files-found: error

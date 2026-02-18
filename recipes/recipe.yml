@@ -8,16 +8,12 @@ modules:
     install:
       - nodejs
       - npm
-      # Tauri 2 build dependencies
-      - webkit2gtk4.1-devel
-      - openssl-devel
-      - libappindicator-gtk3-devel
-      - librsvg2-devel
-      - libxdo-devel
-      - gcc
-      - gcc-c++
-      - make
-      - pkg-config
+      # Tauri 2 runtime dependencies
+      - webkit2gtk4.1
+      - openssl
+      - libappindicator-gtk3
+      - librsvg2
+      - libxdo
       # Korean input
       - fcitx5
       - fcitx5-hangul
@@ -32,6 +28,7 @@ modules:
   - type: script
     scripts:
       - install-pnpm.sh
+      - install-cafelua-shell.sh
       - branding.sh
 
   - type: files
