@@ -24,7 +24,10 @@ import {
 	reAnchorRootPositionTrack,
 } from "../lib/vrm/animation";
 import { loadVrm } from "../lib/vrm/core";
-import { createEmotionController } from "../lib/vrm/expression";
+import {
+	buildExpressionResolver,
+	createEmotionController,
+} from "../lib/vrm/expression";
 import { randomSaccadeInterval } from "../lib/vrm/eye-motions";
 import { createMouthController } from "../lib/vrm/mouth";
 import { useAvatarStore } from "../stores/avatar";
@@ -97,7 +100,12 @@ function createAnimationState(): AnimationState {
 	};
 }
 
-function updateBlink(vrm: VRM, delta: number, state: AnimationState) {
+function updateBlink(
+	vrm: VRM,
+	delta: number,
+	state: AnimationState,
+	blinkName: string,
+) {
 	if (!vrm.expressionManager) return;
 
 	state.timeSinceLastBlink += delta;
@@ -110,12 +118,12 @@ function updateBlink(vrm: VRM, delta: number, state: AnimationState) {
 	if (state.isBlinking) {
 		state.blinkProgress += delta / BLINK_DURATION;
 		const blinkValue = Math.sin(Math.PI * state.blinkProgress);
-		vrm.expressionManager.setValue("blink", blinkValue);
+		vrm.expressionManager.setValue(blinkName, blinkValue);
 
 		if (state.blinkProgress >= 1) {
 			state.isBlinking = false;
 			state.timeSinceLastBlink = 0;
-			vrm.expressionManager.setValue("blink", 0);
+			vrm.expressionManager.setValue(blinkName, 0);
 			state.nextBlinkTime = randomBlinkInterval();
 		}
 	}
@@ -180,6 +188,7 @@ export function AvatarCanvas() {
 		let mixer: AnimationMixer | null = null;
 		let emotionCtrl: ReturnType<typeof createEmotionController> | null = null;
 		let mouthCtrl: ReturnType<typeof createMouthController> | null = null;
+		let blinkExprName = "blink";
 
 		// Renderer
 		const renderer = new WebGLRenderer({ antialias: true, alpha: true });
@@ -280,7 +289,7 @@ export function AvatarCanvas() {
 
 			if (vrm) {
 				vrm.humanoid?.update();
-				updateBlink(vrm, delta, animState);
+				updateBlink(vrm, delta, animState, blinkExprName);
 				updateSaccade(vrm, delta, animState);
 				emotionCtrl?.update(delta);
 				mouthCtrl?.update(delta);
@@ -321,6 +330,21 @@ export function AvatarCanvas() {
 			vrm = result._vrm;
 			emotionCtrl = createEmotionController(vrm);
 			mouthCtrl = createMouthController(vrm);
+
+			// Resolve blink expression name for VRM 0.0/1.0 compat
+			if (vrm.expressionManager) {
+				const resolve = buildExpressionResolver(
+					vrm.expressionManager.expressionMap,
+				);
+				blinkExprName = resolve("blink") ?? "blink";
+				const available = Object.keys(vrm.expressionManager.expressionMap);
+				Logger.info("AvatarCanvas", "VRM expressions available", {
+					count: available.length,
+					names: available.join(", "),
+					blinkResolved: blinkExprName,
+				});
+			}
+
 			Logger.info("AvatarCanvas", "VRM model loaded", {
 				center: `${result.modelCenter.x.toFixed(2)},${result.modelCenter.y.toFixed(2)},${result.modelCenter.z.toFixed(2)}`,
 			});

@@ -52,7 +52,8 @@ describe("parseEmotion", () => {
 });
 
 describe("createEmotionController", () => {
-	function createMockVrm() {
+	/** VRM 1.0 style expression names (lowercase) */
+	function createMockVrm10() {
 		const values = new Map<string, number>();
 		return {
 			expressionManager: {
@@ -75,24 +76,91 @@ describe("createEmotionController", () => {
 		};
 	}
 
+	/** VRM 0.0 style expression names (PascalCase, Joy/Sorrow/Fun) */
+	function createMockVrm00() {
+		const values = new Map<string, number>();
+		return {
+			expressionManager: {
+				expressionMap: {
+					Neutral: {},
+					Joy: {},
+					Sorrow: {},
+					Angry: {},
+					Fun: {},
+					Surprised: {},
+					A: {},
+					I: {},
+					U: {},
+					E: {},
+					O: {},
+					Blink: {},
+				},
+				setValue: (name: string, value: number) => {
+					values.set(name, value);
+				},
+				getValue: (name: string) => values.get(name) ?? 0,
+			},
+			_values: values,
+		};
+	}
+
 	it("creates controller with setEmotion and update", () => {
-		const vrm = createMockVrm();
+		const vrm = createMockVrm10();
 		const controller = createEmotionController(vrm as any);
 		expect(controller.setEmotion).toBeDefined();
 		expect(controller.update).toBeDefined();
 	});
 
-	it("setEmotion happy sets target expressions", () => {
-		const vrm = createMockVrm();
+	it("setEmotion happy sets target expressions (VRM 1.0)", () => {
+		const vrm = createMockVrm10();
 		const controller = createEmotionController(vrm as any);
 		controller.setEmotion("happy");
-		// After setting, need update to apply
-		controller.update(0.5); // enough delta for full blend
+		controller.update(0.5);
 		expect(vrm._values.get("happy")).toBeGreaterThan(0);
 	});
 
+	it("setEmotion happy maps to Joy for VRM 0.0 model", () => {
+		const vrm = createMockVrm00();
+		const controller = createEmotionController(vrm as any);
+		controller.setEmotion("happy");
+		controller.update(0.5);
+		expect(vrm._values.get("Joy")).toBeGreaterThan(0);
+	});
+
+	it("setEmotion sad maps to Sorrow for VRM 0.0 model", () => {
+		const vrm = createMockVrm00();
+		const controller = createEmotionController(vrm as any);
+		controller.setEmotion("sad");
+		controller.update(0.5);
+		expect(vrm._values.get("Sorrow")).toBeGreaterThan(0);
+	});
+
+	it("setEmotion angry maps to Angry for VRM 0.0 model", () => {
+		const vrm = createMockVrm00();
+		const controller = createEmotionController(vrm as any);
+		controller.setEmotion("angry");
+		controller.update(0.5);
+		expect(vrm._values.get("Angry")).toBeGreaterThan(0);
+	});
+
+	it("setEmotion surprised maps to Surprised for VRM 0.0 model", () => {
+		const vrm = createMockVrm00();
+		const controller = createEmotionController(vrm as any);
+		controller.setEmotion("surprised");
+		controller.update(0.5);
+		expect(vrm._values.get("Surprised")).toBeGreaterThan(0);
+	});
+
+	it("setEmotion neutral maps to Neutral for VRM 0.0 model", () => {
+		const vrm = createMockVrm00();
+		const controller = createEmotionController(vrm as any);
+		controller.setEmotion("neutral");
+		controller.update(0.5);
+		expect(vrm._values.get("Neutral")).toBeGreaterThan(0);
+	});
+
 	it("update transitions expressions over time", () => {
-		const vrm = createMockVrm();
+		const vrm = createMockVrm10();
 		const controller = createEmotionController(vrm as any);
 		controller.setEmotion("happy");
 

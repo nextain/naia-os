@@ -13,6 +13,67 @@ interface EmotionState {
 	blendDuration: number;
 }
 
+/**
+ * VRM 1.0 canonical names → VRM 0.0 legacy equivalents.
+ * Used to auto-detect which naming convention the model uses.
+ */
+const VRM_NAME_MAP: Record<string, string> = {
+	happy: "Joy",
+	sad: "Sorrow",
+	angry: "Angry",
+	surprised: "Surprised",
+	neutral: "Neutral",
+	relaxed: "Fun",
+	aa: "A",
+	ih: "I",
+	ou: "U",
+	ee: "E",
+	oh: "O",
+	blink: "Blink",
+	blinkLeft: "Blink_L",
+	blinkRight: "Blink_R",
+};
+
+/**
+ * Build a resolver that maps canonical (VRM 1.0) names to actual names in the model.
+ * If the model has "Joy" but not "happy", resolves "happy" → "Joy".
+ */
+export function buildExpressionResolver(
+	expressionMap: Record<string, unknown>,
+): (canonical: string) => string | null {
+	const available = new Set(Object.keys(expressionMap));
+	const cache = new Map<string, string | null>();
+
+	return (canonical: string): string | null => {
+		if (cache.has(canonical)) return cache.get(canonical)!;
+
+		// 1. Exact match (VRM 1.0 model)
+		if (available.has(canonical)) {
+			cache.set(canonical, canonical);
+			return canonical;
+		}
+
+		// 2. VRM 0.0 fallback
+		const legacy = VRM_NAME_MAP[canonical];
+		if (legacy && available.has(legacy)) {
+			cache.set(canonical, legacy);
+			return legacy;
+		}
+
+		// 3. Case-insensitive search
+		const lower = canonical.toLowerCase();
+		for (const name of available) {
+			if (name.toLowerCase() === lower) {
+				cache.set(canonical, name);
+				return name;
+			}
+		}
+
+		cache.set(canonical, null);
+		return null;
+	};
+}
+
 const EMOTION_STATES: Record<EmotionName, EmotionState> = {
 	happy: {
 		expression: [
@@ -73,6 +134,10 @@ function easeInOutCubic(t: number): number {
 }
 
 export function createEmotionController(vrm: VRM) {
+	const resolve = vrm.expressionManager
+		? buildExpressionResolver(vrm.expressionManager.expressionMap)
+		: (_: string) => null;
+
 	let currentEmotion: EmotionName | null = null;
 	let isTransitioning = false;
 	let transitionProgress = 0;
@@ -99,9 +164,11 @@ export function createEmotionController(vrm: VRM) {
 		}
 
 		for (const expr of state.expression) {
-			const current = vrm.expressionManager?.getValue(expr.name) ?? 0;
-			currentValues.set(expr.name, current);
-			targetValues.set(expr.name, expr.value * clamped);
+			const resolved = resolve(expr.name);
+			if (!resolved) continue;
+			const current = vrm.expressionManager?.getValue(resolved) ?? 0;
+			currentValues.set(resolved, current);
+			targetValues.set(resolved, expr.value * clamped);
 		}
 	}
 

@@ -1,8 +1,10 @@
 import type { VRM } from "@pixiv/three-vrm";
+import { buildExpressionResolver } from "./expression";
 
 type LipKey = "A" | "E" | "I" | "O" | "U";
 
-const BLENDSHAPE_MAP: Record<LipKey, string> = {
+/** Canonical VRM 1.0 vowel names */
+const CANONICAL_VOWELS: Record<LipKey, string> = {
 	A: "aa",
 	E: "ee",
 	I: "ih",
@@ -23,6 +25,19 @@ const CAP = 0.7;
  * using a randomized vowel pattern to simulate speech.
  */
 export function createMouthController(vrm: VRM) {
+	const resolve = vrm.expressionManager
+		? buildExpressionResolver(vrm.expressionManager.expressionMap)
+		: (_: string) => null;
+
+	// Resolve canonical vowel names to actual model names
+	const resolvedVowels: Record<LipKey, string | null> = {
+		A: resolve(CANONICAL_VOWELS.A),
+		E: resolve(CANONICAL_VOWELS.E),
+		I: resolve(CANONICAL_VOWELS.I),
+		O: resolve(CANONICAL_VOWELS.O),
+		U: resolve(CANONICAL_VOWELS.U),
+	};
+
 	const smoothState: Record<LipKey, number> = {
 		A: 0,
 		E: 0,
@@ -63,12 +78,14 @@ export function createMouthController(vrm: VRM) {
 		}
 
 		for (const key of LIP_KEYS) {
+			const resolved = resolvedVowels[key];
+			if (!resolved) continue;
 			const from = smoothState[key];
 			const to = target[key];
 			const rate = 1 - Math.exp(-(to > from ? ATTACK : RELEASE) * delta);
 			smoothState[key] = from + (to - from) * rate;
 			const weight = (smoothState[key] <= 0.01 ? 0 : smoothState[key]) * 0.7;
-			vrm.expressionManager.setValue(BLENDSHAPE_MAP[key], weight);
+			vrm.expressionManager.setValue(resolved, weight);
 		}
 	}
 
