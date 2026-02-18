@@ -104,7 +104,7 @@ phases:
     name: "Always-on daemon"
     timeline: "Week 5-7"
     deliverable: "Gateway daemon + external channels + memory"
-    status: "in_progress"
+    status: "complete"
     strategy: "Gateway first → Phase 3 runtime verification → then new features"
     tasks:
       step_4_0:
@@ -299,8 +299,101 @@ phases:
     reuse: "MoltBot: Gateway pattern, channel SDKs, Skills"
 
   phase_5:
+    name: "lab.cafelua.com integration"
+    timeline: "Week 8-9"
+    deliverable: "OAuth login via lab.cafelua.com, automatic API key provisioning, credit dashboard"
+    status: "pending"
+    architecture: |
+      Shell (Tauri) → OAuth → lab.cafelua.com → deep link cafelua:// → gatewayKey stored local
+      Agent → X-AnyLLM-Key: Bearer {key} → any-llm Gateway (GCP) → LLM proxy + credit deduction
+      Existing direct API key mode preserved for offline/self-hosted users.
+    tasks:
+      step_5_1:
+        name: "Deep link handler (Tauri cafelua:// URI scheme)"
+        items:
+          - "tauri.conf.json: deep-link plugin + cafelua:// scheme registration"
+          - "Cargo.toml: tauri-plugin-deep-link dependency"
+          - "lib.rs: deep-link event → parse cafelua://auth?key=xxx → emit lab_auth_complete"
+          - "capabilities/default.json: deep-link permission"
+          - "package.json: @tauri-apps/plugin-deep-link frontend binding"
+      step_5_2:
+        name: "Auth flow UI"
+        items:
+          - "config.ts: labKey?, labUserId? fields + hasLabKey() util"
+          - "OnboardingWizard.tsx: 'Lab Login' button alongside provider selection"
+          - "Browser open → lab.cafelua.com/ko/login?redirect=desktop → deep link callback → skip apiKey step"
+          - "SettingsTab.tsx: 'Lab Account' section (connected/disconnected status, disconnect button)"
+      step_5_3:
+        name: "LLM proxy integration"
+        items:
+          - "NEW agent/src/providers/lab-proxy.ts: OpenAI-compatible proxy provider for any-llm Gateway"
+          - "When labKey set → route through https://cafelua-gateway-*.run.app/v1/chat/completions"
+          - "Header: X-AnyLLM-Key: Bearer {labKey}"
+          - "Existing direct provider calls preserved when apiKey is set"
+      step_5_4:
+        name: "Credit balance display"
+        items:
+          - "CostDashboard.tsx: server balance query + display when Lab connected"
+          - "Balance API: GET /v1/profile/balance (labKey auth)"
+          - "'Charge credits' button → lab.cafelua.com/billing link"
+      step_5_5:
+        name: "Tests"
+        items:
+          - "NEW shell/src/__tests__/lab-auth.test.ts (deep link parsing, config save)"
+          - "NEW agent/src/__tests__/lab-proxy.test.ts (proxy provider unit test)"
+          - "NEW shell/e2e-tauri/specs/13-lab-login.spec.ts (E2E deep link simulation)"
+          - "MOD shell/e2e-tauri/specs/02-configure.spec.ts (Lab login option exists)"
+    done_when: "Lab login → auto key provisioning → LLM calls via gateway → credit balance visible"
+
+  phase_6:
+    name: "Tauri app distribution (Linux packages)"
+    timeline: "Week 10"
+    deliverable: "Standalone Linux app: deb, rpm, AppImage via GitHub Releases"
+    status: "pending"
+    tasks:
+      step_6_1:
+        name: "Tauri bundle config"
+        items:
+          - "tauri.conf.json: bundle section (deb, rpm, AppImage formats)"
+          - "Icon, category, license settings"
+          - "deep-link URI scheme in deb/rpm packages"
+      step_6_2:
+        name: "AppImage build + GitHub Release"
+        items:
+          - "NEW .github/workflows/release-app.yml"
+          - "cargo tauri build → AppImage, deb, rpm"
+          - "GitHub Release upload, Linux x86_64 target"
+      step_6_3:
+        name: "Flathub (optional)"
+        items:
+          - "NEW flatpak/com.cafelua.Shell.yml manifest"
+          - "Flathub submission (separate repo)"
+          - "deep-link URI handler registration"
+    done_when: "AppImage downloadable from GitHub Releases, installable on stock Linux"
+
+  phase_7:
+    name: "OS ISO build"
+    timeline: "Week 11"
+    deliverable: "Cafelua OS ISO: USB boot → install → complete AI OS"
+    status: "pending"
+    tasks:
+      step_7_1:
+        name: "Recipe + Tauri app inclusion"
+        items:
+          - "recipes/recipe.yml: include Phase 6 AppImage/binary in ISO"
+          - "config/files/usr/bin/cafelua-shell or AppImage placement"
+          - "config/scripts/: first-boot setup script update if needed"
+      step_7_2:
+        name: "ISO build test"
+        items:
+          - "GitHub Actions iso.yml workflow dispatch"
+          - "ISO download → VM boot test (QEMU/VirtualBox)"
+          - "Smoke test execution"
+    done_when: "ISO boots in VM, Cafelua Shell auto-starts with Lab login option"
+
+  phase_8:
     name: "Gaming with Alpha"
-    timeline: "Week 8+"
+    timeline: "Week 12+"
     deliverable: "Co-play Minecraft, game overlay avatar"
     tasks:
       - "Minecraft agent (Mineflayer, autonomous actions)"
@@ -312,4 +405,5 @@ phases:
 attention_points:
   phase_0: "Deploy pipeline = highest priority. Everything else layers on top."
   phase_2: "Public demo point. Must be polished enough to share."
+  phase_5: "Lab integration enables credit-based monetization. Critical for sustainability."
   security: "Permission tiers active from Phase 3. Audit log from day one."

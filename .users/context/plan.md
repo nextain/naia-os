@@ -504,29 +504,151 @@ interface MemoryProcessor {
 
 ---
 
-## Phase 5: Alpha와 게임을 한다 (Week 8+)
+## Phase 5: lab.cafelua.com 통합 (Week 8-9)
+
+> **결과물**: Lab OAuth 로그인으로 API 키 입력 없이 편리하게 사용. 기존 수동 키 입력 유지.
+
+### 아키텍처
+
+```
+┌────────────────┐    OAuth     ┌─────────────────────┐
+│  Cafelua Shell │ ──────────→  │  lab.cafelua.com     │
+│  (Tauri 앱)    │  ←────────── │  (Next.js 포털)      │
+│                │  deep link   │                       │
+│  gatewayKey    │  cafelua://  │  POST desktop-key     │
+│  stored local  │              │  → virtual key 발급   │
+└───────┬────────┘              └──────────┬────────────┘
+        │ X-AnyLLM-Key: Bearer {key}       │
+        ▼                                   ▼
+┌─────────────────────────────────────────────────┐
+│            any-llm Gateway (GCP)                 │
+│  LLM 프록시 + 크레딧 차감 + 사용량 추적           │
+└─────────────────────────────────────────────────┘
+```
+
+### 5-1. Deep Link 핸들러 (Tauri)
+
+**Tauri `cafelua://` URI 스킴 등록 + 처리.**
+
+- `shell/src-tauri/tauri.conf.json`: deep-link 플러그인 + 스킴 등록
+- `shell/src-tauri/Cargo.toml`: tauri-plugin-deep-link 의존성
+- `shell/src-tauri/src/lib.rs`: deep-link 이벤트 → `cafelua://auth?key=xxx` 파싱 → emit
+- `shell/src-tauri/capabilities/default.json`: deep-link 퍼미션
+- `shell/package.json`: @tauri-apps/plugin-deep-link 프론트엔드 바인딩
+
+### 5-2. 인증 흐름 UI
+
+- `config.ts`: `labKey?`, `labUserId?` 필드 + `hasLabKey()` 유틸
+- `OnboardingWizard.tsx`: "Lab 로그인" 버튼 (기존 프로바이더 선택과 병행)
+- 브라우저 → lab.cafelua.com 로그인 → deep link 콜백 → 키 저장 → apiKey 스텝 건너뛰기
+- `SettingsTab.tsx`: "Lab 계정 연결" 섹션 (연결 상태 표시, 해제 버튼)
+
+### 5-3. LLM 프록시 연동
+
+- **신규** `agent/src/providers/lab-proxy.ts`: OpenAI-compatible 프록시 프로바이더
+- Lab 키 설정 시 → any-llm Gateway 경유 LLM 호출
+- 헤더: `X-AnyLLM-Key: Bearer {labKey}`
+- 기존 직접 호출 로직은 apiKey 설정 시 그대로 유지
+
+### 5-4. 크레딧 잔액 표시
+
+- `CostDashboard.tsx`: Lab 연결 시 서버 잔액 조회 + 표시
+- 잔액 API: `GET /v1/profile/balance` (labKey 인증)
+- "크레딧 충전" 버튼 → lab.cafelua.com/billing 링크
+
+### 5-5. 테스트
+
+- `shell/src/__tests__/lab-auth.test.ts` — deep link 파싱, config 저장
+- `agent/src/__tests__/lab-proxy.test.ts` — 프록시 프로바이더 단위 테스트
+- `shell/e2e-tauri/specs/13-lab-login.spec.ts` — E2E (deep link 시뮬레이션)
+
+### Phase 5 완료 = 크레딧 기반 서비스 모드
+```
+✅ Lab 로그인 → 자동 키 발급 → Gateway 경유 LLM 호출
+✅ 크레딧 잔액 실시간 표시
+✅ 기존 로컬 모드 (직접 API 키) 병행 유지
+```
+
+---
+
+## Phase 6: Tauri 앱 배포 — Linux 패키지 (Week 10)
+
+> **결과물**: ISO 없이 기존 Linux에 설치 가능한 독립 앱
+
+### 6-1. Tauri 번들 설정
+
+- `tauri.conf.json`: bundle 섹션 (deb, rpm, AppImage)
+- 아이콘, 카테고리, 라이센스 설정
+- deep-link URI 스킴 패키지 등록
+
+### 6-2. AppImage 빌드 + GitHub Release
+
+- `.github/workflows/release-app.yml` (신규)
+- `cargo tauri build` → AppImage, deb, rpm
+- GitHub Release 업로드, Linux x86_64 타겟
+
+### 6-3. Flathub (선택)
+
+- `flatpak/com.cafelua.Shell.yml` 매니페스트
+- Flathub submission (별도 리포)
+
+### Phase 6 완료 = 독립 앱 배포
+```
+✅ AppImage 다운로드 → 더블클릭으로 실행
+✅ deb/rpm 패키지 매니저로 설치 가능
+✅ GitHub Releases에서 다운로드
+```
+
+---
+
+## Phase 7: OS ISO 빌드 (Week 11)
+
+> **결과물**: USB 부팅 → 설치 가능한 완전한 Cafelua OS
+
+### 7-1. Recipe에 Tauri 앱 포함
+
+- `recipes/recipe.yml`: Phase 6 AppImage/바이너리 포함
+- `config/files/usr/bin/cafelua-shell` 또는 AppImage 배치
+- `config/scripts/`: 첫 부팅 설정 스크립트 업데이트
+
+### 7-2. ISO 빌드 테스트
+
+- GitHub Actions `iso.yml` workflow dispatch
+- ISO 다운로드 → VM 부팅 테스트 (QEMU/VirtualBox)
+- Smoke test 실행
+
+### Phase 7 완료 = 완전한 AI OS ISO
+```
+✅ USB 부팅 → Cafelua OS 설치
+✅ Cafelua Shell 자동 시작
+✅ Lab 로그인 또는 로컬 모드 선택
+```
+
+---
+
+## Phase 8: Alpha와 게임을 한다 (Week 12+)
 
 > **결과물**: Minecraft 같이 플레이, 게임 중 아바타 반응
 
-### 5-1. Minecraft (AIRI 포팅)
+### 8-1. Minecraft (AIRI 포팅)
 
 - Mineflayer 서버 접속
 - 자율 행동 (채굴, 건축, 전투)
 - 게임 상황 → 대화 반영
 
-### 5-2. 범용 게임
+### 8-2. 범용 게임
 
 - 화면 캡처 + 비전 모델
 - 키/마우스 제어
 - 게임별 프로필
 
-### 5-3. 게임 오버레이
+### 8-3. 게임 오버레이
 
 - Alpha 아바타 오버레이 표시
 - 게임 상황 감정 반응
 - 음성 채팅
 
-### Phase 5 완료 = 차별화
+### Phase 8 완료 = 차별화
 ```
 ✅ Minecraft에서 Alpha와 함께 플레이
 ✅ 게임 중 대화/반응
@@ -542,7 +664,10 @@ Week 1:    Phase 1 (아바타)     → Alpha가 보이는 ISO
 Week 2:    Phase 2 (대화)       → Alpha와 대화하는 ISO  ← 공개 데모
 Week 3-4:  Phase 3 (도구)       → Alpha가 일하는 ISO
 Week 5-7:  Phase 4 (데몬)       → 완성된 AI OS ISO
-Week 8+:   Phase 5 (게임)       → 게임하는 AI OS ISO
+Week 8-9:  Phase 5 (Lab 통합)   → 크레딧 서비스 모드 추가
+Week 10:   Phase 6 (앱 배포)    → 독립 Linux 앱 배포
+Week 11:   Phase 7 (OS ISO)     → 최종 ISO 빌드
+Week 12+:  Phase 8 (게임)       → 게임하는 AI OS ISO
 ```
 
 **매 Phase마다 새 ISO가 나온다.**
@@ -557,4 +682,7 @@ push → GitHub Actions → 빌드 → ISO → 다운로드 가능.
 | **Phase 2** | **데모 영상: AI와 대화하는 OS** | **높음 — 여기서 공개** |
 | Phase 3 | 데모: AI가 터미널/파일 제어 | 매우 높음 |
 | Phase 4 | "Discord에서 집 AI에게 명령" | 높음 |
-| Phase 5 | "AI랑 마인크래프트" | 바이럴 가능성 |
+| **Phase 5** | **"Lab 로그인으로 API 키 없이 AI OS"** | **높음 — 크레딧 서비스** |
+| Phase 6 | "AppImage로 기존 Linux에 설치" | 중간 |
+| Phase 7 | "완성된 AI OS ISO" | 매우 높음 |
+| Phase 8 | "AI랑 마인크래프트" | 바이럴 가능성 |
