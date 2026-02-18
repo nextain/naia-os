@@ -185,14 +185,14 @@ phases:
         done_when: "All 51 skills registered + E2E tests passing."
       step_4_4:
         name: "Memory + UX + Onboarding"
-        status: "in_progress"
+        status: "complete"
         architecture: |
           2-tier memory: Short-Term Memory (STM) + Long-Term Memory (LTM).
           STM = current session full messages (zustand + SQLite).
           LTM = session summaries + semantic facts (SQLite, filled by LLM later).
           Search: SQLite LIKE (4.4a) → FTS5 BM25 (4.4b) → embeddings (4.5) → sLLM (5+).
           MemoryProcessor interface: pluggable summarize/embed/search.
-        execution_order: "4.4a ✅ → 4.4-ui (in_progress) → 4.4-onboard → 4.4b → 4.4c"
+        execution_order: "4.4a ✅ → 4.4-ui ✅ → 4.4-onboard ✅ → 4.4b ✅ → 4.4c ✅"
         order_rationale: |
           4.4-ui first: tab architecture is structural foundation for history/settings/onboarding.
           4.4-onboard second: built on new tab UI, creates user profile (name) used by context recall.
@@ -216,7 +216,7 @@ phases:
             tests: "Rust 53, Vitest 143, E2E 8 specs (15 tests) — all passing"
           step_4_4_ui:
             name: "Shell UX enhancements"
-            status: "in_progress"
+            status: "complete"
             description: "Cost dashboard, session history tab, error filter, message queue"
             items:
               - "CostDashboard.tsx: provider/model별 비용 그룹핑 테이블 (드롭다운)"
@@ -233,8 +233,8 @@ phases:
             done_when: "Settings/history/cost accessible as tabs, error filter works, message queue works."
           step_4_4_onboard:
             name: "Onboarding wizard (first-run experience)"
-            status: "planned"
-            description: "5-step wizard: welcome → name → provider → apiKey → completion"
+            status: "complete"
+            description: "7-step conversational wizard: agentName → userName → character → personality → provider → apiKey → complete"
             depends_on: "4.4-ui (built on tab architecture)"
             items:
               - "OnboardingWizard.tsx: 5단계 풀스크린 오버레이"
@@ -249,7 +249,7 @@ phases:
             done_when: "First boot → wizard → name + API key → Alpha greets by name."
           step_4_4b:
             name: "Session summarization + context recall"
-            status: "planned"
+            status: "complete"
             depends_on: "4.4-onboard (user profile provides name/context)"
             items:
               - "memory-processor.ts: summarizeSession() — LLM REST 호출로 2-3줄 요약"
@@ -265,7 +265,7 @@ phases:
             done_when: "New conversation gets context from previous sessions + knows user name."
           step_4_4c:
             name: "Semantic memory (facts)"
-            status: "planned"
+            status: "complete"
             depends_on: "4.4b (builds on summarization pipeline)"
             items:
               - "memory.rs: facts 테이블 (id, key, value, source_session, timestamps)"
