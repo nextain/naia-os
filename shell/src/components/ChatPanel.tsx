@@ -187,9 +187,7 @@ export function ChatPanel({ onOpenSettings }: ChatPanelProps) {
 				const accumulated = store.streamingContent;
 				if (accumulated.length <= 30 && accumulated.length >= 4) {
 					const { emotion } = parseEmotion(accumulated);
-					if (emotion !== "neutral") {
-						setEmotion(emotion);
-					}
+					setEmotion(emotion);
 				}
 				break;
 			}

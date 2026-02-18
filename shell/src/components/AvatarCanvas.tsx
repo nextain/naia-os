@@ -350,6 +350,15 @@ export function AvatarCanvas() {
 			}
 		});
 
+		// Subscribe to currentEmotion changes for avatar expression
+		let prevEmotion: string = "neutral";
+		const unsubEmotion = useAvatarStore.subscribe((state) => {
+			if (state.currentEmotion !== prevEmotion) {
+				prevEmotion = state.currentEmotion;
+				emotionCtrl?.setEmotion(state.currentEmotion);
+			}
+		});
+
 		init();
 		clock.start();
 		frameId = requestAnimationFrame(tick);
@@ -369,6 +378,7 @@ export function AvatarCanvas() {
 			window.removeEventListener("resize", onResize);
 			cancelAnimationFrame(frameId);
 			unsubSpeaking();
+			unsubEmotion();
 			mouthCtrl?.stop();
 			if (saveTimeout) clearTimeout(saveTimeout);
 			// Save camera position on unmount
