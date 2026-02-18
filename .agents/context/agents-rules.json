@@ -112,8 +112,12 @@
 		},
 		"e2e_scenarios": {
 			"shell": [
-				"App launches → Avatar renders → idle animation plays",
-				"User types message → LLM responds → Avatar lip-syncs",
+				"App launches → settings modal displayed (e2e-tauri/01)",
+				"Configure settings → API key + gateway + tools (e2e-tauri/02)",
+				"Basic chat → real LLM round-trip (e2e-tauri/03)",
+				"skill_time → tool execution + time response (e2e-tauri/04)",
+				"skill_system_status → memory/system info (e2e-tauri/05)",
+				"skill_memo → save + read + delete (e2e-tauri/06-07)",
 				"User requests file edit → Permission prompt → File modified",
 				"App crashes → Auto-restart → Session restored"
 			],
@@ -131,6 +135,7 @@
 			"unit": "pnpm test:unit",
 			"integration": "pnpm test:integration",
 			"e2e": "pnpm test:e2e",
+			"e2e_tauri": "cd shell && pnpm run test:e2e:tauri",
 			"all": "pnpm test",
 			"coverage": "pnpm test:coverage"
 		},

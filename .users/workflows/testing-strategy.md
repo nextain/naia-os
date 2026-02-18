@@ -24,15 +24,29 @@
 - **도구**: Vitest (Agent), cargo test (Rust)
 - **범위**: 다중 모듈 상호작용, 프로토콜 준수
 
-### E2E 테스트
-- **도구**: `cargo tauri build` + 수동 확인
-- **체크리스트**:
-  1. `cargo tauri build` 성공 (tsc + vite + cargo)
-  2. 앱 창 뜸
-  3. Agent core 시작 (stdio 연결)
-  4. 채팅 입력 동작
-  5. 설정 모달 열기/저장
-- 자동화된 E2E (tauri-driver/playwright)는 추후 계획
+### E2E 테스트 (Tauri Webview 자동화)
+- **도구**: WebdriverIO v9 + tauri-driver (실제 앱 자동화)
+- **위치**: `shell/e2e-tauri/specs/*.spec.ts`
+- **실행**: `cd shell && pnpm run test:e2e:tauri`
+- **전제조건**:
+  - `webkit2gtk-driver` 설치
+  - `cargo install tauri-driver --locked`
+  - `shell/.env`에 `GEMINI_API_KEY` 설정
+  - Gateway 실행 중 (`:18789`)
+  - 디버그 바이너리 빌드됨
+- **시나리오 (7개)**:
+  1. 앱 실행 → 설정 모달 표시
+  2. 설정 입력 → API 키, Gateway URL/토큰, 도구 권한
+  3. 기본 채팅 → 실제 LLM 왕복 통신
+  4. skill_time → 시간 도구 실행
+  5. skill_system_status → 시스템 상태 조회
+  6. skill_memo → 메모 저장 + 읽기
+  7. 정리 → 메모 삭제
+
+**주의사항:**
+- **Stale Element**: WebKitGTK에서 React 리렌더 시 element 참조가 무효화됨 → `browser.execute()`로 매번 DOM 직접 조회
+- **React 입력**: textarea value는 native setter + `dispatchEvent('input')` → 100ms 대기 → send 버튼 클릭
+- **LLM 비결정성**: Gemini가 항상 요청한 도구를 사용하지 않음 → tool-success 요소 OR 텍스트 패턴 매칭으로 유연한 검증
 
 ---
 
@@ -51,7 +65,10 @@ cd shell && pnpm run check  # Biome: 에러 없음
 # 3. 빌드
 cd shell && pnpm run build  # tsc + vite 빌드 깨끗
 
-# 4. VERIFY = 실제 빌드 + 실행 (건너뛰지 말 것!)
+# 4. Tauri E2E (Gateway + API key 필요)
+cd shell && pnpm run test:e2e:tauri  # 7개 spec 전부 통과
+
+# 5. VERIFY = 실제 빌드 + 실행 (건너뛰지 말 것!)
 cd shell && cargo tauri build  # Tauri 앱 빌드
 # 빌드된 앱 실행 → 창 뜨고 agent 연결 확인
 ```

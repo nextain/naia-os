@@ -1,9 +1,31 @@
 import { randomUUID } from "node:crypto";
 import type { ToolDefinition } from "../providers/types.js";
+import { createMemoSkill } from "../skills/built-in/memo.js";
+import { createSystemStatusSkill } from "../skills/built-in/system-status.js";
+import { createTimeSkill } from "../skills/built-in/time.js";
+import { createWeatherSkill } from "../skills/built-in/weather.js";
+import { loadCustomSkills } from "../skills/loader.js";
+import { SkillRegistry } from "../skills/registry.js";
 import { GatewayRequestError, type GatewayClient } from "./client.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
 
 export type { ToolDefinition };
+
+/** Global skill registry with built-in skills */
+export const skillRegistry = new SkillRegistry();
+skillRegistry.register(createTimeSkill());
+skillRegistry.register(createSystemStatusSkill());
+skillRegistry.register(createMemoSkill());
+skillRegistry.register(createWeatherSkill());
+
+// Load custom skills from ~/.cafelua/skills/
+const customSkillsDir = `${process.env.HOME ?? "~"}/.cafelua/skills`;
+loadCustomSkills(skillRegistry, customSkillsDir);
+
+/** Get all tools: Gateway tools + skill tools */
+export function getAllTools(hasGateway: boolean): ToolDefinition[] {
+	return [...GATEWAY_TOOLS, ...skillRegistry.toToolDefinitions(hasGateway)];
+}
 
 /** Result from tool execution */
 export interface ToolResult {
@@ -663,7 +685,11 @@ export async function executeTool(
 			});
 		}
 
-		default:
+		default: {
+			if (skillRegistry.has(toolName)) {
+				return skillRegistry.execute(toolName, args, { gateway: client });
+			}
 			return { success: false, output: "", error: `Unknown tool: ${toolName}` };
+		}
 	}
 }

@@ -15,6 +15,10 @@ const TOOL_TIERS: Record<string, number> = {
 	web_search: 1,
 	sessions_spawn: 1,
 	execute_command: 2,
+	skill_time: 0,
+	skill_system_status: 0,
+	skill_weather: 1,
+	skill_memo: 1,
 };
 
 export function getToolTier(toolName: string): number {
@@ -37,6 +41,10 @@ const TOOL_DESCRIPTIONS: Record<
 	apply_diff: (args) => `파일 편집: ${args.path ?? ""}`,
 	browser: (args) => `웹 페이지: ${args.url ?? ""}`,
 	sessions_spawn: (args) => `서브 에이전트: ${args.task ?? ""}`,
+	skill_time: () => "현재 시간 조회",
+	skill_system_status: () => "시스템 상태 조회",
+	skill_weather: (args) => `날씨 조회: ${args.location ?? ""}`,
+	skill_memo: (args) => `메모 ${args.action ?? ""}: ${args.key ?? ""}`,
 };
 
 export function getToolDescription(

@@ -40,15 +40,23 @@ test_pyramid:
       - "Tauri gateway_health command returns status"
 
   e2e:
-    tool: "cargo tauri build + manual verification"
-    scope: "Full app launch, agent connection, visual confirmation"
-    checklist:
-      - "cargo tauri build succeeds (tsc + vite + cargo)"
-      - "App window appears"
-      - "Agent core starts (stdio connection)"
-      - "Chat input functional"
-      - "Settings modal opens/saves"
-    note: "Automated E2E (tauri-driver/playwright) planned but not yet implemented"
+    tool: "WebdriverIO v9 + tauri-driver (real app E2E)"
+    scope: "Full Tauri binary launch, real LLM calls, real skill execution via Gateway"
+    location: "shell/e2e-tauri/specs/*.spec.ts"
+    run: "cd shell && pnpm run test:e2e:tauri"
+    prerequisites:
+      - "webkit2gtk-driver installed"
+      - "tauri-driver installed (cargo install tauri-driver --locked)"
+      - "shell/.env with GEMINI_API_KEY"
+      - "Gateway running on :18789"
+      - "Debug binary built"
+    scenarios:
+      - "01 App launch → settings modal"
+      - "02 Configure settings → API key, gateway, tool permissions"
+      - "03 Basic chat → real LLM round-trip"
+      - "04-06 Skill execution → skill_time, skill_system_status, skill_memo"
+      - "07 Cleanup → memo deletion"
+    note: "Real LLM API calls — requires API key. Run manually or in CI with secrets."
 
 tooling:
   test_runner: vitest
@@ -70,6 +78,9 @@ verification_checklist:
       expect: "Biome: no errors"
     - cmd: "cd shell && pnpm run build"
       expect: "tsc + vite build clean"
+    - cmd: "cd shell && pnpm run test:e2e:tauri"
+      expect: "All 7 Tauri E2E specs pass"
+      note: "Requires Gateway running + API key in shell/.env"
     - cmd: "cd shell && cargo tauri build"
       expect: "Full Tauri app builds"
       note: "This is VERIFY step — don't skip"

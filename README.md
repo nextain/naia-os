@@ -13,6 +13,35 @@ USB 꽂기 → Bazzite 부팅 → Alpha(AI 아바타)가 화면에 등장 → �
 - **개인 AI 데몬** — 항상 켜져있고, 어디서든 대화 가능
 - **게임도 같이** — AI랑 Minecraft, Factorio 등을 함께 플레이
 
+## 왜 Cafelua OS인가?
+
+기존 AI 도구들은 **"사람이 AI를 도구로 쓰는"** 구조다. ChatGPT에 질문하고, Copilot에 코드 완성 요청하고, CLI 에이전트에 명령을 내린다. AI는 특정 앱 안에 갇혀 있다.
+
+Cafelua OS는 이 관계를 뒤집는다 — **"AI에게 OS를 통째로 준다."** Alpha는 파일을 읽고 쓰고, 터미널을 실행하고, 앱을 제어한다. 특정 도구가 아니라 운영체제 자체가 AI의 작업 공간이다.
+
+### 기존 접근과의 차이
+
+| 기존 접근 | 한계 | Cafelua OS |
+|-----------|------|-----------|
+| **VS Code 확장** (Copilot, Cline 등) | IDE를 열어야 AI를 쓸 수 있음 | IDE 불필요. 항상 켜져있음 |
+| **CLI 에이전트** (Claude Code, Aider 등) | 터미널 안에서만 동작 | 파일, 브라우저, 시스템 전체를 제어 |
+| **챗봇 앱** (ChatGPT, Gemini 등) | 대화만 가능, 실행 불가 | 대화 + 실행. "파일 만들어줘"하면 실제로 만듦 |
+| **macOS 데몬** (MoltBot/OpenClaw 등) | brew 설치 필요, macOS 전용 | USB 하나로 어디서든 부팅. Linux 기반 |
+| **AI 에이전트 프레임워크** (LangChain 등) | 개발자만 사용 가능 | 비개발자도 USB 꽂으면 바로 사용 |
+
+### 실제 구현된 차별 기능
+
+- **3D VRM 아바타**: Alpha가 Three.js로 렌더링된 3D 캐릭터로 존재. 대화 중 감정 표현(기쁨, 놀람, 생각 중)과 립싱크가 실시간으로 동작
+- **불변 OS (Bazzite/Fedora Atomic)**: rpm-ostree 기반으로 시스템이 깨져도 롤백 가능. AI가 OS를 제어해도 안전
+- **멀티 LLM**: Gemini, Grok, Claude 등 여러 LLM 프로바이더를 선택해서 사용. 특정 회사에 종속되지 않음
+- **8개 도구 실행**: 파일 읽기/쓰기/편집, 터미널 명령, 웹 검색, 브라우저 제어, 파일 검색, 서브에이전트 생성이 실제로 동작
+- **4단계 권한 시스템**: 읽기(자동) → 생성/수정(알림) → 삭제/설치(승인 필요) → 시스템 파일(차단). 모든 작업은 감사 로그에 기록
+- **Gateway 데몬**: 앱을 닫아도 AI가 백그라운드에서 계속 동작. 외부 채널(Discord, Telegram 등)에서도 접근 가능한 구조
+- **Skills 시스템**: 시간 조회, 시스템 상태, 메모 등의 경량 스킬을 LLM 호출 없이 즉시 실행
+- **USB 부팅**: 설치 없이 USB에 ISO를 구워서 어떤 PC에서든 바로 사용. BlueBuild로 push할 때마다 자동 빌드
+- **음성 대화**: Google TTS/STT 연동으로 음성 입출력 + 아바타 립싱크 지원 (Gemini 프로바이더)
+- **Tauri Webview E2E**: 실제 Tauri 바이너리를 tauri-driver + WebdriverIO로 자동화하는 E2E 테스트 (7개 시나리오, 실제 LLM 호출)
+
 ## 아키텍처
 
 ```
@@ -125,6 +154,9 @@ cd agent && pnpm test              # Agent 유닛 테스트
 cd shell && pnpm test              # Shell 유닛 테스트
 cargo test --manifest-path shell/src-tauri/Cargo.toml  # Rust 테스트
 
+# Tauri Webview E2E (실제 앱 자동화, Gateway 실행 중일 때)
+cd shell && pnpm run test:e2e:tauri
+
 # Gateway E2E (Gateway 실행 중일 때)
 cd agent && CAFE_LIVE_GATEWAY_E2E=1 pnpm exec vitest run src/__tests__/gateway-e2e.test.ts
 ```
@@ -205,7 +237,7 @@ AI Studio에서 발급한 키는 기본적으로 Gemini만 사용 가능합니�
 ## 상태
 
 - **Phase 3 완료**: 8개 도구(파일/터미널/검색/웹/브라우저/서브에이전트), 권한 승인, 감사 로그, 작업 패널
-- **Phase 4 진행 중**: Gateway 자동 라이프사이클, E2E 검증 완료, 수동 테스트 대기
+- **Phase 4 진행 중**: Gateway 자동 라이프사이클, Skills 시스템 (time/system_status/memo), Tauri Webview E2E 테스트 (7/7 통과)
 
 ## 참고
 

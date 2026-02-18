@@ -1,7 +1,7 @@
 import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
-import { GATEWAY_TOOLS, executeTool } from "./gateway/tool-bridge.js";
+import { executeTool, getAllTools } from "./gateway/tool-bridge.js";
 import {
 	getToolDescription,
 	getToolTier,
@@ -96,7 +96,8 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 	try {
 		const provider = buildProvider(providerConfig);
 		const effectiveSystemPrompt = systemPrompt ?? ALPHA_SYSTEM_PROMPT;
-		const tools = enableTools && gatewayUrl ? GATEWAY_TOOLS : undefined;
+		const tools =
+			enableTools && gatewayUrl ? getAllTools(true) : undefined;
 
 		// Connect to Gateway if tools enabled
 		if (enableTools && gatewayUrl) {

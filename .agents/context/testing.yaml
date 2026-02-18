@@ -82,28 +82,73 @@ shell:
       - "Settings panel: change API key → saved to config"
     note: "Avatar 3D rendering is NOT component-tested (too heavy). Covered by E2E."
 
-  e2e:
-    location: "shell/tests/e2e/*.spec.ts"
+  e2e_mock:
+    location: "shell/e2e/*.spec.ts"
+    tool: "Playwright"
     how: |
-      Use tauri-driver (WebDriver protocol) to control the Tauri app.
-      Launches real app, interacts via WebDriver commands.
-      Agent-core is mocked (stdin/stdout fixture responses).
+      Playwright tests with mocked Tauri IPC.
+      Fast but doesn't test real Tauri binary or Gateway.
     examples:
-      - name: "App launch"
-        steps: ["Launch app", "Wait for avatar canvas", "Assert avatar visible"]
-        assert: "Avatar element exists, no crash"
+      - name: "Chat tools"
+        assert: "Tool UI components render correctly with mock data"
 
-      - name: "Chat flow"
-        steps: ["Type message", "Click send", "Wait for response"]
-        assert: "Response text appears in chat panel"
+  e2e_tauri:
+    location: "shell/e2e-tauri/specs/*.spec.ts"
+    tool: "WebdriverIO v9 + tauri-driver"
+    how: |
+      Real Tauri app E2E via WebDriver protocol.
+      tauri-driver (port 4444) launches the debug binary.
+      Vite dev server on :1420 serves the frontend.
+      Real LLM API calls (Gemini), real Gateway, real skill execution.
+    prerequisites:
+      - "webkit2gtk-driver (apt/dnf)"
+      - "cargo install tauri-driver --locked"
+      - "shell/.env with GEMINI_API_KEY"
+      - "Gateway running on :18789"
+      - "Debug binary built: cargo build -p cafelua-shell"
+    env_vars:
+      CAFE_E2E_API_KEY: "Override for GEMINI_API_KEY (optional)"
+      CAFE_GATEWAY_TOKEN: "Gateway auth token (default: cafelua-dev-token)"
+    run: "cd shell && pnpm run test:e2e:tauri"
+    scenarios:
+      - name: "01 App launch"
+        steps: ["Clear localStorage", "Refresh", "Wait for settings modal"]
+        assert: "Settings modal displayed"
 
-      - name: "Permission approval"
-        steps: ["Trigger Tier 2 action", "Permission modal appears", "Click approve"]
-        assert: "Action executed, result shown"
+      - name: "02 Configure settings"
+        steps: ["Select provider", "Enter API key", "Enter gateway URL/token", "Save", "Pre-approve tools"]
+        assert: "Chat input enabled, allowedTools set in localStorage"
 
-      - name: "App recovery"
-        steps: ["Kill agent-core process", "Wait for auto-restart", "Send message"]
-        assert: "Conversation continues after restart"
+      - name: "03 Basic chat"
+        steps: ["Send '안녕'", "Wait streaming start/finish", "Check response"]
+        assert: "Non-empty assistant response appears"
+
+      - name: "04 skill_time"
+        steps: ["Send message requesting time with skill_time", "Wait response"]
+        assert: "Tool success activity OR time pattern in response"
+
+      - name: "05 skill_system_status"
+        steps: ["Send message requesting system status", "Wait response"]
+        assert: "Tool success activity OR MB/GB/memory pattern in response"
+
+      - name: "06 skill_memo (save + read)"
+        steps: ["Save memo with key=e2e-test", "Read memo with same key"]
+        assert: "Saved value hello-tauri appears in read response"
+
+      - name: "07 Cleanup"
+        steps: ["Delete e2e-test memo"]
+        assert: "Deletion confirmed"
+    gotchas:
+      stale_elements: |
+        WebKitGTK invalidates element refs on React re-renders.
+        Always use browser.execute() with fresh document.querySelector().
+        Never cache element references across waits.
+      react_input: |
+        Set textarea value via native property setter + dispatchEvent('input').
+        Wait 100ms, then click send button (not keydown).
+      llm_nondeterminism: |
+        Gemini may not always use requested tools.
+        Use flexible assertions: check tool-success element OR text pattern.
 
 gateway:
   description: "WebSocket daemon. Always running."
@@ -195,6 +240,7 @@ test_commands:
   shell_unit: "pnpm --filter shell test:unit"
   shell_component: "pnpm --filter shell test:component"
   shell_e2e: "pnpm --filter shell test:e2e"
+  shell_e2e_tauri: "cd shell && pnpm run test:e2e:tauri"
   gateway_unit: "pnpm --filter gateway test:unit"
   gateway_integration: "pnpm --filter gateway test:integration"
   os_smoke: "bash os/tests/smoke.sh"

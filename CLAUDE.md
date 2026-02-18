@@ -80,6 +80,9 @@ cd agent && pnpm exec tsc --noEmit   # 타입 체크
 # Rust
 cargo test --manifest-path shell/src-tauri/Cargo.toml
 
+# Tauri Webview E2E (실제 앱 자동화, Gateway + API key 필요)
+cd shell && pnpm run test:e2e:tauri
+
 # Gateway (수동 실행 시)
 ~/.cafelua/openclaw/node_modules/.bin/openclaw gateway run --bind loopback --port 18789
 
