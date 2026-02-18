@@ -10,6 +10,7 @@
 	--sage: #8fbc8f;
 	--tech-blue: #5dade2;
 	--amber: #ffbf00;
+	--espresso-medium: #332828;
 	--error: #e74c3c;
 	--mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
 }
@@ -18,6 +19,7 @@
 	--espresso: #1a1a2e;
 	--espresso-light: #2a2a4e;
 	--espresso-dark: #0f0f1e;
+	--espresso-medium: #1f1f38;
 	--latte: #c8c8e8;
 	--cream: #e8e8ff;
 	--cream-dim: #8888aa;
@@ -32,6 +34,7 @@
 	--espresso: #1b2838;
 	--espresso-light: #2a3f55;
 	--espresso-dark: #0f1923;
+	--espresso-medium: #1f3040;
 	--latte: #b8d4e3;
 	--cream: #dce9f0;
 	--cream-dim: #7a9ab5;
@@ -46,6 +49,7 @@
 	--espresso: #1a2e1a;
 	--espresso-light: #2a4a2a;
 	--espresso-dark: #0f1e0f;
+	--espresso-medium: #1f381f;
 	--latte: #c8e0c8;
 	--cream: #e0f0e0;
 	--cream-dim: #88aa88;
@@ -60,6 +64,7 @@
 	--espresso: #2e1a2a;
 	--espresso-light: #4a2a44;
 	--espresso-dark: #1e0f1a;
+	--espresso-medium: #381f32;
 	--latte: #e0c8d8;
 	--cream: #f0e0ec;
 	--cream-dim: #aa88a0;
@@ -75,6 +80,7 @@
 	--espresso: #f5f0e8;
 	--espresso-light: #e0d8cc;
 	--espresso-dark: #ffffff;
+	--espresso-medium: #ece5d8;
 	--latte: #4a3b3b;
 	--cream: #2b2020;
 	--cream-dim: #8b7b6b;
@@ -89,6 +95,7 @@
 	--espresso: #fdf2f8;
 	--espresso-light: #f0d4e4;
 	--espresso-dark: #ffffff;
+	--espresso-medium: #f6e0ee;
 	--latte: #5c2050;
 	--cream: #3a1028;
 	--cream-dim: #a07090;
@@ -103,6 +110,7 @@
 	--espresso: #f8f9fa;
 	--espresso-light: #dee2e6;
 	--espresso-dark: #ffffff;
+	--espresso-medium: #ebeef0;
 	--latte: #343a40;
 	--cream: #212529;
 	--cream-dim: #868e96;
@@ -1662,11 +1670,6 @@ body,
 	font-size: 18px;
 	color: var(--latte);
 	font-weight: 600;
-}
-
-.onboarding-subtitle {
-	font-size: 14px;
-	color: var(--cream);
 }
 
 .onboarding-description {

@@ -15,6 +15,12 @@ describe("buildSystemPrompt", () => {
 		expect(result).not.toContain(DEFAULT_PERSONA);
 	});
 
+	it("injects agentName from context", () => {
+		const result = buildSystemPrompt(undefined, { agentName: "Mochi" });
+		expect(result).toContain("Mochi");
+		expect(result).toContain("not Alpha");
+	});
+
 	it("injects userName from context", () => {
 		const result = buildSystemPrompt(undefined, { userName: "Luke" });
 		expect(result).toContain("Luke");
@@ -38,7 +44,7 @@ describe("buildSystemPrompt", () => {
 					key: "favorite_lang",
 					value: "Rust",
 					source_session: null,
-				created_at: 1000,
+					created_at: 1000,
 					updated_at: 1000,
 				},
 			],
@@ -63,7 +69,7 @@ describe("buildSystemPrompt", () => {
 					key: "role",
 					value: "developer",
 					source_session: null,
-				created_at: 1000,
+					created_at: 1000,
 					updated_at: 1000,
 				},
 			],

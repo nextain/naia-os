@@ -145,6 +145,7 @@ export function OnboardingWizard({
 	function handleSkip() {
 		const existing = loadConfig();
 		saveConfig({
+			...existing,
 			provider: existing?.provider ?? "gemini",
 			model: existing?.model ?? getDefaultModel("gemini"),
 			apiKey: existing?.apiKey ?? "",
@@ -184,7 +185,7 @@ export function OnboardingWizard({
 			model: getDefaultModel(provider),
 			apiKey: apiKey.trim(),
 			userName: userName.trim() || undefined,
-			agentName: displayName !== "Alpha" ? displayName : undefined,
+			agentName: agentName.trim() || undefined,
 			vrmModel: selectedVrm !== defaultVrm ? selectedVrm : undefined,
 			persona,
 			onboardingComplete: true,

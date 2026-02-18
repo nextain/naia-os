@@ -79,18 +79,13 @@ describe("09 — Onboarding Wizard", () => {
 
 	it("should go back to agent name and skip onboarding", async () => {
 		// Go back through all steps to agentName where skip is available
-		const backBtn = await $(S.onboardingBackBtn);
-		await backBtn.waitForClickable({ timeout: 10_000 });
-		await backBtn.click(); // apiKey → provider
-		await browser.pause(300);
-		await backBtn.click(); // provider → personality
-		await browser.pause(300);
-		await backBtn.click(); // personality → character
-		await browser.pause(300);
-		await backBtn.click(); // character → userName
-		await browser.pause(300);
-		await backBtn.click(); // userName → agentName
-		await browser.pause(300);
+		const steps = ["provider", "personality", "character", "userName", "agentName"];
+		for (const _step of steps) {
+			const btn = await $(S.onboardingBackBtn);
+			await btn.waitForClickable({ timeout: 5_000 });
+			await btn.click();
+			await browser.pause(300);
+		}
 
 		// Skip from agentName
 		const skipBtn = await $(S.onboardingSkipBtn);
