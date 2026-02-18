@@ -1,0 +1,130 @@
+name: Release Cafelua Shell
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g., v0.1.0)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux (x86_64)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shell/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: shell
+        run: pnpm install
+
+      - name: Build Tauri app
+        working-directory: shell
+        run: pnpm run tauri build
+
+      - name: List build artifacts
+        run: |
+          echo "=== AppImage ==="
+          ls -la shell/src-tauri/target/release/bundle/appimage/ 2>/dev/null || echo "No AppImage"
+          echo "=== DEB ==="
+          ls -la shell/src-tauri/target/release/bundle/deb/ 2>/dev/null || echo "No deb"
+          echo "=== RPM ==="
+          ls -la shell/src-tauri/target/release/bundle/rpm/ 2>/dev/null || echo "No rpm"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cafelua-shell-linux-x86_64
+          path: |
+            shell/src-tauri/target/release/bundle/appimage/*.AppImage
+            shell/src-tauri/target/release/bundle/deb/*.deb
+            shell/src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: warn
+
+  release:
+    name: Create GitHub Release
+    needs: build-linux
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cafelua-shell-linux-x86_64
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: find artifacts -type f | head -20
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v0.1.0-dev.$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Cafelua Shell ${{ steps.version.outputs.tag }}"
+          body: |
+            ## Cafelua Shell ${{ steps.version.outputs.tag }}
+
+            AI Avatar Desktop — Chat with Alpha.
+
+            ### Downloads
+            - **AppImage**: Download and run directly (`chmod +x`, then execute)
+            - **DEB**: For Debian/Ubuntu (`sudo dpkg -i *.deb`)
+            - **RPM**: For Fedora/RHEL (`sudo rpm -i *.rpm`)
+
+            ### Requirements
+            - Linux x86_64
+            - Node.js 22+ (for Agent backend)
+          files: |
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}

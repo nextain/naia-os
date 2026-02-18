@@ -27,6 +27,29 @@
 			"csp": null
 		}
 	},
+	"bundle": {
+		"active": true,
+		"targets": ["deb", "rpm", "appimage"],
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.ico",
+			"icons/icon.png"
+		],
+		"category": "Utility",
+		"shortDescription": "AI Avatar Desktop — Chat with Alpha",
+		"longDescription": "Cafelua Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Alpha), tool execution, and always-on daemon.",
+		"linux": {
+			"deb": {
+				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+				"desktopTemplate": null
+			},
+			"appimage": {
+				"bundleMediaFramework": false
+			}
+		}
+	},
 	"plugins": {
 		"deep-link": {
 			"desktop": {
