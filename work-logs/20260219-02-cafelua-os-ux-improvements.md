@@ -2,7 +2,7 @@
 
 ## 날짜
 - 시작: 2026-02-19
-- 진행 중
+- 완료: 2026-02-19
 
 ## 프로젝트
 `cafelua-os` (Shell + Agent) + `project-lab.cafelua.com` (매뉴얼)
@@ -178,14 +178,23 @@ waiting for locator('.chat-tab:nth-child(4)')
 ### P2. lab.cafelua.com 빌드 확인
 - 완료: `npm run build` 성공 (Next.js 16.1.6)
 
-### P3. 커밋 (기능별 분리 권장)
-- 커밋 1: Agent 수정 (weather + tool pipeline)
-- 커밋 2: Shell UX 개선 (onboarding + settings + skills + tabs)
-- 커밋 3: 매뉴얼 (lab.cafelua.com 콘텐츠 + 스크린샷)
+### P3. 커밋 ✅ (완료 — 2026-02-19)
+- `972db73` fix(agent): weather skill direct API + tool pipeline without gateway
+- `a7f66eb` feat(agent): add OpenAI and zAI provider stubs + AbortSignal support
+- `346ea04` feat(shell): UX improvements — onboarding, settings, skills, tabs
+- `a1ad40a` chore(shell): update Tauri config + add E2E tests
+- `ba7f59b` chore: add work logs, systemd config, and screenshot gen script
+- `eeab75a` feat(lab): add user manual with multi-page routing and screenshots
+- `5c59e60` chore(root): update submodules + context files
+
+### P4. 이미지 정합성 최종 수정 ✅ (완료 — 2026-02-19)
+- en/chat.md: `chat-voice.png` 이미지 참조 제거 (한국어와 동기화)
+- ko/en getting-started.md: 누락 온보딩 이미지 3개 추가 (user-name, personality, complete)
+- ko/en lab.md: API 키 섹션 + `lab-keys.png` 이미지 추가
 
 ---
 
-## 변경 파일 목록 (현재 uncommitted)
+## 변경 파일 목록 (커밋 완료)
 
 ### cafelua-os/agent
 | 파일 | 작업 | 설명 |
