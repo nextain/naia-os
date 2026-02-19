@@ -8,7 +8,10 @@ if (!API_KEY) {
 	);
 }
 
-const GATEWAY_TOKEN = process.env.CAFE_GATEWAY_TOKEN || "cafelua-dev-token";
+const GATEWAY_TOKEN =
+	process.env.CAFE_GATEWAY_TOKEN ||
+	process.env.GATEWAY_MASTER_KEY ||
+	"cafelua-dev-token";
 
 describe("02 — Configure Settings", () => {
 	before(async () => {
@@ -24,6 +27,7 @@ describe("02 — Configure Settings", () => {
 				persona: "Friendly AI companion",
 				enableTools: true,
 				locale: "ko",
+				onboardingComplete: true,
 			};
 			localStorage.setItem("cafelua-config", JSON.stringify(config));
 		}, API_KEY);
@@ -32,12 +36,25 @@ describe("02 — Configure Settings", () => {
 		// Wait for app to load
 		const appRoot = await $(S.appRoot);
 		await appRoot.waitForDisplayed({ timeout: 15_000 });
+		await browser.waitUntil(
+			async () =>
+				browser.execute((sel: string) => !document.querySelector(sel), S.onboardingOverlay),
+			{ timeout: 15_000, timeoutMsg: "Onboarding still visible in configure spec" },
+		);
+		await browser.waitUntil(
+			async () =>
+				browser.execute(
+					() => document.querySelectorAll(".chat-tabs .chat-tab").length >= 8,
+				),
+			{ timeout: 15_000, timeoutMsg: "Chat tabs did not render" },
+		);
 	});
 
 	it("should switch to settings tab and configure", async () => {
-		const settingsTabBtn = await $(S.settingsTabBtn);
-		await settingsTabBtn.waitForClickable({ timeout: 10_000 });
-		await settingsTabBtn.click();
+		await browser.execute((sel: string) => {
+			const el = document.querySelector(sel) as HTMLButtonElement | null;
+			el?.click();
+		}, S.settingsTabBtn);
 
 		const settingsTab = await $(S.settingsTab);
 		await settingsTab.waitForDisplayed({ timeout: 30_000 });
@@ -65,15 +82,17 @@ describe("02 — Configure Settings", () => {
 				"write_file",
 				"read_file",
 				"search_files",
+				"sessions_spawn",
 			];
 			localStorage.setItem("cafelua-config", JSON.stringify(config));
 		});
 	});
 
 	it("should show Lab section in settings", async () => {
-		const settingsTabBtn = await $(S.settingsTabBtn);
-		await settingsTabBtn.waitForClickable({ timeout: 10_000 });
-		await settingsTabBtn.click();
+		await browser.execute((sel: string) => {
+			const el = document.querySelector(sel) as HTMLButtonElement | null;
+			el?.click();
+		}, S.settingsTabBtn);
 
 		const settingsTab = await $(S.settingsTab);
 		await settingsTab.waitForDisplayed({ timeout: 10_000 });
@@ -83,16 +102,17 @@ describe("02 — Configure Settings", () => {
 				".settings-section-divider",
 			);
 			return Array.from(dividers).some((d) =>
-				d.textContent?.includes("Lab"),
+				/Cafelua|Lab/i.test(d.textContent ?? ""),
 			);
 		});
 		expect(hasLabSection).toBe(true);
 	});
 
 	it("should enable chat input after settings saved", async () => {
-		const chatTabBtn = await $(S.chatTab);
-		await chatTabBtn.waitForClickable({ timeout: 10_000 });
-		await chatTabBtn.click();
+		await browser.execute((sel: string) => {
+			const el = document.querySelector(sel) as HTMLButtonElement | null;
+			el?.click();
+		}, S.chatTab);
 
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForEnabled({ timeout: 15_000 });

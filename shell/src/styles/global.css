@@ -1145,28 +1145,66 @@ body,
 .chat-tabs {
 	display: flex;
 	gap: 2px;
+	flex-wrap: nowrap;
+	align-items: center;
 }
 
 .chat-tab {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	background: none;
 	border: none;
 	color: var(--cream-dim);
 	font-family: var(--mono);
-	font-size: 13px;
+	font-size: 16px;
 	font-weight: 500;
-	padding: 4px 10px;
+	width: 32px;
+	height: 28px;
+	padding: 0;
 	cursor: pointer;
 	border-bottom: 2px solid transparent;
-	transition: color 0.15s, border-color 0.15s;
+	border-radius: 6px 6px 0 0;
+	transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.chat-tab-icon {
+	line-height: 1;
 }
 
 .chat-tab:hover {
 	color: var(--cream);
+	background: color-mix(in srgb, var(--wood) 12%, transparent);
 }
 
 .chat-tab.active {
 	color: var(--latte);
 	border-bottom-color: var(--wood);
+	background: color-mix(in srgb, var(--wood) 18%, transparent);
+}
+
+.chat-tab::after {
+	content: attr(data-tooltip);
+	position: absolute;
+	bottom: calc(100% + 6px);
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(22, 18, 18, 0.95);
+	color: var(--cream);
+	font-size: 11px;
+	padding: 4px 7px;
+	border-radius: 4px;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.12s;
+	z-index: 20;
+}
+
+.chat-tab:hover::after,
+.chat-tab:focus-visible::after {
+	opacity: 1;
 }
 
 /* Work Progress Panel */

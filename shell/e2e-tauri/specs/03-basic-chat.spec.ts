@@ -11,8 +11,8 @@ describe("03 — Basic Chat", () => {
 	it("should send a message and receive a response", async () => {
 		await sendMessage("안녕");
 
-		// Verify assistant message is not empty
 		const text = await getLastAssistantMessage();
+		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
 		expect(text.length).toBeGreaterThan(0);
 	});
 });

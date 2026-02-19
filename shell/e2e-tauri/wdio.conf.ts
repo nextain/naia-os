@@ -13,7 +13,8 @@ try {
 		const match = line.match(/^([^#=]+)=(.*)$/);
 		if (match) {
 			const key = match[1].trim();
-			const val = match[2].trim();
+			const rawVal = match[2].trim();
+			const val = rawVal.replace(/^['"]|['"]$/g, "");
 			if (!process.env[key]) process.env[key] = val;
 		}
 	}
@@ -30,19 +31,29 @@ function waitForPort(port: number, timeoutMs = 30_000): Promise<void> {
 	return new Promise((ok, fail) => {
 		const deadline = Date.now() + timeoutMs;
 		const tryConnect = () => {
-			const sock = connect(port, "127.0.0.1");
-			sock.once("connect", () => {
-				sock.destroy();
-				ok();
-			});
-			sock.once("error", () => {
-				sock.destroy();
-				if (Date.now() > deadline) {
-					fail(new Error(`Port ${port} not ready within ${timeoutMs}ms`));
-				} else {
-					setTimeout(tryConnect, 500);
-				}
-			});
+			const hosts = ["127.0.0.1", "::1", "localhost"] as const;
+			let attempts = hosts.length;
+			let connected = false;
+			for (const host of hosts) {
+				const sock = connect(port, host);
+				sock.once("connect", () => {
+					if (connected) return;
+					connected = true;
+					sock.destroy();
+					ok();
+				});
+				sock.once("error", () => {
+					sock.destroy();
+					attempts -= 1;
+					if (connected) return;
+					if (attempts > 0) return;
+					if (Date.now() > deadline) {
+						fail(new Error(`Port ${port} not ready within ${timeoutMs}ms`));
+					} else {
+						setTimeout(tryConnect, 500);
+					}
+				});
+			}
 		};
 		tryConnect();
 	});
@@ -110,11 +121,12 @@ export const config = {
 		console.log("[e2e] Vite dev server started on :1420");
 	},
 
-	beforeSession() {
+	async beforeSession() {
 		const driverPath = resolve(homedir(), ".cargo/bin/tauri-driver");
 		tauriDriver = spawn(driverPath, ["--port", "4444"], {
 			stdio: [null, process.stdout, process.stderr],
 		});
+		await waitForPort(4444, 30_000);
 	},
 
 	afterSession() {

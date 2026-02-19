@@ -5,6 +5,7 @@ import {
 	getDisabledSkills,
 	isSkillDisabled,
 	loadConfig,
+	resolveGatewayUrl,
 	saveConfig,
 	toggleSkill,
 } from "../lib/config";
@@ -40,7 +41,8 @@ export function SkillsTab({
 
 	const fetchGatewayStatus = useCallback(async () => {
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) return;
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl || !config?.enableTools) return;
 
 		setGatewayLoading(true);
 		try {
@@ -48,7 +50,7 @@ export function SkillsTab({
 				toolName: "skill_skill_manager",
 				args: { action: "gateway_status" },
 				requestId: `gw-skills-${Date.now()}`,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config.gatewayToken,
 			});
 			if (res.success && res.output) {
@@ -66,7 +68,8 @@ export function SkillsTab({
 
 	const handleInstallSkill = useCallback(async (name: string) => {
 		const config = loadConfig();
-		if (!config?.gatewayUrl) return;
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl) return;
 
 		setInstallingSkill(name);
 		try {
@@ -74,7 +77,7 @@ export function SkillsTab({
 				toolName: "skill_skill_manager",
 				args: { action: "install", skillName: name },
 				requestId: `gw-install-${Date.now()}`,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config.gatewayToken,
 			});
 			fetchGatewayStatus();

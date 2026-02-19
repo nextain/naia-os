@@ -1,126 +1,82 @@
 import { S } from "../helpers/selectors.js";
 
+const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
+
 describe("09 — Onboarding Wizard", () => {
 	it("should show onboarding when config is cleared", async () => {
-		// Clear config + mark onboarding incomplete
 		await browser.execute(() => {
 			localStorage.removeItem("cafelua-config");
 		});
 		await browser.refresh();
 
-		// Onboarding overlay should appear
 		const overlay = await $(S.onboardingOverlay);
 		await overlay.waitForDisplayed({ timeout: 30_000 });
 	});
 
-	it("should show agent name step and proceed to user name", async () => {
-		// Agent name step: input field should be visible
+	it("should show provider step with lab login area", async () => {
+		const providerCard = await $(S.onboardingProviderCard);
+		await providerCard.waitForDisplayed({ timeout: 10_000 });
+
+		const hasLabCard = await browser.execute(() => {
+			return !!document.querySelector(".onboarding-provider-card.lab-card");
+		});
+		expect(hasLabCard).toBe(true);
+
+		const divider = await $(S.onboardingDivider);
+		await divider.waitForDisplayed({ timeout: 10_000 });
+	});
+
+	it("should move to api key step after provider selection", async () => {
+		await browser.execute(() => {
+			const provider = document.querySelector(
+				".onboarding-provider-cards .onboarding-provider-card:not(.disabled)",
+			) as HTMLButtonElement | null;
+			provider?.click();
+		});
+
+		const nextBtn = await $(S.onboardingNextBtn);
+		await nextBtn.waitForEnabled({ timeout: 10_000 });
+		await nextBtn.click();
+
+		const apiInput = await $(S.onboardingInput);
+		await apiInput.waitForDisplayed({ timeout: 10_000 });
+		await apiInput.setValue(API_KEY);
+		await nextBtn.click();
+	});
+
+	it("should progress through name and avatar steps to complete", async () => {
 		const agentInput = await $(S.onboardingInput);
 		await agentInput.waitForDisplayed({ timeout: 10_000 });
 		await agentInput.setValue("E2E-Agent");
+		await (await $(S.onboardingNextBtn)).click();
 
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.waitForClickable({ timeout: 10_000 });
-		await nextBtn.click();
-
-		// User name step: input should appear
 		const userInput = await $(S.onboardingInput);
 		await userInput.waitForDisplayed({ timeout: 10_000 });
-	});
-
-	it("should enter user name and proceed to character step", async () => {
-		const userInput = await $(S.onboardingInput);
 		await userInput.setValue("E2E-User");
+		await (await $(S.onboardingNextBtn)).click();
 
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.click();
-
-		// VRM cards should appear
 		const vrmCard = await $(S.onboardingVrmCard);
 		await vrmCard.waitForDisplayed({ timeout: 10_000 });
-	});
-
-	it("should select character and proceed to personality step", async () => {
-		// Click first VRM card
-		const vrmCard = await $(S.onboardingVrmCard);
 		await vrmCard.click();
+		await (await $(S.onboardingNextBtn)).click();
 
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.click();
-
-		// Personality cards should appear
 		const personalityCard = await $(S.onboardingPersonalityCard);
 		await personalityCard.waitForDisplayed({ timeout: 10_000 });
-	});
-
-	it("should select personality and proceed to provider step", async () => {
-		const personalityCard = await $(S.onboardingPersonalityCard);
 		await personalityCard.click();
-
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.click();
-
-		// Provider cards should appear
-		const providerCard = await $(S.onboardingProviderCard);
-		await providerCard.waitForDisplayed({ timeout: 10_000 });
+		await (await $(S.onboardingNextBtn)).click();
 	});
 
-	it("should show Lab Login section on provider step", async () => {
-		// Lab section should be visible before provider cards
-		const labSection = await $(S.onboardingLabSection);
-		await labSection.waitForDisplayed({ timeout: 10_000 });
+	it("should complete onboarding and hide overlay", async () => {
+		const completeBtn = await $(S.onboardingNextBtn);
+		await completeBtn.waitForEnabled({ timeout: 10_000 });
+		await completeBtn.click();
 
-		const labBtn = await $(S.onboardingLabBtn);
-		expect(await labBtn.isDisplayed()).toBe(true);
-
-		// Lab description text should exist
-		const labDesc = await $(S.onboardingLabDesc);
-		expect(await labDesc.isDisplayed()).toBe(true);
-
-		// Divider ("또는") between Lab and manual provider
-		const divider = await $(S.onboardingDivider);
-		expect(await divider.isDisplayed()).toBe(true);
-	});
-
-	it("should select provider and proceed to API key step", async () => {
-		const providerCard = await $(S.onboardingProviderCard);
-		await providerCard.click();
-
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.click();
-
-		// API key input should appear
-		const apiInput = await $(S.onboardingInput);
-		await apiInput.waitForDisplayed({ timeout: 10_000 });
-	});
-
-	it("should go back to agent name and skip onboarding", async () => {
-		// Go back through all steps to agentName where skip is available
-		const steps = ["provider", "personality", "character", "userName", "agentName"];
-		for (const _step of steps) {
-			const btn = await $(S.onboardingBackBtn);
-			await btn.waitForClickable({ timeout: 5_000 });
-			await btn.click();
-			await browser.pause(300);
-		}
-
-		// Skip from agentName
-		const skipBtn = await $(S.onboardingSkipBtn);
-		await skipBtn.waitForClickable({ timeout: 10_000 });
-		await skipBtn.click();
-
-		// Onboarding should disappear
 		await browser.waitUntil(
-			async () => {
-				return browser.execute(
-					(sel: string) => !document.querySelector(sel),
-					S.onboardingOverlay,
-				);
-			},
-			{ timeout: 10_000, timeoutMsg: "Onboarding overlay did not disappear after skip" },
+			async () =>
+				browser.execute((sel: string) => !document.querySelector(sel), S.onboardingOverlay),
+			{ timeout: 15_000, timeoutMsg: "Onboarding overlay did not disappear after complete" },
 		);
 
-		// Verify config saved
 		const config = await browser.execute(() => {
 			const raw = localStorage.getItem("cafelua-config");
 			return raw ? JSON.parse(raw) : null;
@@ -130,7 +86,6 @@ describe("09 — Onboarding Wizard", () => {
 	});
 
 	it("should restore previous config for remaining tests", async () => {
-		// Restore full config with API key so subsequent tests work
 		const apiKey = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
 		const gatewayToken = process.env.CAFE_GATEWAY_TOKEN || "cafelua-dev-token";
 

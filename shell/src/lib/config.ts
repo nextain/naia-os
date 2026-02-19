@@ -7,6 +7,7 @@ import {
 } from "./secure-store";
 
 const STORAGE_KEY = "cafelua-config";
+export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
 
 export type ThemeId =
 	| "espresso"
@@ -80,6 +81,14 @@ export function hasLabKey(): boolean {
 
 export function getLabKey(): string | undefined {
 	return loadConfig()?.labKey;
+}
+
+export function resolveGatewayUrl(
+	config: AppConfig | null | undefined,
+): string | undefined {
+	if (!config?.enableTools) return undefined;
+	const raw = config.gatewayUrl?.trim();
+	return raw && raw.length > 0 ? raw : DEFAULT_GATEWAY_URL;
 }
 
 // ── Async API (secure store + localStorage fallback) ──

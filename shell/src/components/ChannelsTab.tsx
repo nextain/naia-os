@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { directToolCall } from "../lib/chat-service";
-import { loadConfig } from "../lib/config";
+import { loadConfig, resolveGatewayUrl } from "../lib/config";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import type { ChannelInfo } from "../lib/types";
@@ -19,7 +19,8 @@ export function ChannelsTab({ onAskAI }: ChannelsTabProps) {
 		setError(null);
 
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) {
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl || !config?.enableTools) {
 			setLoading(false);
 			setError(t("channels.gatewayRequired"));
 			return;
@@ -30,7 +31,7 @@ export function ChannelsTab({ onAskAI }: ChannelsTabProps) {
 				toolName: "skill_channels",
 				args: { action: "status" },
 				requestId: `ch-status-${Date.now()}`,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config.gatewayToken,
 			});
 
@@ -59,12 +60,13 @@ export function ChannelsTab({ onAskAI }: ChannelsTabProps) {
 			if (!confirm(t("channels.logoutConfirm"))) return;
 
 			const config = loadConfig();
+			const gatewayUrl = resolveGatewayUrl(config);
 			try {
 				await directToolCall({
 					toolName: "skill_channels",
 					args: { action: "logout", channel: channelId },
 					requestId: `ch-logout-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
 				fetchChannels();

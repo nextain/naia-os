@@ -4,7 +4,7 @@ mod memory;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -41,6 +41,19 @@ struct AuditState {
 
 struct MemoryState {
     db: memory::MemoryDb,
+}
+
+fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log_both(&format!(
+                "[Cafelua] Recovered poisoned lock: {} (another task failed)",
+                name
+            ));
+            poisoned.into_inner()
+        }
+    }
 }
 
 /// JSON chunk forwarded from agent-core stdout to the frontend
@@ -128,6 +141,10 @@ fn log_both(msg: &str) {
             .unwrap_or(0);
         let _ = writeln!(f, "[{}] {}", secs, msg);
     }
+}
+
+fn debug_e2e_enabled() -> bool {
+    matches!(std::env::var("CAFE_DEBUG_E2E").ok().as_deref(), Some("1" | "true" | "TRUE"))
 }
 
 /// Get the run directory (~/.cafelua/run/) for PID files
@@ -618,6 +635,35 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                     // Audit log: parse and record before emitting
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(trimmed) {
                         audit::maybe_log_event(&audit_db_clone, &parsed);
+                        if debug_e2e_enabled() {
+                            let t = parsed.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                            match t {
+                                "tool_use" => {
+                                    let n = parsed.get("toolName").and_then(|v| v.as_str()).unwrap_or("");
+                                    log_both(&format!("[E2E-DEBUG] agent_response tool_use tool={}", n));
+                                }
+                                "tool_result" => {
+                                    let n = parsed.get("toolName").and_then(|v| v.as_str()).unwrap_or("");
+                                    let s = parsed.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+                                    let out = parsed
+                                        .get("output")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .chars()
+                                        .take(120)
+                                        .collect::<String>();
+                                    log_both(&format!(
+                                        "[E2E-DEBUG] agent_response tool_result tool={} success={} output_head={}",
+                                        n, s, out
+                                    ));
+                                }
+                                "error" => {
+                                    let m = parsed.get("message").and_then(|v| v.as_str()).unwrap_or("");
+                                    log_both(&format!("[E2E-DEBUG] agent_response error msg={}", m));
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                     // Forward raw JSON to frontend
                     if let Err(e) = handle.emit("agent_response", trimmed) {
@@ -643,6 +689,39 @@ fn send_to_agent(
     app_handle: Option<&AppHandle>,
     audit_db: Option<&audit::AuditDb>,
 ) -> Result<(), String> {
+    if debug_e2e_enabled() {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(message) {
+            let t = parsed.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            if t == "chat_request" {
+                let provider = parsed
+                    .get("provider")
+                    .and_then(|v| v.get("provider"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let enable_tools = parsed.get("enableTools").and_then(|v| v.as_bool()).unwrap_or(false);
+                let has_gateway_url = parsed
+                    .get("gatewayUrl")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
+                let has_gateway_token = parsed
+                    .get("gatewayToken")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
+                let disabled_len = parsed
+                    .get("disabledSkills")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                log_both(&format!(
+                    "[E2E-DEBUG] chat_request provider={} enableTools={} hasGatewayUrl={} hasGatewayToken={} disabledSkills={}",
+                    provider, enable_tools, has_gateway_url, has_gateway_token, disabled_len
+                ));
+            }
+        }
+    }
+
     // Log approval_decision events (shell→agent direction)
     if let Some(db) = audit_db {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(message) {
@@ -672,10 +751,7 @@ fn send_to_agent(
         }
     }
 
-    let mut guard = state
-        .agent
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut guard = lock_or_recover(&state.agent, "state.agent(send_to_agent)");
 
     if let Some(ref mut process) = *guard {
         // Check if process is still alive
@@ -743,10 +819,7 @@ fn restart_agent(
     };
     match spawn_agent_core(app_handle, db) {
         Ok(process) => {
-            let mut guard = state
-                .agent
-                .lock()
-                .map_err(|e| format!("Lock error: {}", e))?;
+            let mut guard = lock_or_recover(&state.agent, "state.agent(restart_agent)");
             *guard = Some(process);
             eprintln!("[Cafelua] agent-core restarted");
             drop(guard);
@@ -1156,7 +1229,7 @@ async fn generate_oauth_state(state: tauri::State<'_, AppState>) -> Result<Strin
     for b in &bytes {
         write!(hex, "{:02x}", b).unwrap();
     }
-    *state.oauth_state.lock().unwrap() = Some(hex.clone());
+    *lock_or_recover(&state.oauth_state, "state.oauth_state(generate_oauth_state)") = Some(hex.clone());
     Ok(hex)
 }
 
@@ -1280,12 +1353,19 @@ pub fn run() {
                             }
 
                             // Verify OAuth state to prevent CSRF
-                            let expected_state = oauth_state_ref.lock().unwrap().clone();
+                            let expected_state = lock_or_recover(
+                                &oauth_state_ref,
+                                "state.oauth_state(deep_link_expected)",
+                            )
+                            .clone();
                             if let Some(ref expected) = expected_state {
                                 match &incoming_state {
                                     Some(s) if s == expected => {
                                         // State matches — clear it (single-use)
-                                        *oauth_state_ref.lock().unwrap() = None;
+                                        *lock_or_recover(
+                                            &oauth_state_ref,
+                                            "state.oauth_state(deep_link_clear)",
+                                        ) = None;
                                     }
                                     Some(_) => {
                                         log_both("[Cafelua] Deep link rejected: state mismatch");
@@ -1380,7 +1460,7 @@ pub fn run() {
                     if let Some(ref nh) = process.node_host {
                         write_pid_file("node-host", nh.id());
                     }
-                    let mut guard = state.gateway.lock().unwrap();
+                    let mut guard = lock_or_recover(&state.gateway, "state.gateway(setup)");
                     *guard = Some(process);
                     log_both(&format!(
                         "[Cafelua] Gateway ready (managed={}, node_host={})",
@@ -1412,7 +1492,7 @@ pub fn run() {
             // Then spawn Agent
             match spawn_agent_core(&app_handle, &audit_db) {
                 Ok(process) => {
-                    let mut guard = state.agent.lock().unwrap();
+                    let mut guard = lock_or_recover(&state.agent, "state.agent(setup)");
                     *guard = Some(process);
                     log_both("[Cafelua] agent-core started");
                 }

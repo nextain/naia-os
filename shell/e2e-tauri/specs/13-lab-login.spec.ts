@@ -20,33 +20,10 @@ describe("13 — Lab Login Flow", () => {
 	});
 
 	it("should navigate to provider step", async () => {
-		// Step 1: Agent name
-		const agentInput = await $(S.onboardingInput);
-		await agentInput.waitForDisplayed({ timeout: 10_000 });
-		await agentInput.setValue("Lab-Test-Agent");
+		// Current onboarding starts at Provider step.
+		const providerCard = await $(S.onboardingProviderCard);
+		await providerCard.waitForDisplayed({ timeout: 10_000 });
 
-		const nextBtn = await $(S.onboardingNextBtn);
-		await nextBtn.click();
-
-		// Step 2: User name
-		const userInput = await $(S.onboardingInput);
-		await userInput.waitForDisplayed({ timeout: 10_000 });
-		await userInput.setValue("Lab-Test-User");
-		await (await $(S.onboardingNextBtn)).click();
-
-		// Step 3: Character (VRM)
-		const vrmCard = await $(S.onboardingVrmCard);
-		await vrmCard.waitForDisplayed({ timeout: 10_000 });
-		await vrmCard.click();
-		await (await $(S.onboardingNextBtn)).click();
-
-		// Step 4: Personality
-		const personalityCard = await $(S.onboardingPersonalityCard);
-		await personalityCard.waitForDisplayed({ timeout: 10_000 });
-		await personalityCard.click();
-		await (await $(S.onboardingNextBtn)).click();
-
-		// Step 5: Provider — Lab button should be visible
 		const labBtn = await $(S.onboardingLabBtn);
 		await labBtn.waitForDisplayed({ timeout: 10_000 });
 	});

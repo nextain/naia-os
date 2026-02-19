@@ -57,9 +57,9 @@ export const S = {
 	onboardingPersonalityCard: ".onboarding-personality-card",
 	onboardingValidateBtn: ".onboarding-validate-btn",
 	onboardingValidationSuccess: ".onboarding-validation-success",
-	onboardingLabSection: ".onboarding-lab-section",
-	onboardingLabBtn: ".onboarding-lab-btn",
-	onboardingLabDesc: ".onboarding-lab-desc",
+	onboardingLabSection: ".onboarding-provider-card.lab-card",
+	onboardingLabBtn: ".onboarding-provider-card.lab-card",
+	onboardingLabDesc: ".onboarding-provider-card.lab-card .provider-card-desc",
 	onboardingDivider: ".onboarding-divider",
 
 	// Lab (Settings + CostDashboard)

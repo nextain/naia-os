@@ -53,6 +53,35 @@ import { WorkProgressPanel } from "./WorkProgressPanel";
 
 type TabId = "chat" | "progress" | "skills" | "channels" | "agents" | "diagnostics" | "settings" | "history";
 
+const TAB_ICONS: Record<TabId, string> = {
+	chat: "💬",
+	history: "🕘",
+	progress: "📊",
+	skills: "🧩",
+	channels: "🌐",
+	agents: "🤖",
+	diagnostics: "🩺",
+	settings: "⚙️",
+};
+
+// Built-in skills are always available in UI (non-toggle). Prevent hidden config drift
+// from disabling them via chat-originated config_update events.
+const BUILTIN_SKILLS = new Set([
+	"skill_time",
+	"skill_system_status",
+	"skill_memo",
+	"skill_weather",
+	"skill_notify_slack",
+	"skill_notify_discord",
+	"skill_skill_manager",
+]);
+
+function sanitizeDisabledSkills(disabled?: string[]): string[] | undefined {
+	if (!disabled || disabled.length === 0) return undefined;
+	const filtered = disabled.filter((name) => !BUILTIN_SKILLS.has(name));
+	return filtered.length > 0 ? filtered : undefined;
+}
+
 function generateRequestId(): string {
 	return `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -389,7 +418,9 @@ export function ChatPanel() {
 					? config.gatewayUrl || "ws://localhost:18789"
 					: undefined,
 				gatewayToken: config.gatewayToken,
-				disabledSkills: config.enableTools ? config.disabledSkills : undefined,
+				disabledSkills: config.enableTools
+					? sanitizeDisabledSkills(config.disabledSkills)
+					: undefined,
 			});
 		} catch (err) {
 			useChatStore
@@ -468,6 +499,14 @@ export function ChatPanel() {
 			case "config_update": {
 				const cfg = loadConfig();
 				if (cfg) {
+					// Ignore built-in skill toggles from chat/tool output.
+					if (BUILTIN_SKILLS.has(chunk.skillName)) {
+						Logger.info("ChatPanel", "Ignored config_update for built-in skill", {
+							skillName: chunk.skillName,
+							action: chunk.action,
+						});
+						break;
+					}
 					const disabled = cfg.disabledSkills ?? [];
 					if (chunk.action === "enable_skill") {
 						cfg.disabledSkills = disabled.filter((n) => n !== chunk.skillName);
@@ -611,57 +650,81 @@ export function ChatPanel() {
 						type="button"
 						className={`chat-tab${activeTab === "chat" ? " active" : ""}`}
 						onClick={() => handleTabChange("chat")}
+						title={t("progress.tabChat")}
+						aria-label={t("progress.tabChat")}
+						data-tooltip={t("progress.tabChat")}
 					>
-						{t("progress.tabChat")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.chat}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "history" ? " active" : ""}`}
 						onClick={() => handleTabChange("history")}
+						title={t("history.tabHistory")}
+						aria-label={t("history.tabHistory")}
+						data-tooltip={t("history.tabHistory")}
 					>
-						{t("history.tabHistory")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.history}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "progress" ? " active" : ""}`}
 						onClick={() => handleTabChange("progress")}
+						title={t("progress.tabProgress")}
+						aria-label={t("progress.tabProgress")}
+						data-tooltip={t("progress.tabProgress")}
 					>
-						{t("progress.tabProgress")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.progress}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "skills" ? " active" : ""}`}
 						onClick={() => handleTabChange("skills")}
+						title={t("skills.tabSkills")}
+						aria-label={t("skills.tabSkills")}
+						data-tooltip={t("skills.tabSkills")}
 					>
-						{t("skills.tabSkills")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.skills}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "channels" ? " active" : ""}`}
 						onClick={() => handleTabChange("channels")}
+						title={t("channels.tabChannels")}
+						aria-label={t("channels.tabChannels")}
+						data-tooltip={t("channels.tabChannels")}
 					>
-						{t("channels.tabChannels")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.channels}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "agents" ? " active" : ""}`}
 						onClick={() => handleTabChange("agents")}
+						title={t("agents.tabAgents")}
+						aria-label={t("agents.tabAgents")}
+						data-tooltip={t("agents.tabAgents")}
 					>
-						{t("agents.tabAgents")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.agents}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "diagnostics" ? " active" : ""}`}
 						onClick={() => handleTabChange("diagnostics")}
+						title={t("diagnostics.tabDiagnostics")}
+						aria-label={t("diagnostics.tabDiagnostics")}
+						data-tooltip={t("diagnostics.tabDiagnostics")}
 					>
-						{t("diagnostics.tabDiagnostics")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.diagnostics}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "settings" ? " active" : ""}`}
 						onClick={() => handleTabChange("settings")}
+						title={t("settings.title")}
+						aria-label={t("settings.title")}
+						data-tooltip={t("settings.title")}
 					>
-						{t("settings.title")}
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.settings}</span>
 					</button>
 				</div>
 				<div className="chat-header-right">

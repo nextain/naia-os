@@ -5,15 +5,18 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
 import { directToolCall } from "../lib/chat-service";
 import {
+	DEFAULT_GATEWAY_URL,
 	type ThemeId,
 	LAB_GATEWAY_URL,
 	clearAllowedTools,
 	getDefaultModel,
 	loadConfig,
+	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
 import { type Fact, deleteFact, getAllFacts } from "../lib/db";
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
+import { parseLabCredits } from "../lib/lab-balance";
 import { Logger } from "../lib/logger";
 import { DEFAULT_PERSONA } from "../lib/persona";
 import type { ProviderId } from "../lib/types";
@@ -66,7 +69,8 @@ function DevicePairingSection() {
 
 	const fetchDevices = useCallback(async () => {
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) return;
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl) return;
 		setLoading(true);
 		try {
 			const [nodesRes, pairRes] = await Promise.all([
@@ -74,14 +78,14 @@ function DevicePairingSection() {
 					toolName: "skill_device",
 					args: { action: "node_list" },
 					requestId: `dev-nodes-${Date.now()}`,
-					gatewayUrl: config.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config.gatewayToken,
 				}),
 				directToolCall({
 					toolName: "skill_device",
 					args: { action: "pair_list" },
 					requestId: `dev-pairs-${Date.now()}`,
-					gatewayUrl: config.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config.gatewayToken,
 				}),
 			]);
@@ -110,12 +114,13 @@ function DevicePairingSection() {
 	const handlePairAction = useCallback(
 		async (requestId: string, action: "approve" | "reject") => {
 			const config = loadConfig();
+			const gatewayUrl = resolveGatewayUrl(config);
 			try {
 				await directToolCall({
 					toolName: "skill_device",
 					args: { action: `pair_${action}`, requestId },
 					requestId: `dev-${action}-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
 				fetchDevices();
@@ -320,7 +325,8 @@ export function SettingsTab() {
 	const [voiceWakeSaved, setVoiceWakeSaved] = useState(false);
 
 	const fetchGatewayTts = useCallback(async () => {
-		if (!enableTools || !gatewayUrl) return;
+		if (!enableTools) return;
+		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		setGatewayTtsLoading(true);
 		try {
 			const [statusRes, providersRes] = await Promise.all([
@@ -328,14 +334,14 @@ export function SettingsTab() {
 					toolName: "skill_tts",
 					args: { action: "status" },
 					requestId: `tts-status-${Date.now()}`,
-					gatewayUrl,
+					gatewayUrl: effectiveGatewayUrl,
 					gatewayToken,
 				}),
 				directToolCall({
 					toolName: "skill_tts",
 					args: { action: "providers" },
 					requestId: `tts-providers-${Date.now()}`,
-					gatewayUrl,
+					gatewayUrl: effectiveGatewayUrl,
 					gatewayToken,
 				}),
 			]);
@@ -356,14 +362,15 @@ export function SettingsTab() {
 	}, [enableTools, gatewayUrl, gatewayToken]);
 
 	const fetchVoiceWake = useCallback(async () => {
-		if (!enableTools || !gatewayUrl) return;
+		if (!enableTools) return;
+		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		setVoiceWakeLoading(true);
 		try {
 			const result = await directToolCall({
 				toolName: "skill_voicewake",
 				args: { action: "get" },
 				requestId: `vw-get-${Date.now()}`,
-				gatewayUrl,
+				gatewayUrl: effectiveGatewayUrl,
 				gatewayToken,
 			});
 			if (result.success && result.output) {
@@ -402,11 +409,16 @@ export function SettingsTab() {
 			headers: { "X-AnyLLM-Key": `Bearer ${labKey}` },
 		})
 			.then((res) => {
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				if (!res.ok) {
+					return res.text().then((text) => {
+						throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+					});
+				}
 				return res.json();
 			})
-			.then((data: { balance?: number }) => {
-				setLabBalance(data.balance ?? 0);
+			.then((data: unknown) => {
+				const credits = parseLabCredits(data);
+				setLabBalance(credits ?? 0);
 			})
 			.catch((err) => {
 				Logger.warn("SettingsTab", "Lab balance fetch failed", {
@@ -421,9 +433,23 @@ export function SettingsTab() {
 		const unlisten = listen<{ labKey: string; labUserId?: string }>(
 			"lab_auth_complete",
 			(event) => {
-				setLabKeyState(event.payload.labKey);
-				setLabUserIdState(event.payload.labUserId ?? "");
+				const nextLabKey = event.payload.labKey;
+				const nextLabUserId = event.payload.labUserId ?? "";
+				setLabKeyState(nextLabKey);
+				setLabUserIdState(nextLabUserId);
+				// In Lab mode, clear direct API key input to avoid confusion.
+				setApiKey("");
 				setLabWaiting(false);
+
+				// Persist immediately so ChatPanel routes requests through Lab proxy
+				const current = loadConfig();
+				if (current) {
+					saveConfig({
+						...current,
+						labKey: nextLabKey,
+						labUserId: nextLabUserId || undefined,
+					});
+				}
 			},
 		);
 		return () => {
@@ -537,12 +563,13 @@ export function SettingsTab() {
 	}
 
 	async function handleVoiceWakeSave() {
+		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		try {
 			await directToolCall({
 				toolName: "skill_voicewake",
 				args: { action: "set", triggers: voiceWakeTriggers },
 				requestId: `vw-set-${Date.now()}`,
-				gatewayUrl,
+				gatewayUrl: effectiveGatewayUrl,
 				gatewayToken,
 			});
 			setVoiceWakeSaved(true);
@@ -565,7 +592,9 @@ export function SettingsTab() {
 	}
 
 	function handleSave() {
-		if (!apiKey.trim() && !labKey) {
+		// Keep previous key when input is empty (password field UX).
+		const resolvedApiKey = apiKey.trim() || existing?.apiKey || "";
+		if (!resolvedApiKey && !labKey) {
 			setError(t("settings.apiKeyRequired"));
 			return;
 		}
@@ -574,7 +603,7 @@ export function SettingsTab() {
 			...existing,
 			provider,
 			model,
-			apiKey: apiKey.trim(),
+			apiKey: labKey ? "" : resolvedApiKey,
 			labKey: labKey || undefined,
 			labUserId: labUserId || undefined,
 			locale,
@@ -588,7 +617,9 @@ export function SettingsTab() {
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
 			enableTools,
-			gatewayUrl: gatewayUrl !== "ws://localhost:18789" ? gatewayUrl : undefined,
+			gatewayUrl: enableTools
+				? (gatewayUrl.trim() || DEFAULT_GATEWAY_URL)
+				: undefined,
 			gatewayToken: gatewayToken.trim() || undefined,
 		};
 		saveConfig(newConfig);
@@ -841,6 +872,14 @@ export function SettingsTab() {
 										setLabKeyState("");
 										setLabUserIdState("");
 										setLabBalance(null);
+										const current = loadConfig();
+										if (current) {
+											saveConfig({
+												...current,
+												labKey: undefined,
+												labUserId: undefined,
+											});
+										}
 									}
 								}}
 							>

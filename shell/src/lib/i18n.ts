@@ -261,7 +261,7 @@ const translations = {
 	"chat.summarized": { ko: "요약 완료", en: "Summarized" },
 
 	// Facts (4.4c)
-	"settings.memorySection": { ko: "기억 (Facts)", en: "Memory (Facts)" },
+	"settings.memorySection": { ko: "기억", en: "Memory" },
 	"settings.factsEmpty": {
 		ko: "저장된 기억이 없습니다.",
 		en: "No stored memories.",
@@ -408,8 +408,8 @@ const translations = {
 		en: "Voice Wake",
 	},
 	"settings.voiceWakeHint": {
-		ko: "호출어를 말하면 알파가 깨어납니다.",
-		en: "Say the wake word to activate Alpha.",
+		ko: "호출어를 말하면 AI가 깨어납니다.",
+		en: "Say the wake word to activate AI.",
 	},
 	"settings.voiceWakeTriggers": {
 		ko: "호출어 목록",

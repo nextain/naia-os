@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { directToolCall } from "../lib/chat-service";
-import { loadConfig } from "../lib/config";
+import { loadConfig, resolveGatewayUrl } from "../lib/config";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import type { GatewayStatus } from "../lib/types";
@@ -20,7 +20,8 @@ export function DiagnosticsTab() {
 		setError(null);
 
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) {
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl || !config?.enableTools) {
 			setLoading(false);
 			setError(t("diagnostics.error"));
 			return;
@@ -31,7 +32,7 @@ export function DiagnosticsTab() {
 				toolName: "skill_diagnostics",
 				args: { action: "status" },
 				requestId: `diag-status-${Date.now()}`,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config.gatewayToken,
 			});
 
@@ -62,7 +63,8 @@ export function DiagnosticsTab() {
 
 	const handleToggleTailing = useCallback(async () => {
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) return;
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl || !config?.enableTools) return;
 
 		const store = useLogsStore.getState();
 		const action = store.isTailing ? "logs_stop" : "logs_start";
@@ -72,7 +74,7 @@ export function DiagnosticsTab() {
 				toolName: "skill_diagnostics",
 				args: { action },
 				requestId: `diag-${action}-${Date.now()}`,
-				gatewayUrl: config.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config.gatewayToken,
 			});
 			store.setTailing(!store.isTailing);

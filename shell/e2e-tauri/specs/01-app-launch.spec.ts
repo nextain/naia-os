@@ -21,6 +21,7 @@ describe("01 — App Launch", () => {
 				persona: "Friendly AI companion",
 				enableTools: true,
 				locale: "ko",
+				onboardingComplete: true,
 			};
 			localStorage.setItem("cafelua-config", JSON.stringify(config));
 		}, API_KEY);

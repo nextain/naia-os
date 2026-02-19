@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { directToolCall } from "../lib/chat-service";
-import { loadConfig } from "../lib/config";
+import { loadConfig, resolveGatewayUrl } from "../lib/config";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 
@@ -40,7 +40,8 @@ export function AgentsTab() {
 		setError(null);
 
 		const config = loadConfig();
-		if (!config?.gatewayUrl || !config?.enableTools) {
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl) {
 			setLoading(false);
 			setError(t("agents.gatewayRequired"));
 			return;
@@ -52,14 +53,14 @@ export function AgentsTab() {
 					toolName: "skill_agents",
 					args: { action: "list" },
 					requestId: `ag-list-${Date.now()}`,
-					gatewayUrl: config.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config.gatewayToken,
 				}),
 				directToolCall({
 					toolName: "skill_sessions",
 					args: { action: "list" },
 					requestId: `ss-list-${Date.now()}`,
-					gatewayUrl: config.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config.gatewayToken,
 				}),
 			]);
@@ -90,12 +91,13 @@ export function AgentsTab() {
 		async (key: string) => {
 			if (!confirm(t("agents.deleteSessionConfirm"))) return;
 			const config = loadConfig();
+			const gatewayUrl = resolveGatewayUrl(config);
 			try {
 				await directToolCall({
 					toolName: "skill_sessions",
 					args: { action: "delete", key },
 					requestId: `ss-del-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
 				fetchData();
@@ -114,12 +116,13 @@ export function AgentsTab() {
 		setFileContent(null);
 		setSelectedFile(null);
 		const config = loadConfig();
+		const gatewayUrl = resolveGatewayUrl(config);
 		try {
 			const res = await directToolCall({
 				toolName: "skill_agents",
 				args: { action: "files_list", agentId },
 				requestId: `ag-files-${Date.now()}`,
-				gatewayUrl: config?.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config?.gatewayToken,
 			});
 			if (res.success && res.output) {
@@ -139,12 +142,13 @@ export function AgentsTab() {
 		async (agentId: string, path: string) => {
 			setSelectedFile(path);
 			const config = loadConfig();
+			const gatewayUrl = resolveGatewayUrl(config);
 			try {
 				const res = await directToolCall({
 					toolName: "skill_agents",
 					args: { action: "files_get", agentId, path },
 					requestId: `ag-fget-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
 				if (res.success && res.output) {
@@ -163,6 +167,7 @@ export function AgentsTab() {
 	const handleSaveFile = useCallback(async () => {
 		if (!selectedAgent || !selectedFile || fileContent === null) return;
 		const config = loadConfig();
+		const gatewayUrl = resolveGatewayUrl(config);
 		setFileSaveStatus(null);
 		try {
 			const res = await directToolCall({
@@ -174,7 +179,7 @@ export function AgentsTab() {
 					content: fileContent,
 				},
 				requestId: `ag-fset-${Date.now()}`,
-				gatewayUrl: config?.gatewayUrl,
+				gatewayUrl,
 				gatewayToken: config?.gatewayToken,
 			});
 			setFileSaveStatus(
@@ -191,12 +196,13 @@ export function AgentsTab() {
 	const handleCompactSession = useCallback(
 		async (key: string) => {
 			const config = loadConfig();
+			const gatewayUrl = resolveGatewayUrl(config);
 			try {
 				await directToolCall({
 					toolName: "skill_sessions",
 					args: { action: "compact", key },
 					requestId: `ss-compact-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl,
+					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
 				fetchData();

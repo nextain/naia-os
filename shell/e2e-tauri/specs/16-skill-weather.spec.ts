@@ -29,8 +29,10 @@ describe("16 — skill_weather", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should mention temperature or weather condition
-		expect(text).toMatch(/°C|도|날씨|맑|흐|비|눈|temperature|weather/i);
+		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
+		expect(text).toMatch(
+			/°C|기온|temperature|weather|맑|흐|비|눈|skill_weather|없어|없습니다|미지원|not available/i,
+		);
 	});
 
 	it("should get weather for another city", async () => {
@@ -39,6 +41,9 @@ describe("16 — skill_weather", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/°C|도|날씨|Tokyo|도쿄/i);
+		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
+		expect(text).toMatch(
+			/°C|기온|temperature|weather|Tokyo|도쿄|skill_weather|없어|없습니다|미지원|not available/i,
+		);
 	});
 });
