@@ -1094,6 +1094,13 @@ pub fn run() {
                                 }
                             }
                             if let Some(lab_key) = key {
+                                // Validate key: alphanumeric, hyphens, underscores, max 256 chars
+                                let is_valid = lab_key.len() <= 256
+                                    && lab_key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.');
+                                if !is_valid {
+                                    log_both("[Cafelua] Deep link rejected: invalid key format");
+                                    continue;
+                                }
                                 let payload = serde_json::json!({
                                     "labKey": lab_key,
                                     "labUserId": user_id,

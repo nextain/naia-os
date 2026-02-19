@@ -210,8 +210,8 @@ export function OnboardingWizard({
 
 		const defaultVrm = VRM_CHOICES[0].path;
 		saveConfig({
-			provider: labKey ? "gemini" : provider,
-			model: labKey ? getDefaultModel("gemini") : getDefaultModel(provider),
+			provider,
+			model: getDefaultModel(provider),
 			apiKey: labKey ? "" : apiKey.trim(),
 			userName: userName.trim() || undefined,
 			agentName: agentName.trim() || undefined,

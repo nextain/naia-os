@@ -10,7 +10,7 @@ import type {
 	ToolDefinition,
 } from "./types.js";
 
-const GATEWAY_URL =
+export const GATEWAY_URL =
 	"https://cafelua-gateway-789741003661.asia-northeast3.run.app";
 
 /** Map local model names to gateway format (provider:model) */

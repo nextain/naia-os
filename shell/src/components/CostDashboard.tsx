@@ -45,6 +45,7 @@ function formatCost(cost: number): string {
 	return `$${cost.toFixed(3)}`;
 }
 
+// Shared with agent/src/providers/lab-proxy.ts
 const GATEWAY_URL =
 	"https://cafelua-gateway-789741003661.asia-northeast3.run.app";
 
