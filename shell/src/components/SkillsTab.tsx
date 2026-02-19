@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { directToolCall } from "../lib/chat-service";
 import {
 	getDisabledSkills,
 	isSkillDisabled,
@@ -11,6 +12,13 @@ import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import type { SkillManifestInfo } from "../lib/types";
 import { useSkillsStore } from "../stores/skills";
+
+interface GatewaySkillStatus {
+	name: string;
+	description?: string;
+	eligible: boolean;
+	missing: string[];
+}
 
 function tierLabel(tier: number): string {
 	return `T${tier}`;
@@ -26,9 +34,63 @@ export function SkillsTab({
 	const searchQuery = useSkillsStore((s) => s.searchQuery);
 	useSkillsStore((s) => s.configVersion);
 
+	const [gatewaySkills, setGatewaySkills] = useState<GatewaySkillStatus[]>([]);
+	const [gatewayLoading, setGatewayLoading] = useState(false);
+	const [installingSkill, setInstallingSkill] = useState<string | null>(null);
+
+	const fetchGatewayStatus = useCallback(async () => {
+		const config = loadConfig();
+		if (!config?.gatewayUrl || !config?.enableTools) return;
+
+		setGatewayLoading(true);
+		try {
+			const res = await directToolCall({
+				toolName: "skill_skill_manager",
+				args: { action: "gateway_status" },
+				requestId: `gw-skills-${Date.now()}`,
+				gatewayUrl: config.gatewayUrl,
+				gatewayToken: config.gatewayToken,
+			});
+			if (res.success && res.output) {
+				const parsed = JSON.parse(res.output);
+				setGatewaySkills(parsed.skills || []);
+			}
+		} catch (err) {
+			Logger.warn("SkillsTab", "Failed to fetch gateway skills", {
+				error: String(err),
+			});
+		} finally {
+			setGatewayLoading(false);
+		}
+	}, []);
+
+	const handleInstallSkill = useCallback(async (name: string) => {
+		const config = loadConfig();
+		if (!config?.gatewayUrl) return;
+
+		setInstallingSkill(name);
+		try {
+			await directToolCall({
+				toolName: "skill_skill_manager",
+				args: { action: "install", skillName: name },
+				requestId: `gw-install-${Date.now()}`,
+				gatewayUrl: config.gatewayUrl,
+				gatewayToken: config.gatewayToken,
+			});
+			fetchGatewayStatus();
+		} catch (err) {
+			Logger.warn("SkillsTab", "Failed to install skill", {
+				error: String(err),
+			});
+		} finally {
+			setInstallingSkill(null);
+		}
+	}, [fetchGatewayStatus]);
+
 	useEffect(() => {
 		loadSkills();
-	}, []);
+		fetchGatewayStatus();
+	}, [fetchGatewayStatus]);
 
 	async function loadSkills() {
 		const store = useSkillsStore.getState();
@@ -168,6 +230,63 @@ export function SkillsTab({
 							/>
 						))}
 					</>
+				)}
+
+				{/* Gateway Skills Status */}
+				{gatewaySkills.length > 0 && (
+					<>
+						<div className="skills-section-title">
+							{t("skills.gatewayStatusSection")} ({gatewaySkills.length})
+						</div>
+						{gatewaySkills
+							.filter((gs) =>
+								!query ||
+								gs.name.toLowerCase().includes(query) ||
+								(gs.description?.toLowerCase().includes(query) ?? false)
+							)
+							.map((gs) => (
+							<div
+								key={gs.name}
+								className={`skill-card gateway-status${gs.eligible ? " eligible" : " ineligible"}`}
+								data-testid="gateway-skill-card"
+							>
+								<div className="skill-card-header">
+									<div className="skill-card-info">
+										<div className="skill-card-name">{gs.name}</div>
+										{gs.description && (
+											<div className="skill-card-desc-short">{gs.description}</div>
+										)}
+									</div>
+									<div className="skill-card-actions">
+										{gs.eligible ? (
+											<span className="skill-badge eligible">{t("skills.eligible")}</span>
+										) : (
+											<button
+												type="button"
+												className="skills-install-btn"
+												data-testid="skills-install-btn"
+												disabled={installingSkill === gs.name}
+												onClick={() => handleInstallSkill(gs.name)}
+											>
+												{installingSkill === gs.name
+													? t("skills.installing")
+													: t("skills.install")}
+											</button>
+										)}
+									</div>
+								</div>
+								{gs.missing.length > 0 && (
+									<div className="skill-card-missing">
+										{t("skills.missing")}: {gs.missing.join(", ")}
+									</div>
+								)}
+							</div>
+						))}
+					</>
+				)}
+
+				{gatewayLoading && (
+					<div className="skills-gateway-loading">{t("skills.gatewayLoading")}</div>
 				)}
 			</div>
 		</div>

@@ -3,9 +3,9 @@ export const S = {
 	// App
 	appRoot: ".app-root",
 
-	// SettingsTab (5th tab: chat, history, progress, skills, settings)
+	// SettingsTab (7th tab: chat, history, progress, skills, channels, agents, settings)
 	settingsTab: ".settings-tab",
-	settingsTabBtn: ".chat-tab:nth-child(5)",
+	settingsTabBtn: ".chat-tab:nth-child(7)",
 	chatTab: ".chat-tab:first-child",
 	providerSelect: "#provider-select",
 	apiKeyInput: "#apikey-input",
@@ -33,7 +33,7 @@ export const S = {
 	// PermissionModal
 	permissionAlways: ".permission-btn-always",
 
-	// History tab (2nd tab: chat, history, progress, skills, settings)
+	// History tab (2nd tab: chat, history, progress, skills, channels, agents, settings)
 	historyTab: ".chat-tab:nth-child(2)",
 	historyItem: ".history-item",
 	historyItemTitle: ".history-item-title",
@@ -68,7 +68,7 @@ export const S = {
 	labBalanceRow: ".lab-balance-row",
 	labChargeBtn: ".lab-charge-btn",
 
-	// Skills tab (4th tab: chat, history, progress, skills, settings)
+	// Skills tab (4th tab: chat, history, progress, skills, channels, agents, settings)
 	skillsTab: ".chat-tab:nth-child(4)",
 	skillsTabPanel: ".skills-tab",
 	skillsSearch: ".skills-search",
@@ -79,6 +79,34 @@ export const S = {
 	skillsCount: ".skills-count",
 	skillsEnableAllBtn: ".skills-action-btn:first-child",
 	skillsDisableAllBtn: ".skills-action-btn:last-child",
+	gatewaySkillCard: '[data-testid="gateway-skill-card"]',
+	skillsInstallBtn: '[data-testid="skills-install-btn"]',
+
+	// Channels tab (5th tab: chat, history, progress, skills, channels, agents, settings)
+	channelsTabBtn: ".chat-tab:nth-child(5)",
+	channelsTabPanel: '[data-testid="channels-tab"]',
+	channelCard: '[data-testid="channel-card"]',
+	channelAccount: '[data-testid="channel-account"]',
+	channelStatus: '[data-testid="channel-status"]',
+	channelsSettingsHint: '[data-testid="channels-settings-hint"]',
+	channelLoginBtn: ".channel-action-btn.login",
+	channelLogoutBtn: ".channel-action-btn.logout",
+	channelsRefreshBtn: ".channels-refresh-btn",
+
+	// Agents tab (6th tab: chat, history, progress, skills, channels, agents, settings)
+	agentsTabBtn: ".chat-tab:nth-child(6)",
+	agentsTabPanel: '[data-testid="agents-tab"]',
+	agentCard: '[data-testid="agent-card"]',
+	sessionCard: '[data-testid="session-card"]',
+	agentsRefreshBtn: ".agents-refresh-btn",
+
+	// Gateway TTS (Settings, Phase 5)
+	gatewayTtsProvider: '[data-testid="gateway-tts-provider"]',
+
+	// Voice Wake (Settings, Phase 5)
+	voiceWakeTriggers: '[data-testid="voice-wake-triggers"]',
+	voiceWakeInput: '[data-testid="voice-wake-input"]',
+	voiceWakeSave: '[data-testid="voice-wake-save"]',
 
 	// Queue badge
 	queueBadge: ".queue-badge",

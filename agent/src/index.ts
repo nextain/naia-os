@@ -1,6 +1,7 @@
 import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
+import { createGatewayEventHandler } from "./gateway/event-handler.js";
 import { executeTool, getAllTools } from "./gateway/tool-bridge.js";
 import {
 	getToolDescription,
@@ -10,11 +11,13 @@ import {
 import {
 	type ApprovalResponse,
 	type ChatRequest,
+	type ToolRequest,
 	parseRequest,
 } from "./protocol.js";
 import { calculateCost } from "./providers/cost.js";
 import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
+import { convertTts } from "./gateway/tts-proxy.js";
 import { ALPHA_SYSTEM_PROMPT } from "./system-prompt.js";
 import { synthesizeSpeech } from "./tts/google-tts.js";
 
@@ -114,6 +117,13 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				token: gatewayToken || "",
 				device,
 			});
+
+			// Register event handler for Gateway-pushed events
+			const eventHandler = createGatewayEventHandler(
+				writeLine,
+				pendingApprovals as Map<string, { requestId: string; resolve: (decision: "approve" | "reject") => void }>,
+			);
+			gateway.onEvent(eventHandler);
 		}
 
 		// Build conversation messages
@@ -309,20 +319,39 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			}
 		}
 
-		// TTS synthesis — only when ttsVoice is set
-		const googleKey = ttsVoice
-			? ttsApiKey ||
-				(providerConfig.provider === "gemini" ? providerConfig.apiKey : null)
-			: null;
-		if (googleKey && fullText.trim()) {
+		// TTS synthesis — Gateway first, Google TTS fallback
+		if (ttsVoice && fullText.trim()) {
 			const cleanText = fullText.replace(EMOTION_TAG_RE, "");
-			try {
-				const audio = await synthesizeSpeech(cleanText, googleKey, ttsVoice);
-				if (audio) {
-					writeLine({ type: "audio", requestId, data: audio });
+			let audioSent = false;
+
+			// Try Gateway TTS first (supports OpenAI, ElevenLabs, Edge)
+			if (gateway?.isConnected()) {
+				try {
+					const result = await convertTts(gateway, cleanText);
+					if (result.audio) {
+						writeLine({ type: "audio", requestId, data: result.audio });
+						audioSent = true;
+					}
+				} catch {
+					// Gateway TTS failed, fall through to Google
 				}
-			} catch {
-				// TTS failure is non-critical
+			}
+
+			// Fallback: Google Cloud TTS
+			if (!audioSent) {
+				const googleKey =
+					ttsApiKey ||
+					(providerConfig.provider === "gemini" ? providerConfig.apiKey : null);
+				if (googleKey) {
+					try {
+						const audio = await synthesizeSpeech(cleanText, googleKey, ttsVoice);
+						if (audio) {
+							writeLine({ type: "audio", requestId, data: audio });
+						}
+					} catch {
+						// TTS failure is non-critical
+					}
+				}
 			}
 		}
 
@@ -361,6 +390,45 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 	}
 }
 
+/** Handle direct tool request (no LLM, no token cost) */
+export async function handleToolRequest(req: ToolRequest): Promise<void> {
+	const { requestId, toolName, args, gatewayUrl, gatewayToken } = req;
+	let gateway: GatewayClient | null = null;
+
+	try {
+		if (gatewayUrl) {
+			gateway = new GatewayClient();
+			const device = loadDeviceIdentity();
+			await gateway.connect(gatewayUrl, {
+				token: gatewayToken || "",
+				device,
+			});
+		}
+
+		const result = await executeTool(gateway, toolName, args, {
+			writeLine,
+			requestId,
+		});
+
+		writeLine({
+			type: "tool_result",
+			requestId,
+			toolCallId: `direct-${requestId}`,
+			toolName,
+			output: result.output || result.error || "",
+			success: result.success,
+		});
+		writeLine({ type: "finish", requestId });
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : String(err);
+		writeLine({ type: "error", requestId, message });
+	} finally {
+		if (gateway) {
+			gateway.close();
+		}
+	}
+}
+
 function main(): void {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -392,6 +460,17 @@ function main(): void {
 
 		if (request.type === "approval_response") {
 			handleApprovalResponse(request);
+			return;
+		}
+
+		if (request.type === "tool_request") {
+			handleToolRequest(request).catch((err) => {
+				writeLine({
+					type: "error",
+					requestId: request.requestId,
+					message: err instanceof Error ? err.message : String(err),
+				});
+			});
 			return;
 		}
 

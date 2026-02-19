@@ -80,6 +80,37 @@ function makeGatewayHandler(
 	};
 }
 
+/** Copy bundled default skills to user's skills directory (first-run bootstrap) */
+export function bootstrapDefaultSkills(
+	skillsDir: string,
+	bundledDir: string,
+): void {
+	if (!fs.existsSync(bundledDir)) return;
+
+	fs.mkdirSync(skillsDir, { recursive: true });
+
+	let bundled: fs.Dirent[];
+	try {
+		bundled = fs.readdirSync(bundledDir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+
+	for (const entry of bundled) {
+		if (!entry.isDirectory()) continue;
+		const destDir = path.join(skillsDir, entry.name);
+		const destManifest = path.join(destDir, "skill.json");
+		// Only copy if not already present (don't overwrite user customizations)
+		if (fs.existsSync(destManifest)) continue;
+
+		const srcManifest = path.join(bundledDir, entry.name, "skill.json");
+		if (!fs.existsSync(srcManifest)) continue;
+
+		fs.mkdirSync(destDir, { recursive: true });
+		fs.copyFileSync(srcManifest, destManifest);
+	}
+}
+
 export function loadCustomSkills(
 	registry: SkillRegistry,
 	skillsDir: string,

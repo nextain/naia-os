@@ -1,0 +1,16 @@
+{
+	"name": "eightctl",
+	"description": "Control Eight Sleep pods (status, temperature, alarms, schedules).",
+	"type": "gateway",
+	"gatewaySkill": "eightctl",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the eightctl skill"
+			}
+		}
+	}
+}

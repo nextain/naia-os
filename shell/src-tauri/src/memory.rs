@@ -33,6 +33,17 @@ pub struct SessionWithCount {
     pub message_count: i64,
 }
 
+/// Semantic search result with similarity score
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SemanticResult {
+    pub message_id: String,
+    pub session_id: String,
+    pub role: String,
+    pub content: String,
+    pub timestamp: i64,
+    pub similarity: f64,
+}
+
 /// A semantic fact extracted from conversations
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Fact {
@@ -76,6 +87,11 @@ pub fn init_db(path: &std::path::Path) -> Result<MemoryDb, String> {
             source_session TEXT,
             created_at     INTEGER NOT NULL,
             updated_at     INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS message_embeddings (
+            message_id TEXT PRIMARY KEY REFERENCES messages(id),
+            embedding  BLOB NOT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
@@ -386,6 +402,11 @@ pub fn delete_fact(db: &MemoryDb, fact_id: &str) -> Result<(), String> {
 
 pub fn delete_session(db: &MemoryDb, session_id: &str) -> Result<(), String> {
     let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
+    // Clean embedding entries for this session's messages
+    let _ = conn.execute(
+        "DELETE FROM message_embeddings WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?1)",
+        [session_id],
+    );
     // Clean FTS5 entries for this session's messages
     let _ = conn.execute(
         "DELETE FROM messages_fts WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?1)",
@@ -399,6 +420,134 @@ pub fn delete_session(db: &MemoryDb, session_id: &str) -> Result<(), String> {
     conn.execute("DELETE FROM sessions WHERE id = ?1", [session_id])
         .map_err(|e| format!("Delete session error: {}", e))?;
     Ok(())
+}
+
+// === Embedding functions ===
+
+/// Number of dimensions for text-embedding-004
+const EMBEDDING_DIMS: usize = 768;
+
+/// Convert f32 slice to byte vec (little-endian)
+fn f32_vec_to_bytes(vec: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(vec.len() * 4);
+    for &v in vec {
+        bytes.extend_from_slice(&v.to_le_bytes());
+    }
+    bytes
+}
+
+/// Convert byte slice to f32 vec (little-endian)
+fn bytes_to_f32_vec(bytes: &[u8]) -> Vec<f32> {
+    bytes
+        .chunks_exact(4)
+        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect()
+}
+
+/// Cosine similarity between two f32 vectors
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f64 {
+    let mut dot = 0.0_f64;
+    let mut norm_a = 0.0_f64;
+    let mut norm_b = 0.0_f64;
+    for i in 0..a.len().min(b.len()) {
+        let ai = a[i] as f64;
+        let bi = b[i] as f64;
+        dot += ai * bi;
+        norm_a += ai * ai;
+        norm_b += bi * bi;
+    }
+    let denom = norm_a.sqrt() * norm_b.sqrt();
+    if denom == 0.0 {
+        return 0.0;
+    }
+    dot / denom
+}
+
+/// Store an embedding vector for a message
+pub fn store_embedding(db: &MemoryDb, message_id: &str, embedding: &[f64]) -> Result<(), String> {
+    if embedding.len() != EMBEDDING_DIMS {
+        return Err(format!(
+            "Embedding must have {} dimensions, got {}",
+            EMBEDDING_DIMS,
+            embedding.len()
+        ));
+    }
+
+    let f32_vec: Vec<f32> = embedding.iter().map(|&v| v as f32).collect();
+    let blob = f32_vec_to_bytes(&f32_vec);
+
+    let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO message_embeddings (message_id, embedding) VALUES (?1, ?2)",
+        rusqlite::params![message_id, blob],
+    )
+    .map_err(|e| format!("Store embedding error: {}", e))?;
+    Ok(())
+}
+
+/// Semantic search: find messages most similar to the query embedding
+pub fn search_semantic(
+    db: &MemoryDb,
+    query_embedding: &[f64],
+    limit: u32,
+    min_similarity: f64,
+) -> Result<Vec<SemanticResult>, String> {
+    if query_embedding.len() != EMBEDDING_DIMS {
+        return Err(format!(
+            "Query embedding must have {} dimensions, got {}",
+            EMBEDDING_DIMS,
+            query_embedding.len()
+        ));
+    }
+
+    let query_f32: Vec<f32> = query_embedding.iter().map(|&v| v as f32).collect();
+
+    let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT e.message_id, e.embedding, m.session_id, m.role, m.content, m.timestamp
+             FROM message_embeddings e
+             JOIN messages m ON m.id = e.message_id",
+        )
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    let mut results: Vec<SemanticResult> = Vec::new();
+
+    let rows = stmt
+        .query_map([], |row| {
+            let message_id: String = row.get(0)?;
+            let blob: Vec<u8> = row.get(1)?;
+            let session_id: String = row.get(2)?;
+            let role: String = row.get(3)?;
+            let content: String = row.get(4)?;
+            let timestamp: i64 = row.get(5)?;
+            Ok((message_id, blob, session_id, role, content, timestamp))
+        })
+        .map_err(|e| format!("Query error: {}", e))?;
+
+    for row in rows {
+        let (message_id, blob, session_id, role, content, timestamp) =
+            row.map_err(|e| format!("Row error: {}", e))?;
+        let stored_vec = bytes_to_f32_vec(&blob);
+        let sim = cosine_similarity(&query_f32, &stored_vec);
+
+        if sim >= min_similarity {
+            results.push(SemanticResult {
+                message_id,
+                session_id,
+                role,
+                content,
+                timestamp,
+                similarity: sim,
+            });
+        }
+    }
+
+    // Sort by similarity descending
+    results.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+    results.truncate(limit as usize);
+
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -892,6 +1041,149 @@ mod tests {
         delete_fact(&db, &facts[0].id).unwrap();
         let facts = get_all_facts(&db).unwrap();
         assert!(facts.is_empty());
+    }
+
+    // --- Embedding functions ---
+
+    #[test]
+    fn store_and_search_embedding() {
+        let (db, _dir) = test_db();
+        create_session(&db, "s1", None).unwrap();
+        insert_message(&db, &MessageRow {
+            id: "m1".into(), session_id: "s1".into(), role: "user".into(),
+            content: "Rust programming".into(), timestamp: 1000,
+            cost_json: None, tool_calls_json: None,
+        }).unwrap();
+        insert_message(&db, &MessageRow {
+            id: "m2".into(), session_id: "s1".into(), role: "user".into(),
+            content: "Python programming".into(), timestamp: 2000,
+            cost_json: None, tool_calls_json: None,
+        }).unwrap();
+
+        // Create two different embeddings (768 dims)
+        let mut emb1: Vec<f64> = vec![0.0; 768];
+        emb1[0] = 1.0; emb1[1] = 0.5;
+        let mut emb2: Vec<f64> = vec![0.0; 768];
+        emb2[0] = -1.0; emb2[1] = 0.5;
+
+        store_embedding(&db, "m1", &emb1).unwrap();
+        store_embedding(&db, "m2", &emb2).unwrap();
+
+        // Search with a query similar to emb1
+        let mut query: Vec<f64> = vec![0.0; 768];
+        query[0] = 0.9; query[1] = 0.4;
+
+        let results = search_semantic(&db, &query, 10, -1.0).unwrap();
+        assert_eq!(results.len(), 2);
+        // m1 should be more similar (both positive first dim)
+        assert_eq!(results[0].message_id, "m1");
+        assert!(results[0].similarity > results[1].similarity);
+    }
+
+    #[test]
+    fn store_embedding_rejects_wrong_dims() {
+        let (db, _dir) = test_db();
+        let short_emb = vec![0.0; 100];
+        let result = store_embedding(&db, "m1", &short_emb);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("768"));
+    }
+
+    #[test]
+    fn search_semantic_filters_by_min_similarity() {
+        let (db, _dir) = test_db();
+        create_session(&db, "s1", None).unwrap();
+        insert_message(&db, &MessageRow {
+            id: "m1".into(), session_id: "s1".into(), role: "user".into(),
+            content: "matching".into(), timestamp: 1000,
+            cost_json: None, tool_calls_json: None,
+        }).unwrap();
+
+        let mut emb: Vec<f64> = vec![0.0; 768];
+        emb[0] = 1.0;
+        store_embedding(&db, "m1", &emb).unwrap();
+
+        // Opposite direction query → negative similarity
+        let mut query: Vec<f64> = vec![0.0; 768];
+        query[0] = -1.0;
+
+        let results = search_semantic(&db, &query, 10, 0.5).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn search_semantic_respects_limit() {
+        let (db, _dir) = test_db();
+        create_session(&db, "s1", None).unwrap();
+
+        for i in 0..5 {
+            let id = format!("m{}", i);
+            insert_message(&db, &MessageRow {
+                id: id.clone(), session_id: "s1".into(), role: "user".into(),
+                content: format!("msg {}", i), timestamp: i * 1000,
+                cost_json: None, tool_calls_json: None,
+            }).unwrap();
+
+            let mut emb = vec![0.0_f64; 768];
+            emb[0] = 1.0;
+            store_embedding(&db, &id, &emb).unwrap();
+        }
+
+        let query = {
+            let mut q = vec![0.0_f64; 768];
+            q[0] = 1.0;
+            q
+        };
+
+        let results = search_semantic(&db, &query, 2, 0.0).unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn delete_session_removes_embeddings() {
+        let (db, _dir) = test_db();
+        create_session(&db, "s1", None).unwrap();
+        insert_message(&db, &MessageRow {
+            id: "m1".into(), session_id: "s1".into(), role: "user".into(),
+            content: "test".into(), timestamp: 1000,
+            cost_json: None, tool_calls_json: None,
+        }).unwrap();
+
+        let mut emb = vec![0.0_f64; 768];
+        emb[0] = 1.0;
+        store_embedding(&db, "m1", &emb).unwrap();
+
+        delete_session(&db, "s1").unwrap();
+
+        let query = vec![0.0_f64; 768];
+        let results = search_semantic(&db, &query, 10, 0.0).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn f32_bytes_roundtrip() {
+        let original: Vec<f32> = vec![1.0, -0.5, 0.0, 3.14];
+        let bytes = f32_vec_to_bytes(&original);
+        let recovered = bytes_to_f32_vec(&bytes);
+        assert_eq!(original.len(), recovered.len());
+        for (a, b) in original.iter().zip(recovered.iter()) {
+            assert!((a - b).abs() < f32::EPSILON);
+        }
+    }
+
+    #[test]
+    fn cosine_similarity_identical_vectors() {
+        let a = vec![1.0_f32, 0.0, 0.0];
+        let sim = cosine_similarity(&a, &a);
+        assert!((sim - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn cosine_similarity_orthogonal_vectors() {
+        let a = vec![1.0_f32, 0.0, 0.0];
+        let b = vec![0.0_f32, 1.0, 0.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!(sim.abs() < 1e-10);
     }
 
     #[test]

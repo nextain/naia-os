@@ -45,9 +45,11 @@ import { HistoryTab } from "./HistoryTab";
 import { SettingsTab } from "./SettingsTab";
 import { SkillsTab } from "./SkillsTab";
 import { ToolActivity } from "./ToolActivity";
+import { AgentsTab } from "./AgentsTab";
+import { ChannelsTab } from "./ChannelsTab";
 import { WorkProgressPanel } from "./WorkProgressPanel";
 
-type TabId = "chat" | "progress" | "skills" | "settings" | "history";
+type TabId = "chat" | "progress" | "skills" | "channels" | "agents" | "settings" | "history";
 
 function generateRequestId(): string {
 	return `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -615,6 +617,20 @@ export function ChatPanel() {
 					</button>
 					<button
 						type="button"
+						className={`chat-tab${activeTab === "channels" ? " active" : ""}`}
+						onClick={() => handleTabChange("channels")}
+					>
+						{t("channels.tabChannels")}
+					</button>
+					<button
+						type="button"
+						className={`chat-tab${activeTab === "agents" ? " active" : ""}`}
+						onClick={() => handleTabChange("agents")}
+					>
+						{t("agents.tabAgents")}
+					</button>
+					<button
+						type="button"
 						className={`chat-tab${activeTab === "settings" ? " active" : ""}`}
 						onClick={() => handleTabChange("settings")}
 					>
@@ -658,6 +674,22 @@ export function ChatPanel() {
 					}}
 				/>
 			)}
+
+			{/* Channels tab */}
+			{activeTab === "channels" && (
+				<ChannelsTab
+					onAskAI={(message) => {
+						setInput(message);
+						setActiveTab("chat");
+						setTimeout(() => {
+							inputRef.current?.focus();
+						}, 50);
+					}}
+				/>
+			)}
+
+			{/* Agents tab */}
+			{activeTab === "agents" && <AgentsTab />}
 
 			{/* Settings tab */}
 			{activeTab === "settings" && <SettingsTab />}

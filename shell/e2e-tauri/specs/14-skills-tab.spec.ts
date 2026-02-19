@@ -20,9 +20,9 @@ describe("14 — skills tab", () => {
 		await skillsPanel.waitForDisplayed({ timeout: 5_000 });
 	});
 
-	it("should display at least 4 built-in skills", async () => {
+	it("should display at least 7 built-in skills", async () => {
 		const cards = await $$(S.skillsCard);
-		expect(cards.length).toBeGreaterThanOrEqual(4);
+		expect(cards.length).toBeGreaterThanOrEqual(7);
 
 		// Verify built-in section title exists
 		const sectionTitles = await $$(S.skillsSectionTitle);

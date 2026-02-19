@@ -1,0 +1,16 @@
+{
+	"name": "goplaces",
+	"description": "Query Google Places API (New) via the goplaces CLI for text search, place details, resolve, and reviews. Use for human-friendly place lookup or JSON output for scripts.",
+	"type": "gateway",
+	"gatewaySkill": "goplaces",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the goplaces skill"
+			}
+		}
+	}
+}

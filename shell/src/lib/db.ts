@@ -35,7 +35,8 @@ export interface Fact {
 export interface MemoryProcessor {
 	summarize(messages: MessageRow[]): Promise<string>;
 	extractFacts?(messages: MessageRow[]): Promise<Fact[]>;
-	semanticSearch?(query: string, limit: number): Promise<MessageRow[]>;
+	semanticSearch?(query: string, limit: number): Promise<SemanticResult[]>;
+	embedText?(text: string): Promise<number[]>;
 }
 
 // === CRUD wrappers ===
@@ -127,6 +128,36 @@ export async function upsertFact(fact: Fact): Promise<void> {
 
 export async function deleteFact(factId: string): Promise<void> {
 	return invoke("memory_delete_fact", { factId });
+}
+
+// === Phase 13: Semantic embedding search ===
+
+export interface SemanticResult {
+	message_id: string;
+	session_id: string;
+	role: string;
+	content: string;
+	timestamp: number;
+	similarity: number;
+}
+
+export async function storeEmbedding(
+	messageId: string,
+	embedding: number[],
+): Promise<void> {
+	return invoke("memory_store_embedding", { messageId, embedding });
+}
+
+export async function searchSemantic(
+	queryEmbedding: number[],
+	limit: number,
+	minSimilarity = 0.3,
+): Promise<SemanticResult[]> {
+	return invoke("memory_search_semantic", {
+		queryEmbedding,
+		limit,
+		minSimilarity,
+	});
 }
 
 // === Onboarding: API key validation ===

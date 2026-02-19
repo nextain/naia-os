@@ -1,0 +1,16 @@
+{
+	"name": "ordercli",
+	"description": "Foodora-only CLI for checking past orders and active order status (Deliveroo WIP).",
+	"type": "gateway",
+	"gatewaySkill": "ordercli",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the ordercli skill"
+			}
+		}
+	}
+}

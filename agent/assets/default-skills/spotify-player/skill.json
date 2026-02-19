@@ -1,0 +1,16 @@
+{
+	"name": "spotify-player",
+	"description": "Terminal Spotify playback/search via spogo (preferred) or spotify_player.",
+	"type": "gateway",
+	"gatewaySkill": "spotify-player",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the spotify-player skill"
+			}
+		}
+	}
+}

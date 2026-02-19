@@ -1,0 +1,16 @@
+{
+	"name": "gog",
+	"description": "Google Workspace CLI for Gmail, Calendar, Drive, Contacts, Sheets, and Docs.",
+	"type": "gateway",
+	"gatewaySkill": "gog",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the gog skill"
+			}
+		}
+	}
+}

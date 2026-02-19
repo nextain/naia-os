@@ -1,0 +1,16 @@
+{
+	"name": "wacli",
+	"description": "Send WhatsApp messages to other people or search/sync WhatsApp history via the wacli CLI (not for normal user chats).",
+	"type": "gateway",
+	"gatewaySkill": "wacli",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the wacli skill"
+			}
+		}
+	}
+}

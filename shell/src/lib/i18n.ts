@@ -149,6 +149,18 @@ const translations = {
 		ko: "AI에게 이 스킬에 대해 질문하기",
 		en: "Ask AI about this skill",
 	},
+	"skills.gatewayStatusSection": {
+		ko: "Gateway 스킬 상태",
+		en: "Gateway Skills Status",
+	},
+	"skills.eligible": { ko: "사용 가능", en: "Eligible" },
+	"skills.install": { ko: "설치", en: "Install" },
+	"skills.installing": { ko: "설치 중...", en: "Installing..." },
+	"skills.missing": { ko: "필요 항목", en: "Missing" },
+	"skills.gatewayLoading": {
+		ko: "Gateway 스킬 로딩 중...",
+		en: "Loading Gateway skills...",
+	},
 
 	// Cost Dashboard (4.4-ui)
 	"cost.title": { ko: "비용 상세", en: "Cost Details" },
@@ -312,6 +324,150 @@ const translations = {
 	"cost.labCharge": { ko: "크레딧 충전", en: "Charge Credits" },
 	"cost.labLoading": { ko: "잔액 조회 중...", en: "Loading balance..." },
 	"cost.labError": { ko: "잔액 조회 실패", en: "Failed to load balance" },
+
+	// Channels Tab (Phase 4)
+	"channels.tabChannels": { ko: "채널", en: "Channels" },
+	"channels.title": { ko: "메시징 채널", en: "Messaging Channels" },
+	"channels.loading": { ko: "채널 로딩 중...", en: "Loading channels..." },
+	"channels.empty": {
+		ko: "연결된 채널이 없습니다. Gateway가 실행 중인지 확인하세요.",
+		en: "No channels connected. Make sure Gateway is running.",
+	},
+	"channels.connected": { ko: "연결됨", en: "Connected" },
+	"channels.disconnected": { ko: "연결 안 됨", en: "Disconnected" },
+	"channels.enabled": { ko: "활성", en: "Enabled" },
+	"channels.disabled": { ko: "비활성", en: "Disabled" },
+	"channels.logout": { ko: "로그아웃", en: "Logout" },
+	"channels.logoutConfirm": {
+		ko: "이 채널에서 로그아웃하시겠습니까?",
+		en: "Log out of this channel?",
+	},
+	"channels.login": { ko: "로그인", en: "Login" },
+	"channels.loginQr": {
+		ko: "QR 코드를 스캔하여 로그인하세요",
+		en: "Scan the QR code to log in",
+	},
+	"channels.loginWaiting": {
+		ko: "QR 스캔 대기 중...",
+		en: "Waiting for QR scan...",
+	},
+	"channels.noAccounts": {
+		ko: "계정 없음",
+		en: "No accounts",
+	},
+	"channels.error": { ko: "오류", en: "Error" },
+	"channels.refresh": { ko: "새로고침", en: "Refresh" },
+	"channels.gatewayRequired": {
+		ko: "Gateway 연결이 필요합니다. 설정에서 Gateway URL을 확인하세요.",
+		en: "Gateway connection required. Check Gateway URL in settings.",
+	},
+
+	// Channel settings section (Phase 4)
+	"settings.channelsSection": {
+		ko: "채널 관리",
+		en: "Channel Management",
+	},
+	"settings.channelsHint": {
+		ko: "Gateway를 통해 Discord, Slack, Telegram 등의 채널을 관리합니다.",
+		en: "Manage Discord, Slack, Telegram and other channels via Gateway.",
+	},
+	"settings.channelsOpenTab": {
+		ko: "채널 탭에서 관리",
+		en: "Manage in Channels tab",
+	},
+
+	// Gateway TTS section (Phase 5)
+	"settings.gatewayTtsSection": {
+		ko: "Gateway TTS",
+		en: "Gateway TTS",
+	},
+	"settings.gatewayTtsHint": {
+		ko: "Gateway를 통해 OpenAI, ElevenLabs, Edge TTS 프로바이더를 사용합니다.",
+		en: "Use OpenAI, ElevenLabs, Edge TTS providers via Gateway.",
+	},
+	"settings.gatewayTtsProvider": {
+		ko: "TTS 프로바이더",
+		en: "TTS Provider",
+	},
+	"settings.gatewayTtsLoading": {
+		ko: "프로바이더 로딩...",
+		en: "Loading providers...",
+	},
+	"settings.gatewayTtsNone": {
+		ko: "프로바이더 없음",
+		en: "No providers available",
+	},
+	"settings.gatewayTtsNotConfigured": {
+		ko: "(미설정)",
+		en: "(not configured)",
+	},
+
+	// Voice wake section (Phase 5)
+	"settings.voiceWakeSection": {
+		ko: "음성 활성화",
+		en: "Voice Wake",
+	},
+	"settings.voiceWakeHint": {
+		ko: "호출어를 말하면 알파가 깨어납니다.",
+		en: "Say the wake word to activate Alpha.",
+	},
+	"settings.voiceWakeTriggers": {
+		ko: "호출어 목록",
+		en: "Wake Triggers",
+	},
+	"settings.voiceWakeAdd": {
+		ko: "추가",
+		en: "Add",
+	},
+	"settings.voiceWakeRemove": {
+		ko: "제거",
+		en: "Remove",
+	},
+	"settings.voiceWakePlaceholder": {
+		ko: "호출어 입력...",
+		en: "Enter wake word...",
+	},
+	"settings.voiceWakeSave": {
+		ko: "호출어 저장",
+		en: "Save Triggers",
+	},
+	"settings.voiceWakeSaved": {
+		ko: "저장됨!",
+		en: "Saved!",
+	},
+	"settings.voiceWakeLoading": {
+		ko: "호출어 로딩...",
+		en: "Loading triggers...",
+	},
+
+	// Agents tab (Phase 6)
+	"agents.tabAgents": { ko: "에이전트", en: "Agents" },
+	"agents.agentsTitle": { ko: "에이전트 목록", en: "Agents" },
+	"agents.sessionsTitle": {
+		ko: "서브에이전트 세션",
+		en: "Sub-agent Sessions",
+	},
+	"agents.loading": {
+		ko: "에이전트 로딩 중...",
+		en: "Loading agents...",
+	},
+	"agents.error": { ko: "오류", en: "Error" },
+	"agents.refresh": { ko: "새로고침", en: "Refresh" },
+	"agents.noAgents": { ko: "등록된 에이전트 없음", en: "No agents found" },
+	"agents.noSessions": {
+		ko: "서브에이전트 세션 없음",
+		en: "No sub-agent sessions",
+	},
+	"agents.compact": { ko: "압축", en: "Compact" },
+	"agents.deleteSession": { ko: "삭제", en: "Delete" },
+	"agents.deleteSessionConfirm": {
+		ko: "이 세션을 삭제하시겠습니까?",
+		en: "Delete this session?",
+	},
+	"agents.gatewayRequired": {
+		ko: "Gateway 연결이 필요합니다. 설정에서 Gateway URL을 확인하세요.",
+		en: "Gateway connection required. Check Gateway URL in settings.",
+	},
 } as const;
 
 type TranslationKey = keyof typeof translations;

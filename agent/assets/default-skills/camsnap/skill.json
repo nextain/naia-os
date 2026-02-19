@@ -1,0 +1,16 @@
+{
+	"name": "camsnap",
+	"description": "Capture frames or clips from RTSP/ONVIF cameras.",
+	"type": "gateway",
+	"gatewaySkill": "camsnap",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the camsnap skill"
+			}
+		}
+	}
+}

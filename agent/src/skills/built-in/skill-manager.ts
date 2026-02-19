@@ -1,3 +1,8 @@
+import {
+	getSkillsStatus,
+	installSkill,
+	updateSkillConfig,
+} from "../../gateway/skills-proxy.js";
 import type { SkillRegistry } from "../registry.js";
 import type { SkillDefinition, SkillExecutionContext, SkillResult } from "../types.js";
 
@@ -34,15 +39,15 @@ export function createSkillManagerSkill(
 	return {
 		name: "skill_skill_manager",
 		description:
-			"MUST use this tool when the user asks about skills, tools, or capabilities. Actions: 'list' shows all available skills with enabled/disabled status, 'search' finds skills by keyword, 'info' gets details about a specific skill, 'enable' activates a disabled skill, 'disable' deactivates a skill. Always call this tool instead of guessing skill information.",
+			"MUST use this tool when the user asks about skills, tools, or capabilities. Actions: 'list' shows all available skills with enabled/disabled status, 'search' finds skills by keyword, 'info' gets details about a specific skill, 'enable' activates a disabled skill, 'disable' deactivates a skill, 'gateway_status' shows Gateway skill eligibility, 'install' installs skill dependencies via Gateway, 'update_config' patches skill config on Gateway. Always call this tool instead of guessing skill information.",
 		parameters: {
 			type: "object",
 			properties: {
 				action: {
 					type: "string",
 					description:
-						"Action to perform: list, search, info, enable, disable",
-					enum: ["list", "search", "info", "enable", "disable"],
+						"Action to perform: list, search, info, enable, disable, gateway_status, install, update_config",
+					enum: ["list", "search", "info", "enable", "disable", "gateway_status", "install", "update_config"],
 				},
 				query: {
 					type: "string",
@@ -52,7 +57,12 @@ export function createSkillManagerSkill(
 				skillName: {
 					type: "string",
 					description:
-						"Skill name (for action: info/enable/disable). Must include skill_ prefix.",
+						"Skill name (for action: info/enable/disable/install/update_config).",
+				},
+				enabled: {
+					type: "boolean",
+					description:
+						"Enable/disable flag (for action: update_config).",
 				},
 			},
 			required: ["action"],
@@ -200,6 +210,74 @@ export function createSkillManagerSkill(
 					return {
 						success: true,
 						output: `Disabled skill: ${skillName}`,
+					};
+				}
+
+				case "gateway_status": {
+					const gateway = ctx.gateway;
+					if (!gateway?.isConnected()) {
+						return {
+							success: false,
+							output: "",
+							error: "Gateway not connected. gateway_status requires a running Gateway.",
+						};
+					}
+					const result = await getSkillsStatus(gateway);
+					return {
+						success: true,
+						output: JSON.stringify(result),
+					};
+				}
+
+				case "install": {
+					const skillName = args.skillName as string | undefined;
+					if (!skillName) {
+						return {
+							success: false,
+							output: "",
+							error: "skillName is required for install action",
+						};
+					}
+					const gateway = ctx.gateway;
+					if (!gateway?.isConnected()) {
+						return {
+							success: false,
+							output: "",
+							error: "Gateway not connected. install requires a running Gateway.",
+						};
+					}
+					const result = await installSkill(gateway, skillName);
+					return {
+						success: true,
+						output: JSON.stringify(result),
+					};
+				}
+
+				case "update_config": {
+					const skillName = args.skillName as string | undefined;
+					if (!skillName) {
+						return {
+							success: false,
+							output: "",
+							error: "skillName is required for update_config action",
+						};
+					}
+					const gateway = ctx.gateway;
+					if (!gateway?.isConnected()) {
+						return {
+							success: false,
+							output: "",
+							error: "Gateway not connected. update_config requires a running Gateway.",
+						};
+					}
+					const patch: { enabled?: boolean } = {};
+					if (typeof args.enabled === "boolean") {
+						patch.enabled = args.enabled;
+					}
+					const result = await updateSkillConfig(gateway, skillName, patch);
+					return {
+						success: true,
+						output: JSON.stringify(result),
 					};
 				}
 

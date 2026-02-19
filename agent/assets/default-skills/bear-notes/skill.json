@@ -1,0 +1,16 @@
+{
+	"name": "bear-notes",
+	"description": "Create, search, and manage Bear notes via grizzly CLI.",
+	"type": "gateway",
+	"gatewaySkill": "bear-notes",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the bear-notes skill"
+			}
+		}
+	}
+}

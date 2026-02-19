@@ -1,0 +1,16 @@
+{
+	"name": "github",
+	"description": "Interact with GitHub using the `gh` CLI. Use `gh issue`, `gh pr`, `gh run`, and `gh api` for issues, PRs, CI runs, and advanced queries.",
+	"type": "gateway",
+	"gatewaySkill": "github",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "gh CLI command or subcommand to execute, e.g. 'gh issue list --repo owner/repo'"
+			}
+		}
+	}
+}

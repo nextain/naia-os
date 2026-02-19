@@ -1,0 +1,16 @@
+{
+	"name": "food-order",
+	"description": "Reorder Foodora orders + track ETA/status with ordercli. Never confirm without explicit user approval. Triggers: order food, reorder, track ETA.",
+	"type": "gateway",
+	"gatewaySkill": "food-order",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the food-order skill"
+			}
+		}
+	}
+}

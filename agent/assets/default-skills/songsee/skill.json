@@ -1,0 +1,16 @@
+{
+	"name": "songsee",
+	"description": "Generate spectrograms and feature-panel visualizations from audio with the songsee CLI.",
+	"type": "gateway",
+	"gatewaySkill": "songsee",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the songsee skill"
+			}
+		}
+	}
+}

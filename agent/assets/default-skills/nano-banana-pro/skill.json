@@ -1,0 +1,16 @@
+{
+	"name": "nano-banana-pro",
+	"description": "Generate or edit images via Gemini 3 Pro Image (Nano Banana Pro).",
+	"type": "gateway",
+	"gatewaySkill": "nano-banana-pro",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the nano-banana-pro skill"
+			}
+		}
+	}
+}

@@ -245,4 +245,94 @@ describe("skill_skill_manager", () => {
 			expect(result.error).toMatch(/action.*required/i);
 		});
 	});
+
+	describe("action: gateway_status", () => {
+		it("returns gateway skill status when connected", async () => {
+			const mockGateway = {
+				isConnected: () => true,
+				request: vi.fn().mockResolvedValue({
+					skills: [
+						{ name: "web-search", eligible: true, missing: [] },
+						{ name: "screenshot", eligible: false, missing: ["gnome-screenshot"] },
+					],
+				}),
+			};
+			const ctx = makeCtx({ gateway: mockGateway as never });
+			const result = await skill.execute({ action: "gateway_status" }, ctx);
+			expect(result.success).toBe(true);
+
+			const parsed = JSON.parse(result.output);
+			expect(parsed.skills).toHaveLength(2);
+			expect(parsed.skills[0].eligible).toBe(true);
+		});
+
+		it("fails when gateway not connected", async () => {
+			const ctx = makeCtx();
+			const result = await skill.execute({ action: "gateway_status" }, ctx);
+			expect(result.success).toBe(false);
+			expect(result.error).toMatch(/gateway/i);
+		});
+	});
+
+	describe("action: install", () => {
+		it("installs a skill via gateway", async () => {
+			const mockGateway = {
+				isConnected: () => true,
+				request: vi.fn().mockResolvedValue({
+					installed: true,
+					name: "web-search",
+				}),
+			};
+			const ctx = makeCtx({ gateway: mockGateway as never });
+			const result = await skill.execute({ action: "install", skillName: "web-search" }, ctx);
+			expect(result.success).toBe(true);
+
+			const parsed = JSON.parse(result.output);
+			expect(parsed.installed).toBe(true);
+		});
+
+		it("fails without skillName", async () => {
+			const mockGateway = { isConnected: () => true, request: vi.fn() };
+			const ctx = makeCtx({ gateway: mockGateway as never });
+			const result = await skill.execute({ action: "install" }, ctx);
+			expect(result.success).toBe(false);
+			expect(result.error).toMatch(/skillName/i);
+		});
+
+		it("fails when gateway not connected", async () => {
+			const ctx = makeCtx();
+			const result = await skill.execute({ action: "install", skillName: "web-search" }, ctx);
+			expect(result.success).toBe(false);
+			expect(result.error).toMatch(/gateway/i);
+		});
+	});
+
+	describe("action: update_config", () => {
+		it("updates skill config via gateway", async () => {
+			const mockGateway = {
+				isConnected: () => true,
+				request: vi.fn().mockResolvedValue({
+					updated: true,
+					name: "web-search",
+				}),
+			};
+			const ctx = makeCtx({ gateway: mockGateway as never });
+			const result = await skill.execute(
+				{ action: "update_config", skillName: "web-search", enabled: true },
+				ctx,
+			);
+			expect(result.success).toBe(true);
+
+			const parsed = JSON.parse(result.output);
+			expect(parsed.updated).toBe(true);
+		});
+
+		it("fails without skillName", async () => {
+			const mockGateway = { isConnected: () => true, request: vi.fn() };
+			const ctx = makeCtx({ gateway: mockGateway as never });
+			const result = await skill.execute({ action: "update_config" }, ctx);
+			expect(result.success).toBe(false);
+			expect(result.error).toMatch(/skillName/i);
+		});
+	});
 });

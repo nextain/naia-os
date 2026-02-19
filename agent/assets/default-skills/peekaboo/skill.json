@@ -1,0 +1,16 @@
+{
+	"name": "peekaboo",
+	"description": "Capture and automate macOS UI with the Peekaboo CLI.",
+	"type": "gateway",
+	"gatewaySkill": "peekaboo",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the peekaboo skill"
+			}
+		}
+	}
+}

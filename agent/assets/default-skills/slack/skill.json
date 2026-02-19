@@ -1,0 +1,16 @@
+{
+	"name": "slack",
+	"description": "Use when you need to control Slack from OpenClaw via the slack tool, including reacting to messages or pinning/unpinning items in Slack channels or DMs.",
+	"type": "gateway",
+	"gatewaySkill": "slack",
+	"tier": 2,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Slack action to perform: send message, react, pin/unpin, or list channels"
+			}
+		}
+	}
+}

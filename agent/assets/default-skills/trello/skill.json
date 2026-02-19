@@ -1,0 +1,16 @@
+{
+	"name": "trello",
+	"description": "Manage Trello boards, lists, and cards via the Trello REST API.",
+	"type": "gateway",
+	"gatewaySkill": "trello",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the trello skill"
+			}
+		}
+	}
+}

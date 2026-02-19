@@ -27,7 +27,21 @@ export interface ApprovalResponse {
 	message?: string;
 }
 
-export type AgentRequest = ChatRequest | CancelRequest | ApprovalResponse;
+/** Direct tool execution request (bypasses LLM, no token cost) */
+export interface ToolRequest {
+	type: "tool_request";
+	requestId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	gatewayUrl?: string;
+	gatewayToken?: string;
+}
+
+export type AgentRequest =
+	| ChatRequest
+	| CancelRequest
+	| ApprovalResponse
+	| ToolRequest;
 
 export function parseRequest(line: string): AgentRequest | null {
 	try {
@@ -36,7 +50,8 @@ export function parseRequest(line: string): AgentRequest | null {
 		if (
 			obj.type === "chat_request" ||
 			obj.type === "cancel_stream" ||
-			obj.type === "approval_response"
+			obj.type === "approval_response" ||
+			obj.type === "tool_request"
 		) {
 			return obj as AgentRequest;
 		}

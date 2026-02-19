@@ -137,6 +137,22 @@ export interface AuditFilter {
 	offset?: number;
 }
 
+// === Channels ===
+
+export interface ChannelAccountInfo {
+	accountId: string;
+	name?: string;
+	connected: boolean;
+	enabled: boolean;
+	lastError?: string;
+}
+
+export interface ChannelInfo {
+	id: string;
+	label: string;
+	accounts: ChannelAccountInfo[];
+}
+
 export interface AuditStats {
 	total_events: number;
 	by_event_type: [string, number][];

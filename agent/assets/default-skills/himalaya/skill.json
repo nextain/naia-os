@@ -1,0 +1,16 @@
+{
+	"name": "himalaya",
+	"description": "CLI to manage emails via IMAP/SMTP. Use `himalaya` to list, read, write, reply, forward, search, and organize emails from the terminal. Supports multiple accounts and message composition with MML (MIME Meta Language).",
+	"type": "gateway",
+	"gatewaySkill": "himalaya",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the himalaya skill"
+			}
+		}
+	}
+}

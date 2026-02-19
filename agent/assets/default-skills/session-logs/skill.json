@@ -1,0 +1,16 @@
+{
+	"name": "session-logs",
+	"description": "Search and analyze your own session logs (older/parent conversations) using jq.",
+	"type": "gateway",
+	"gatewaySkill": "session-logs",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Search query or jq filter to apply to session log files"
+			}
+		}
+	}
+}

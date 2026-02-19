@@ -1,0 +1,16 @@
+{
+	"name": "oracle",
+	"description": "Best practices for using the oracle CLI (prompt + file bundling, engines, sessions, and file attachment patterns).",
+	"type": "gateway",
+	"gatewaySkill": "oracle",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the oracle skill"
+			}
+		}
+	}
+}

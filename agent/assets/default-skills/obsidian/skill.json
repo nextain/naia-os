@@ -1,0 +1,16 @@
+{
+	"name": "obsidian",
+	"description": "Work with Obsidian vaults (plain Markdown notes) and automate via obsidian-cli.",
+	"type": "gateway",
+	"gatewaySkill": "obsidian",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Obsidian vault command: search notes, create/edit note, list tags, or query backlinks"
+			}
+		}
+	}
+}

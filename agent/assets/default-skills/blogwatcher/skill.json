@@ -1,0 +1,16 @@
+{
+	"name": "blogwatcher",
+	"description": "Monitor blogs and RSS/Atom feeds for updates using the blogwatcher CLI.",
+	"type": "gateway",
+	"gatewaySkill": "blogwatcher",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the blogwatcher skill"
+			}
+		}
+	}
+}

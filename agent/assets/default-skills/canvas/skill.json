@@ -1,0 +1,16 @@
+{
+	"name": "canvas",
+	"description": "Display HTML content on connected OpenClaw nodes (games, visualizations, dashboards)",
+	"type": "gateway",
+	"gatewaySkill": "canvas",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the canvas skill"
+			}
+		}
+	}
+}

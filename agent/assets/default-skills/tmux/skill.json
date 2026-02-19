@@ -1,0 +1,16 @@
+{
+	"name": "tmux",
+	"description": "Remote-control tmux sessions for interactive CLIs by sending keystrokes and scraping pane output.",
+	"type": "gateway",
+	"gatewaySkill": "tmux",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the tmux skill"
+			}
+		}
+	}
+}

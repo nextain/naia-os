@@ -2,13 +2,8 @@
  * Lab Proxy Provider — routes LLM calls through any-llm Gateway (GCP).
  * Uses OpenAI-compatible chat completions API with X-AnyLLM-Key auth.
  */
-import type {
-	AgentStream,
-	ChatMessage,
-	LLMProvider,
-	StreamChunk,
-	ToolDefinition,
-} from "./types.js";
+import { toOpenAIMessages, toOpenAITools } from "./openai-compat.js";
+import type { AgentStream, LLMProvider, StreamChunk } from "./types.js";
 
 export const GATEWAY_URL =
 	"https://cafelua-gateway-789741003661.asia-northeast3.run.app";
@@ -19,48 +14,6 @@ function toGatewayModel(model: string): string {
 	if (model.startsWith("grok")) return `xai:${model}`;
 	if (model.startsWith("claude")) return `anthropic:${model}`;
 	return model;
-}
-
-function toOpenAIMessages(
-	messages: ChatMessage[],
-	systemPrompt: string,
-): unknown[] {
-	const result: unknown[] = [{ role: "system", content: systemPrompt }];
-	for (const m of messages) {
-		if (m.toolCalls && m.toolCalls.length > 0) {
-			result.push({
-				role: "assistant",
-				content: m.content || null,
-				tool_calls: m.toolCalls.map((tc) => ({
-					id: tc.id,
-					type: "function",
-					function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-				})),
-			});
-		} else if (m.role === "tool") {
-			result.push({
-				role: "tool",
-				tool_call_id: m.toolCallId,
-				content: m.content,
-			});
-		} else {
-			result.push({ role: m.role, content: m.content });
-		}
-	}
-	return result;
-}
-
-function toOpenAITools(
-	tools: ToolDefinition[],
-): { type: "function"; function: unknown }[] {
-	return tools.map((t) => ({
-		type: "function" as const,
-		function: {
-			name: t.name,
-			description: t.description,
-			parameters: t.parameters,
-		},
-	}));
 }
 
 export function createLabProxyProvider(

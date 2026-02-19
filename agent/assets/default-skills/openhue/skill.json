@@ -1,0 +1,16 @@
+{
+	"name": "openhue",
+	"description": "Control Philips Hue lights/scenes via the OpenHue CLI.",
+	"type": "gateway",
+	"gatewaySkill": "openhue",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the openhue skill"
+			}
+		}
+	}
+}

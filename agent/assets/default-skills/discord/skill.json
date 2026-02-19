@@ -1,0 +1,16 @@
+{
+	"name": "discord",
+	"description": "Discord ops via the message tool (channel=discord).",
+	"type": "gateway",
+	"gatewaySkill": "discord",
+	"tier": 2,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Discord action: send message, list channels, or read recent messages"
+			}
+		}
+	}
+}

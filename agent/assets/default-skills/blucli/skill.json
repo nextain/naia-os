@@ -1,0 +1,16 @@
+{
+	"name": "blucli",
+	"description": "BluOS CLI (blu) for discovery, playback, grouping, and volume.",
+	"type": "gateway",
+	"gatewaySkill": "blucli",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the blucli skill"
+			}
+		}
+	}
+}

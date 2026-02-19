@@ -1,0 +1,16 @@
+{
+	"name": "nano-pdf",
+	"description": "Edit PDFs with natural-language instructions using the nano-pdf CLI.",
+	"type": "gateway",
+	"gatewaySkill": "nano-pdf",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the nano-pdf skill"
+			}
+		}
+	}
+}

@@ -1,11 +1,21 @@
 import { randomUUID } from "node:crypto";
 import type { ToolDefinition } from "../providers/types.js";
+import { CronScheduler } from "../cron/scheduler.js";
+import { CronStore } from "../cron/store.js";
+import { createAgentsSkill } from "../skills/built-in/agents.js";
+import { createChannelsSkill } from "../skills/built-in/channels.js";
+import { createCronSkill } from "../skills/built-in/cron.js";
 import { createMemoSkill } from "../skills/built-in/memo.js";
+import { createNotifyDiscordSkill } from "../skills/built-in/notify-discord.js";
+import { createNotifySlackSkill } from "../skills/built-in/notify-slack.js";
+import { createSessionsSkill } from "../skills/built-in/sessions.js";
 import { createSkillManagerSkill } from "../skills/built-in/skill-manager.js";
 import { createSystemStatusSkill } from "../skills/built-in/system-status.js";
 import { createTimeSkill } from "../skills/built-in/time.js";
+import { createTtsSkill } from "../skills/built-in/tts.js";
+import { createVoiceWakeSkill } from "../skills/built-in/voicewake.js";
 import { createWeatherSkill } from "../skills/built-in/weather.js";
-import { loadCustomSkills } from "../skills/loader.js";
+import { bootstrapDefaultSkills, loadCustomSkills } from "../skills/loader.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { GatewayRequestError, type GatewayClient } from "./client.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
@@ -14,14 +24,48 @@ export type { ToolDefinition };
 
 /** Global skill registry with built-in skills */
 export const skillRegistry = new SkillRegistry();
-skillRegistry.register(createTimeSkill());
-skillRegistry.register(createSystemStatusSkill());
+skillRegistry.register(createAgentsSkill());
+skillRegistry.register(createChannelsSkill());
 skillRegistry.register(createMemoSkill());
-skillRegistry.register(createWeatherSkill());
+skillRegistry.register(createNotifyDiscordSkill());
+skillRegistry.register(createNotifySlackSkill());
+skillRegistry.register(createSessionsSkill());
 skillRegistry.register(createSkillManagerSkill(skillRegistry));
+skillRegistry.register(createSystemStatusSkill());
+skillRegistry.register(createTimeSkill());
+skillRegistry.register(createTtsSkill());
+skillRegistry.register(createVoiceWakeSkill());
+skillRegistry.register(createWeatherSkill());
+
+// Cron skill — persistent store in ~/.cafelua/cron-jobs.json
+const cronStorePath = `${process.env.HOME ?? "~"}/.cafelua/cron-jobs.json`;
+const cronStore = new CronStore(cronStorePath);
+skillRegistry.register(createCronSkill(cronStore));
+
+/** Cron scheduler — fires job payloads to stdout for the Shell to handle */
+export const cronScheduler = new CronScheduler((payload) => {
+	const msg = JSON.stringify({
+		type: "cron_fire",
+		jobId: payload.jobId,
+		label: payload.label,
+		task: payload.task,
+		firedAt: payload.firedAt,
+	});
+	process.stdout.write(`${msg}\n`);
+});
+
+// Restore persisted enabled jobs on module load
+cronScheduler.restoreFromStore(cronStore);
+
+// Bootstrap default skills from bundled assets (first-run only)
+const customSkillsDir = `${process.env.HOME ?? "~"}/.cafelua/skills`;
+const bundledSkillsDir = new URL(
+	"../../assets/default-skills",
+	import.meta.url,
+).pathname;
+bootstrapDefaultSkills(customSkillsDir, bundledSkillsDir);
 
 // Load custom skills from ~/.cafelua/skills/
-const customSkillsDir = `${process.env.HOME ?? "~"}/.cafelua/skills`;
 loadCustomSkills(skillRegistry, customSkillsDir);
 
 /** Get all tools: Gateway tools + skill tools (minus disabled) */
@@ -49,10 +93,14 @@ function shellEscape(s: string): string {
 	return "'" + s.replace(/'/g, "'\\''") + "'";
 }
 
-/** Validate path has no null bytes or other dangerous characters */
+/** Validate path has no null bytes or directory traversal */
 function validatePath(path: string): string | null {
 	if (path.includes("\0")) {
 		return "Invalid path: contains null byte";
+	}
+	const normalized = path.replace(/\\/g, "/");
+	if (normalized.split("/").includes("..")) {
+		return "Invalid path: directory traversal";
 	}
 	return null;
 }

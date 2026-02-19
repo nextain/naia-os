@@ -134,52 +134,80 @@ function generateManifest(fm: SkillFrontmatter): Record<string, unknown> {
 	};
 }
 
-// --- Main ---
+// --- Exports for testing ---
+export {
+	parseFrontmatter,
+	parseYamlLike,
+	generateManifest,
+	inferTier,
+	SKIP_BUILT_IN,
+};
+export type { SkillFrontmatter };
 
-if (!fs.existsSync(OPENCLAW_SKILLS_DIR)) {
-	console.error(`OpenClaw skills not found at: ${OPENCLAW_SKILLS_DIR}`);
-	process.exit(1);
-}
+// --- Main (only when executed directly, not imported) ---
 
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-const entries = fs.readdirSync(OPENCLAW_SKILLS_DIR, { withFileTypes: true });
-let generated = 0;
-let skipped = 0;
-let failed = 0;
-
-for (const entry of entries) {
-	if (!entry.isDirectory()) continue;
-	if (SKIP_BUILT_IN.has(entry.name)) {
-		skipped++;
-		continue;
+function main() {
+	if (!fs.existsSync(OPENCLAW_SKILLS_DIR)) {
+		console.error(`OpenClaw skills not found at: ${OPENCLAW_SKILLS_DIR}`);
+		process.exit(1);
 	}
 
-	const skillMdPath = path.join(OPENCLAW_SKILLS_DIR, entry.name, "SKILL.md");
-	if (!fs.existsSync(skillMdPath)) {
-		console.warn(`  SKIP ${entry.name}: no SKILL.md`);
-		skipped++;
-		continue;
+	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+	const entries = fs.readdirSync(OPENCLAW_SKILLS_DIR, {
+		withFileTypes: true,
+	});
+	let generated = 0;
+	let skipped = 0;
+	let failed = 0;
+
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		if (SKIP_BUILT_IN.has(entry.name)) {
+			skipped++;
+			continue;
+		}
+
+		const skillMdPath = path.join(
+			OPENCLAW_SKILLS_DIR,
+			entry.name,
+			"SKILL.md",
+		);
+		if (!fs.existsSync(skillMdPath)) {
+			console.warn(`  SKIP ${entry.name}: no SKILL.md`);
+			skipped++;
+			continue;
+		}
+
+		const content = fs.readFileSync(skillMdPath, "utf-8");
+		const fm = parseFrontmatter(content);
+		if (!fm) {
+			console.warn(`  FAIL ${entry.name}: could not parse frontmatter`);
+			failed++;
+			continue;
+		}
+
+		const manifest = generateManifest(fm);
+		const outDir = path.join(OUTPUT_DIR, entry.name);
+		fs.mkdirSync(outDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(outDir, "skill.json"),
+			JSON.stringify(manifest, null, "\t"),
+		);
+
+		console.log(`  OK   ${entry.name} (tier ${manifest.tier})`);
+		generated++;
 	}
 
-	const content = fs.readFileSync(skillMdPath, "utf-8");
-	const fm = parseFrontmatter(content);
-	if (!fm) {
-		console.warn(`  FAIL ${entry.name}: could not parse frontmatter`);
-		failed++;
-		continue;
-	}
-
-	const manifest = generateManifest(fm);
-	const outDir = path.join(OUTPUT_DIR, entry.name);
-	fs.mkdirSync(outDir, { recursive: true });
-	fs.writeFileSync(
-		path.join(outDir, "skill.json"),
-		JSON.stringify(manifest, null, "\t"),
+	console.log(
+		`\nDone: ${generated} generated, ${skipped} skipped, ${failed} failed`,
 	);
-
-	console.log(`  OK   ${entry.name} (tier ${manifest.tier})`);
-	generated++;
 }
 
-console.log(`\nDone: ${generated} generated, ${skipped} skipped, ${failed} failed`);
+// Run main only when invoked directly (not when imported for testing)
+const isDirectRun =
+	process.argv[1]?.endsWith("generate-skill-manifests.ts") ||
+	process.argv[1]?.endsWith("generate-skill-manifests.js");
+if (isDirectRun) {
+	main();
+}

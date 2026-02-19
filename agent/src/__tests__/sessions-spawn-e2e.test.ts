@@ -23,6 +23,7 @@ vi.mock("../gateway/client.js", () => ({
 		isConnected = vi.fn().mockReturnValue(true);
 		request = mockGatewayRequest;
 		close = mockGatewayClose;
+		onEvent = vi.fn();
 	},
 }));
 

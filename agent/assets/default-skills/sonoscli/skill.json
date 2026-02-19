@@ -1,0 +1,16 @@
+{
+	"name": "sonoscli",
+	"description": "Control Sonos speakers (discover/status/play/volume/group).",
+	"type": "gateway",
+	"gatewaySkill": "sonoscli",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the sonoscli skill"
+			}
+		}
+	}
+}

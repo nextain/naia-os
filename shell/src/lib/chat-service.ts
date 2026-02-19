@@ -89,3 +89,70 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 export async function cancelChat(requestId: string): Promise<void> {
 	await invoke("cancel_stream", { requestId });
 }
+
+/** Direct tool call — bypasses LLM, no token cost */
+export async function directToolCall(opts: {
+	toolName: string;
+	args: Record<string, unknown>;
+	requestId: string;
+	gatewayUrl?: string;
+	gatewayToken?: string;
+}): Promise<{ success: boolean; output: string }> {
+	const { toolName, args, requestId, gatewayUrl, gatewayToken } = opts;
+
+	const request = {
+		type: "tool_request",
+		requestId,
+		toolName,
+		args,
+		...(gatewayUrl && { gatewayUrl }),
+		...(gatewayToken && { gatewayToken }),
+	};
+
+	return new Promise(async (resolve, reject) => {
+		let result = { success: false, output: "" };
+
+		const unlisten = await listen<string>("agent_response", (event) => {
+			try {
+				const raw =
+					typeof event.payload === "string"
+						? event.payload
+						: JSON.stringify(event.payload);
+				const chunk = JSON.parse(raw) as AgentResponseChunk;
+				if (chunk.requestId !== requestId) return;
+
+				if (chunk.type === "tool_result") {
+					result = {
+						success: chunk.success,
+						output: chunk.output,
+					};
+				} else if (chunk.type === "finish") {
+					clearTimeout(timeoutId);
+					unlisten();
+					resolve(result);
+				} else if (chunk.type === "error") {
+					clearTimeout(timeoutId);
+					unlisten();
+					reject(new Error(chunk.message));
+				}
+			} catch {
+				// Ignore malformed events
+			}
+		});
+
+		const timeoutId = setTimeout(() => {
+			unlisten();
+			reject(new Error("Tool request timeout"));
+		}, RESPONSE_TIMEOUT_MS);
+
+		try {
+			await invoke("send_to_agent_command", {
+				message: JSON.stringify(request),
+			});
+		} catch (err) {
+			clearTimeout(timeoutId);
+			unlisten();
+			reject(err);
+		}
+	});
+}

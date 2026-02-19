@@ -1,0 +1,16 @@
+{
+	"name": "weather",
+	"description": "Get current weather and forecasts (no API key required).",
+	"type": "gateway",
+	"gatewaySkill": "weather",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "City or location name to get weather for, e.g. 'Seoul' or 'New York'"
+			}
+		}
+	}
+}

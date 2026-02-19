@@ -768,6 +768,8 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
         ("skill_system_status", "Get system status information"),
         ("skill_memo", "Save and retrieve memos"),
         ("skill_weather", "Get weather information for a location"),
+        ("skill_notify_slack", "Send a notification message to Slack via webhook"),
+        ("skill_notify_discord", "Send a notification message to Discord via webhook"),
         ("skill_skill_manager", "Manage skills: list, search, enable, disable"),
     ];
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -1022,6 +1024,27 @@ async fn memory_delete_fact(
     memory::delete_fact(&state.db, &fact_id)
 }
 
+// === Embedding commands ===
+
+#[tauri::command]
+async fn memory_store_embedding(
+    message_id: String,
+    embedding: Vec<f64>,
+    state: tauri::State<'_, MemoryState>,
+) -> Result<(), String> {
+    memory::store_embedding(&state.db, &message_id, &embedding)
+}
+
+#[tauri::command]
+async fn memory_search_semantic(
+    query_embedding: Vec<f64>,
+    limit: u32,
+    min_similarity: f64,
+    state: tauri::State<'_, MemoryState>,
+) -> Result<Vec<memory::SemanticResult>, String> {
+    memory::search_semantic(&state.db, &query_embedding, limit, min_similarity)
+}
+
 /// Validate an API key by making a test request to the provider
 #[tauri::command]
 async fn validate_api_key(provider: String, api_key: String) -> Result<bool, String> {
@@ -1190,6 +1213,8 @@ pub fn run() {
             memory_get_all_facts,
             memory_upsert_fact,
             memory_delete_fact,
+            memory_store_embedding,
+            memory_search_semantic,
             validate_api_key,
             generate_oauth_state,
         ])

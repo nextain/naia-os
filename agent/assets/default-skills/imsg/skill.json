@@ -1,0 +1,16 @@
+{
+	"name": "imsg",
+	"description": "iMessage/SMS CLI for listing chats, history, watch, and sending.",
+	"type": "gateway",
+	"gatewaySkill": "imsg",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the imsg skill"
+			}
+		}
+	}
+}

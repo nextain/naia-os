@@ -1,0 +1,16 @@
+{
+	"name": "gemini",
+	"description": "Gemini CLI for one-shot Q&A, summaries, and generation.",
+	"type": "gateway",
+	"gatewaySkill": "gemini",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Question, prompt, or text to process via Gemini CLI"
+			}
+		}
+	}
+}

@@ -19,6 +19,7 @@ const TOOL_TIERS: Record<string, number> = {
 	skill_system_status: 0,
 	skill_weather: 1,
 	skill_memo: 1,
+	skill_cron: 1,
 };
 
 export function getToolTier(toolName: string): number {
@@ -45,6 +46,7 @@ const TOOL_DESCRIPTIONS: Record<
 	skill_system_status: () => "시스템 상태 조회",
 	skill_weather: (args) => `날씨 조회: ${args.location ?? ""}`,
 	skill_memo: (args) => `메모 ${args.action ?? ""}: ${args.key ?? ""}`,
+	skill_cron: (args) => `예약 작업 ${args.action ?? ""}: ${args.label ?? args.job_id ?? ""}`,
 };
 
 export function getToolDescription(

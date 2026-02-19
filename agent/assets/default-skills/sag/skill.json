@@ -1,0 +1,16 @@
+{
+	"name": "sag",
+	"description": "ElevenLabs text-to-speech with mac-style say UX.",
+	"type": "gateway",
+	"gatewaySkill": "sag",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the sag skill"
+			}
+		}
+	}
+}

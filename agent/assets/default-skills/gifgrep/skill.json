@@ -1,0 +1,16 @@
+{
+	"name": "gifgrep",
+	"description": "Search GIF providers with CLI/TUI, download results, and extract stills/sheets.",
+	"type": "gateway",
+	"gatewaySkill": "gifgrep",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the gifgrep skill"
+			}
+		}
+	}
+}

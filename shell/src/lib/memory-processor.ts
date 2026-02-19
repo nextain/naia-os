@@ -62,6 +62,39 @@ ${conversationText}`;
 	}
 }
 
+/** Embed text using Gemini text-embedding-004 (768 dims) */
+export async function embedText(
+	text: string,
+	apiKey: string,
+): Promise<number[]> {
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${apiKey}`;
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			requests: [
+				{
+					model: "models/text-embedding-004",
+					content: { parts: [{ text }] },
+				},
+			],
+		}),
+	});
+	if (!res.ok) throw new Error(`Gemini Embedding API error: ${res.status}`);
+	const data = await res.json();
+	if (!data.embeddings || data.embeddings.length === 0) {
+		throw new Error("No embedding returned from Gemini API");
+	}
+	return data.embeddings[0].values;
+}
+
+/** Default models per provider for memory processing tasks */
+const DEFAULT_MEMORY_MODELS: Record<string, string> = {
+	gemini: "gemini-2.5-flash",
+	xai: "grok-3-mini",
+	anthropic: "claude-sonnet-4-5-20250929",
+};
+
 /** Generic LLM API call (supports gemini, xai, anthropic) */
 async function callLlmApi(
 	prompt: string,
@@ -71,19 +104,23 @@ async function callLlmApi(
 ): Promise<string> {
 	switch (provider) {
 		case "gemini":
-			return callGemini(prompt, apiKey, model || "gemini-2.5-flash");
+			return callGemini(
+				prompt,
+				apiKey,
+				model || DEFAULT_MEMORY_MODELS.gemini,
+			);
 		case "xai":
 			return callOpenAICompat(
 				prompt,
 				apiKey,
 				"https://api.x.ai/v1/chat/completions",
-				model || "grok-3-mini",
+				model || DEFAULT_MEMORY_MODELS.xai,
 			);
 		case "anthropic":
 			return callAnthropic(
 				prompt,
 				apiKey,
-				model || "claude-sonnet-4-5-20250929",
+				model || DEFAULT_MEMORY_MODELS.anthropic,
 			);
 		default:
 			throw new Error(`Unsupported provider: ${provider}`);

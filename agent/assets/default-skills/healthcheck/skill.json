@@ -1,0 +1,16 @@
+{
+	"name": "healthcheck",
+	"description": "Host security hardening and risk-tolerance configuration for OpenClaw deployments. Use when a user asks for security audits, firewall/SSH/update hardening, risk posture, exposure review, OpenClaw cron scheduling for periodic checks, or version status checks on a machine running OpenClaw (laptop, workstation, Pi, VPS).",
+	"type": "gateway",
+	"gatewaySkill": "healthcheck",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Security check type: 'full', 'firewall', 'ssh', 'updates', 'exposure', or custom query"
+			}
+		}
+	}
+}

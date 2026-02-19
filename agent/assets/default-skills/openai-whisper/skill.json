@@ -1,0 +1,16 @@
+{
+	"name": "openai-whisper",
+	"description": "Local speech-to-text with the Whisper CLI (no API key).",
+	"type": "gateway",
+	"gatewaySkill": "openai-whisper",
+	"tier": 1,
+	"parameters": {
+		"type": "object",
+		"properties": {
+			"input": {
+				"type": "string",
+				"description": "Input for the openai-whisper skill"
+			}
+		}
+	}
+}

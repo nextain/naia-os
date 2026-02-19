@@ -2,7 +2,8 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { directToolCall } from "../lib/chat-service";
 import {
 	type ThemeId,
 	LAB_GATEWAY_URL,
@@ -122,6 +123,84 @@ export function SettingsTab() {
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labBalance, setLabBalance] = useState<number | null>(null);
 	const [labBalanceLoading, setLabBalanceLoading] = useState(false);
+
+	// Gateway TTS state
+	const [gatewayTtsProviders, setGatewayTtsProviders] = useState<
+		{ id: string; label: string; configured: boolean; voices: string[] }[]
+	>([]);
+	const [gatewayTtsProvider, setGatewayTtsProvider] = useState("");
+	const [gatewayTtsLoading, setGatewayTtsLoading] = useState(false);
+
+	// Voice wake state
+	const [voiceWakeTriggers, setVoiceWakeTriggers] = useState<string[]>([]);
+	const [voiceWakeInput, setVoiceWakeInput] = useState("");
+	const [voiceWakeLoading, setVoiceWakeLoading] = useState(false);
+	const [voiceWakeSaved, setVoiceWakeSaved] = useState(false);
+
+	const fetchGatewayTts = useCallback(async () => {
+		if (!enableTools || !gatewayUrl) return;
+		setGatewayTtsLoading(true);
+		try {
+			const [statusRes, providersRes] = await Promise.all([
+				directToolCall({
+					toolName: "skill_tts",
+					args: { action: "status" },
+					requestId: `tts-status-${Date.now()}`,
+					gatewayUrl,
+					gatewayToken,
+				}),
+				directToolCall({
+					toolName: "skill_tts",
+					args: { action: "providers" },
+					requestId: `tts-providers-${Date.now()}`,
+					gatewayUrl,
+					gatewayToken,
+				}),
+			]);
+			if (statusRes.success && statusRes.output) {
+				const status = JSON.parse(statusRes.output);
+				setGatewayTtsProvider(status.provider || "");
+			}
+			if (providersRes.success && providersRes.output) {
+				setGatewayTtsProviders(JSON.parse(providersRes.output));
+			}
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to load Gateway TTS", {
+				error: String(err),
+			});
+		} finally {
+			setGatewayTtsLoading(false);
+		}
+	}, [enableTools, gatewayUrl, gatewayToken]);
+
+	const fetchVoiceWake = useCallback(async () => {
+		if (!enableTools || !gatewayUrl) return;
+		setVoiceWakeLoading(true);
+		try {
+			const result = await directToolCall({
+				toolName: "skill_voicewake",
+				args: { action: "get" },
+				requestId: `vw-get-${Date.now()}`,
+				gatewayUrl,
+				gatewayToken,
+			});
+			if (result.success && result.output) {
+				const data = JSON.parse(result.output);
+				setVoiceWakeTriggers(data.triggers || []);
+			}
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to load voice wake triggers", {
+				error: String(err),
+			});
+		} finally {
+			setVoiceWakeLoading(false);
+		}
+	}, [enableTools, gatewayUrl, gatewayToken]);
+
+	useEffect(() => {
+		fetchGatewayTts();
+		fetchVoiceWake();
+	}, [fetchGatewayTts, fetchVoiceWake]);
 
 	useEffect(() => {
 		getAllFacts()
@@ -243,6 +322,53 @@ export function SettingsTab() {
 			// preview failure is non-critical
 		} finally {
 			setIsPreviewing(false);
+		}
+	}
+
+	async function handleGatewayTtsProviderChange(newProvider: string) {
+		setGatewayTtsProvider(newProvider);
+		try {
+			await directToolCall({
+				toolName: "skill_tts",
+				args: { action: "set_provider", provider: newProvider },
+				requestId: `tts-set-${Date.now()}`,
+				gatewayUrl,
+				gatewayToken,
+			});
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to set Gateway TTS provider", {
+				error: String(err),
+			});
+		}
+	}
+
+	function handleVoiceWakeAdd() {
+		const trimmed = voiceWakeInput.trim();
+		if (trimmed && !voiceWakeTriggers.includes(trimmed)) {
+			setVoiceWakeTriggers((prev) => [...prev, trimmed]);
+			setVoiceWakeInput("");
+		}
+	}
+
+	function handleVoiceWakeRemove(trigger: string) {
+		setVoiceWakeTriggers((prev) => prev.filter((item) => item !== trigger));
+	}
+
+	async function handleVoiceWakeSave() {
+		try {
+			await directToolCall({
+				toolName: "skill_voicewake",
+				args: { action: "set", triggers: voiceWakeTriggers },
+				requestId: `vw-set-${Date.now()}`,
+				gatewayUrl,
+				gatewayToken,
+			});
+			setVoiceWakeSaved(true);
+			setTimeout(() => setVoiceWakeSaved(false), 2000);
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to save voice wake triggers", {
+				error: String(err),
+			});
 		}
 	}
 
@@ -749,6 +875,132 @@ export function SettingsTab() {
 					{saved ? t("settings.saved") : t("settings.save")}
 				</button>
 			</div>
+
+			{enableTools && (
+				<>
+					<div className="settings-section-divider">
+						<span>{t("settings.channelsSection")}</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							{t("settings.channelsHint")}
+						</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint" data-testid="channels-settings-hint">
+							{t("settings.channelsOpenTab")}
+						</span>
+					</div>
+
+					<div className="settings-section-divider">
+						<span>{t("settings.gatewayTtsSection")}</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							{t("settings.gatewayTtsHint")}
+						</span>
+					</div>
+					{gatewayTtsLoading ? (
+						<div className="settings-field">
+							<span className="settings-hint">
+								{t("settings.gatewayTtsLoading")}
+							</span>
+						</div>
+					) : gatewayTtsProviders.length > 0 ? (
+						<div className="settings-field">
+							<label htmlFor="gateway-tts-provider">
+								{t("settings.gatewayTtsProvider")}
+							</label>
+							<select
+								id="gateway-tts-provider"
+								data-testid="gateway-tts-provider"
+								value={gatewayTtsProvider}
+								onChange={(e) =>
+									handleGatewayTtsProviderChange(e.target.value)
+								}
+							>
+								{gatewayTtsProviders.map((p) => (
+									<option key={p.id} value={p.id}>
+										{p.label}
+										{!p.configured
+											? ` ${t("settings.gatewayTtsNotConfigured")}`
+											: ""}
+									</option>
+								))}
+							</select>
+						</div>
+					) : (
+						<div className="settings-field">
+							<span className="settings-hint">
+								{t("settings.gatewayTtsNone")}
+							</span>
+						</div>
+					)}
+
+					<div className="settings-section-divider">
+						<span>{t("settings.voiceWakeSection")}</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							{t("settings.voiceWakeHint")}
+						</span>
+					</div>
+					{voiceWakeLoading ? (
+						<div className="settings-field">
+							<span className="settings-hint">
+								{t("settings.voiceWakeLoading")}
+							</span>
+						</div>
+					) : (
+						<>
+							<div className="settings-field">
+								<label>{t("settings.voiceWakeTriggers")}</label>
+								<div className="voice-wake-triggers" data-testid="voice-wake-triggers">
+									{voiceWakeTriggers.map((trigger) => (
+										<span key={trigger} className="voice-wake-tag">
+											{trigger}
+											<button
+												type="button"
+												className="voice-wake-tag-remove"
+												onClick={() => handleVoiceWakeRemove(trigger)}
+											>
+												×
+											</button>
+										</span>
+									))}
+								</div>
+							</div>
+							<div className="settings-field voice-wake-add-row">
+								<input
+									type="text"
+									data-testid="voice-wake-input"
+									value={voiceWakeInput}
+									onChange={(e) => setVoiceWakeInput(e.target.value)}
+									placeholder={t("settings.voiceWakePlaceholder")}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") handleVoiceWakeAdd();
+									}}
+								/>
+								<button type="button" onClick={handleVoiceWakeAdd}>
+									{t("settings.voiceWakeAdd")}
+								</button>
+							</div>
+							<div className="settings-field">
+								<button
+									type="button"
+									className="voice-preview-btn"
+									data-testid="voice-wake-save"
+									onClick={handleVoiceWakeSave}
+								>
+									{voiceWakeSaved
+										? t("settings.voiceWakeSaved")
+										: t("settings.voiceWakeSave")}
+								</button>
+							</div>
+						</>
+					)}
+				</>
+			)}
 
 			<div className="settings-section-divider">
 				<span>{t("settings.memorySection")}</span>
