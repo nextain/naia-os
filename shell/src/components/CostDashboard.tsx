@@ -48,12 +48,27 @@ function formatCost(cost: number): string {
 const GATEWAY_URL =
 	"https://cafelua-gateway-789741003661.asia-northeast3.run.app";
 
+// Simple cache to avoid re-fetching balance on every mount
+let balanceCache: { value: number; timestamp: number } | null = null;
+const BALANCE_CACHE_TTL = 30_000; // 30 seconds
+
 function LabBalanceSection() {
-	const [balance, setBalance] = useState<number | null>(null);
-	const [loading, setLoading] = useState(true);
+	const [balance, setBalance] = useState<number | null>(
+		balanceCache && Date.now() - balanceCache.timestamp < BALANCE_CACHE_TTL
+			? balanceCache.value
+			: null,
+	);
+	const [loading, setLoading] = useState(balance === null);
 	const [error, setError] = useState(false);
 
 	useEffect(() => {
+		// Use cached value if fresh
+		if (balanceCache && Date.now() - balanceCache.timestamp < BALANCE_CACHE_TTL) {
+			setBalance(balanceCache.value);
+			setLoading(false);
+			return;
+		}
+
 		const labKey = getLabKey();
 		if (!labKey) {
 			setLoading(false);
@@ -67,7 +82,9 @@ function LabBalanceSection() {
 				return res.json();
 			})
 			.then((data: { balance?: number }) => {
-				setBalance(data.balance ?? 0);
+				const val = data.balance ?? 0;
+				balanceCache = { value: val, timestamp: Date.now() };
+				setBalance(val);
 			})
 			.catch((err) => {
 				Logger.warn("CostDashboard", "Lab balance fetch failed", {

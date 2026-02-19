@@ -104,6 +104,12 @@ export function createLabProxyProvider(
 			let totalInput = 0;
 			let totalOutput = 0;
 
+			// Accumulate tool call arguments across multiple SSE chunks
+			const pendingToolCalls = new Map<
+				number,
+				{ id: string; name: string; args: string }
+			>();
+
 			try {
 				while (true) {
 					const { done, value } = await reader.read();
@@ -137,7 +143,7 @@ export function createLabProxyProvider(
 							yield { type: "text", text: delta.content } satisfies StreamChunk;
 						}
 
-						// Tool calls
+						// Tool calls — accumulate arguments across chunks
 						const toolCalls = delta.tool_calls as
 							| {
 									index: number;
@@ -147,19 +153,17 @@ export function createLabProxyProvider(
 							| undefined;
 						if (toolCalls) {
 							for (const tc of toolCalls) {
+								const existing = pendingToolCalls.get(tc.index);
 								if (tc.id && tc.function?.name) {
-									let args: Record<string, unknown> = {};
-									try {
-										args = JSON.parse(tc.function.arguments ?? "{}");
-									} catch {
-										// partial args — handled by accumulation
-									}
-									yield {
-										type: "tool_use",
+									// First chunk for this tool call
+									pendingToolCalls.set(tc.index, {
 										id: tc.id,
 										name: tc.function.name,
-										args,
-									} satisfies StreamChunk;
+										args: tc.function.arguments ?? "",
+									});
+								} else if (existing && tc.function?.arguments) {
+									// Continuation chunk — append arguments
+									existing.args += tc.function.arguments;
 								}
 							}
 						}
@@ -179,6 +183,22 @@ export function createLabProxyProvider(
 				}
 			} finally {
 				reader.releaseLock();
+			}
+
+			// Emit accumulated tool calls
+			for (const tc of pendingToolCalls.values()) {
+				let args: Record<string, unknown> = {};
+				try {
+					args = JSON.parse(tc.args || "{}");
+				} catch {
+					// malformed JSON — emit empty args
+				}
+				yield {
+					type: "tool_use",
+					id: tc.id,
+					name: tc.name,
+					args,
+				} satisfies StreamChunk;
 			}
 
 			// Emit usage

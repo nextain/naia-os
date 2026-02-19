@@ -159,11 +159,60 @@ describe("Lab Proxy Provider", () => {
 			chunks.push(chunk);
 		}
 
-		expect(chunks[0]).toEqual({
+		const toolUse = chunks.find((c) => c.type === "tool_use");
+		expect(toolUse).toEqual({
 			type: "tool_use",
 			id: "tc-1",
 			name: "read_file",
 			args: { path: "/tmp/x" },
+		});
+	});
+
+	it("accumulates tool call arguments across multiple SSE chunks", async () => {
+		const sseData = [
+			// First chunk: id + name + partial args
+			'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"tc-2","function":{"name":"write_file","arguments":"{\\"path\\":"}}]}}]}\n\n',
+			// Second chunk: continuation of arguments
+			'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"/tmp/out\\","}}]}}]}\n\n',
+			// Third chunk: final part of arguments
+			'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"content\\":\\"hello\\"}"}}]}}]}\n\n',
+			"data: [DONE]\n\n",
+		];
+
+		mockFetch.mockResolvedValue({
+			ok: true,
+			body: createSSEStream(sseData),
+		});
+
+		const gen = provider.stream(
+			[{ role: "user", content: "Write a file" }],
+			"sys",
+			[
+				{
+					name: "write_file",
+					description: "Write file",
+					parameters: {
+						type: "object",
+						properties: {
+							path: { type: "string" },
+							content: { type: "string" },
+						},
+					},
+				},
+			],
+		);
+
+		const chunks = [];
+		for await (const chunk of gen) {
+			chunks.push(chunk);
+		}
+
+		const toolUse = chunks.find((c) => c.type === "tool_use");
+		expect(toolUse).toEqual({
+			type: "tool_use",
+			id: "tc-2",
+			name: "write_file",
+			args: { path: "/tmp/out", content: "hello" },
 		});
 	});
 
@@ -288,7 +337,16 @@ describe("Lab Proxy Provider", () => {
 });
 
 describe("buildProvider with labKey", () => {
-	it("returns lab proxy when labKey is set", async () => {
+	beforeEach(() => {
+		mockFetch.mockReset();
+	});
+
+	it("returns lab proxy that calls gateway URL when labKey is set", async () => {
+		mockFetch.mockResolvedValue({
+			ok: true,
+			body: createSSEStream(["data: [DONE]\n\n"]),
+		});
+
 		const { buildProvider } = await import("../providers/factory.js");
 		const provider = buildProvider({
 			provider: "gemini",
@@ -296,14 +354,24 @@ describe("buildProvider with labKey", () => {
 			apiKey: "ignored",
 			labKey: "lab-key-123",
 		});
-		// Verify it's a lab proxy by checking it uses fetch (not GoogleGenAI)
-		expect(provider).toBeDefined();
-		expect(provider.stream).toBeDefined();
+
+		const gen = provider.stream(
+			[{ role: "user", content: "test" }],
+			"sys",
+		);
+		for await (const _ of gen) {
+			/* consume */
+		}
+
+		// Verify it called the gateway URL with lab key auth
+		expect(mockFetch).toHaveBeenCalledOnce();
+		const [url, options] = mockFetch.mock.calls[0];
+		expect(url).toContain("cafelua-gateway");
+		expect(url).toContain("/v1/chat/completions");
+		expect(options.headers["X-AnyLLM-Key"]).toBe("Bearer lab-key-123");
 	});
 
 	it("returns direct provider when labKey is not set", async () => {
-		// This would fail without a real API key, but we can check it doesn't throw
-		// in construction (only on actual stream call)
 		const { buildProvider } = await import("../providers/factory.js");
 		const provider = buildProvider({
 			provider: "gemini",
@@ -312,5 +380,7 @@ describe("buildProvider with labKey", () => {
 		});
 		expect(provider).toBeDefined();
 		expect(provider.stream).toBeDefined();
+		// Should NOT have called fetch (direct provider, not proxy)
+		expect(mockFetch).not.toHaveBeenCalled();
 	});
 });

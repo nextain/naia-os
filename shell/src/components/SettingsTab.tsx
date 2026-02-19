@@ -434,6 +434,8 @@ export function SettingsTab() {
 							openUrl(
 								"https://lab.cafelua.com/ko/login?redirect=desktop",
 							).catch(() => setLabWaiting(false));
+							// Reset after 60s if deep-link callback never arrives
+							setTimeout(() => setLabWaiting(false), 60_000);
 						}}
 					>
 						{labWaiting ? t("onboard.lab.waiting") : t("settings.labConnect")}

@@ -1077,7 +1077,9 @@ pub fn run() {
                 let urls = event.urls();
                 for url in urls {
                     let url_str = url.as_str();
-                    log_both(&format!("[Cafelua] Deep link received: {}", url_str));
+                    // Redact query params (may contain lab key)
+                    let redacted = url_str.split('?').next().unwrap_or(url_str);
+                    log_both(&format!("[Cafelua] Deep link received: {}?[REDACTED]", redacted));
                     // Parse cafelua://auth?key=xxx or cafelua://auth?code=xxx
                     if let Ok(parsed) = url::Url::parse(url_str) {
                         if parsed.host_str() == Some("auth") || parsed.path() == "auth" || parsed.path() == "/auth" {
