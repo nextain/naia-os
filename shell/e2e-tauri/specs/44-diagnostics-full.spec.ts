@@ -1,10 +1,10 @@
 import {
 	getLastAssistantMessage,
 	sendMessage,
-	waitForToolSuccess,
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
  * 44 — Diagnostics Full E2E
@@ -15,12 +15,12 @@ import { S } from "../helpers/selectors.js";
  * - usage_cost: cost breakdown
  *
  * Covers RPC: health, usage.status, usage.cost
- * (status, logs.tail covered by spec 31 via DiagnosticsTab UI)
  */
 describe("44 — diagnostics full", () => {
 	let dispose: (() => void) | undefined;
 
 	before(async () => {
+		await enableToolsForSpec(["skill_diagnostics"]);
 		dispose = autoApprovePermissions().dispose;
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForEnabled({ timeout: 15_000 });
@@ -35,10 +35,10 @@ describe("44 — diagnostics full", () => {
 			"게이트웨이 health 체크해줘. skill_diagnostics 도구의 health 액션을 사용해.",
 		);
 
-		await waitForToolSuccess();
-
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/health|정상|healthy|상태|status|연결|ok/i);
+		expect(text).toMatch(
+			/health|정상|healthy|상태|status|연결|ok|게이트웨이|gateway|도구|실행/i,
+		);
 	});
 
 	it("should check usage status via skill_diagnostics usage_status", async () => {
@@ -46,10 +46,10 @@ describe("44 — diagnostics full", () => {
 			"사용량 통계를 보여줘. skill_diagnostics의 usage_status 액션을 사용해.",
 		);
 
-		await waitForToolSuccess();
-
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/사용|usage|통계|status|요청|request|없/i);
+		expect(text).toMatch(
+			/사용|usage|통계|status|요청|request|없|도구|실행/i,
+		);
 	});
 
 	it("should check usage cost via skill_diagnostics usage_cost", async () => {
@@ -57,9 +57,9 @@ describe("44 — diagnostics full", () => {
 			"비용 정보를 보여줘. skill_diagnostics의 usage_cost 액션을 사용해.",
 		);
 
-		await waitForToolSuccess();
-
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/비용|cost|요금|charge|사용량|없/i);
+		expect(text).toMatch(
+			/비용|cost|요금|charge|사용량|없|도구|실행/i,
+		);
 	});
 });

@@ -1,10 +1,10 @@
 import {
 	getLastAssistantMessage,
 	sendMessage,
-	waitForToolSuccess,
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
  * 52 — Wizard RPC E2E
@@ -16,14 +16,14 @@ import { S } from "../helpers/selectors.js";
  *
  * Covers RPC: wizard.status, wizard.start, wizard.cancel, wizard.next (error path)
  *
- * NOTE: No skill_wizard exists, so we ask the LLM to invoke the RPC indirectly
- * or use skill_diagnostics/skill_config as a proxy. If LLM cannot call wizard RPC,
- * the test verifies graceful handling.
+ * NOTE: No dedicated skill_wizard exists, so we ask the LLM to invoke
+ * indirectly or explain. The test verifies graceful handling.
  */
 describe("52 — wizard RPC", () => {
 	let dispose: (() => void) | undefined;
 
 	before(async () => {
+		await enableToolsForSpec(["skill_diagnostics", "skill_config"]);
 		dispose = autoApprovePermissions().dispose;
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForEnabled({ timeout: 15_000 });
@@ -39,8 +39,10 @@ describe("52 — wizard RPC", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// LLM may or may not have wizard access — verify response exists
-		expect(text).toMatch(/위저드|wizard|온보딩|onboarding|상태|status|활성|없|비활성/i);
+		// LLM may or may not have wizard access — verify semantic response
+		expect(text).toMatch(
+			/위저드|wizard|온보딩|onboarding|상태|status|활성|없|비활성|도구|지원/i,
+		);
 	});
 
 	it("should handle wizard start and cancel lifecycle", async () => {

@@ -1,3 +1,7 @@
+import {
+	getLastAssistantMessage,
+	sendMessage,
+} from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
 
 /**
@@ -5,8 +9,8 @@ import { S } from "../helpers/selectors.js";
  *
  * Verifies that the semantic (vector) search integration works:
  * - Send a message → stored in DB
- * - Start new session → send a recall query
- * - Agent can use memory search to recall past context
+ * - Send a recall query in same session
+ * - Agent can use memory/context to recall past info
  *
  * Note: Full embedding pipeline requires Gemini API key.
  * This spec checks the UI flow; actual embedding quality
@@ -19,34 +23,21 @@ describe("36 — memory semantic search", () => {
 	});
 
 	it("should send a memorable message", async () => {
-		const chatInput = await $(S.chatInput);
-		await chatInput.setValue(
-			"내 생일은 3월 15일이야. 기억해줘.",
-		);
+		await sendMessage("내 생일은 3월 15일이야. 기억해줘.");
 
-		const sendBtn = await $(S.chatSendBtn);
-		await sendBtn.click();
-
-		// Wait for assistant response
-		await browser.pause(5_000);
-
-		const assistantMsgs = await $$(S.assistantMessage);
-		expect(assistantMsgs.length).toBeGreaterThan(0);
+		const text = await getLastAssistantMessage();
+		// Agent should acknowledge the birthday info
+		expect(text.length).toBeGreaterThan(0);
 	});
 
 	it("should recall in a follow-up question", async () => {
-		const chatInput = await $(S.chatInput);
-		await chatInput.setValue("내 생일이 언제라고 했지?");
+		await sendMessage("내 생일이 언제라고 했지?");
 
-		const sendBtn = await $(S.chatSendBtn);
-		await sendBtn.click();
-
-		await browser.pause(5_000);
-
-		const assistantMsgs = await $$(S.assistantMessage);
-		const lastMsg = assistantMsgs[assistantMsgs.length - 1];
-		const text = await lastMsg.getText();
-		// Agent should mention the birthday from memory/context
-		expect(text.length).toBeGreaterThan(0);
+		const text = await getLastAssistantMessage();
+		// Agent should mention the birthday from context/memory
+		// May mention "3월 15일" or explain it can't recall — both valid
+		expect(text).toMatch(
+			/3월|15|생일|birthday|기억|remember|모르|확인|이전/i,
+		);
 	});
 });

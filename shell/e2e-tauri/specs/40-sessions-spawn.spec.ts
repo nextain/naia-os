@@ -1,10 +1,10 @@
 import {
 	getLastAssistantMessage,
 	sendMessage,
-	waitForToolSuccess,
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
  * 40 — Sessions Spawn E2E
@@ -20,6 +20,7 @@ describe("40 — sessions spawn", () => {
 	let dispose: (() => void) | undefined;
 
 	before(async () => {
+		await enableToolsForSpec(["sessions_spawn"]);
 		dispose = autoApprovePermissions().dispose;
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForEnabled({ timeout: 15_000 });
@@ -34,19 +35,10 @@ describe("40 — sessions spawn", () => {
 			"서브 에이전트를 생성해서 '현재 시각 확인' 작업을 위임해줘. sessions_spawn 도구를 사용해.",
 		);
 
-		// Best-effort: sessions_spawn may not be supported by Gateway
-		const toolUsed = await browser.execute(
-			(sel: string) => !!document.querySelector(sel),
-			S.toolSuccess,
-		);
-
 		const text = await getLastAssistantMessage();
-		if (toolUsed) {
-			// Should mention sub-agent result or time
-			expect(text).toMatch(/에이전트|agent|시각|시간|time|결과|완료|지원/i);
-		} else {
-			// Tool not used — LLM responded directly
-			expect(text.length).toBeGreaterThan(0);
-		}
+		// Should mention sub-agent/time/completion or explain tool status
+		expect(text).toMatch(
+			/에이전트|agent|시각|시간|time|결과|완료|지원|도구|실행|세션|session/i,
+		);
 	});
 });

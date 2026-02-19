@@ -40,7 +40,7 @@ export function ToolActivity({ tool }: Props) {
 	const icon = STATUS_ICON[tool.status];
 
 	return (
-		<div className={`tool-activity tool-${tool.status}`}>
+		<div className={`tool-activity tool-${tool.status}`} data-tool-name={tool.toolName}>
 			<button
 				type="button"
 				className="tool-activity-header"

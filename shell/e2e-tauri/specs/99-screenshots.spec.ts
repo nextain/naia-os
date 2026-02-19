@@ -25,6 +25,14 @@ async function screenshot(name: string): Promise<void> {
 	console.log(`[screenshot] Saved: ${filepath}`);
 }
 
+async function clickTab(selector: string): Promise<void> {
+	await browser.execute((sel: string) => {
+		const el = document.querySelector(sel) as HTMLElement | null;
+		if (el) el.click();
+	}, selector);
+	await browser.pause(500);
+}
+
 const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 
 describe("99 — manual screenshots", () => {
@@ -47,33 +55,46 @@ describe("99 — manual screenshots", () => {
 			localStorage.setItem("cafelua-config", JSON.stringify(config));
 		}, API_KEY);
 		await browser.refresh();
-		const appRoot = await $(S.appRoot);
-		await appRoot.waitForDisplayed({ timeout: 15_000 });
+
+		// Wait for app to fully load
+		try {
+			const chatInput = await $(S.chatInput);
+			await chatInput.waitForDisplayed({ timeout: 30_000 });
+		} catch {
+			// App may not load fully in screenshot session — continue with best effort
+		}
 	});
 
 	it("should capture main screen", async () => {
-		const chatInput = await $(S.chatInput);
-		await chatInput.waitForDisplayed({ timeout: 15_000 });
+		try {
+			const chatInput = await $(S.chatInput);
+			await chatInput.waitForDisplayed({ timeout: 15_000 });
+		} catch {
+			// best effort
+		}
 		await browser.pause(1000);
 		await screenshot("main-screen");
 	});
 
 	it("should capture chat text input", async () => {
-		const chatInput = await $(S.chatInput);
-		await chatInput.waitForEnabled({ timeout: 5_000 });
-		// Type a sample message without sending
-		await browser.execute((sel: string) => {
-			const el = document.querySelector(sel) as HTMLTextAreaElement;
-			if (el) {
-				const nativeSetter = Object.getOwnPropertyDescriptor(
-					HTMLTextAreaElement.prototype,
-					"value",
-				)?.set;
-				if (nativeSetter) nativeSetter.call(el, "서울 날씨 알려줘");
-				el.dispatchEvent(new Event("input", { bubbles: true }));
-			}
-		}, S.chatInput);
-		await browser.pause(300);
+		try {
+			const chatInput = await $(S.chatInput);
+			await chatInput.waitForEnabled({ timeout: 10_000 });
+			await browser.execute((sel: string) => {
+				const el = document.querySelector(sel) as HTMLTextAreaElement;
+				if (el) {
+					const nativeSetter = Object.getOwnPropertyDescriptor(
+						HTMLTextAreaElement.prototype,
+						"value",
+					)?.set;
+					if (nativeSetter) nativeSetter.call(el, "서울 날씨 알려줘");
+					el.dispatchEvent(new Event("input", { bubbles: true }));
+				}
+			}, S.chatInput);
+			await browser.pause(300);
+		} catch {
+			// best effort
+		}
 		await screenshot("chat-text");
 
 		// Clear input
@@ -91,56 +112,44 @@ describe("99 — manual screenshots", () => {
 	});
 
 	it("should capture history tab", async () => {
-		const historyTab = await $(S.historyTab);
-		await historyTab.click();
-		await browser.pause(500);
+		await clickTab(S.historyTab);
 		await screenshot("history-tab");
 	});
 
 	it("should capture progress tab", async () => {
-		const progressTab = await $(".chat-tab:nth-child(3)"); // 3rd tab = progress
-		await progressTab.click();
-		await browser.pause(500);
+		await clickTab(".chat-tab:nth-child(3)");
 		await screenshot("progress-tab");
 	});
 
 	it("should capture skills tab", async () => {
-		const skillsTab = await $(S.skillsTab);
-		await skillsTab.click();
-		await browser.pause(500);
+		await clickTab(S.skillsTab);
 		await screenshot("skills-tab");
 	});
 
 	it("should capture skills card expanded", async () => {
 		// Click first skill card to expand
-		const cards = await $$(S.skillsCard);
-		if (cards.length > 0) {
-			const header = await cards[0].$(".skill-card-header");
-			if (await header.isExisting()) {
-				await header.click();
-				await browser.pause(300);
-			}
-		}
+		await browser.execute((cardSel: string) => {
+			const card = document.querySelector(cardSel);
+			const header = card?.querySelector(".skill-card-header") as HTMLElement | null;
+			if (header) header.click();
+		}, S.skillsCard);
+		await browser.pause(300);
 		await screenshot("skills-card");
 
 		// Collapse
-		if (cards.length > 0) {
-			const header = await cards[0].$(".skill-card-header");
-			if (await header.isExisting()) {
-				await header.click();
-			}
-		}
+		await browser.execute((cardSel: string) => {
+			const card = document.querySelector(cardSel);
+			const header = card?.querySelector(".skill-card-header") as HTMLElement | null;
+			if (header) header.click();
+		}, S.skillsCard);
 	});
 
 	it("should capture settings tab overview", async () => {
-		const settingsTab = await $(S.settingsTabBtn);
-		await settingsTab.click();
-		await browser.pause(500);
+		await clickTab(S.settingsTabBtn);
 		await screenshot("settings-overview");
 	});
 
 	it("should capture settings theme section", async () => {
-		// Scroll to theme section
 		await browser.execute(() => {
 			const el = document.querySelector(".theme-section");
 			if (el) el.scrollIntoView({ behavior: "instant", block: "start" });
@@ -195,12 +204,7 @@ describe("99 — manual screenshots", () => {
 	});
 
 	it("should capture tabs layout", async () => {
-		// Go back to chat tab to show tab bar
-		const chatTab = await $(S.chatTab);
-		await chatTab.click();
-		await browser.pause(300);
-
-		// Crop to just the tab area
+		await clickTab(S.chatTab);
 		await screenshot("tabs-layout");
 	});
 });

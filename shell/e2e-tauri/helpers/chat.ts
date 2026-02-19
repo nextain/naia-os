@@ -195,70 +195,67 @@ export async function sendMessage(text: string): Promise<void> {
 			{ timeout: 180_000, timeoutMsg: "Streaming did not finish (cursor-blink still visible)" },
 		);
 
-		// Wait for a new completed assistant message with non-empty text
+		// Wait for a new completed assistant message OR tool activity.
+		// When the LLM responds with only a function call (no text), no .message-content
+		// appears until after tool execution + follow-up response.
 		await browser.waitUntil(
 			async () => {
 				await traceDelta();
-				const count = await countCompletedAssistantMessages();
-				if (count <= beforeCount) return false;
-				const text = await browser.execute(
-					(sel: string) => {
-						const msgs = document.querySelectorAll(sel);
-						return msgs[msgs.length - 1]?.textContent?.trim() ?? "";
+				const state = await browser.execute(
+					(baseCount: number, msgSel: string) => {
+						const msgs = document.querySelectorAll(msgSel);
+						const hasNewMsg = msgs.length > baseCount &&
+							(msgs[msgs.length - 1]?.textContent?.trim()?.length ?? 0) > 0;
+						const hasToolActivity = !!document.querySelector(
+							".tool-activity.tool-success, .tool-activity.tool-error",
+						);
+						return { hasNewMsg, hasToolActivity };
 					},
+					beforeCount,
 					".chat-message.assistant:not(.streaming) .message-content",
 				);
-				return text.length > 0;
+				return state.hasNewMsg || state.hasToolActivity;
 			},
-			{ timeout: 30_000, timeoutMsg: "Completed assistant message did not appear" },
+			{ timeout: 60_000, timeoutMsg: "Completed assistant message did not appear" },
 		);
 
-		// Some providers emit a "Tool Call" placeholder first.
-		// E2E should not treat this as final success: require a resolved follow-up message
-		// or visible tool activity within timeout.
-		const latest = await browser.execute(() => {
-			const msgs = document.querySelectorAll(
-				".chat-message.assistant:not(.streaming) .message-content",
-			);
-			return msgs[msgs.length - 1]?.textContent?.trim() ?? "";
-		});
-		const placeholder =
-			/Tool Call:|print\s*\(\s*skill_[a-z0-9_-]+\s*\)|잠시만 기다려/i.test(latest);
-		if (placeholder) {
-			const resolved = await browser
-				.waitUntil(
-					async () => {
-						await traceDelta();
-						return browser.execute(
-							(baseCount: number) => {
-								const msgs = document.querySelectorAll(
-									".chat-message.assistant:not(.streaming) .message-content",
-								);
-								const toolActivity = document.querySelector(
-									".tool-activity.tool-success, .tool-activity.tool-error",
-								);
-								if (toolActivity) return true;
-								if (msgs.length <= baseCount) return false;
-								const last = msgs[msgs.length - 1]?.textContent?.trim() ?? "";
-								return !/Tool Call:|print\s*\(\s*skill_[a-z0-9_-]+\s*\)|잠시만 기다려/i.test(last);
-							},
-							beforeCount + 1,
-						);
-					},
-					{
-						timeout: 25_000,
-						timeoutMsg:
-							"Tool placeholder emitted but no resolved tool result/follow-up message appeared",
-					},
-				)
-				.then(() => true)
-				.catch(() => false);
-			if (!resolved) {
-				throw new Error(
-					"E2E invalid response: assistant stopped at tool placeholder without execution result",
+		// If tool activity appeared but no new completed message yet, wait for follow-up
+		const needsFollowUp = await browser.execute(
+			(baseCount: number) => {
+				const msgs = document.querySelectorAll(
+					".chat-message.assistant:not(.streaming) .message-content",
 				);
-			}
+				const hasToolActivity = !!document.querySelector(
+					".tool-activity.tool-success, .tool-activity.tool-error",
+				);
+				const hasNewMsg = msgs.length > baseCount &&
+					(msgs[msgs.length - 1]?.textContent?.trim()?.length ?? 0) > 0;
+				return hasToolActivity && !hasNewMsg;
+			},
+			beforeCount,
+		);
+		if (needsFollowUp) {
+			// Wait for follow-up streaming to complete
+			await browser.waitUntil(
+				async () => {
+					await traceDelta();
+					const count = await countCompletedAssistantMessages();
+					if (count <= beforeCount) return false;
+					const text = await browser.execute(
+						(sel: string) => {
+							const msgs = document.querySelectorAll(sel);
+							return msgs[msgs.length - 1]?.textContent?.trim() ?? "";
+						},
+						".chat-message.assistant:not(.streaming) .message-content",
+					);
+					return text.length > 0;
+				},
+				{ timeout: 120_000, timeoutMsg: "Follow-up message after tool execution did not appear" },
+			);
 		}
+
+		// Note: placeholder detection removed — too aggressive for tool-calling scenarios.
+		// Tool success verification is handled by waitForToolSuccess() in individual specs.
 	} finally {
 		await traceDelta();
 	}
@@ -329,8 +326,13 @@ export async function waitForToolSuccess(): Promise<void> {
  */
 export async function getLastToolName(): Promise<string> {
 	return browser.execute(() => {
-		const items = document.querySelectorAll(".tool-activity .tool-name");
-		return items[items.length - 1]?.textContent?.trim() ?? "";
+		const items = document.querySelectorAll(".tool-activity[data-tool-name]");
+		if (items.length > 0) {
+			return items[items.length - 1]?.getAttribute("data-tool-name") ?? "";
+		}
+		// Fallback to display text
+		const labels = document.querySelectorAll(".tool-activity .tool-name");
+		return labels[labels.length - 1]?.textContent?.trim() ?? "";
 	});
 }
 

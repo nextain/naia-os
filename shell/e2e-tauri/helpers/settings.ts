@@ -1,6 +1,53 @@
 import { S } from "./selectors.js";
 
 /**
+ * Enable tools + pre-approve specific tools in localStorage config.
+ * Only refreshes the page when config actually changed.
+ */
+export async function enableToolsForSpec(tools: string[]): Promise<void> {
+	const needsRefresh = await browser.execute((toolNames: string[]) => {
+		const raw = localStorage.getItem("cafelua-config");
+		const config = raw ? JSON.parse(raw) : {};
+		let changed = false;
+
+		if (!config.enableTools) {
+			config.enableTools = true;
+			changed = true;
+		}
+
+		const disabled = Array.isArray(config.disabledSkills)
+			? config.disabledSkills
+			: [];
+		const newDisabled = disabled.filter(
+			(s: string) => !toolNames.includes(s),
+		);
+		if (newDisabled.length !== disabled.length) {
+			config.disabledSkills = newDisabled;
+			changed = true;
+		}
+
+		const allowed = config.allowedTools || [];
+		for (const t of toolNames) {
+			if (!allowed.includes(t)) {
+				allowed.push(t);
+				changed = true;
+			}
+		}
+		config.allowedTools = allowed;
+		localStorage.setItem("cafelua-config", JSON.stringify(config));
+
+		return changed;
+	}, tools);
+
+	if (needsRefresh) {
+		await browser.refresh();
+		// Wait for app to fully load after refresh
+		const chatInput = await $(S.chatInput);
+		await chatInput.waitForEnabled({ timeout: 15_000 });
+	}
+}
+
+/**
  * Fill the settings tab and save, then switch to chat tab.
  * Assumes the settings tab is already visible.
  */
@@ -15,10 +62,20 @@ export async function configureSettings(opts: {
 	await providerSelect.waitForDisplayed({ timeout: 10_000 });
 	await providerSelect.selectByAttribute("value", opts.provider);
 
-	// API Key
-	const apiKeyInput = await $(S.apiKeyInput);
-	await apiKeyInput.waitForDisplayed();
-	await apiKeyInput.setValue(opts.apiKey);
+	// API Key — use JS native setter (WebDriver setValue may not trigger React state in WebKitGTK)
+	await browser.execute(
+		(sel: string, val: string) => {
+			const el = document.querySelector(sel) as HTMLInputElement | null;
+			if (!el) throw new Error(`API key input ${sel} not found`);
+			el.scrollIntoView({ block: "center" });
+			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			if (setter) setter.call(el, val);
+			else el.value = val;
+			el.dispatchEvent(new Event("input", { bubbles: true }));
+		},
+		S.apiKeyInput,
+		opts.apiKey,
+	);
 
 	// Enable tools — use JS click (WebDriver click fails on off-screen checkboxes in WebKitGTK)
 	await browser.execute((sel: string) => {

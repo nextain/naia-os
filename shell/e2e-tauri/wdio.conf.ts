@@ -77,7 +77,7 @@ export const config = {
 	bail: 1,
 	waitforTimeout: 30_000,
 	connectionRetryTimeout: 120_000,
-	connectionRetryCount: 0,
+	connectionRetryCount: 3,
 
 	port: 4444,
 	hostname: "127.0.0.1",
@@ -91,16 +91,14 @@ export const config = {
 	reporters: ["spec"],
 
 	async onPrepare() {
-		// Check if Vite dev server is already running
-		const alreadyRunning = await waitForPort(1420, 1_000).then(
-			() => true,
-			() => false,
-		);
-
-		if (alreadyRunning) {
-			console.log("[e2e] Vite dev server already running on :1420");
-			return;
-		}
+		// Kill orphaned processes from previous runs
+		try {
+			execSync("lsof -ti:1420 | xargs -r kill -9 2>/dev/null || true", { stdio: "ignore" });
+			execSync("lsof -ti:4444 | xargs -r kill -9 2>/dev/null || true", { stdio: "ignore" });
+			execSync("pkill -f tauri-driver 2>/dev/null || true", { stdio: "ignore" });
+		} catch { /* ignore */ }
+		// Brief pause to let ports release
+		await new Promise((r) => setTimeout(r, 500));
 
 		// Start Vite dev server (debug binary loads from devUrl localhost:1420)
 		viteServer = spawn("pnpm", ["dev"], {
@@ -123,9 +121,15 @@ export const config = {
 
 	async beforeSession() {
 		const driverPath = resolve(homedir(), ".cargo/bin/tauri-driver");
-		tauriDriver = spawn(driverPath, ["--port", "4444"], {
-			stdio: [null, process.stdout, process.stderr],
-		});
+		tauriDriver = spawn(
+			driverPath,
+			[
+				"--port", "4444",
+				"--native-driver", "/usr/bin/WebKitWebDriver",
+				"--native-port", "4445",
+			],
+			{ stdio: [null, process.stdout, process.stderr] },
+		);
 		await waitForPort(4444, 30_000);
 	},
 

@@ -9,27 +9,39 @@ import { S } from "../helpers/selectors.js";
  */
 describe("35 — onboarding extended", () => {
 	it("should check if onboarding is present", async () => {
-		const overlay = await $(S.onboardingOverlay);
-		const exists = await overlay.isExisting();
-		// Onboarding only shows on first run
+		const exists = await browser.execute(
+			(sel: string) => !!document.querySelector(sel),
+			S.onboardingOverlay,
+		);
+		// Onboarding only shows on first run — both states valid
 		expect(typeof exists).toBe("boolean");
 	});
 
 	it("should have skip button if onboarding is visible", async () => {
-		const overlay = await $(S.onboardingOverlay);
-		const exists = await overlay.isExisting();
-		if (exists) {
-			const skipBtn = await $(S.onboardingSkipBtn);
-			expect(await skipBtn.isDisplayed()).toBe(true);
+		const overlayExists = await browser.execute(
+			(sel: string) => !!document.querySelector(sel),
+			S.onboardingOverlay,
+		);
+		if (overlayExists) {
+			const skipExists = await browser.execute(
+				(sel: string) => !!document.querySelector(sel),
+				S.onboardingSkipBtn,
+			);
+			expect(skipExists).toBe(true);
 		}
 	});
 
 	it("should have next button if onboarding is visible", async () => {
-		const overlay = await $(S.onboardingOverlay);
-		const exists = await overlay.isExisting();
-		if (exists) {
-			const nextBtn = await $(S.onboardingNextBtn);
-			expect(await nextBtn.isDisplayed()).toBe(true);
+		const overlayExists = await browser.execute(
+			(sel: string) => !!document.querySelector(sel),
+			S.onboardingOverlay,
+		);
+		if (overlayExists) {
+			const nextExists = await browser.execute(
+				(sel: string) => !!document.querySelector(sel),
+				S.onboardingNextBtn,
+			);
+			expect(nextExists).toBe(true);
 		}
 	});
 });
