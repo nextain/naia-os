@@ -151,6 +151,7 @@ export function OnboardingWizard({
 	const [userName, setUserName] = useState("");
 	const [selectedVrm, setSelectedVrm] = useState(VRM_CHOICES[0].path);
 	const [selectedPersonality, setSelectedPersonality] = useState("friendly");
+	const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
 	const [discordWebhookUrl, setDiscordWebhookUrl] = useState("");
 	const [googleChatWebhookUrl, setGoogleChatWebhookUrl] = useState("");
 	const [provider, setProvider] = useState<ProviderId>("gemini");
@@ -295,6 +296,7 @@ export function OnboardingWizard({
 			agentName: agentName.trim() || undefined,
 			vrmModel: selectedVrm !== defaultVrm ? selectedVrm : undefined,
 			persona,
+			slackWebhookUrl: slackWebhookUrl.trim() || undefined,
 			discordWebhookUrl: discordWebhookUrl.trim() || undefined,
 			googleChatWebhookUrl: googleChatWebhookUrl.trim() || undefined,
 			onboardingComplete: true,
@@ -550,6 +552,17 @@ export function OnboardingWizard({
 							{displayName}가 알림을 보낼 메신저 웹훅 URL을 입력해주세요. 나중에 설정에서 추가할 수도 있습니다.
 						</p>
 						<div className="onboarding-input-group">
+							<label htmlFor="slack-webhook">Slack 웹훅 URL</label>
+							<input
+								id="slack-webhook"
+								className="onboarding-input"
+								type="password"
+								placeholder="https://hooks.slack.com/services/..."
+								value={slackWebhookUrl}
+								onChange={(e) => setSlackWebhookUrl(e.target.value)}
+							/>
+						</div>
+						<div className="onboarding-input-group" style={{ marginTop: 12 }}>
 							<label htmlFor="discord-webhook">Discord 웹훅 URL</label>
 							<input
 								id="discord-webhook"

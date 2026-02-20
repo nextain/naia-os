@@ -85,6 +85,9 @@ export function SettingsModal({ onClose }: Props) {
 	const [gatewayToken, setGatewayToken] = useState(
 		existing?.gatewayToken ?? "",
 	);
+	const [slackWebhookUrl, setSlackWebhookUrl] = useState(
+		existing?.slackWebhookUrl ?? "",
+	);
 	const [discordWebhookUrl, setDiscordWebhookUrl] = useState(
 		existing?.discordWebhookUrl ?? "",
 	);
@@ -162,6 +165,7 @@ export function SettingsModal({ onClose }: Props) {
 			enableTools,
 			gatewayUrl: gatewayUrl !== "ws://localhost:18789" ? gatewayUrl : undefined,
 			gatewayToken: gatewayToken.trim() || undefined,
+			slackWebhookUrl: slackWebhookUrl.trim() || undefined,
 			discordWebhookUrl: discordWebhookUrl.trim() || undefined,
 			googleChatWebhookUrl: googleChatWebhookUrl.trim() || undefined,
 		});
@@ -367,6 +371,19 @@ export function SettingsModal({ onClose }: Props) {
 						type="password"
 						value={gatewayToken}
 						onChange={(e) => setGatewayToken(e.target.value)}
+					/>
+				</div>
+
+				<div className="settings-field">
+					<label htmlFor="slack-webhook-input">
+						Slack Webhook URL
+					</label>
+					<input
+						id="slack-webhook-input"
+						type="password"
+						value={slackWebhookUrl}
+						onChange={(e) => setSlackWebhookUrl(e.target.value)}
+						placeholder="https://hooks.slack.com/services/..."
 					/>
 				</div>
 

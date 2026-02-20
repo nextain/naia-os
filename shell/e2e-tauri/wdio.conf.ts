@@ -90,11 +90,6 @@ export const config = {
 
 	reporters: [
 		"spec",
-		["video", {
-			saveAllVideos: true,
-			videoSlowdownMultiplier: 3,
-			videoRenderTimeout: 10_000,
-		}],
 	],
 
 	async onPrepare() {

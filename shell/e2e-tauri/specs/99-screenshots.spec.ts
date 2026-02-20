@@ -22,8 +22,26 @@ const MANUAL_DIR = path.resolve(
 async function screenshot(name: string): Promise<void> {
 	fs.mkdirSync(MANUAL_DIR, { recursive: true });
 	const filepath = path.join(MANUAL_DIR, `${name}.png`);
+	
+	// Force a reflow and wait for paints
+	await browser.execute(() => {
+		window.dispatchEvent(new Event('resize'));
+		document.body.style.display = 'none';
+		document.body.offsetHeight; // force reflow
+		document.body.style.display = '';
+	});
+	await browser.pause(1000);
+	
 	await browser.saveScreenshot(filepath);
-	console.log(`[screenshot] Saved: ${filepath}`);
+	
+	const stats = fs.statSync(filepath);
+	if (stats.size < 40000) {
+		console.log(`[screenshot] WARNING: ${name}.png is too small (${stats.size} bytes). Retrying with longer wait...`);
+		await browser.pause(2000);
+		await browser.saveScreenshot(filepath);
+	}
+	
+	console.log(`[screenshot] Saved: ${filepath} (${fs.statSync(filepath).size} bytes)`);
 }
 
 async function clickTab(selector: string): Promise<void> {
@@ -31,24 +49,33 @@ async function clickTab(selector: string): Promise<void> {
 		const el = document.querySelector(sel) as HTMLElement | null;
 		if (el) el.click();
 	}, selector);
-	await browser.pause(1000); // Increased pause to let rendering catch up
+	await browser.pause(1500); // Wait longer for transition animations
 }
 
 const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 
 describe("99 — manual screenshots", () => {
 	before(async () => {
+		// Set the exact resolution requested by the master (400x768)
+		// This also helps stabilize the WebKitGTK rendering pipeline during capture
+		try {
+			await browser.setWindowSize(400, 768);
+		} catch (e) {
+			console.log("[screenshot] Note: setWindowSize failed, trying to continue", e);
+		}
+		
 		// Bypass onboarding
 		await browser.execute((key: string) => {
 			const config = {
 				provider: "gemini",
 				model: "gemini-2.5-flash",
 				apiKey: key,
-				agentName: "Alpha",
+				agentName: "AI 아바타",
 				userName: "Tester",
 				vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
 				persona: "Friendly AI companion",
 				enableTools: true,
+				onboardingComplete: true,
 				locale: "ko",
 				gatewayUrl: "ws://localhost:18789",
 				gatewayToken: "cafelua-dev-token",

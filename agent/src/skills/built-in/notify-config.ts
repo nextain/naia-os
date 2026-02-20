@@ -29,10 +29,12 @@ export async function getNotifyWebhookUrl(
 		const raw = await readFile(`${home}/.cafelua/config.json`, "utf-8");
 		const config = JSON.parse(raw) as {
 			notifications?: Record<string, { webhookUrl?: string }>;
+			slackWebhookUrl?: string;
 			discordWebhookUrl?: string;
 			googleChatWebhookUrl?: string;
 		};
 		// Check new flat structure first
+		if (provider === "slack" && config.slackWebhookUrl?.trim()) return config.slackWebhookUrl.trim();
 		if (provider === "discord" && config.discordWebhookUrl?.trim()) return config.discordWebhookUrl.trim();
 		if (provider === "google_chat" && config.googleChatWebhookUrl?.trim()) return config.googleChatWebhookUrl.trim();
 		

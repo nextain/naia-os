@@ -42,6 +42,7 @@ export interface AppConfig {
 	labKey?: string;
 	labUserId?: string;
 	disabledSkills?: string[];
+	slackWebhookUrl?: string;
 	discordWebhookUrl?: string;
 	googleChatWebhookUrl?: string;
 }
