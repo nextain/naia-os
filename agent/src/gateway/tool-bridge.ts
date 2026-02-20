@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
 import type { ToolDefinition } from "../providers/types.js";
 import { CronScheduler } from "../cron/scheduler.js";
 import { CronStore } from "../cron/store.js";
@@ -458,9 +459,18 @@ async function runShellCommand(
 ): Promise<ToolResult> {
 	const errors: string[] = [];
 
+	let actualCommand = command;
+	// Automatically route command to host if running inside a flatpak sandbox
+	try {
+		if (fs.existsSync("/.flatpak-info")) {
+			const escaped = command.replace(/'/g, "'\\''");
+			actualCommand = `flatpak-spawn --host bash -c '${escaped}'`;
+		}
+	} catch { /* ignore */ }
+
 	if (hasMethod(client, "exec.bash")) {
 		try {
-			return await runExecBash(client, command, workdir);
+			return await runExecBash(client, actualCommand, workdir);
 		} catch (err) {
 			if (!isMethodUnavailableError(err)) {
 				return {
@@ -475,7 +485,7 @@ async function runShellCommand(
 
 	if (hasMethod(client, "node.invoke")) {
 		try {
-			return await runNodeInvoke(client, command, workdir);
+			return await runNodeInvoke(client, actualCommand, workdir);
 		} catch (err) {
 			return {
 				success: false,

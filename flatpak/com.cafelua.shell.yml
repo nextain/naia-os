@@ -1,0 +1,44 @@
+app-id: com.cafelua.shell
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+command: cafelua-shell
+finish-args:
+  # Display and UI
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  # Audio
+  - --socket=pulseaudio
+  # Network (needed for LLM API and WebSocket daemon)
+  - --share=network
+  # Filesystem (needed to read ~/.cafelua and user's workspace)
+  - --filesystem=home
+  # Host execution (needed for AI to execute commands on the host)
+  - --talk-name=org.freedesktop.Flatpak
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+  build-args:
+    - --share=network
+modules:
+  - name: cafelua-os
+    buildsystem: simple
+    build-commands:
+      # Setup build environment
+      - npm install -g pnpm
+      # Build the agent and shell
+      - pnpm install
+      - pnpm build
+      # Build Tauri release binary
+      - cd shell && pnpm tauri build -b none
+      # Install to flatpak prefix
+      - install -D shell/src-tauri/target/release/cafelua-shell /app/bin/cafelua-shell
+      - mkdir -p /app/agent /app/gateway
+      - cp -r agent/dist /app/agent/dist
+      - cp -r agent/package.json /app/agent/package.json
+    sources:
+      - type: dir
+        path: ..
