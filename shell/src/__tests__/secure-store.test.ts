@@ -14,7 +14,6 @@ vi.mock("@tauri-apps/plugin-store", () => {
 });
 
 // Import after mock
-import { load } from "@tauri-apps/plugin-store";
 import {
 	saveSecretKey,
 	getSecretKey,
@@ -24,11 +23,11 @@ import {
 } from "../lib/secure-store";
 
 // Get mock store reference
-function getMockStore() {
-	return (load as unknown as { __mockStore: ReturnType<typeof vi.fn> }).__mockStore ??
-		// fallback: resolve from the mock module
-		vi.mocked(load).mock.results[0]?.value;
-}
+// function getMockStore() {
+// 	return (load as unknown as { __mockStore: ReturnType<typeof vi.fn> }).__mockStore ??
+// 		// fallback: resolve from the mock module
+// 		vi.mocked(load).mock.results[0]?.value;
+// }
 
 describe("secure-store", () => {
 	let mockStore: { get: ReturnType<typeof vi.fn>; set: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> };
@@ -36,8 +35,8 @@ describe("secure-store", () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		// Get the mock store after module loads
-		const mod = await import("@tauri-apps/plugin-store") as { __mockStore: typeof mockStore };
-		mockStore = mod.__mockStore;
+		const mod = await import("@tauri-apps/plugin-store");
+		mockStore = (mod as any).__mockStore;
 	});
 
 	it("saves a key to the store", async () => {

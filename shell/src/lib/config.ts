@@ -106,7 +106,7 @@ export async function loadConfigWithSecrets(): Promise<AppConfig | null> {
 	for (const key of SECRET_KEYS) {
 		const secureVal = await getSecretKey(key);
 		if (secureVal) {
-			(config as Record<string, unknown>)[key] = secureVal;
+			(config as any)[key] = secureVal;
 		}
 	}
 	return config;
@@ -119,11 +119,11 @@ export async function saveConfigSecure(config: AppConfig): Promise<void> {
 	const publicConfig = { ...config };
 
 	for (const key of SECRET_KEYS) {
-		const val = (config as Record<string, unknown>)[key];
+		const val = (config as any)[key];
 		if (typeof val === "string" && val.length > 0) {
 			await saveSecretKey(key, val);
 		}
-		(publicConfig as Record<string, unknown>)[key] = undefined;
+		(publicConfig as any)[key] = undefined;
 	}
 
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(publicConfig));
@@ -139,13 +139,13 @@ export async function migrateSecretsToSecureStore(): Promise<void> {
 
 	let migrated = false;
 	for (const key of SECRET_KEYS) {
-		const val = (config as Record<string, unknown>)[key];
+		const val = (config as any)[key];
 		if (typeof val === "string" && val.length > 0) {
 			const existing = await getSecretKey(key);
 			if (!existing) {
 				await saveSecretKey(key, val);
 			}
-			(config as Record<string, unknown>)[key] = undefined;
+			(config as any)[key] = undefined;
 			migrated = true;
 		}
 	}

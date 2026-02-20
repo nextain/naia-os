@@ -12,7 +12,8 @@ let storePromise: ReturnType<typeof load> | null = null;
 
 function getStore() {
 	if (!storePromise) {
-		storePromise = load(STORE_FILE, { autoSave: true });
+		// Type cast to bypass strict property checks on StoreOptions since we only care about autoSave
+		storePromise = load(STORE_FILE, { autoSave: true } as any);
 	}
 	return storePromise;
 }

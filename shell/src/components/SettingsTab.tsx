@@ -79,14 +79,14 @@ function DevicePairingSection() {
 					args: { action: "node_list" },
 					requestId: `dev-nodes-${Date.now()}`,
 					gatewayUrl,
-					gatewayToken: config.gatewayToken,
+					gatewayToken: config?.gatewayToken,
 				}),
 				directToolCall({
 					toolName: "skill_device",
 					args: { action: "pair_list" },
 					requestId: `dev-pairs-${Date.now()}`,
 					gatewayUrl,
-					gatewayToken: config.gatewayToken,
+					gatewayToken: config?.gatewayToken,
 				}),
 			]);
 

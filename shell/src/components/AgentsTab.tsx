@@ -54,14 +54,14 @@ export function AgentsTab() {
 					args: { action: "list" },
 					requestId: `ag-list-${Date.now()}`,
 					gatewayUrl,
-					gatewayToken: config.gatewayToken,
+					gatewayToken: config?.gatewayToken,
 				}),
 				directToolCall({
 					toolName: "skill_sessions",
 					args: { action: "list" },
 					requestId: `ss-list-${Date.now()}`,
 					gatewayUrl,
-					gatewayToken: config.gatewayToken,
+					gatewayToken: config?.gatewayToken,
 				}),
 			]);
 
