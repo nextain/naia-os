@@ -45,20 +45,44 @@ describe("46 — channels operations", () => {
 	});
 
 	it("should simulate a realistic Discord notification scenario", async () => {
-		// Enable notification tool
+		// Enable notification tool and configure dummy webhook in Settings
 		await enableToolsForSpec(["skill_notify_discord"]);
+		
+		// Set a mock Webhook URL using Settings UI
+		await browser.execute(() => {
+			const el = document.querySelector(".settings-tab-btn") as HTMLElement;
+			if (el) el.click();
+		});
+		await browser.pause(500);
+
+		await browser.execute((val: string) => {
+			const el = document.querySelector("#discord-webhook-input") as HTMLInputElement;
+			if (el) {
+				const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+				if (setter) setter.call(el, val);
+				else el.value = val;
+				el.dispatchEvent(new Event("input", { bubbles: true }));
+			}
+		}, "http://localhost:18789/mock/discord");
+
+		await browser.execute(() => {
+			const el = document.querySelector(".settings-save-btn") as HTMLElement;
+			if (el) el.click();
+			
+			const chat = document.querySelector(".chat-tab:first-child") as HTMLElement;
+			if (chat) chat.click();
+		});
+		await browser.pause(500);
 
 		await sendMessage(
 			"지금 즉시 내 디스코드로 'E2E 테스트 완료!'라고 메시지 좀 보내줘. skill_notify_discord 도구를 반드시 사용해.",
 		);
 
 		const text = await getLastAssistantMessage();
-		// We expect the AI to recognize the tool and attempt execution.
-		// Since no real webhook is configured, it will likely return a configuration error, which is PASS.
 		await assertSemantic(
 			text,
 			"skill_notify_discord 도구로 디스코드 알림 발송을 요청했다",
-			"AI가 skill_notify_discord 도구를 인식하고 실행을 시도했는가? '도구를 찾을 수 없다'면 FAIL. 전송 성공 메시지나 '설정이 되어있지 않다'는 안내가 있으면 PASS",
+			"AI가 skill_notify_discord 도구를 인식하고 실행을 시도했는가? '도구를 찾을 수 없다'면 FAIL. 전송 성공 메시지나 '오류가 발생했다'는 네트워크 에러(가짜 URL이므로) 안내가 있으면 PASS",
 		);
 	});
 

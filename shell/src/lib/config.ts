@@ -42,6 +42,8 @@ export interface AppConfig {
 	labKey?: string;
 	labUserId?: string;
 	disabledSkills?: string[];
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {

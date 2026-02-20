@@ -21,6 +21,7 @@ type Step =
 	| "userName"
 	| "character"
 	| "personality"
+	| "webhooks"
 	| "complete";
 
 const STEPS: Step[] = [
@@ -30,6 +31,7 @@ const STEPS: Step[] = [
 	"userName",
 	"character",
 	"personality",
+	"webhooks",
 	"complete",
 ];
 
@@ -149,6 +151,8 @@ export function OnboardingWizard({
 	const [userName, setUserName] = useState("");
 	const [selectedVrm, setSelectedVrm] = useState(VRM_CHOICES[0].path);
 	const [selectedPersonality, setSelectedPersonality] = useState("friendly");
+	const [discordWebhookUrl, setDiscordWebhookUrl] = useState("");
+	const [googleChatWebhookUrl, setGoogleChatWebhookUrl] = useState("");
 	const [provider, setProvider] = useState<ProviderId>("gemini");
 	const [apiKey, setApiKey] = useState("");
 	const [validating, setValidating] = useState(false);
@@ -291,6 +295,8 @@ export function OnboardingWizard({
 			agentName: agentName.trim() || undefined,
 			vrmModel: selectedVrm !== defaultVrm ? selectedVrm : undefined,
 			persona,
+			discordWebhookUrl: discordWebhookUrl.trim() || undefined,
+			googleChatWebhookUrl: googleChatWebhookUrl.trim() || undefined,
 			onboardingComplete: true,
 			labKey: labKey || undefined,
 			labUserId: labUserId || undefined,
@@ -533,6 +539,38 @@ export function OnboardingWizard({
 						<p className="onboarding-description">
 							{t("onboard.personality.hint")}
 						</p>
+					</div>
+				)}
+
+				{/* Step: Webhooks */}
+				{step === "webhooks" && (
+					<div className="onboarding-content">
+						<h2>메신저 연동 (선택)</h2>
+						<p className="onboarding-description">
+							{displayName}가 알림을 보낼 메신저 웹훅 URL을 입력해주세요. 나중에 설정에서 추가할 수도 있습니다.
+						</p>
+						<div className="onboarding-input-group">
+							<label htmlFor="discord-webhook">Discord 웹훅 URL</label>
+							<input
+								id="discord-webhook"
+								className="onboarding-input"
+								type="password"
+								placeholder="https://discord.com/api/webhooks/..."
+								value={discordWebhookUrl}
+								onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+							/>
+						</div>
+						<div className="onboarding-input-group" style={{ marginTop: 12 }}>
+							<label htmlFor="google-chat-webhook">Google Chat 웹훅 URL</label>
+							<input
+								id="google-chat-webhook"
+								className="onboarding-input"
+								type="password"
+								placeholder="https://chat.googleapis.com/v1/spaces/..."
+								value={googleChatWebhookUrl}
+								onChange={(e) => setGoogleChatWebhookUrl(e.target.value)}
+							/>
+						</div>
 					</div>
 				)}
 

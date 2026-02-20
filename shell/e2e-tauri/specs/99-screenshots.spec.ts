@@ -112,36 +112,63 @@ describe("99 — manual screenshots", () => {
 		}, S.chatInput);
 	});
 
-	it("should capture history tab", async () => {
-		await clickTab(S.historyTab);
-		await screenshot("history-tab");
-	});
-
-	it("should capture progress tab", async () => {
-		await clickTab(".chat-tab:nth-child(3)");
-		await screenshot("progress-tab");
-	});
-
-	it("should capture skills tab", async () => {
-		await clickTab(S.skillsTab);
-		await screenshot("skills-tab");
-	});
-
-	it("should capture channels tab", async () => {
-		await clickTab(S.channelsTabBtn);
-		await screenshot("channels-tab");
-	});
-
-	it("should capture agents tab", async () => {
-		await clickTab(S.agentsTabBtn);
-		await screenshot("agents-tab");
-	});
-
-	it("should capture diagnostics tab", async () => {
-		await clickTab(S.diagnosticsTabBtn);
-		await screenshot("diagnostics-tab");
-	});
-
+		it("should capture history tab", async () => {
+			await clickTab(S.historyTab);
+			try {
+				// Wait for data or empty state to render
+				await browser.waitUntil(async () => {
+					return await browser.execute((s1: string, s2: string) => 
+						!!document.querySelector(s1) || !!document.querySelector(s2), 
+						S.historyItem, S.historyEmpty);
+				}, { timeout: 5000 });
+			} catch {}
+			await screenshot("history-tab");
+		});
+	
+		it("should capture progress tab", async () => {
+			await clickTab(S.progressTabBtn);
+			try {
+				await browser.waitUntil(async () => {
+					return await browser.execute(() => 
+						!!document.querySelector(".progress-event-item") || !!document.querySelector(".diagnostics-status-grid"));
+				}, { timeout: 5000 });
+			} catch {}
+			await screenshot("progress-tab");
+		});
+	
+		it("should capture skills tab", async () => {
+			await clickTab(S.skillsTab);
+			try {
+				await $(S.skillsCard).waitForDisplayed({ timeout: 5000 });
+			} catch {}
+			await screenshot("skills-tab");
+		});
+	
+		it("should capture channels tab", async () => {
+			await clickTab(S.channelsTabBtn);
+			try {
+				await browser.waitUntil(async () => {
+					return await browser.execute((sel: string) => !document.querySelector(sel), ".channels-loading");
+				}, { timeout: 10000 });
+			} catch {}
+			await screenshot("channels-tab");
+		});
+	
+		it("should capture agents tab", async () => {
+			await clickTab(S.agentsTabBtn);
+			try {
+				await $(S.agentCard).waitForDisplayed({ timeout: 5000 });
+			} catch {}
+			await screenshot("agents-tab");
+		});
+	
+		it("should capture diagnostics tab", async () => {
+			await clickTab(S.diagnosticsTabBtn);
+			try {
+				await $(".diagnostics-status-grid").waitForDisplayed({ timeout: 5000 });
+			} catch {}
+			await screenshot("diagnostics-tab");
+		});
 	it("should capture skills card expanded", async () => {
 		// Click first skill card to expand
 		await browser.execute((cardSel: string) => {

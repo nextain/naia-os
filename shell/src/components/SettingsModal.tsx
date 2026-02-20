@@ -85,6 +85,12 @@ export function SettingsModal({ onClose }: Props) {
 	const [gatewayToken, setGatewayToken] = useState(
 		existing?.gatewayToken ?? "",
 	);
+	const [discordWebhookUrl, setDiscordWebhookUrl] = useState(
+		existing?.discordWebhookUrl ?? "",
+	);
+	const [googleChatWebhookUrl, setGoogleChatWebhookUrl] = useState(
+		existing?.googleChatWebhookUrl ?? "",
+	);
 	const [error, setError] = useState("");
 	const [isPreviewing, setIsPreviewing] = useState(false);
 	const allowedToolsCount = existing?.allowedTools?.length ?? 0;
@@ -156,6 +162,8 @@ export function SettingsModal({ onClose }: Props) {
 			enableTools,
 			gatewayUrl: gatewayUrl !== "ws://localhost:18789" ? gatewayUrl : undefined,
 			gatewayToken: gatewayToken.trim() || undefined,
+			discordWebhookUrl: discordWebhookUrl.trim() || undefined,
+			googleChatWebhookUrl: googleChatWebhookUrl.trim() || undefined,
 		});
 		setLocale(locale);
 		onClose();
@@ -359,6 +367,32 @@ export function SettingsModal({ onClose }: Props) {
 						type="password"
 						value={gatewayToken}
 						onChange={(e) => setGatewayToken(e.target.value)}
+					/>
+				</div>
+
+				<div className="settings-field">
+					<label htmlFor="discord-webhook-input">
+						Discord Webhook URL
+					</label>
+					<input
+						id="discord-webhook-input"
+						type="password"
+						value={discordWebhookUrl}
+						onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+						placeholder="https://discord.com/api/webhooks/..."
+					/>
+				</div>
+
+				<div className="settings-field">
+					<label htmlFor="google-chat-webhook-input">
+						Google Chat Webhook URL
+					</label>
+					<input
+						id="google-chat-webhook-input"
+						type="password"
+						value={googleChatWebhookUrl}
+						onChange={(e) => setGoogleChatWebhookUrl(e.target.value)}
+						placeholder="https://chat.googleapis.com/v1/spaces/..."
 					/>
 				</div>
 
