@@ -114,7 +114,7 @@ function LabBalanceSection() {
 				type="button"
 				className="lab-charge-btn"
 				onClick={() =>
-					openUrl("https://lab.cafelua.com/ko/billing").catch(() => {})
+					openUrl("https://nan.nextain.io/ko/billing").catch(() => {})
 				}
 			>
 				{t("cost.labCharge")}

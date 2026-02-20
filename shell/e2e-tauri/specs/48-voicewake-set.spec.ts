@@ -32,7 +32,7 @@ describe("48 — voicewake set", () => {
 
 	        it("should set voice wake triggers", async () => {
 	                await sendMessage(
-	                        "지금 즉시 음성 깨우기 트리거를 '알파야,알파'로 설정해줘. skill_voicewake 도구의 set 액션을 반드시 사용해. triggers 파라미터는 ['알파야', '알파'] 야.",
+	                        "지금 즉시 음성 깨우기 트리거를 '낸야,낸'로 설정해줘. skill_voicewake 도구의 set 액션을 반드시 사용해. triggers 파라미터는 ['낸야', '낸'] 야.",
 	                );
 	
 	                const text = await getLastAssistantMessage();

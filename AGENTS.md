@@ -1,4 +1,4 @@
-# Cafelua OS — Agent Entry Point
+# NaN OS — Agent Entry Point
 
 ## Context Loading (MUST read first)
 

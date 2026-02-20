@@ -31,13 +31,13 @@ describe("OnboardingWizard", () => {
 	afterEach(() => {
 		cleanup();
 		onComplete.mockReset();
-		localStorage.removeItem("cafelua-config");
+		localStorage.removeItem("nan-config");
 	});
 
 	it("renders provider step first", () => {
 		render(<OnboardingWizard onComplete={onComplete} />);
 		expect(screen.getByText(/두뇌|brain/i)).toBeDefined();
-		expect(screen.getByText("Cafelua Lab")).toBeDefined();
+		expect(screen.getByText("Nextain Lab")).toBeDefined();
 	});
 
 	it("shows all 5 providers", () => {
@@ -105,7 +105,7 @@ describe("OnboardingWizard", () => {
 
 		// Type a name → Next enabled
 		const agentInput = screen.getByPlaceholderText(/이름|name/i);
-		fireEvent.change(agentInput, { target: { value: "Alpha" } });
+		fireEvent.change(agentInput, { target: { value: "Nan" } });
 		expect((nextBtn as HTMLButtonElement).disabled).toBe(false);
 	});
 
@@ -141,7 +141,7 @@ describe("OnboardingWizard", () => {
 		expect(onComplete).toHaveBeenCalled();
 
 		const config = JSON.parse(
-			localStorage.getItem("cafelua-config") || "{}",
+			localStorage.getItem("nan-config") || "{}",
 		);
 		expect(config.userName).toBe("Luke");
 		expect(config.agentName).toBe("Mochi");

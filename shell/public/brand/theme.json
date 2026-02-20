@@ -1,20 +1,17 @@
 {
 	"brand": {
-		"name": "Cafelua OS",
+		"name": "NaN OS",
 		"tagline": "Where Technology meets Emotion",
 		"description": "A sanctuary for postponed dreams"
 	},
 	"colors": {
-		"espresso": "#3B2F2F",
-		"latte": "#D4C4B7",
-		"cream": "#F5F1E6",
-		"wood": "#8D6E63",
-		"wood_deep": "#5D4037",
-		"sage": "#8FBC8F",
-		"forest": "#2F4F4F",
-		"tech_blue": "#5DADE2",
-		"amber": "#FFBF00",
-		"viewport_bg": "#080A0E"
+		"nextain_blue": "#2563EB",
+		"flow_cyan": "#06B6D4",
+		"evolution_green": "#10B981",
+		"terminal_black": "#171717",
+		"cloud_white": "#F8FAFC",
+		"deep_node": "#0F172A",
+		"viewport_bg": "#0F172A"
 	},
 	"fonts": {
 		"sans": "Pretendard, Inter, system-ui, sans-serif",
@@ -28,9 +25,9 @@
 		"border_radius": 12
 	},
 	"assets": {
-		"logo": "/brand/logo.webp",
-		"logo_png": "/brand/cafe_lua_logo_cleaned.png",
-		"alpha_icon": "/brand/alpha-icon.webp",
+		"logo": "/brand/logo.png",
+		"logo_png": "/brand/logo.png",
+		"alpha_icon": "/brand/nan-icon.webp",
 		"og_cover": "/brand/og-cover.webp"
 	}
 }

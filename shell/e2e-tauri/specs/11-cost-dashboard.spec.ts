@@ -77,11 +77,11 @@ describe("11 — Cost Dashboard", () => {
 
 		// Inject a labKey into config to simulate Lab connection
 		await browser.execute(() => {
-			const raw = localStorage.getItem("cafelua-config");
+			const raw = localStorage.getItem("nan-config");
 			if (!raw) return;
 			const config = JSON.parse(raw);
 			config.labKey = "test-lab-key-e2e";
-			localStorage.setItem("cafelua-config", JSON.stringify(config));
+			localStorage.setItem("nan-config", JSON.stringify(config));
 		});
 
 		// Re-open dashboard with new config
@@ -99,11 +99,11 @@ describe("11 — Cost Dashboard", () => {
 
 		// Remove labKey to restore clean state (dashboard stays open for next test)
 		await browser.execute(() => {
-			const raw = localStorage.getItem("cafelua-config");
+			const raw = localStorage.getItem("nan-config");
 			if (!raw) return;
 			const config = JSON.parse(raw);
 			delete config.labKey;
-			localStorage.setItem("cafelua-config", JSON.stringify(config));
+			localStorage.setItem("nan-config", JSON.stringify(config));
 		});
 	});
 

@@ -5,7 +5,7 @@
 - 상태: **계획 수립 완료, 구현 대기**
 
 ## 프로젝트
-`cafelua-os` — Shell E2E (Tauri WebdriverIO)
+`NaN-OS` — Shell E2E (Tauri WebdriverIO)
 
 ## 배경
 
@@ -136,9 +136,9 @@ devicePairReject: ".device-pair-reject",
 - **커버 RPC**: `exec.bash`
 
 ### 38-file-operations.spec.ts
-- write_file: `/tmp/cafelua-e2e-test.txt`에 "test content" 작성 요청
+- write_file: `/tmp/nan-e2e-test.txt`에 "test content" 작성 요청
 - read_file: 같은 파일 읽기 요청 → "test content" 확인
-- search_files: `/tmp`에서 "cafelua-e2e" 검색 요청
+- search_files: `/tmp`에서 "nan-e2e" 검색 요청
 - apply_diff: 파일 내용 수정 요청
 - **커버 RPC**: `exec.bash` (read_file/write_file/search_files/apply_diff 모두 exec.bash 경유)
 
@@ -207,7 +207,7 @@ devicePairReject: ".device-pair-reject",
 - **커버 RPC**: `tts.status`, `tts.enable`, `tts.setProvider`, `tts.convert`, `tts.disable`
 
 ### 48-voicewake-set.spec.ts
-- chat: "음성 깨우기 트리거를 '알파야'로 설정해줘. skill_voicewake set."
+- chat: "음성 깨우기 트리거를 '낸야'로 설정해줘. skill_voicewake set."
 - 응답에서 설정 완료 확인
 - chat: "음성 깨우기 트리거 확인해줘. skill_voicewake get."
 - **커버 RPC**: `voicewake.set` (spec 25에서 `voicewake.get` 커버)
@@ -250,7 +250,7 @@ cd shell && pnpm exec tsc --noEmit
 lsof -ti:18789
 
 # 3. Tauri 바이너리 확인
-ls -la shell/src-tauri/target/debug/cafelua-shell
+ls -la shell/src-tauri/target/debug/nan-shell
 
 # 4. E2E 전체 실행
 cd shell && pnpm run test:e2e:tauri

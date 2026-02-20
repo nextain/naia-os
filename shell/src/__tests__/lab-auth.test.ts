@@ -145,30 +145,30 @@ describe("Lab Auth (deep link URL parsing)", () => {
 		}
 	}
 
-	it("parses cafelua://auth?key=xxx", () => {
-		const result = parseLabDeepLink("cafelua://auth?key=abc123");
+	it("parses nanos://auth?key=xxx", () => {
+		const result = parseLabDeepLink("nanos://auth?key=abc123");
 		expect(result).toEqual({ labKey: "abc123", labUserId: undefined });
 	});
 
-	it("parses cafelua://auth?code=xxx", () => {
-		const result = parseLabDeepLink("cafelua://auth?code=def456");
+	it("parses nanos://auth?code=xxx", () => {
+		const result = parseLabDeepLink("nanos://auth?code=def456");
 		expect(result).toEqual({ labKey: "def456", labUserId: undefined });
 	});
 
-	it("parses cafelua://auth?key=xxx&user_id=yyy", () => {
+	it("parses nanos://auth?key=xxx&user_id=yyy", () => {
 		const result = parseLabDeepLink(
-			"cafelua://auth?key=abc123&user_id=user-42",
+			"nanos://auth?key=abc123&user_id=user-42",
 		);
 		expect(result).toEqual({ labKey: "abc123", labUserId: "user-42" });
 	});
 
 	it("returns null for non-auth paths", () => {
-		const result = parseLabDeepLink("cafelua://settings?key=abc");
+		const result = parseLabDeepLink("nanos://settings?key=abc");
 		expect(result).toBeNull();
 	});
 
 	it("returns null for missing key", () => {
-		const result = parseLabDeepLink("cafelua://auth?foo=bar");
+		const result = parseLabDeepLink("nanos://auth?foo=bar");
 		expect(result).toBeNull();
 	});
 
@@ -179,7 +179,7 @@ describe("Lab Auth (deep link URL parsing)", () => {
 
 	it("parses state parameter from deep link", () => {
 		const result = parseLabDeepLink(
-			"cafelua://auth?key=abc123&state=random-state-token",
+			"nanos://auth?key=abc123&state=random-state-token",
 		);
 		expect(result).toEqual({
 			labKey: "abc123",
@@ -189,7 +189,7 @@ describe("Lab Auth (deep link URL parsing)", () => {
 	});
 
 	it("state is undefined when not present", () => {
-		const result = parseLabDeepLink("cafelua://auth?key=abc123");
+		const result = parseLabDeepLink("nanos://auth?key=abc123");
 		expect(result?.state).toBeUndefined();
 	});
 });

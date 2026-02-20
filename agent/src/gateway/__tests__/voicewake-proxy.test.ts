@@ -16,7 +16,7 @@ describe("voicewake-proxy", () => {
 				switch (method) {
 					case "voicewake.get":
 						respond.ok({
-							triggers: ["알파", "openclaw", "hey alpha"],
+							triggers: ["낸", "openclaw", "hey alpha"],
 						});
 						break;
 					case "voicewake.set":
@@ -56,18 +56,18 @@ describe("voicewake-proxy", () => {
 		it("returns current wake triggers", async () => {
 			const result = await getVoiceWakeTriggers(client);
 
-			expect(result.triggers).toEqual(["알파", "openclaw", "hey alpha"]);
+			expect(result.triggers).toEqual(["낸", "openclaw", "hey alpha"]);
 		});
 	});
 
 	describe("setVoiceWakeTriggers", () => {
 		it("sets new triggers", async () => {
 			const result = await setVoiceWakeTriggers(client, [
-				"알파",
-				"카페루아",
+				"낸",
+				"Nextain",
 			]);
 
-			expect(result.triggers).toEqual(["알파", "카페루아"]);
+			expect(result.triggers).toEqual(["낸", "Nextain"]);
 		});
 
 		it("allows empty trigger list (falls back to defaults)", async () => {

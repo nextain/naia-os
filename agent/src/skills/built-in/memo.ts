@@ -10,12 +10,12 @@ export function createMemoSkill(
 	memoDir?: string,
 ): SkillDefinition {
 	const dir =
-		memoDir ?? path.join(process.env.HOME ?? "~", ".cafelua", "memos");
+		memoDir ?? path.join(process.env.HOME ?? "~", ".nan", "memos");
 
 	return {
 		name: "skill_memo",
 		description:
-			"Save, read, list, or delete short text memos. Stored locally in ~/.cafelua/memos/.",
+			"Save, read, list, or delete short text memos. Stored locally in ~/.nan/memos/.",
 		parameters: {
 			type: "object",
 			properties: {

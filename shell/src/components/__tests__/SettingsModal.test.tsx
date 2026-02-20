@@ -41,7 +41,7 @@ describe("SettingsModal", () => {
 		expect(onClose).toHaveBeenCalled();
 
 		// Verify saved in localStorage
-		const saved = JSON.parse(localStorage.getItem("cafelua-config") || "{}");
+		const saved = JSON.parse(localStorage.getItem("nan-config") || "{}");
 		expect(saved.apiKey).toBe("test-key-123");
 	});
 
@@ -56,7 +56,7 @@ describe("SettingsModal", () => {
 		mockInvoke.mockResolvedValue("base64audio");
 		// Set API key so preview has a key to use
 		localStorage.setItem(
-			"cafelua-config",
+			"nan-config",
 			JSON.stringify({ provider: "gemini", apiKey: "test-key", model: "m" }),
 		);
 		render(<SettingsModal onClose={() => {}} />);
@@ -70,7 +70,7 @@ describe("SettingsModal", () => {
 			expect(mockInvoke).toHaveBeenCalledWith("preview_tts", {
 				apiKey: "test-key",
 				voice: "ko-KR-Neural2-A",
-				text: "안녕하세요, 저는 알파예요.",
+				text: "안녕하세요, 저는 낸예요.",
 			});
 		});
 	});
@@ -107,7 +107,7 @@ describe("SettingsModal", () => {
 		fireEvent.click(screen.getByText(/save|저장/i));
 		expect(onClose).toHaveBeenCalled();
 
-		const saved = JSON.parse(localStorage.getItem("cafelua-config") || "{}");
+		const saved = JSON.parse(localStorage.getItem("nan-config") || "{}");
 		expect(saved.enableTools).toBe(true);
 		expect(saved.gatewayUrl).toBe("ws://localhost:9999");
 	});

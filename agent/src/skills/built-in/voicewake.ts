@@ -21,7 +21,7 @@ export function createVoiceWakeSkill(): SkillDefinition {
 					type: "array",
 					items: { type: "string" },
 					description:
-						"Wake word triggers (e.g., [\"알파\", \"hey alpha\"]). Required for set.",
+						"Wake word triggers (e.g., [\"낸\", \"hey alpha\"]). Required for set.",
 				},
 			},
 			required: ["action"],

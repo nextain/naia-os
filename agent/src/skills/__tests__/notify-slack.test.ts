@@ -80,7 +80,7 @@ describe("skill_notify_slack", () => {
 			.mockResolvedValueOnce(new Response("ok", { status: 200 }));
 
 		const result = await skill.execute(
-			{ message: "Deploy done", channel: "#ops", username: "CafeluaBot" },
+			{ message: "Deploy done", channel: "#ops", username: "NextainBot" },
 			{},
 		);
 		expect(result.success).toBe(true);
@@ -89,7 +89,7 @@ describe("skill_notify_slack", () => {
 		const body = JSON.parse(call[1]!.body as string);
 		expect(body.text).toBe("Deploy done");
 		expect(body.channel).toBe("#ops");
-		expect(body.username).toBe("CafeluaBot");
+		expect(body.username).toBe("NextainBot");
 	});
 
 	it("handles webhook 500 error", async () => {

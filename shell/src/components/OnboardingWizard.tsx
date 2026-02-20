@@ -210,7 +210,7 @@ export function OnboardingWizard({
 	}, []);
 
 	const stepIndex = STEPS.indexOf(step);
-	const displayName = agentName.trim() || "Alpha";
+	const displayName = agentName.trim() || "Nan";
 
 	// Enter key advances to next step
 	function handleKeyDown(e: React.KeyboardEvent) {
@@ -250,7 +250,7 @@ export function OnboardingWizard({
 		setLabWaiting(true);
 		setLabTimeout(false);
 		try {
-			await openUrl("https://lab.cafelua.com/ko/login?redirect=desktop");
+			await openUrl("https://nan.nextain.io/ko/login?redirect=desktop");
 		} catch {
 			setLabWaiting(false);
 			return;
@@ -326,7 +326,7 @@ export function OnboardingWizard({
 						"X-AnyLLM-Key": `Bearer ${labKey}`,
 					},
 					body: JSON.stringify({
-						metadata: { cafelua_config: syncData },
+						metadata: { nan_config: syncData },
 					}),
 				},
 			).catch((err) => {
@@ -385,7 +385,7 @@ export function OnboardingWizard({
 									? t("onboard.apiKey.success")
 									: labWaiting
 										? t("onboard.lab.waiting")
-										: "Cafelua Lab"}
+										: "Nextain Lab"}
 							</span>
 							<span className="provider-card-desc">
 								{t("onboard.lab.description")}

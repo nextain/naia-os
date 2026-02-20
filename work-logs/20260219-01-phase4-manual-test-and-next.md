@@ -1,8 +1,8 @@
-# Cafelua OS Phase 4: 수동 테스트 + 다음 단계
+# NaN OS Phase 4: 수동 테스트 + 다음 단계
 
 - **시작일**: 2026-02-19
 - **상태**: 🟡 진행 중
-- **프로젝트**: cafelua-os
+- **프로젝트**: NaN-OS
 - **담당**: luke + Claude
 
 ---
@@ -18,23 +18,23 @@
 
 ```bash
 # 1. 회귀 테스트
-cd cafelua-os/agent && pnpm test
-cd cafelua-os/shell && pnpm test
-cargo test --manifest-path cafelua-os/shell/src-tauri/Cargo.toml
+cd NaN-OS/agent && pnpm test
+cd NaN-OS/shell && pnpm test
+cargo test --manifest-path NaN-OS/shell/src-tauri/Cargo.toml
 
 # 2. E2E 테스트 (Playwright — Vite 자동 시작)
-cd cafelua-os/shell && pnpm run test:e2e
+cd NaN-OS/shell && pnpm run test:e2e
 
 # 3. 앱 실행 (수동 테스트)
-cd cafelua-os/shell && pnpm run tauri dev
+cd NaN-OS/shell && pnpm run tauri dev
 ```
 
 ## 수동 테스트 체크리스트
 
 ### Gateway 라이프사이클
 
-- [ ] Gateway 끈 상태 → `pnpm tauri dev` → "[Cafelua] Gateway spawned" 로그
-- [ ] Gateway 켠 상태 → 앱 시작 → "[Cafelua] Gateway already running" 로그
+- [ ] Gateway 끈 상태 → `pnpm tauri dev` → "[Nextain] Gateway spawned" 로그
+- [ ] Gateway 켠 상태 → 앱 시작 → "[Nextain] Gateway already running" 로그
 - [ ] 앱 종료 → 자동 spawn한 Gateway만 종료 확인
 
 ### 도구 실행

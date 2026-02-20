@@ -29,7 +29,7 @@ describe("skill_channels", () => {
 								discord: [
 									{
 										accountId: "bot-1",
-										name: "AlphaBot",
+										name: "NanBot",
 										enabled: true,
 										connected: true,
 									},
@@ -37,7 +37,7 @@ describe("skill_channels", () => {
 								slack: [
 									{
 										accountId: "slack-1",
-										name: "AlphaSlack",
+										name: "NanSlack",
 										enabled: false,
 										connected: false,
 										lastError: "Token expired",

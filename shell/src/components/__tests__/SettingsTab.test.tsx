@@ -110,7 +110,7 @@ describe("SettingsTab", () => {
 		fireEvent.click(screen.getByText(/save|저장/i));
 
 		const saved = JSON.parse(
-			localStorage.getItem("cafelua-config") || "{}",
+			localStorage.getItem("nan-config") || "{}",
 		);
 		expect(saved.apiKey).toBe("test-key");
 		expect(saved.vrmModel).toBe("/avatars/vrm-ol-girl.vrm");

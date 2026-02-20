@@ -531,7 +531,7 @@ export function SettingsTab() {
 			const base64 = await invoke<string>("preview_tts", {
 				apiKey: key,
 				voice: ttsVoice,
-				text: "안녕하세요, 저는 알파예요.",
+				text: "안녕하세요, 저는 낸예요.",
 			});
 			const audio = new Audio(`data:audio/mp3;base64,${base64}`);
 			await audio.play();
@@ -605,8 +605,8 @@ export function SettingsTab() {
 				});
 			}
 		}
-		localStorage.removeItem("cafelua-config");
-		localStorage.removeItem("cafelua-camera");
+		localStorage.removeItem("nan-config");
+		localStorage.removeItem("nan-camera");
 		invoke("reset_window_state").catch(() => {});
 		setLocale("ko");
 		document.documentElement.setAttribute("data-theme", "espresso");
@@ -682,7 +682,7 @@ export function SettingsTab() {
 				"Content-Type": "application/json",
 				"X-AnyLLM-Key": `Bearer ${key}`,
 			},
-			body: JSON.stringify({ metadata: { cafelua_config: syncData } }),
+			body: JSON.stringify({ metadata: { nan_config: syncData } }),
 		}).catch((err) => {
 			Logger.warn("SettingsTab", "Lab sync failed", {
 				error: String(err),
@@ -872,7 +872,7 @@ export function SettingsTab() {
 								type="button"
 								className="voice-preview-btn"
 								onClick={() =>
-									openUrl("https://lab.cafelua.com/ko/dashboard").catch(() => {})
+									openUrl("https://nan.nextain.io/ko/dashboard").catch(() => {})
 								}
 							>
 								{t("settings.labDashboard")}
@@ -881,7 +881,7 @@ export function SettingsTab() {
 								type="button"
 								className="voice-preview-btn"
 								onClick={() =>
-									openUrl("https://lab.cafelua.com/ko/billing").catch(() => {})
+									openUrl("https://nan.nextain.io/ko/billing").catch(() => {})
 								}
 							>
 								{t("cost.labCharge")}
@@ -938,7 +938,7 @@ export function SettingsTab() {
 						onClick={() => {
 							setLabWaiting(true);
 							openUrl(
-								"https://lab.cafelua.com/ko/login?redirect=desktop",
+								"https://nan.nextain.io/ko/login?redirect=desktop",
 							).catch(() => setLabWaiting(false));
 							// Reset after 60s if deep-link callback never arrives
 							setTimeout(() => setLabWaiting(false), 60_000);
@@ -954,7 +954,7 @@ export function SettingsTab() {
 					type="button"
 					className="voice-preview-btn"
 					onClick={() =>
-						openUrl("https://lab.cafelua.com/ko/manual").catch(() => {})
+						openUrl("https://nan.nextain.io/ko/manual").catch(() => {})
 					}
 				>
 					{t("settings.manual")}

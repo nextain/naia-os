@@ -123,7 +123,7 @@ export function SettingsModal({ onClose }: Props) {
 			const base64 = await invoke<string>("preview_tts", {
 				apiKey: key,
 				voice: ttsVoice,
-				text: "안녕하세요, 저는 알파예요.",
+				text: "안녕하세요, 저는 낸예요.",
 			});
 			const audio = new Audio(`data:audio/mp3;base64,${base64}`);
 			await audio.play();
@@ -136,8 +136,8 @@ export function SettingsModal({ onClose }: Props) {
 
 	function handleReset() {
 		if (!window.confirm(t("settings.resetConfirm"))) return;
-		localStorage.removeItem("cafelua-config");
-		localStorage.removeItem("cafelua-camera");
+		localStorage.removeItem("nan-config");
+		localStorage.removeItem("nan-camera");
 		invoke("reset_window_state").catch(() => {});
 		setLocale("ko");
 		document.documentElement.setAttribute("data-theme", "espresso");

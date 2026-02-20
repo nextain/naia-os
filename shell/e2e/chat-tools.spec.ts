@@ -1,7 +1,7 @@
 import { type Page, expect, test } from "@playwright/test";
 
 /**
- * Cafelua Shell E2E — Chat + Tool execution verification.
+ * Nextain Shell E2E — Chat + Tool execution verification.
  *
  * Prerequisites:
  *   pnpm tauri dev  (must be running — Vite serves UI at localhost:1420)
@@ -205,7 +205,7 @@ test.describe("Chat + Tool E2E", () => {
 
 		// Seed localStorage with valid config
 		await page.addInitScript((configJson: string) => {
-			localStorage.setItem("cafelua-config", configJson);
+			localStorage.setItem("nan-config", configJson);
 		}, JSON.stringify({
 			provider: "gemini",
 			model: "gemini-2.5-flash",

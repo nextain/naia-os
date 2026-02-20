@@ -1,6 +1,6 @@
-# Cafelua OS
+# NaN OS
 
-Bazzite 기반 배포형 AI OS. Alpha(AI 아바타)가 상주하는 개인 운영체제.
+Bazzite 기반 배포형 AI OS. Nan(AI 아바타)가 상주하는 개인 운영체제.
 
 ## 필수 읽기 (세션 시작 시)
 
@@ -37,15 +37,15 @@ Bazzite 기반 배포형 AI OS. Alpha(AI 아바타)가 상주하는 개인 운�
 
 1. **최소주의** — 필요한 것만 만든다
 2. **배포 먼저** — Phase 0부터 ISO 자동 빌드
-3. **Avatar 중심** — Alpha가 살아있는 경험
+3. **Avatar 중심** — Nan가 살아있는 경험
 4. **데몬 아키텍처** — AI가 항상 켜져있다
 5. **프라이버시** — 로컬 실행 기본
 
 ## 프로젝트 구조
 
 ```
-cafelua-os/
-├── shell/          # Cafelua Shell (Tauri 2, Three.js Avatar)
+NaN-OS/
+├── shell/          # Nextain Shell (Tauri 2, Three.js Avatar)
 ├── agent/          # AI 에이전트 코어 (LLM 연결, 도구)
 ├── gateway/        # 항상 실행되는 데몬 (채널, Skills, 메모리)
 ├── recipes/        # BlueBuild recipe
@@ -84,7 +84,7 @@ cargo test --manifest-path shell/src-tauri/Cargo.toml
 cd shell && pnpm run test:e2e:tauri
 
 # Gateway (수동 실행 시)
-~/.cafelua/openclaw/node_modules/.bin/openclaw gateway run --bind loopback --port 18789
+~/.nan/openclaw/node_modules/.bin/openclaw gateway run --bind loopback --port 18789
 
 # Gateway E2E
 cd agent && CAFE_LIVE_GATEWAY_E2E=1 pnpm exec vitest run src/__tests__/gateway-e2e.test.ts

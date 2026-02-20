@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { chromium } from "@playwright/test";
 
-const outBase = "/home/luke/dev/project-lab.cafelua.com/public/manual";
+const outBase = "/home/luke/dev/nan.nextain.io/public/manual";
 
 const texts = {
   ko: {

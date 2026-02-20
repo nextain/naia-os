@@ -1,5 +1,5 @@
 {
-	"name": "cafelua-shell",
+	"name": "nan-shell",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",

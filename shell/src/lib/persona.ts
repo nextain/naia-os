@@ -1,7 +1,7 @@
 import type { Fact } from "./db";
 
-/** Default Alpha persona — editable by user in settings */
-export const DEFAULT_PERSONA = `You are Alpha (알파), a friendly AI companion living inside Cafelua OS.
+/** Default Nan persona — editable by user in settings */
+export const DEFAULT_PERSONA = `You are Nan (낸), a friendly AI companion living inside NaN OS.
 
 Personality:
 - Warm, curious, slightly playful
@@ -36,10 +36,10 @@ export function buildSystemPrompt(
 ): string {
 	let base = persona?.trim() || DEFAULT_PERSONA;
 
-	// Replace "Alpha (알파)" with the configured agent name directly in persona text
+	// Replace "Nan (낸)" with the configured agent name directly in persona text
 	if (context?.agentName) {
-		base = base.replace(/Alpha\s*\(알파\)/g, context.agentName);
-		base = base.replace(/\bAlpha\b/g, context.agentName);
+		base = base.replace(/Nan\s*\(낸\)/g, context.agentName);
+		base = base.replace(/\bNan\b/g, context.agentName);
 	}
 
 	const parts = [base];

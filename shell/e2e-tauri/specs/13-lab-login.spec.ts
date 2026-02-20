@@ -7,12 +7,12 @@ describe("13 — Lab Login Flow", () => {
 	it("should save current config and clear for onboarding", async () => {
 		// Save current config to restore later
 		savedConfig = await browser.execute(() => {
-			return localStorage.getItem("cafelua-config");
+			return localStorage.getItem("nan-config");
 		});
 
 		// Clear config to trigger onboarding
 		await browser.execute(() => {
-			localStorage.removeItem("cafelua-config");
+			localStorage.removeItem("nan-config");
 		});
 		await safeRefresh();
 
@@ -34,14 +34,14 @@ describe("13 — Lab Login Flow", () => {
 		// in WebDriver E2E. Instead, we directly inject labKey into
 		// localStorage to test the downstream UI flow.
 		await browser.execute(() => {
-			const raw = localStorage.getItem("cafelua-config");
+			const raw = localStorage.getItem("nan-config");
 			const config = raw ? JSON.parse(raw) : {};
 			config.labKey = "e2e-test-lab-key-12345";
 			config.labUserId = "e2e-lab-user";
 			config.provider = "gemini";
 			config.model = "gemini-2.5-flash";
 			config.onboardingComplete = true;
-			localStorage.setItem("cafelua-config", JSON.stringify(config));
+			localStorage.setItem("nan-config", JSON.stringify(config));
 		});
 
 		// Reload to pick up the new config
@@ -52,7 +52,7 @@ describe("13 — Lab Login Flow", () => {
 
 		// Verify labKey is persisted
 		const config = await browser.execute(() => {
-			const raw = localStorage.getItem("cafelua-config");
+			const raw = localStorage.getItem("nan-config");
 			return raw ? JSON.parse(raw) : null;
 		});
 		expect(config).not.toBeNull();
@@ -91,14 +91,14 @@ describe("13 — Lab Login Flow", () => {
 	it("should restore original config for remaining tests", async () => {
 		if (savedConfig) {
 			await browser.execute((cfg: string) => {
-				localStorage.setItem("cafelua-config", cfg);
+				localStorage.setItem("nan-config", cfg);
 			}, savedConfig);
 		} else {
 			// Fallback: restore with API key
 			const apiKey =
 				process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
 			const gatewayToken =
-				process.env.CAFE_GATEWAY_TOKEN || "cafelua-dev-token";
+				process.env.CAFE_GATEWAY_TOKEN || "nan-dev-token";
 
 			await browser.execute(
 				(key: string, token: string) => {
@@ -119,7 +119,7 @@ describe("13 — Lab Login Flow", () => {
 						],
 					};
 					localStorage.setItem(
-						"cafelua-config",
+						"nan-config",
 						JSON.stringify(config),
 					);
 				},

@@ -6,7 +6,7 @@
 ## 목표
 
 "배포 먼저" 전략에 따라 GitHub push → BlueBuild → ghcr.io → ISO 파이프라인을 구축하고,
-cafelua.com에서 가져온 브랜드 에셋을 커밋한다.
+nan.com에서 가져온 브랜드 에셋을 커밋한다.
 
 **완료 조건**: USB 부팅 → Bazzite + Node.js 22 설치된 상태 (아직 커스텀 앱 없음)
 
@@ -16,7 +16,7 @@ cafelua.com에서 가져온 브랜드 에셋을 커밋한다.
 
 이미 복사되어 있던 에셋을 Git에 추가:
 - `logo.webp` - 메인 로고
-- `alpha-icon.webp` - 알파 아이콘
+- `alpha-icon.webp` - 낸 아이콘
 - `og-cover.webp` - OG 이미지
 - `cafe_lua_logo_cleaned.png` - PNG 로고
 - `theme.json` - 브랜드 테마 (색상, 폰트, 스페이싱)
@@ -29,8 +29,8 @@ BlueBuild 규격에 맞춰 구성 (2/16 수정):
 |------|------|
 | `recipes/recipe.yml` | BlueBuild 레시피 (Bazzite 베이스, Node.js, Tauri deps, pnpm) |
 | `config/scripts/install-pnpm.sh` | npm을 통한 pnpm 글로벌 설치 |
-| `config/scripts/branding.sh` | OS 브랜딩 (Cafelua OS) |
-| `config/files/usr/share/applications/cafelua-shell.desktop` | 데스크탑 엔트리 (Phase 1 placeholder) |
+| `config/scripts/branding.sh` | OS 브랜딩 (NaN OS) |
+| `config/files/usr/share/applications/nan-shell.desktop` | 데스크탑 엔트리 (Phase 1 placeholder) |
 | `os/tests/smoke.sh` | VM 부팅 후 스모크 테스트 (Node 22+, pnpm, podman) |
 
 ### 3. CI 워크플로우 (.github/workflows/)
@@ -42,9 +42,9 @@ BlueBuild 규격에 맞춰 구성 (2/16 수정):
 
 ### 4. OS 브랜딩 (branding.sh)
 
-`/usr/lib/os-release`를 덮어써서 부팅 후 "Cafelua OS"로 표시되도록 변경:
-- `NAME="Cafelua OS"`
-- `PRETTY_NAME="Cafelua OS (Bazzite)"`
+`/usr/lib/os-release`를 덮어써서 부팅 후 "NaN OS"로 표시되도록 변경:
+- `NAME="NaN OS"`
+- `PRETTY_NAME="NaN OS (Bazzite)"`
 
 ## 빌드 트러블슈팅 (2/16)
 
@@ -67,7 +67,7 @@ BlueBuild 규격에 맞춰 구성 (2/16 수정):
 ## 완료 체크리스트
 
 - [x] git push 후 GitHub Actions 빌드 성공 확인
-- [x] ghcr.io에 `cafelua-os:latest` 이미지 확인
+- [x] ghcr.io에 `NaN-OS:latest` 이미지 확인
 - [x] `SIGNING_SECRET` GitHub Secret 설정 (cosign)
 - [x] ISO 수동 생성 성공 (6.5GB)
 - [ ] USB 부팅 테스트

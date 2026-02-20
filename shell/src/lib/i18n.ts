@@ -54,8 +54,8 @@ const translations = {
 	},
 	"settings.personaSection": { ko: "페르소나", en: "Persona" },
 	"settings.persona": {
-		ko: "Alpha 성격 설정",
-		en: "Alpha Personality",
+		ko: "Nan 성격 설정",
+		en: "Nan Personality",
 	},
 	"settings.personaHint": {
 		ko: "이름, 성격, 말투, 행동 등을 자유롭게 설정하세요. 감정 태그는 자동 추가됩니다.",
@@ -314,7 +314,7 @@ const translations = {
 		ko: "로그인 응답이 없어요. 다시 시도해주세요.",
 		en: "No login response. Please try again.",
 	},
-	"settings.labSection": { ko: "Cafelua 랩 계정", en: "Cafelua Lab Account" },
+	"settings.labSection": { ko: "Nextain 랩 계정", en: "Nextain Lab Account" },
 	"settings.labConnected": { ko: "연결됨", en: "Connected" },
 	"settings.labDisconnected": { ko: "미연결", en: "Not Connected" },
 	"settings.labConnect": { ko: "Lab 로그인", en: "Lab Login" },
@@ -536,7 +536,7 @@ let currentLocale: Locale = detectLocale();
 function detectLocale(): Locale {
 	// Check saved config first
 	try {
-		const raw = localStorage.getItem("cafelua-config");
+		const raw = localStorage.getItem("nan-config");
 		if (raw) {
 			const config = JSON.parse(raw);
 			if (config.locale === "ko" || config.locale === "en") {

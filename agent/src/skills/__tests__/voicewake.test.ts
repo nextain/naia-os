@@ -18,7 +18,7 @@ describe("skill_voicewake", () => {
 				switch (method) {
 					case "voicewake.get":
 						respond.ok({
-							triggers: ["알파", "openclaw"],
+							triggers: ["낸", "openclaw"],
 						});
 						break;
 					case "voicewake.set":
@@ -60,18 +60,18 @@ describe("skill_voicewake", () => {
 
 		expect(result.success).toBe(true);
 		const parsed = JSON.parse(result.output);
-		expect(parsed.triggers).toEqual(["알파", "openclaw"]);
+		expect(parsed.triggers).toEqual(["낸", "openclaw"]);
 	});
 
 	it("sets new triggers", async () => {
 		const result = await skill.execute(
-			{ action: "set", triggers: ["알파", "카페루아", "hey alpha"] },
+			{ action: "set", triggers: ["낸", "Nextain", "hey alpha"] },
 			{ gateway: client },
 		);
 
 		expect(result.success).toBe(true);
 		const parsed = JSON.parse(result.output);
-		expect(parsed.triggers).toEqual(["알파", "카페루아", "hey alpha"]);
+		expect(parsed.triggers).toEqual(["낸", "Nextain", "hey alpha"]);
 	});
 
 	it("requires triggers for set action", async () => {

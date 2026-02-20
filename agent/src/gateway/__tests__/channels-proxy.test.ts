@@ -21,7 +21,7 @@ const MOCK_STATUS_RESPONSE: ChannelsStatusResult = {
 		discord: [
 			{
 				accountId: "discord-bot-1",
-				name: "AlphaBot",
+				name: "NanBot",
 				enabled: true,
 				connected: true,
 				running: true,
@@ -30,7 +30,7 @@ const MOCK_STATUS_RESPONSE: ChannelsStatusResult = {
 		slack: [
 			{
 				accountId: "slack-bot-1",
-				name: "AlphaSlack",
+				name: "NanSlack",
 				enabled: true,
 				connected: false,
 				running: false,

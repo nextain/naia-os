@@ -11,7 +11,7 @@ if (!API_KEY) {
 const GATEWAY_TOKEN =
 	process.env.CAFE_GATEWAY_TOKEN ||
 	process.env.GATEWAY_MASTER_KEY ||
-	"cafelua-dev-token";
+	"nan-dev-token";
 
 describe("02 — Configure Settings", () => {
 	before(async () => {
@@ -21,7 +21,7 @@ describe("02 — Configure Settings", () => {
 				provider: "gemini",
 				model: "gemini-2.5-flash",
 				apiKey: key,
-				agentName: "Alpha",
+				agentName: "Nan",
 				userName: "Tester",
 				vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
 				persona: "Friendly AI companion",
@@ -29,7 +29,7 @@ describe("02 — Configure Settings", () => {
 				locale: "ko",
 				onboardingComplete: true,
 			};
-			localStorage.setItem("cafelua-config", JSON.stringify(config));
+			localStorage.setItem("nan-config", JSON.stringify(config));
 		}, API_KEY);
 		await browser.refresh();
 
@@ -69,7 +69,7 @@ describe("02 — Configure Settings", () => {
 
 	it("should pre-approve skill tools for E2E", async () => {
 		await browser.execute(() => {
-			const raw = localStorage.getItem("cafelua-config");
+			const raw = localStorage.getItem("nan-config");
 			if (!raw) return;
 			const config = JSON.parse(raw);
 			config.allowedTools = [
@@ -84,7 +84,7 @@ describe("02 — Configure Settings", () => {
 				"search_files",
 				"sessions_spawn",
 			];
-			localStorage.setItem("cafelua-config", JSON.stringify(config));
+			localStorage.setItem("nan-config", JSON.stringify(config));
 		});
 	});
 
@@ -102,7 +102,7 @@ describe("02 — Configure Settings", () => {
 				".settings-section-divider",
 			);
 			return Array.from(dividers).some((d) =>
-				/Cafelua|Lab/i.test(d.textContent ?? ""),
+				/Nextain|Lab/i.test(d.textContent ?? ""),
 			);
 		});
 		expect(hasLabSection).toBe(true);

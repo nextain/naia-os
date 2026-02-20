@@ -12,10 +12,10 @@ describe("04 — skill_time", () => {
 		const gatewayToken =
 			process.env.CAFE_GATEWAY_TOKEN ||
 			process.env.GATEWAY_MASTER_KEY ||
-			"cafelua-dev-token";
+			"nan-dev-token";
 		await browser.execute(
 			(key: string, token: string) => {
-				const raw = localStorage.getItem("cafelua-config");
+				const raw = localStorage.getItem("nan-config");
 				const prev = raw ? JSON.parse(raw) : {};
 				const disabled = Array.isArray(prev.disabledSkills) ? prev.disabledSkills : [];
 				const builtins = new Set([
@@ -34,11 +34,11 @@ describe("04 — skill_time", () => {
 					apiKey: key || prev.apiKey || "",
 					enableTools: true,
 					gatewayUrl: prev.gatewayUrl || "ws://localhost:18789",
-					gatewayToken: token || prev.gatewayToken || "cafelua-dev-token",
+					gatewayToken: token || prev.gatewayToken || "nan-dev-token",
 					onboardingComplete: true,
 					disabledSkills: disabled.filter((n: string) => !builtins.has(n)),
 				};
-				localStorage.setItem("cafelua-config", JSON.stringify(config));
+				localStorage.setItem("nan-config", JSON.stringify(config));
 			},
 			apiKey,
 			gatewayToken,
