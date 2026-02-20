@@ -4,6 +4,7 @@ import {
 	waitForToolSuccess,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("21 — cron recurring", () => {
 	before(async () => {
@@ -19,7 +20,11 @@ describe("21 — cron recurring", () => {
 		await waitForToolSuccess();
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/매일|반복|예약|9시|날씨/);
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 매일 오전 9시 날씨 알림 반복 작업을 만들라고 했다",
+			"AI가 반복 작업을 실제로 생성했는가? '도구를 찾을 수 없다'면 FAIL. 예약/반복 설정 확인이면 PASS",
+		);
 	});
 
 	it("should show schedule info in job list", async () => {
@@ -30,8 +35,11 @@ describe("21 — cron recurring", () => {
 		await waitForToolSuccess();
 
 		const text = await getLastAssistantMessage();
-		// Should include schedule information
-		expect(text.length).toBeGreaterThan(10);
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 예약된 작업 목록을 보여달라고 했다",
+			"AI가 작업 목록/스케줄 정보를 보여줬는가? '도구를 찾을 수 없다'면 FAIL",
+		);
 	});
 
 	it("should disable a recurring job", async () => {
@@ -42,6 +50,10 @@ describe("21 — cron recurring", () => {
 		await waitForToolSuccess();
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(/비활성|disable|업데이트|updated/i);
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 날씨 알림을 비활성화하라고 했다",
+			"AI가 작업을 비활성화/업데이트했는가? '도구를 찾을 수 없다'면 FAIL. 비활성화 확인이면 PASS",
+		);
 	});
 });

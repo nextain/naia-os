@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 /**
  * 12 — Gateway Skills E2E
@@ -28,13 +29,11 @@ describe("12 — gateway skills", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Healthcheck returns security/status info — match flexibly
-		if (toolUsed) {
-			expect(text).toMatch(/security|firewall|ssh|update|hardening|보안|상태/i);
-		} else {
-			// LLM may respond without tool — just ensure non-empty
-			expect(text.length).toBeGreaterThan(0);
-		}
+		await assertSemantic(
+			text,
+			"skill_healthcheck 도구로 시스템 보안 상태를 확인하라고 했다",
+			"AI가 시스템 보안/상태 정보를 제공했는가? '도구를 찾을 수 없다'면 FAIL. 보안/방화벽/업데이트 등 구체적 정보 또는 도구 실행 결과가 있으면 PASS",
+		);
 	});
 
 	it("should invoke skill_session-logs and return log info", async () => {
@@ -43,8 +42,11 @@ describe("12 — gateway skills", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Session logs returns conversation/session data
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_session-logs 도구로 이전 세션 로그를 검색하라고 했다",
+			"AI가 세션 로그 정보를 제공하거나 로그 검색을 시도했는가? '도구를 찾을 수 없다'면 FAIL. 로그 데이터 또는 검색 결과가 있으면 PASS",
+		);
 	});
 
 	it("should have skill_ tools registered (at least built-in 4)", async () => {
@@ -53,8 +55,10 @@ describe("12 — gateway skills", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// LLM should mention skill count — at minimum 4 built-in skills
-		// Accept any response mentioning skills or containing a number
-		expect(text).toMatch(/skill|도구|tool|\d+/i);
+		await assertSemantic(
+			text,
+			"skill_로 시작하는 도구가 몇 개인지 숫자로 답하라고 했다",
+			"AI가 skill_ 도구의 개수를 포함하여 답했는가? 숫자가 포함된 구체적 답변이면 PASS. '모르겠다/확인할 수 없다'면 FAIL",
+		);
 	});
 });

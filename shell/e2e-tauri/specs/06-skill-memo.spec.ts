@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 describe("06 — skill_memo (save + read)", () => {
@@ -18,9 +19,10 @@ describe("06 — skill_memo (save + read)", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Tool executed → 저장 확인, or LLM outputs tool_code reference
-		expect(text).toMatch(
-			/저장|완료|saved|success|done|skill_memo|memo|도구|tool/i,
+		await assertSemantic(
+			text,
+			"skill_memo 도구로 'e2e-test' 키에 'hello-tauri' 값을 저장하라고 했다",
+			"AI가 메모를 실제로 저장했다고 확인했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 저장 완료/성공을 알리는 응답이어야 PASS",
 		);
 	});
 
@@ -30,9 +32,10 @@ describe("06 — skill_memo (save + read)", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Tool executed → hello-tauri 값 반환, or LLM outputs tool_code reference
-		expect(text).toMatch(
-			/hello-tauri|skill_memo|memo|메모|읽|read|도구|tool/i,
+		await assertSemantic(
+			text,
+			"skill_memo 도구로 'e2e-test' 키의 메모를 읽으라고 했다. 기대값: 'hello-tauri'",
+			"AI가 저장된 메모 값 'hello-tauri'를 실제로 읽어서 보여줬는가? '도구를 찾을 수 없다'면 FAIL. 메모 내용이 포함되어야 PASS",
 		);
 	});
 });

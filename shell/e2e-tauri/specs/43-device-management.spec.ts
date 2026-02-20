@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -35,8 +36,10 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/노드|node|상세|detail|없|error|정보|도구|실행|디바이스|device/i,
+		await assertSemantic(
+			text,
+			"skill_device 도구의 node_describe 액션으로 노드 상세 정보를 요청했다",
+			"AI가 skill_device로 노드 정보 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 노드/디바이스 정보나 에러 응답이 있으면 PASS",
 		);
 	});
 
@@ -46,8 +49,10 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/디바이스|device|페어|pair|목록|list|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_device 도구의 device_list 액션으로 디바이스 페어링 목록을 요청했다",
+			"AI가 skill_device로 디바이스 목록 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 디바이스 목록이나 결과가 있으면 PASS",
 		);
 	});
 
@@ -57,7 +62,11 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 token_rotate 액션으로 디바이스 토큰 교체를 요청했다",
+			"AI가 skill_device로 토큰 교체를 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 토큰 교체 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should handle token revoke gracefully", async () => {
@@ -66,7 +75,11 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 token_revoke 액션으로 디바이스 토큰 폐기를 요청했다",
+			"AI가 skill_device로 토큰 폐기를 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 토큰 폐기 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should handle node rename gracefully", async () => {
@@ -75,7 +88,11 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 node_rename 액션으로 노드 이름 변경을 요청했다",
+			"AI가 skill_device로 노드 이름 변경을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 이름 변경 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should handle pair request gracefully", async () => {
@@ -84,7 +101,11 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 pair_request 액션으로 노드 페어링을 요청했다",
+			"AI가 skill_device로 페어링 요청을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 페어링 요청 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should handle pair verify gracefully", async () => {
@@ -93,7 +114,11 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 pair_verify 액션으로 페어링 검증을 요청했다",
+			"AI가 skill_device로 페어링 검증을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 검증 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should handle device pair approve gracefully", async () => {
@@ -102,6 +127,10 @@ describe("43 — device management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_device 도구의 device_approve 액션으로 디바이스 페어링 승인을 요청했다",
+			"AI가 skill_device로 페어링 승인을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 승인 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 });

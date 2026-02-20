@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 /**
  * 15 — AI Skill Manager E2E
@@ -35,16 +36,22 @@ describe("15 — AI skill manager", () => {
 		await sendMessage("지금 사용할 수 있는 스킬 목록을 알려줘");
 
 		const text = await getLastAssistantMessage();
-		// AI should mention skills in response (tool or text)
-		expect(text).toMatch(/skill|스킬|도구|목록|list/i);
+		await assertSemantic(
+			text,
+			"사용 가능한 스킬 목록을 알려달라고 했다",
+			"AI가 스킬/도구 목록을 실제로 나열했는가? 스킬 이름이 최소 1개 이상 포함되어야 PASS. '목록을 제공할 수 없다'면 FAIL",
+		);
 	});
 
 	it("should search for skills by topic", async () => {
 		await sendMessage("날씨 관련 기능이 있어?");
 
 		const text = await getLastAssistantMessage();
-		// Should mention weather skill
-		expect(text).toMatch(/weather|날씨/i);
+		await assertSemantic(
+			text,
+			"날씨 관련 기능이 있는지 물었다",
+			"AI가 날씨 관련 스킬(skill_weather 등)의 존재를 언급했는가? 날씨 기능에 대해 설명했으면 PASS. '모르겠다/없다'면 FAIL",
+		);
 	});
 
 	it("should handle skill toggle request", async () => {

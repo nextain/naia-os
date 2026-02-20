@@ -1,6 +1,34 @@
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+
 const JUDGE_MODEL = process.env.CAFE_E2E_JUDGE_MODEL || "gemini-2.5-flash";
 const JUDGE_API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
 const JUDGE_TIMEOUT_MS = Number(process.env.CAFE_E2E_JUDGE_TIMEOUT_MS || "15000");
+const SEMANTIC_LOG_DIR = process.env.CAFE_E2E_SEMANTIC_LOG_DIR || "/tmp/e2e-semantic-logs";
+
+let logSeq = 0;
+
+function logSemantic(entry: {
+	task: string;
+	answer: string;
+	criteria: string;
+	verdict: string;
+	reason: string;
+}): void {
+	try {
+		mkdirSync(SEMANTIC_LOG_DIR, { recursive: true });
+		logSeq += 1;
+		const ts = new Date().toISOString().replace(/[:.]/g, "-");
+		const filename = `${ts}-${String(logSeq).padStart(3, "0")}-${entry.verdict}.json`;
+		writeFileSync(
+			join(SEMANTIC_LOG_DIR, filename),
+			JSON.stringify(entry, null, 2),
+			"utf-8",
+		);
+	} catch {
+		// Logging failure should not break tests
+	}
+}
 
 interface SemanticJudgeResult {
 	verdict: "PASS" | "FAIL";
@@ -86,6 +114,34 @@ export async function judgeSemantics(opts: {
 		body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ??
 		"";
 	return extractJson(text);
+}
+
+/**
+ * Assert that an AI response semantically satisfies the given criteria.
+ * Throws an assertion error (via expect) if the judge returns FAIL.
+ *
+ * Usage:
+ *   const text = await getLastAssistantMessage();
+ *   await assertSemantic(text, "서울 날씨 알려줘", "AI가 실제 날씨/기온 정보를 제공했는가");
+ */
+export async function assertSemantic(
+	answer: string,
+	task: string,
+	criteria: string,
+): Promise<void> {
+	if (!answer || answer.trim().length === 0) {
+		logSemantic({ task, answer: "(empty)", criteria, verdict: "FAIL", reason: "Empty answer" });
+		throw new Error(`Semantic FAIL — empty answer for task: "${task}"`);
+	}
+	const result = await judgeSemantics({ task, answer, criteria });
+	logSemantic({ task, answer, criteria, verdict: result.verdict, reason: result.reason });
+	if (result.verdict !== "PASS") {
+		throw new Error(
+			`Semantic FAIL — task: "${task}"\n` +
+			`  answer: "${answer.slice(0, 500)}"\n` +
+			`  reason: ${result.reason}`,
+		);
+	}
 }
 
 export async function judgeAllSemantics(opts: {

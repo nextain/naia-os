@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -38,8 +39,10 @@ describe("47 — TTS full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/TTS|음성|상태|status|provider|활성|비활성|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_tts 도구의 status 액션으로 TTS 상태를 요청했다",
+			"AI가 skill_tts로 TTS 상태 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. TTS 상태 정보가 있으면 PASS",
 		);
 	});
 
@@ -49,8 +52,10 @@ describe("47 — TTS full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/활성|enable|TTS|완료|설정|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_tts 도구의 enable 액션으로 TTS 활성화를 요청했다",
+			"AI가 skill_tts로 TTS 활성화를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. TTS가 활성화되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -60,8 +65,10 @@ describe("47 — TTS full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/프로바이더|provider|변경|set|edge|완료|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_tts 도구의 set_provider 액션으로 TTS 프로바이더를 변경하라고 했다",
+			"AI가 skill_tts로 프로바이더 변경을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 프로바이더가 변경되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -72,7 +79,11 @@ describe("47 — TTS full", () => {
 
 		const text = await getLastAssistantMessage();
 		// May succeed or fail depending on TTS config
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_tts 도구의 convert 액션으로 텍스트를 음성으로 변환하라고 했다",
+			"AI가 skill_tts로 TTS 변환을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 변환 결과나 TTS 설정 관련 graceful 에러가 있으면 PASS",
+		);
 	});
 
 	it("should disable TTS", async () => {
@@ -81,8 +92,10 @@ describe("47 — TTS full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/비활성|disable|TTS|완료|설정|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_tts 도구의 disable 액션으로 TTS 비활성화를 요청했다",
+			"AI가 skill_tts로 TTS 비활성화를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. TTS가 비활성화되었다는 결과가 있으면 PASS",
 		);
 	});
 });

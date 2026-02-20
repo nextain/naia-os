@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -35,9 +36,10 @@ describe("39 — web tools", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Best-effort: tool may not be available, or page content shown
-		expect(text).toMatch(
-			/example|domain|illustrative|예시|웹|web|페이지|page|도구|실행|없|지원/i,
+		await assertSemantic(
+			text,
+			"https://example.com 웹페이지를 browser 도구로 읽어줘",
+			"AI가 browser으로 웹페이지 읽기를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 웹페이지 내용을 보여주거나 접근 결과를 안내하면 PASS",
 		);
 	});
 
@@ -47,7 +49,10 @@ describe("39 — web tools", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Web search may or may not succeed — verify meaningful response
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"'Cafelua OS' 키워드로 웹 검색해줘 (web_search)",
+			"AI가 web_search으로 웹 검색을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 검색 결과를 보여주거나 검색 시도에 대해 안내하면 PASS",
+		);
 	});
 });

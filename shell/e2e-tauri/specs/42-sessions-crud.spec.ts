@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -36,8 +37,10 @@ describe("42 — sessions CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/세션|session|미리보기|preview|메시지|message|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_sessions 도구의 preview 액션으로 세션 미리보기를 요청했다",
+			"AI가 skill_sessions로 세션 미리보기를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 세션 정보나 미리보기 결과가 있으면 PASS",
 		);
 	});
 
@@ -47,8 +50,10 @@ describe("42 — sessions CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/변경|patch|라벨|label|수정|완료|없|세션|session|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_sessions 도구의 patch 액션으로 세션 라벨을 변경하라고 했다",
+			"AI가 skill_sessions로 세션 라벨 변경을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 세션 라벨이 변경되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -58,8 +63,10 @@ describe("42 — sessions CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/리셋|reset|초기화|clear|완료|없|세션|session|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_sessions 도구의 reset 액션으로 세션을 리셋하라고 했다",
+			"AI가 skill_sessions로 세션 리셋을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 세션이 리셋되었다는 결과가 있으면 PASS",
 		);
 	});
 });

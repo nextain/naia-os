@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -37,8 +38,10 @@ describe("41 — agents CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/생성|만들|create|e2e-test-agent|완료|에이전트|agent|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_agents 도구의 create 액션으로 'e2e-test-agent' 에이전트를 생성하라고 했다",
+			"AI가 skill_agents로 에이전트 생성을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 에이전트가 생성되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -48,8 +51,10 @@ describe("41 — agents CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/수정|업데이트|update|변경|완료|에이전트|agent|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_agents 도구의 update 액션으로 e2e-test-agent의 description을 수정하라고 했다",
+			"AI가 skill_agents로 에이전트 수정을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 에이전트가 수정/업데이트되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -59,8 +64,10 @@ describe("41 — agents CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/파일|file|생성|저장|완료|에이전트|agent|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_agents 도구의 files_set 액션으로 에이전트에 파일을 생성하라고 했다",
+			"AI가 skill_agents로 파일 생성을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 파일이 생성/저장되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -70,8 +77,10 @@ describe("41 — agents CRUD", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/삭제|제거|delete|removed|완료|에이전트|agent|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_agents 도구의 delete 액션으로 e2e-test-agent 에이전트를 삭제하라고 했다",
+			"AI가 skill_agents로 에이전트 삭제를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 에이전트가 삭제되었다는 결과가 있으면 PASS",
 		);
 	});
 });

@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -37,8 +38,10 @@ describe("50 — config management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/설정|config|구성|configuration|게이트웨이|gateway|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_config 도구의 get 액션으로 게이트웨이 설정을 요청했다",
+			"AI가 skill_config로 설정 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 게이트웨이 설정 정보가 있으면 PASS",
 		);
 	});
 
@@ -48,8 +51,10 @@ describe("50 — config management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/스키마|schema|설정|config|필드|field|타입|type|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_config 도구의 schema 액션으로 게이트웨이 설정 스키마를 요청했다",
+			"AI가 skill_config로 설정 스키마 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 스키마 정보가 있으면 PASS",
 		);
 	});
 
@@ -59,8 +64,10 @@ describe("50 — config management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/모델|model|목록|list|사용|available|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_config 도구의 models 액션으로 사용 가능한 모델 목록을 요청했다",
+			"AI가 skill_config로 모델 목록 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 모델 목록 정보가 있으면 PASS",
 		);
 	});
 
@@ -70,6 +77,10 @@ describe("50 — config management", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_config 도구의 patch 액션으로 게이트웨이 설정 패치를 요청했다",
+			"AI가 skill_config로 설정 패치를 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 패치 결과나 현재 설정 상태가 있으면 PASS",
+		);
 	});
 });

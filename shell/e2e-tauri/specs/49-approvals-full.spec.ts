@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -35,8 +36,10 @@ describe("49 — approvals full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/규칙|rule|승인|approval|설정|set|완료|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_approvals 도구의 set_rules 액션으로 실행 승인 규칙을 설정하라고 했다",
+			"AI가 skill_approvals로 승인 규칙 설정을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 규칙이 설정되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -47,6 +50,10 @@ describe("49 — approvals full", () => {
 
 		const text = await getLastAssistantMessage();
 		// Likely error (no pending approval) — just verify response exists
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_approvals 도구의 resolve 액션으로 대기 중인 승인을 처리하라고 했다",
+			"AI가 skill_approvals로 승인 처리를 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 승인 처리 결과나 대기 중인 승인이 없다는 graceful 에러가 있으면 PASS",
+		);
 	});
 });

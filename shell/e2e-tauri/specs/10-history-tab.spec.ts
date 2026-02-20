@@ -1,5 +1,6 @@
 import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("10 — History Tab", () => {
 	before(async () => {
@@ -10,7 +11,11 @@ describe("10 — History Tab", () => {
 	it("should create a conversation for history", async () => {
 		await sendMessage("히스토리 테스트용 메시지");
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"사용자가 '히스토리 테스트용 메시지'라고 보냈다",
+			"AI가 적절히 응답했는가? 에러 메시지나 빈 응답은 FAIL",
+		);
 	});
 
 	it("should switch to history tab and show sessions", async () => {
@@ -74,7 +79,11 @@ describe("10 — History Tab", () => {
 		await sendMessage("두 번째 대화 메시지");
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"사용자가 '두 번째 대화 메시지'라고 보냈다",
+			"AI가 적절히 응답했는가? 에러나 빈 응답은 FAIL",
+		);
 
 		// Switch to history tab
 		const historyTab = await $(S.historyTab);

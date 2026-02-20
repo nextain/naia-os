@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -24,10 +25,10 @@ describe("18 — provider tool calling", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Response should contain time info OR tool execution reference
-		// Gemini may output tool_code block or actual time — both are valid
-		expect(text).toMatch(
-			/\d{1,2}[:\s시]|skill_time|도구|시간|time|tool/i,
+		await assertSemantic(
+			text,
+			"skill_time 도구를 사용해서 현재 시각을 알려달라고 했다",
+			"AI가 실제 시간 정보를 제공했는가? '도구를 찾을 수 없다/실행할 수 없다'면 FAIL. 시:분 형태의 실제 시각이 포함되어야 PASS",
 		);
 	});
 });

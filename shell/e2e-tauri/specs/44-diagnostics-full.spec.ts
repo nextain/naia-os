@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -36,8 +37,10 @@ describe("44 — diagnostics full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/health|정상|healthy|상태|status|연결|ok|게이트웨이|gateway|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_diagnostics 도구의 health 액션으로 게이트웨이 health 체크를 요청했다",
+			"AI가 skill_diagnostics로 게이트웨이 health 체크를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 게이트웨이 상태/건강 정보가 있으면 PASS",
 		);
 	});
 
@@ -47,8 +50,10 @@ describe("44 — diagnostics full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/사용|usage|통계|status|요청|request|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_diagnostics 도구의 usage_status 액션으로 사용량 통계를 요청했다",
+			"AI가 skill_diagnostics로 사용량 통계 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 사용량/통계 정보가 있으면 PASS",
 		);
 	});
 
@@ -58,8 +63,10 @@ describe("44 — diagnostics full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/비용|cost|요금|charge|사용량|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_diagnostics 도구의 usage_cost 액션으로 비용 정보를 요청했다",
+			"AI가 skill_diagnostics로 비용 정보 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 비용/요금 정보가 있으면 PASS",
 		);
 	});
 });

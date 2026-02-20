@@ -19,6 +19,17 @@ describe("59 — skills interactions", () => {
 	});
 
 	it("should show initial skills count", async () => {
+		// Wait for skills to load from Gateway (may take a few seconds)
+		await browser.waitUntil(
+			async () => {
+				const t = await browser.execute(
+					(sel: string) => document.querySelector(sel)?.textContent ?? "",
+					S.skillsCount,
+				);
+				return /\d+\/\d+/.test(t);
+			},
+			{ timeout: 15_000, timeoutMsg: "Skills count did not appear" },
+		);
 		const text = await browser.execute(
 			(sel: string) => document.querySelector(sel)?.textContent ?? "",
 			S.skillsCount,

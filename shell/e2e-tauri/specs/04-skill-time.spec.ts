@@ -3,6 +3,7 @@ import {
 	sendMessage,
 	waitForToolSuccess,
 } from "../helpers/chat.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("04 — skill_time", () => {
 	before(async () => {
@@ -67,6 +68,10 @@ describe("04 — skill_time", () => {
 		}
 		const text = await getLastAssistantMessage();
 		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request|Tool Call:|print\s*\(/i);
-		expect(text).toMatch(/\d{1,2}[:\s시]/);
+		await assertSemantic(
+			text,
+			"skill_time 도구를 사용해서 현재 시각을 알려달라고 했다",
+			"AI가 실제 시간 정보(시:분 형태)를 제공했는가? '도구를 찾을 수 없다/실행할 수 없다'는 FAIL. 실제 시각 데이터가 포함되어야 PASS",
+		);
 	});
 });

@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -35,8 +36,10 @@ describe("48 — voicewake set", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/트리거|trigger|설정|set|음성|wake|완료|알파|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_voicewake 도구의 set 액션으로 음성 깨우기 트리거를 설정하라고 했다",
+			"AI가 skill_voicewake로 트리거 설정을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 트리거가 설정되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -46,8 +49,10 @@ describe("48 — voicewake set", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/트리거|trigger|알파|음성|wake|도구|실행|설정/i,
+		await assertSemantic(
+			text,
+			"skill_voicewake 도구의 get 액션으로 현재 음성 깨우기 트리거를 확인하라고 했다",
+			"AI가 skill_voicewake로 트리거 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 현재 트리거 정보가 있으면 PASS",
 		);
 	});
 });

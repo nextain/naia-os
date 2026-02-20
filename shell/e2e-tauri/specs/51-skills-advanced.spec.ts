@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -36,8 +37,10 @@ describe("51 — skills advanced", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/스킬|skill|상태|status|게이트웨이|gateway|eligible|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_skill_manager 도구의 gateway_status 액션으로 게이트웨이 스킬 상태를 요청했다",
+			"AI가 skill_skill_manager로 스킬 상태 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 스킬 상태 정보가 있으면 PASS",
 		);
 	});
 
@@ -47,8 +50,10 @@ describe("51 — skills advanced", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/설치|install|의존성|dependency|스킬|skill|완료|없|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_skill_manager 도구의 install 액션으로 스킬 의존성 설치를 요청했다",
+			"AI가 skill_skill_manager로 의존성 설치를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 설치 결과가 있으면 PASS",
 		);
 	});
 
@@ -58,8 +63,10 @@ describe("51 — skills advanced", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/업데이트|update|설정|config|스킬|skill|완료|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_skill_manager 도구의 update_config 액션으로 스킬 설정 업데이트를 요청했다",
+			"AI가 skill_skill_manager로 스킬 설정 업데이트를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 업데이트 결과가 있으면 PASS",
 		);
 	});
 });

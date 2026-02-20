@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -26,9 +27,10 @@ describe("29 — cron gateway", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Response should mention cron/job/schedule or empty list, or explain tool/gateway status
-		expect(text).toMatch(
-			/크론|cron|잡|job|예약|schedule|목록|list|없|도구|실행|게이트웨이|gateway/i,
+		await assertSemantic(
+			text,
+			"게이트웨이의 크론 잡 목록을 보여줘 (skill_cron gateway_list)",
+			"AI가 skill_cron으로 게이트웨이 크론 잡 목록 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 크론 잡 목록을 보여주거나 빈 목록이라고 안내하면 PASS",
 		);
 	});
 });

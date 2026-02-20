@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -35,9 +36,10 @@ describe("37 — execute command", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should contain echo output or explain tool/gateway status
-		expect(text).toMatch(
-			/cafelua-e2e-test|실행|execute|명령|command|도구|결과|출력/i,
+		await assertSemantic(
+			text,
+			"'echo cafelua-e2e-test'를 실행해줘 (execute_command)",
+			"AI가 execute_command으로 셸 명령을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 명령 실행 결과(cafelua-e2e-test 출력)를 보여주면 PASS",
 		);
 	});
 });

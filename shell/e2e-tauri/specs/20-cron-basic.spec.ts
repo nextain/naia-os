@@ -4,6 +4,7 @@ import {
 	waitForToolSuccess,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("20 — cron basic (one-shot)", () => {
 	before(async () => {
@@ -44,12 +45,11 @@ describe("20 — cron basic (one-shot)", () => {
 		}
 
 		const text = await getLastAssistantMessage();
-		if (toolOk) {
-			expect(text).toMatch(/예약|생성|알림|작업|cron/i);
-		} else {
-			// Tool might fail — just ensure a response exists
-			expect(text.length).toBeGreaterThan(0);
-		}
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 5초 후 테스트 알림을 예약하라고 했다",
+			"AI가 작업 예약을 실제로 생성/확인했는가? '도구를 찾을 수 없다'면 FAIL. 예약 성공 또는 Gateway 연결 문제 설명이면 PASS",
+		);
 	});
 
 	it("should list cron jobs", async () => {
@@ -58,8 +58,11 @@ describe("20 — cron basic (one-shot)", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should have some response about cron jobs
-		expect(text.length).toBeGreaterThan(10);
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 예약된 작업 목록을 보여달라고 했다",
+			"AI가 예약 작업 목록을 보여줬는가? 목록이 비어있다는 것도 유효한 응답. '도구를 찾을 수 없다'면 FAIL",
+		);
 	});
 
 	it("should remove a cron job", async () => {
@@ -68,7 +71,10 @@ describe("20 — cron basic (one-shot)", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should confirm deletion or mention no jobs
-		expect(text.length).toBeGreaterThan(10);
+		await assertSemantic(
+			text,
+			"skill_cron 도구로 이전에 만든 테스트 알림을 취소하라고 했다",
+			"AI가 작업 삭제/취소를 처리했는가? '도구를 찾을 수 없다'면 FAIL. 삭제 확인 또는 해당 작업 없음도 유효",
+		);
 	});
 });

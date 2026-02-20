@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -36,8 +37,10 @@ describe("46 — channels operations", () => {
 
 		const text = await getLastAssistantMessage();
 		// Likely no channel connected — graceful error is valid
-		expect(text).toMatch(
-			/로그아웃|logout|채널|channel|연결|없|error|disconnect|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_channels 도구의 logout 액션으로 채널 로그아웃을 요청했다",
+			"AI가 skill_channels로 채널 로그아웃을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 로그아웃 결과나 연결된 채널이 없다는 graceful 에러가 있으면 PASS",
 		);
 	});
 
@@ -48,8 +51,10 @@ describe("46 — channels operations", () => {
 
 		const text = await getLastAssistantMessage();
 		// QR code flow starts or error — both are valid
-		expect(text).toMatch(
-			/로그인|login|QR|시작|start|채널|없|error|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_channels 도구의 login_start 액션으로 웹 로그인 시작을 요청했다",
+			"AI가 skill_channels로 웹 로그인 시작을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 로그인/QR 코드 시작 결과나 graceful 에러가 있으면 PASS",
 		);
 	});
 });

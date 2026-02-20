@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("16 — skill_weather", () => {
 	before(async () => {
@@ -35,8 +36,10 @@ describe("16 — skill_weather", () => {
 
 		const text = await getLastAssistantMessage();
 		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
-		expect(text).toMatch(
-			/°C|기온|temperature|weather|맑|흐|비|눈|서울|Seoul|없어|없습니다|미지원|not available|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_weather 도구로 서울 날씨를 알려달라고 했다",
+			"AI가 서울의 실제 날씨/기온 정보(°C, 맑음/흐림 등)를 제공했는가? '도구를 찾을 수 없다/사용할 수 없다/미지원'이면 FAIL. 실제 기상 데이터가 포함되어야 PASS",
 		);
 	});
 
@@ -47,8 +50,10 @@ describe("16 — skill_weather", () => {
 
 		const text = await getLastAssistantMessage();
 		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
-		expect(text).toMatch(
-			/°C|기온|temperature|weather|Tokyo|도쿄|없어|없습니다|미지원|not available|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_weather 도구로 도쿄(Tokyo) 날씨를 알려달라고 했다",
+			"AI가 도쿄의 실제 날씨/기온 정보를 제공했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 실제 기상 데이터가 포함되어야 PASS",
 		);
 	});
 });

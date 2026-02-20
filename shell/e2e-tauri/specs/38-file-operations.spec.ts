@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -43,8 +44,10 @@ describe("38 — file operations", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/작성|생성|파일|write|created|saved|완료|도구|실행/i,
+		await assertSemantic(
+			text,
+			"/tmp/cafelua-e2e-test.txt 파일에 'hello from e2e' 내용을 작성해줘 (write_file)",
+			"AI가 write_file으로 파일 작성을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 파일을 작성/생성 완료했다고 안내하면 PASS",
 		);
 	});
 
@@ -54,9 +57,10 @@ describe("38 — file operations", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should show file content or explain it read the file
-		expect(text).toMatch(
-			/hello from e2e|파일|file|내용|content|읽|read|도구|실행/i,
+		await assertSemantic(
+			text,
+			"/tmp/cafelua-e2e-test.txt 파일 내용을 읽어줘 (read_file)",
+			"AI가 read_file으로 파일 읽기를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 파일 내용을 보여주거나 읽기 결과를 안내하면 PASS",
 		);
 	});
 
@@ -66,8 +70,10 @@ describe("38 — file operations", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/cafelua-e2e|검색|search|파일|file|찾|found|결과|도구|실행/i,
+		await assertSemantic(
+			text,
+			"/tmp 디렉토리에서 'cafelua-e2e' 이름의 파일을 검색해줘 (search_files)",
+			"AI가 search_files으로 파일 검색을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 검색 결과를 보여주거나 파일을 찾았다고 안내하면 PASS",
 		);
 	});
 
@@ -77,8 +83,10 @@ describe("38 — file operations", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/변경|수정|적용|modified|applied|diff|완료|도구|실행/i,
+		await assertSemantic(
+			text,
+			"파일에서 'hello from e2e'를 'modified by e2e'로 변경해줘 (apply_diff)",
+			"AI가 apply_diff으로 파일 수정을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 변경/수정을 완료했다고 안내하면 PASS",
 		);
 	});
 });

@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -38,8 +39,10 @@ describe("45 — cron gateway full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/스케줄|schedule|상태|status|크론|cron|실행|도구/i,
+		await assertSemantic(
+			text,
+			"skill_cron 도구의 gateway_status 액션으로 게이트웨이 크론 스케줄러 상태를 요청했다",
+			"AI가 skill_cron으로 크론 스케줄러 상태 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 스케줄러/크론 상태 정보가 있으면 PASS",
 		);
 	});
 
@@ -49,8 +52,10 @@ describe("45 — cron gateway full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/추가|add|생성|create|크론|cron|완료|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_cron 도구의 gateway_add 액션으로 크론잡을 추가하라고 했다",
+			"AI가 skill_cron으로 크론잡 추가를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 크론잡이 추가/생성되었다는 결과가 있으면 PASS",
 		);
 	});
 
@@ -60,8 +65,10 @@ describe("45 — cron gateway full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/실행|run|기록|history|없|크론|cron|도구/i,
+		await assertSemantic(
+			text,
+			"skill_cron 도구의 gateway_runs 액션으로 크론잡 실행 기록을 요청했다",
+			"AI가 skill_cron으로 실행 기록 조회를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 실행 기록이나 결과가 있으면 PASS",
 		);
 	});
 
@@ -71,7 +78,11 @@ describe("45 — cron gateway full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"skill_cron 도구의 gateway_run 액션으로 크론잡을 수동 실행하라고 했다",
+			"AI가 skill_cron으로 크론잡 수동 실행을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 실행 결과나 graceful 에러 응답이 있으면 PASS",
+		);
 	});
 
 	it("should remove a Gateway cron job", async () => {
@@ -80,8 +91,10 @@ describe("45 — cron gateway full", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		expect(text).toMatch(
-			/삭제|remove|제거|delete|완료|없|크론|cron|도구|실행/i,
+		await assertSemantic(
+			text,
+			"skill_cron 도구의 gateway_remove 액션으로 크론잡을 삭제하라고 했다",
+			"AI가 skill_cron으로 크론잡 삭제를 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 크론잡이 삭제되었다는 결과가 있으면 PASS",
 		);
 	});
 });

@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 /**
  * 17 — Notification Skills E2E
@@ -80,9 +81,10 @@ describe("17 — notification skills", () => {
 			"Slack으로 '테스트 메시지' 보내줘. skill_notify_slack 도구를 반드시 사용해.",
 		);
 		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
-		expect(text).not.toMatch(/Tool Call:/i);
-		expect(text).toMatch(
-			/webhook|설정|config|SLACK_WEBHOOK_URL|slack|성공|실패|전송|없어|없습니다|미지원|not available/i,
+		await assertSemantic(
+			text,
+			"Slack으로 메시지를 보내달라고 했으나 webhook이 설정되지 않은 상태",
+			"AI가 webhook 설정이 필요하다고 안내했는가? 또는 도구를 실행했으나 webhook 미설정으로 실패했다고 보고했는가? '도구를 찾을 수 없다'면 FAIL. webhook/설정 관련 안내가 있으면 PASS",
 		);
 	});
 
@@ -91,9 +93,10 @@ describe("17 — notification skills", () => {
 			"Discord로 '테스트' 알림 보내줘. skill_notify_discord 도구를 반드시 사용해.",
 		);
 		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request/i);
-		expect(text).not.toMatch(/Tool Call:/i);
-		expect(text).toMatch(
-			/webhook|설정|config|DISCORD_WEBHOOK_URL|discord|성공|실패|전송|없어|없습니다|미지원|not available/i,
+		await assertSemantic(
+			text,
+			"Discord로 알림을 보내달라고 했으나 webhook이 설정되지 않은 상태",
+			"AI가 webhook 설정이 필요하다고 안내했는가? 또는 도구를 실행했으나 webhook 미설정으로 실패했다고 보고했는가? '도구를 찾을 수 없다'면 FAIL. webhook/설정 관련 안내가 있으면 PASS",
 		);
 	});
 });

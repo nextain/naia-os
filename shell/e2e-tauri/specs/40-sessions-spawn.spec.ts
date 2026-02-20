@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -36,9 +37,10 @@ describe("40 — sessions spawn", () => {
 		);
 
 		const text = await getLastAssistantMessage();
-		// Should mention sub-agent/time/completion or explain tool status
-		expect(text).toMatch(
-			/에이전트|agent|시각|시간|time|결과|완료|지원|도구|실행|세션|session/i,
+		await assertSemantic(
+			text,
+			"서브 에이전트를 생성해서 '현재 시각 확인' 작업을 위임해줘 (sessions_spawn)",
+			"AI가 sessions_spawn으로 서브 에이전트 생성을 실행했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 서브 에이전트 생성/위임 결과를 안내하면 PASS",
 		);
 	});
 });

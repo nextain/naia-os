@@ -4,6 +4,7 @@ import {
 } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 import { enableToolsForSpec } from "../helpers/settings.js";
 
 /**
@@ -40,8 +41,10 @@ describe("52 — wizard RPC", () => {
 
 		const text = await getLastAssistantMessage();
 		// LLM may or may not have wizard access — verify semantic response
-		expect(text).toMatch(
-			/위저드|wizard|온보딩|onboarding|상태|status|활성|없|비활성|도구|지원/i,
+		await assertSemantic(
+			text,
+			"게이트웨이 온보딩 위저드 상태를 확인하라고 했다",
+			"AI가 위저드 상태 확인을 시도했는가? 에러 메시지나 빈 응답은 FAIL. 위저드 상태 정보나 위저드 기능이 없다는 설명이 있으면 PASS",
 		);
 	});
 
@@ -52,7 +55,11 @@ describe("52 — wizard RPC", () => {
 
 		const text = await getLastAssistantMessage();
 		// May succeed or explain it can't access wizard
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"게이트웨이 온보딩 위저드를 시작한 후 취소하라고 했다",
+			"AI가 위저드 시작/취소를 시도했는가? 에러 메시지나 빈 응답은 FAIL. 위저드 시작/취소 결과나 해당 기능을 사용할 수 없다는 설명이 있으면 PASS",
+		);
 	});
 
 	it("should handle wizard next on inactive wizard", async () => {
@@ -62,6 +69,10 @@ describe("52 — wizard RPC", () => {
 
 		const text = await getLastAssistantMessage();
 		// Should get error or explanation (no active wizard)
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"위저드 다음 단계로 진행하라고 했다 (wizard.next RPC)",
+			"AI가 위저드 다음 단계 진행을 시도했는가? 에러 메시지나 빈 응답은 FAIL. 활성 위저드가 없다는 에러 설명이나 해당 기능 관련 응답이 있으면 PASS",
+		);
 	});
 });

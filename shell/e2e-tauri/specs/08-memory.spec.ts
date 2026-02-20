@@ -1,5 +1,6 @@
 import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 describe("08 — Memory (conversation persistence)", () => {
 	/**
@@ -41,7 +42,11 @@ describe("08 — Memory (conversation persistence)", () => {
 		await sendMessage("메모리 테스트 메시지");
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"사용자가 '메모리 테스트 메시지'라고 보냈다",
+			"AI가 적절히 응답했는가? 에러 메시지나 빈 응답은 FAIL",
+		);
 
 		// Verify at least 1 user + 1 assistant message exist
 		const userCount = await countUserMessages();
@@ -120,7 +125,11 @@ describe("08 — Memory (conversation persistence)", () => {
 		await sendMessage("새 대화 첫 메시지");
 
 		const text = await getLastAssistantMessage();
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"사용자가 '새 대화 첫 메시지'라고 보냈다",
+			"AI가 적절히 응답했는가? 에러 메시지나 빈 응답은 FAIL",
+		);
 
 		// Should have exactly 1 user + 1 assistant message (fresh session)
 		const userCount = await countUserMessages();

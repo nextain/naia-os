@@ -3,6 +3,7 @@ import {
 	sendMessage,
 } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
+import { assertSemantic } from "../helpers/semantic.js";
 
 /**
  * 36 — Memory Semantic Search E2E
@@ -26,18 +27,21 @@ describe("36 — memory semantic search", () => {
 		await sendMessage("내 생일은 3월 15일이야. 기억해줘.");
 
 		const text = await getLastAssistantMessage();
-		// Agent should acknowledge the birthday info
-		expect(text.length).toBeGreaterThan(0);
+		await assertSemantic(
+			text,
+			"내 생일은 3월 15일이야. 기억해줘.",
+			"AI가 생일 정보를 인지하고 적절히 응답했는가? 에러 메시지나 빈 응답은 FAIL. 생일을 기억하겠다거나 확인했다는 응답이면 PASS",
+		);
 	});
 
 	it("should recall in a follow-up question", async () => {
 		await sendMessage("내 생일이 언제라고 했지?");
 
 		const text = await getLastAssistantMessage();
-		// Agent should mention the birthday from context/memory
-		// May mention "3월 15일" or explain it can't recall — both valid
-		expect(text).toMatch(
-			/3월|15|생일|birthday|기억|remember|모르|확인|이전/i,
+		await assertSemantic(
+			text,
+			"내 생일이 언제라고 했지?",
+			"AI가 이전 대화에서 언급한 생일(3월 15일)을 기억하거나 참조하려고 시도했는가? 에러 메시지나 빈 응답은 FAIL. 생일 날짜를 언급하거나 기억/확인하려는 시도가 보이면 PASS",
 		);
 	});
 });
