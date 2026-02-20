@@ -88,7 +88,14 @@ export const config = {
 		timeout: 180_000,
 	},
 
-	reporters: ["spec"],
+	reporters: [
+		"spec",
+		["video", {
+			saveAllVideos: true,
+			videoSlowdownMultiplier: 3,
+			videoRenderTimeout: 10_000,
+		}],
+	],
 
 	async onPrepare() {
 		// Kill orphaned processes from previous runs

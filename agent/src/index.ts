@@ -321,7 +321,9 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 
 		// TTS synthesis — Gateway first, Google TTS fallback
 		if (ttsVoice && fullText.trim()) {
-			const cleanText = fullText.replace(EMOTION_TAG_RE, "");
+			const cleanText = fullText
+				.replace(EMOTION_TAG_RE, "")
+				.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
 			let audioSent = false;
 
 			// Try Gateway TTS first (supports OpenAI, ElevenLabs, Edge)

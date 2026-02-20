@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-export type NotifyProvider = "slack" | "discord";
+export type NotifyProvider = "slack" | "discord" | "google_chat";
 
 const ENV_VAR_MAP: Record<NotifyProvider, string> = {
-	slack: "SLACK_WEBHOOK_URL",
-	discord: "DISCORD_WEBHOOK_URL",
+        slack: "SLACK_WEBHOOK_URL",
+        discord: "DISCORD_WEBHOOK_URL",
+        google_chat: "GOOGLE_CHAT_WEBHOOK_URL",
 };
-
 /**
  * Resolve webhook URL for a notification provider.
  * Priority: environment variable > ~/.cafelua/config.json > null

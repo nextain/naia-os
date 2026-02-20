@@ -44,17 +44,36 @@ describe("46 — channels operations", () => {
 		);
 	});
 
-	it("should handle web login start gracefully", async () => {
+	it("should simulate a realistic Discord notification scenario", async () => {
+		// Enable notification tool
+		await enableToolsForSpec(["skill_notify_discord"]);
+
 		await sendMessage(
-			"웹 로그인을 시작해줘. skill_channels의 login_start 액션을 사용해.",
+			"지금 즉시 내 디스코드로 'E2E 테스트 완료!'라고 메시지 좀 보내줘. skill_notify_discord 도구를 반드시 사용해.",
 		);
 
 		const text = await getLastAssistantMessage();
-		// QR code flow starts or error — both are valid
+		// We expect the AI to recognize the tool and attempt execution.
+		// Since no real webhook is configured, it will likely return a configuration error, which is PASS.
 		await assertSemantic(
 			text,
-			"skill_channels 도구의 login_start 액션으로 웹 로그인 시작을 요청했다",
-			"AI가 skill_channels로 웹 로그인 시작을 시도했는가? '도구를 찾을 수 없다/사용할 수 없다'면 FAIL. 로그인/QR 코드 시작 결과나 graceful 에러가 있으면 PASS",
+			"skill_notify_discord 도구로 디스코드 알림 발송을 요청했다",
+			"AI가 skill_notify_discord 도구를 인식하고 실행을 시도했는가? '도구를 찾을 수 없다'면 FAIL. 전송 성공 메시지나 '설정이 되어있지 않다'는 안내가 있으면 PASS",
+		);
+	});
+
+	it("should simulate a realistic Google Chat notification scenario", async () => {
+		await enableToolsForSpec(["skill_notify_google_chat"]);
+
+		await sendMessage(
+			"지금 즉시 내 구글 챗으로 '알림 테스트입니다'라고 메시지 보내줘. skill_notify_google_chat 도구를 반드시 사용해.",
+		);
+
+		const text = await getLastAssistantMessage();
+		await assertSemantic(
+			text,
+			"skill_notify_google_chat 도구로 구글 챗 알림 발송을 요청했다",
+			"AI가 skill_notify_google_chat 도구를 인식하고 실행을 시도했는가? '도구를 찾을 수 없다'면 FAIL. 전송 성공 메시지나 '설정이 되어있지 않다'는 안내가 있으면 PASS",
 		);
 	});
 });
