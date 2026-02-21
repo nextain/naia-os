@@ -314,7 +314,7 @@ const translations = {
 		ko: "로그인 응답이 없어요. 다시 시도해주세요.",
 		en: "No login response. Please try again.",
 	},
-	"settings.labSection": { ko: "Nextain 랩 계정", en: "Nextain Lab Account" },
+	"settings.labSection": { ko: "Naia Lab 계정", en: "Naia Lab Account" },
 	"settings.labConnected": { ko: "연결됨", en: "Connected" },
 	"settings.labDisconnected": { ko: "미연결", en: "Not Connected" },
 	"settings.labConnect": { ko: "Lab 로그인", en: "Lab Login" },

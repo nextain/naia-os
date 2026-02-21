@@ -1,6 +1,6 @@
 {
 	"$schema": "https://raw.githubusercontent.com/nicollasricas/tauri-settings-schema/refs/heads/master/schemas/v2/tauri.conf.json",
-	"productName": "Nextain Shell",
+	"productName": "Naia Shell",
 	"version": "0.1.0",
 	"identifier": "com.naia.shell",
 	"build": {
@@ -13,7 +13,7 @@
 		"withGlobalTauri": false,
 		"windows": [
 			{
-				"title": "Nextain Shell",
+				"title": "Naia Shell",
 				"width": 380,
 				"height": 900,
 				"resizable": true,
@@ -39,7 +39,7 @@
 		],
 		"category": "Utility",
 		"shortDescription": "AI Avatar Desktop — Chat with Naia",
-		"longDescription": "Nextain Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Naia), tool execution, and always-on daemon.",
+		"longDescription": "Naia Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Naia), tool execution, and always-on daemon.",
 		"linux": {
 			"deb": {
 				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],

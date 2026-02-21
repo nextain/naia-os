@@ -29,13 +29,13 @@ export function createConfigSkill(): SkillDefinition {
 			required: ["action"],
 		},
 		tier: 1,
-		requiresGateway: true,
+		requiresGateway: false,
 		source: "built-in",
 		execute: async (args, ctx): Promise<SkillResult> => {
 			const action = args.action as string;
 			const gateway = ctx.gateway;
 
-			if (!gateway?.isConnected()) {
+			if (action !== "models" && !gateway?.isConnected()) {
 				return {
 					success: false,
 					output: "",
@@ -45,7 +45,7 @@ export function createConfigSkill(): SkillDefinition {
 
 			switch (action) {
 				case "get": {
-					const result = await getConfig(gateway);
+					const result = await getConfig(gateway!);
 					return { success: true, output: JSON.stringify(result) };
 				}
 
@@ -60,24 +60,58 @@ export function createConfigSkill(): SkillDefinition {
 							error: "patch is required for set action",
 						};
 					}
-					const result = await setConfig(gateway, patch);
+					const result = await setConfig(gateway!, patch);
 					return { success: true, output: JSON.stringify(result) };
 				}
 
 				case "schema": {
-					const result = await getConfigSchema(gateway);
+					const result = await getConfigSchema(gateway!);
 					return { success: true, output: JSON.stringify(result) };
 				}
 
 				case "models": {
-					const result = await listModels(gateway);
-					return { success: true, output: JSON.stringify(result) };
+					const localModels = [
+						{ id: "gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "gemini" },
+						{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini" },
+						{ id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "gemini" },
+						{ id: "gpt-4o", name: "GPT-4o", provider: "openai" },
+						{ id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai" },
+						{ id: "claude-3-5-sonnet-latest", name: "Claude Sonnet 3.5", provider: "anthropic" },
+						{ id: "claude-3-haiku-20240307", name: "Claude Haiku", provider: "anthropic" },
+						{ id: "grok-3-mini", name: "Grok 3 Mini", provider: "xai" },
+						{ id: "grok-3", name: "Grok 3", provider: "xai" },
+						{ id: "glm-4.7", name: "GLM 4.7", provider: "zai" },
+						{ id: "glm-4-plus", name: "GLM 4 Plus", provider: "zai" },
+						{ id: "deepseek-r1:8b", name: "DeepSeek R1 (8B)", provider: "ollama" },
+						{ id: "gpt-oss:20b", name: "GPT-OSS (20B)", provider: "ollama" },
+						{ id: "llama3.2", name: "Llama 3.2", provider: "ollama" }
+					];
+
+					let gatewayModels: any[] = [];
+					if (gateway?.isConnected()) {
+						try {
+							const res = await listModels(gateway);
+							gatewayModels = res.models || [];
+						} catch {
+							// Ignore if gateway fails to list models
+						}
+					}
+
+					// Merge, preferring gateway models if IDs conflict
+					const merged = [...gatewayModels];
+					for (const lm of localModels) {
+						if (!merged.find(m => m.id === lm.id)) {
+							merged.push(lm);
+						}
+					}
+
+					return { success: true, output: JSON.stringify({ models: merged }) };
 				}
 
 				case "patch": {
 					const patch =
 						(args.patch as Record<string, unknown>) ?? {};
-					const result = await patchConfig(gateway, patch);
+					const result = await patchConfig(gateway!, patch);
 					return { success: true, output: JSON.stringify(result) };
 				}
 

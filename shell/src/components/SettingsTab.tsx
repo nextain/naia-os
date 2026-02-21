@@ -298,6 +298,41 @@ export function SettingsTab() {
 	const [enableTools, setEnableTools] = useState(
 		existing?.enableTools ?? false,
 	);
+	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
+
+	useEffect(() => {
+		async function fetchModels() {
+			try {
+				const config = loadConfig();
+				const res = await directToolCall({
+					toolName: "skill_config",
+					args: { action: "models" },
+					requestId: `fetch-models-${Date.now()}`,
+					gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY_URL,
+					gatewayToken: config?.gatewayToken,
+				});
+
+				if (res.success && res.output) {
+					const parsed = JSON.parse(res.output);
+					if (parsed.models && Array.isArray(parsed.models)) {
+						const grouped = { ...MODEL_OPTIONS };
+						for (const m of parsed.models) {
+							if (!grouped[m.provider as ProviderId]) {
+								grouped[m.provider as ProviderId] = [];
+							}
+							if (!grouped[m.provider as ProviderId].some((x) => x.id === m.id)) {
+								grouped[m.provider as ProviderId].push({ id: m.id, label: m.name || m.id });
+							}
+						}
+						setDynamicModels(grouped);
+					}
+				}
+			} catch {
+				// Fallback to static MODEL_OPTIONS
+			}
+		}
+		fetchModels();
+	}, []);
 	const [gatewayUrl, setGatewayUrl] = useState(
 		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
@@ -984,17 +1019,20 @@ export function SettingsTab() {
 
 			<div className="settings-field">
 				<label htmlFor="model-input">{t("settings.model")}</label>
-				<select
+				<input
 					id="model-input"
+					list="models-list"
 					value={model}
 					onChange={(e) => setModel(e.target.value)}
-				>
-					{(MODEL_OPTIONS[provider] ?? []).map((m) => (
+					placeholder="Enter or select a model..."
+				/>
+				<datalist id="models-list">
+					{(dynamicModels[provider] ?? []).map((m) => (
 						<option key={m.id} value={m.id}>
 							{m.label}
 						</option>
 					))}
-				</select>
+				</datalist>
 			</div>
 
 			<div className="settings-field">

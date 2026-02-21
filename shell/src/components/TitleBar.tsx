@@ -12,7 +12,7 @@ export function TitleBar() {
 
 	return (
 		<div className="titlebar" onMouseDown={handleDragStart}>
-			<span className="titlebar-label">Nextain</span>
+			<span className="titlebar-label">Naia</span>
 			<div className="titlebar-buttons">
 				<button
 					type="button"
