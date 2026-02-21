@@ -1,0 +1,86 @@
+description: Shell → OpenClaw gateway config synchronization architecture.
+
+purpose: >
+  Keep OpenClaw bootstrap files (openclaw.json, auth-profiles.json, SOUL.md,
+  IDENTITY.md, USER.md) in sync with Shell user settings so that Gateway
+  interactions (Discord DM, TTS, etc.) use the same persona and credentials
+  as the Shell.
+
+trigger_points:
+  - Settings save (SettingsTab.handleSave)
+  - Onboarding complete (OnboardingWizard.handleComplete)
+  - Lab auth callback (lab_auth_complete event)
+
+sync_items:
+  - target: openclaw.json
+    fields: [provider, model]
+    mapping:
+      gemini: google
+      anthropic: anthropic
+      xai: xai (Grok-compatible)
+      openai: openai
+      nextain: nextain (Lab proxy)
+      claude-code-cli: anthropic
+      ollama: ollama
+
+  - target: auth-profiles.json
+    fields: [apiKey]
+    note: Skipped for Lab proxy (nextain) and keyless providers.
+
+  - target: SOUL.md
+    content: Full system prompt from buildSystemPrompt()
+    includes:
+      - Persona text (with name substitution)
+      - Emotion tag instructions
+      - User name context
+      - Recent memory summaries (when available at build time)
+
+  - target: IDENTITY.md
+    content: "agentName value"
+
+  - target: USER.md
+    content: "userName value"
+
+key_files:
+  - shell/src/lib/openclaw-sync.ts          # syncToOpenClaw()
+  - shell/src/lib/persona.ts                # buildSystemPrompt()
+  - shell/src/components/SettingsTab.tsx     # handleSave trigger
+  - shell/src/components/OnboardingWizard.tsx # handleComplete trigger
+  - shell/src-tauri/src/lib.rs              # sync_openclaw_config Tauri command
+
+chat_routing:
+  description: Chat messages can be routed through Gateway for unified sessions
+  setting: AppConfig.chatRouting ("auto" | "gateway" | "direct", default "auto")
+  agent_field: ChatRequest.routeViaGateway (boolean)
+  behavior:
+    auto: Route via Gateway when connected + tools enabled; fallback to direct LLM
+    gateway: Always route via Gateway
+    direct: Always use direct LLM (original behavior, bypasses Gateway)
+  key_files:
+    - agent/src/gateway/gateway-chat.ts
+    - shell/src/lib/config.ts
+
+session_sot:
+  description: Gateway is the Single Source of Truth for sessions and messages
+  rationale: >
+    Shell local DB (memory.db) previously duplicated session/message storage.
+    Gateway already stores all conversations (including Discord channels).
+    Local DB is now facts-only; sessions are managed via Gateway skill_sessions RPC.
+  shell_local_db:
+    retained: [facts]
+    removed: [sessions, messages, messages_fts, message_embeddings]
+  gateway_rpc:
+    list: skill_sessions action=list
+    history: skill_sessions action=history key=<session_key>
+    delete: skill_sessions action=delete key=<session_key>
+    patch: skill_sessions action=patch key=<session_key> metadata={summary}
+    reset: skill_sessions action=reset key=<session_key>
+  key_files:
+    - shell/src/lib/gateway-sessions.ts  # Gateway session service layer
+    - shell/src/lib/db.ts                # Facts-only (shrunk from ~230 to ~35 lines)
+    - shell/src-tauri/src/memory.rs      # Facts-only (shrunk from ~1230 to ~160 lines)
+
+constraints:
+  - OpenClaw source code is NOT modifiable
+  - Sync is best-effort; errors are logged but never block UI
+  - SOUL.md receives the FULL system prompt (emotion tags + name + context)

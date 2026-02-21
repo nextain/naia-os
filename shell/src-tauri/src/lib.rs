@@ -990,101 +990,7 @@ async fn get_audit_stats(
     audit::query_stats(&audit_state.db)
 }
 
-// === Memory commands ===
-
-#[tauri::command]
-async fn memory_create_session(
-    id: String,
-    title: Option<String>,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<memory::Session, String> {
-    memory::create_session(&state.db, &id, title.as_deref())
-}
-
-#[tauri::command]
-async fn memory_get_last_session(
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Option<memory::Session>, String> {
-    memory::get_last_session(&state.db)
-}
-
-#[tauri::command]
-async fn memory_get_sessions(
-    limit: u32,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::Session>, String> {
-    memory::get_recent_sessions(&state.db, limit)
-}
-
-#[tauri::command]
-async fn memory_save_message(
-    msg: memory::MessageRow,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::insert_message(&state.db, &msg)
-}
-
-#[tauri::command]
-async fn memory_get_messages(
-    session_id: String,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::MessageRow>, String> {
-    memory::get_session_messages(&state.db, &session_id)
-}
-
-#[tauri::command]
-async fn memory_search(
-    query: String,
-    limit: u32,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::MessageRow>, String> {
-    memory::search_messages(&state.db, &query, limit)
-}
-
-#[tauri::command]
-async fn memory_delete_session(
-    session_id: String,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::delete_session(&state.db, &session_id)
-}
-
-#[tauri::command]
-async fn memory_update_title(
-    session_id: String,
-    title: String,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::update_session_title(&state.db, &session_id, &title)
-}
-
-#[tauri::command]
-async fn memory_get_sessions_with_count(
-    limit: u32,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::SessionWithCount>, String> {
-    memory::get_sessions_with_count(&state.db, limit)
-}
-
-#[tauri::command]
-async fn memory_update_summary(
-    session_id: String,
-    summary: String,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::update_session_summary(&state.db, &session_id, &summary)
-}
-
-#[tauri::command]
-async fn memory_search_fts(
-    query: String,
-    limit: u32,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::MessageRow>, String> {
-    memory::search_fts(&state.db, &query, limit)
-}
-
-// === Facts commands ===
+// === Facts commands (sessions/messages now managed by Gateway) ===
 
 #[tauri::command]
 async fn memory_get_all_facts(
@@ -1107,27 +1013,6 @@ async fn memory_delete_fact(
     state: tauri::State<'_, MemoryState>,
 ) -> Result<(), String> {
     memory::delete_fact(&state.db, &fact_id)
-}
-
-// === Embedding commands ===
-
-#[tauri::command]
-async fn memory_store_embedding(
-    message_id: String,
-    embedding: Vec<f64>,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::store_embedding(&state.db, &message_id, &embedding)
-}
-
-#[tauri::command]
-async fn memory_search_semantic(
-    query_embedding: Vec<f64>,
-    limit: u32,
-    min_similarity: f64,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::SemanticResult>, String> {
-    memory::search_semantic(&state.db, &query_embedding, limit, min_similarity)
 }
 
 /// Validate an API key by making a test request to the provider
@@ -1286,20 +1171,23 @@ struct OpenClawSyncParams {
     provider: String,
     model: String,
     api_key: Option<String>,
+    persona: Option<String>,
+    agent_name: Option<String>,
+    user_name: Option<String>,
+    locale: Option<String>,
 }
 
 /// Sync Shell provider/model/API-key to ~/.openclaw/openclaw.json so the
 /// OpenClaw gateway agent uses the same settings (e.g. for Discord DM replies).
 #[tauri::command]
 async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> {
-    // Map Shell ProviderId → OpenClaw provider name + env key
-    let (oc_provider, env_key) = match params.provider.as_str() {
-        "gemini" => ("google", Some("GEMINI_API_KEY")),
-        "nextain" => ("google", None), // Lab proxy key cannot be forwarded
-        "anthropic" => ("anthropic", Some("ANTHROPIC_API_KEY")),
-        "openai" => ("openai", Some("OPENAI_API_KEY")),
-        "xai" => ("xai", Some("XAI_API_KEY")),
-        "zai" => ("zai", Some("ZAI_API_KEY")),
+    // Map Shell ProviderId → OpenClaw provider name
+    let oc_provider = match params.provider.as_str() {
+        "gemini" | "nextain" => "google",
+        "anthropic" => "anthropic",
+        "openai" => "openai",
+        "xai" => "xai",
+        "zai" => "zai",
         // claude-code-cli and ollama don't use openclaw config
         _ => return Ok(()),
     };
@@ -1350,19 +1238,7 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         serde_json::Value::String(model_value.clone()),
     );
 
-    // Set env.{ENV_KEY} if api_key is provided and env_key is known
-    if let (Some(ek), Some(ak)) = (env_key, &params.api_key) {
-        if !ak.is_empty() {
-            let env = obj
-                .entry("env")
-                .or_insert_with(|| serde_json::json!({}))
-                .as_object_mut()
-                .ok_or("env is not an object")?;
-            env.insert(ek.to_string(), serde_json::Value::String(ak.clone()));
-        }
-    }
-
-    // Atomic write: tmp file → rename
+    // Atomic write: openclaw.json (model only)
     let dir = std::path::Path::new(&config_path)
         .parent()
         .ok_or("No parent dir")?;
@@ -1376,10 +1252,228 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
     std::fs::rename(&tmp_path, &config_path)
         .map_err(|e| format!("Failed to rename {} → {}: {}", tmp_path, config_path, e))?;
 
+    // Write API key to auth-profiles.json (where OpenClaw actually reads credentials)
+    if let Some(ak) = &params.api_key {
+        if !ak.is_empty() {
+            let openclaw_dir = std::path::Path::new(&config_path)
+                .parent()
+                .ok_or("No parent dir")?;
+            let auth_path = openclaw_dir.join("agents/main/agent/auth-profiles.json");
+            if let Some(auth_parent) = auth_path.parent() {
+                std::fs::create_dir_all(auth_parent)
+                    .map_err(|e| format!("Failed to create dir {}: {}", auth_parent.display(), e))?;
+            }
+
+            let mut auth_root: serde_json::Value = if auth_path.exists() {
+                let raw = std::fs::read_to_string(&auth_path)
+                    .map_err(|e| format!("Failed to read auth-profiles: {}", e))?;
+                serde_json::from_str(&raw)
+                    .map_err(|e| format!("Failed to parse auth-profiles: {}", e))?
+            } else {
+                serde_json::json!({"version": 1, "profiles": {}})
+            };
+
+            let profile_id = format!("{}:naia", oc_provider);
+            let profiles = auth_root
+                .as_object_mut()
+                .ok_or("auth root is not an object")?
+                .entry("profiles")
+                .or_insert_with(|| serde_json::json!({}))
+                .as_object_mut()
+                .ok_or("profiles is not an object")?;
+            profiles.insert(
+                profile_id.clone(),
+                serde_json::json!({
+                    "type": "api_key",
+                    "provider": oc_provider,
+                    "key": ak,
+                }),
+            );
+
+            let auth_tmp = format!("{}.tmp", auth_path.display());
+            let auth_pretty = serde_json::to_string_pretty(&auth_root)
+                .map_err(|e| format!("JSON serialize auth-profiles: {}", e))?;
+            std::fs::write(&auth_tmp, auth_pretty.as_bytes())
+                .map_err(|e| format!("Failed to write {}: {}", auth_tmp, e))?;
+            std::fs::rename(&auth_tmp, &auth_path)
+                .map_err(|e| format!("Failed to rename auth-profiles: {}", e))?;
+
+            log_both(&format!(
+                "[Naia] Synced OpenClaw auth-profile: {}",
+                profile_id
+            ));
+        }
+    }
+
     log_both(&format!(
         "[Naia] Synced OpenClaw config: model={}",
         model_value
     ));
+
+    // --- Workspace bootstrap files (SOUL.md, IDENTITY.md, USER.md) ---
+    // Read workspace path from openclaw.json → agents.defaults.workspace
+    let workspace_path = root
+        .get("agents")
+        .and_then(|a| a.get("defaults"))
+        .and_then(|d| d.get("workspace"))
+        .and_then(|w| w.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("{}/.openclaw/workspace", home));
+
+    let ws_dir = std::path::Path::new(&workspace_path);
+
+    // SOUL.md — persona / character description
+    if let Some(ref persona) = params.persona {
+        if !persona.trim().is_empty() {
+            if let Err(e) = std::fs::create_dir_all(ws_dir) {
+                log_both(&format!(
+                    "[Naia] Failed to create workspace dir {}: {}",
+                    ws_dir.display(),
+                    e
+                ));
+            } else {
+                let soul_path = ws_dir.join("SOUL.md");
+                let soul_tmp = ws_dir.join("SOUL.md.tmp");
+                let content = format!(
+                    "# SOUL.md - Who You Are\n\n{}\n\n---\n*Synced from Naia Shell settings.*\n",
+                    persona.trim()
+                );
+                match std::fs::write(&soul_tmp, content.as_bytes()) {
+                    Ok(_) => match std::fs::rename(&soul_tmp, &soul_path) {
+                        Ok(_) => log_both(&format!(
+                            "[Naia] Synced workspace bootstrap: SOUL.md → {}",
+                            soul_path.display()
+                        )),
+                        Err(e) => log_both(&format!(
+                            "[Naia] Failed to rename SOUL.md: {}",
+                            e
+                        )),
+                    },
+                    Err(e) => log_both(&format!(
+                        "[Naia] Failed to write SOUL.md.tmp: {}",
+                        e
+                    )),
+                }
+            }
+        }
+    }
+
+    // IDENTITY.md — agent name / avatar identity
+    if let Some(ref agent_name) = params.agent_name {
+        if !agent_name.trim().is_empty() {
+            if let Err(e) = std::fs::create_dir_all(ws_dir) {
+                log_both(&format!(
+                    "[Naia] Failed to create workspace dir {}: {}",
+                    ws_dir.display(),
+                    e
+                ));
+            } else {
+                let id_path = ws_dir.join("IDENTITY.md");
+                let id_tmp = ws_dir.join("IDENTITY.md.tmp");
+                let content = format!(
+                    "# IDENTITY.md - Who Am I?\n\n\
+                     - **Name:** {}\n\
+                     - **Creature:** AI avatar\n\
+                     - **Vibe:** Personal AI companion\n\
+                     - **Emoji:** \u{1f319}\n\n\
+                     ---\n\
+                     *Synced from Naia Shell settings.*\n",
+                    agent_name.trim()
+                );
+                match std::fs::write(&id_tmp, content.as_bytes()) {
+                    Ok(_) => match std::fs::rename(&id_tmp, &id_path) {
+                        Ok(_) => log_both(&format!(
+                            "[Naia] Synced workspace bootstrap: IDENTITY.md → {}",
+                            id_path.display()
+                        )),
+                        Err(e) => log_both(&format!(
+                            "[Naia] Failed to rename IDENTITY.md: {}",
+                            e
+                        )),
+                    },
+                    Err(e) => log_both(&format!(
+                        "[Naia] Failed to write IDENTITY.md.tmp: {}",
+                        e
+                    )),
+                }
+            }
+        }
+    }
+
+    // USER.md — human user info
+    if let Some(ref user_name) = params.user_name {
+        if !user_name.trim().is_empty() {
+            if let Err(e) = std::fs::create_dir_all(ws_dir) {
+                log_both(&format!(
+                    "[Naia] Failed to create workspace dir {}: {}",
+                    ws_dir.display(),
+                    e
+                ));
+            } else {
+                let user_path = ws_dir.join("USER.md");
+                let user_tmp = ws_dir.join("USER.md.tmp");
+                let trimmed = user_name.trim();
+                let lang = match params.locale.as_deref().unwrap_or("ko") {
+                    "ko" => "Korean",
+                    "en" => "English",
+                    "ja" => "Japanese",
+                    "zh" => "Chinese",
+                    "fr" => "French",
+                    "de" => "German",
+                    "ru" => "Russian",
+                    "es" => "Spanish",
+                    "ar" => "Arabic",
+                    "hi" => "Hindi",
+                    "bn" => "Bengali",
+                    "pt" => "Portuguese",
+                    "id" => "Indonesian",
+                    "vi" => "Vietnamese",
+                    other => other,
+                };
+                let content = format!(
+                    "# USER.md - About Your Human\n\n\
+                     - **Name:** {name}\n\
+                     - **What to call them:** {name}\n\
+                     - **Language:** {lang}\n\
+                     - **Notes:** Uses Naia App.\n\n\
+                     ---\n\
+                     *Synced from Naia Shell settings.*\n",
+                    name = trimmed, lang = lang
+                );
+                match std::fs::write(&user_tmp, content.as_bytes()) {
+                    Ok(_) => match std::fs::rename(&user_tmp, &user_path) {
+                        Ok(_) => log_both(&format!(
+                            "[Naia] Synced workspace bootstrap: USER.md → {}",
+                            user_path.display()
+                        )),
+                        Err(e) => log_both(&format!(
+                            "[Naia] Failed to rename USER.md: {}",
+                            e
+                        )),
+                    },
+                    Err(e) => log_both(&format!(
+                        "[Naia] Failed to write USER.md.tmp: {}",
+                        e
+                    )),
+                }
+            }
+        }
+    }
+
+    // Clean up BOOTSTRAP.md — no longer needed after SOUL/IDENTITY/USER sync
+    let bootstrap_path = ws_dir.join("BOOTSTRAP.md");
+    if bootstrap_path.exists() {
+        match std::fs::remove_file(&bootstrap_path) {
+            Ok(_) => log_both(&format!(
+                "[Naia] Removed BOOTSTRAP.md (superseded by SOUL/IDENTITY/USER)"
+            )),
+            Err(e) => log_both(&format!(
+                "[Naia] Failed to remove BOOTSTRAP.md: {}",
+                e
+            )),
+        }
+    }
+
     Ok(())
 }
 
@@ -1413,22 +1507,9 @@ pub fn run() {
             gateway_health,
             get_audit_log,
             get_audit_stats,
-            memory_create_session,
-            memory_get_last_session,
-            memory_get_sessions,
-            memory_save_message,
-            memory_get_messages,
-            memory_search,
-            memory_delete_session,
-            memory_update_title,
-            memory_get_sessions_with_count,
-            memory_update_summary,
-            memory_search_fts,
             memory_get_all_facts,
             memory_upsert_fact,
             memory_delete_fact,
-            memory_store_embedding,
-            memory_search_semantic,
             validate_api_key,
             generate_oauth_state,
             read_local_binary,

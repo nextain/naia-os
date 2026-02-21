@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractFacts, summarizeSession } from "../memory-processor";
-import type { MessageRow } from "../db";
 
 describe("memory-processor", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
-	const sampleMessages: MessageRow[] = [
+	const sampleMessages = [
 		{
 			id: "m1",
 			session_id: "s1",
@@ -76,11 +75,7 @@ describe("memory-processor", () => {
 				vi.fn().mockRejectedValue(new Error("Network error")),
 			);
 
-			const result = await summarizeSession(
-				sampleMessages,
-				"key",
-				"gemini",
-			);
+			const result = await summarizeSession(sampleMessages, "key", "gemini");
 			expect(result).toBe("");
 		});
 	});
@@ -136,12 +131,7 @@ describe("memory-processor", () => {
 				}),
 			);
 
-			const result = await extractFacts(
-				sampleMessages,
-				"",
-				"key",
-				"gemini",
-			);
+			const result = await extractFacts(sampleMessages, "", "key", "gemini");
 			expect(result).toEqual([]);
 		});
 	});

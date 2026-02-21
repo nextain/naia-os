@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import {
-	type SessionWithCount,
-	deleteSession,
-	getSessionMessages,
-	getSessionsWithCount,
-	rowToChatMessage,
-} from "../lib/db";
+	type GatewaySession,
+	deleteGatewaySession,
+	getGatewayHistory,
+	listGatewaySessions,
+} from "../lib/gateway-sessions";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import { useChatStore } from "../stores/chat";
@@ -25,7 +24,7 @@ export function HistoryTab({
 }: {
 	onLoadSession: () => void;
 }) {
-	const [sessions, setSessions] = useState<SessionWithCount[]>([]);
+	const [sessions, setSessions] = useState<GatewaySession[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const currentSessionId = useChatStore((s) => s.sessionId);
 
@@ -36,8 +35,8 @@ export function HistoryTab({
 	async function loadSessions() {
 		setIsLoading(true);
 		try {
-			const result = await getSessionsWithCount(50);
-			setSessions(result ?? []);
+			const result = await listGatewaySessions(50);
+			setSessions(result);
 		} catch (err) {
 			Logger.warn("HistoryTab", "Failed to load sessions", {
 				error: String(err),
@@ -47,14 +46,14 @@ export function HistoryTab({
 		}
 	}
 
-	async function handleLoadSession(sessionId: string) {
-		if (sessionId === currentSessionId) return;
+	async function handleLoadSession(key: string) {
+		if (key === currentSessionId) return;
 		try {
-			const messages = await getSessionMessages(sessionId);
+			const messages = await getGatewayHistory(key);
 			const store = useChatStore.getState();
 			store.newConversation();
-			store.setSessionId(sessionId);
-			store.setMessages(messages.map(rowToChatMessage));
+			store.setSessionId(key);
+			store.setMessages(messages);
 			onLoadSession();
 		} catch (err) {
 			Logger.warn("HistoryTab", "Failed to load session", {
@@ -63,12 +62,12 @@ export function HistoryTab({
 		}
 	}
 
-	async function handleDeleteSession(sessionId: string) {
+	async function handleDeleteSession(key: string) {
 		if (!window.confirm(t("history.deleteConfirm"))) return;
 		try {
-			await deleteSession(sessionId);
-			setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-			if (sessionId === currentSessionId) {
+			await deleteGatewaySession(key);
+			setSessions((prev) => prev.filter((s) => s.key !== key));
+			if (key === currentSessionId) {
 				useChatStore.getState().newConversation();
 			}
 		} catch (err) {
@@ -91,31 +90,31 @@ export function HistoryTab({
 			<div className="history-list">
 				{sessions.map((s) => (
 					<div
-						key={s.id}
-						className={`history-item${s.id === currentSessionId ? " current" : ""}`}
+						key={s.key}
+						className={`history-item${s.key === currentSessionId ? " current" : ""}`}
 					>
 						<button
 							type="button"
 							className="history-item-main"
-							onClick={() => handleLoadSession(s.id)}
+							onClick={() => handleLoadSession(s.key)}
 						>
 							<span className="history-item-title">
-								{s.title || t("history.untitled")}
-								{s.id === currentSessionId && (
+								{s.label || t("history.untitled")}
+								{s.key === currentSessionId && (
 									<span className="history-current-badge">
 										{t("history.current")}
 									</span>
 								)}
 							</span>
 							<span className="history-item-meta">
-								{formatDate(s.created_at)} · {s.message_count}{" "}
+								{formatDate(s.updatedAt || s.createdAt)} · {s.messageCount}{" "}
 								{t("history.messages")}
 							</span>
 						</button>
 						<button
 							type="button"
 							className="history-delete-btn"
-							onClick={() => handleDeleteSession(s.id)}
+							onClick={() => handleDeleteSession(s.key)}
 							title={t("history.delete")}
 						>
 							×

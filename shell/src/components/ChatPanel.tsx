@@ -4,28 +4,29 @@ import Markdown from "react-markdown";
 import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
 import { cancelChat, sendChatMessage } from "../lib/chat-service";
 import {
+	startDiscordPoll,
+	stopDiscordPoll,
+	resetDiscordPollState,
+} from "../lib/discord-poll";
+import {
 	addAllowedTool,
 	isToolAllowed,
 	loadConfig,
 	saveConfig,
 } from "../lib/config";
-import { useSkillsStore } from "../stores/skills";
+import { hasApiKey } from "../lib/config";
 import {
-	chatMessageToRow,
-	createSession,
-	generateSessionId,
 	getAllFacts,
-	getSessionsWithCount,
-	loadOrCreateSession,
-	rowToChatMessage,
-	saveMessage,
-	updateSessionSummary,
-	updateSessionTitle,
 	upsertFact,
 } from "../lib/db";
+import {
+	getGatewayHistory,
+	patchGatewaySession,
+	resetGatewaySession,
+} from "../lib/gateway-sessions";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
-import { summarizeSession, extractFacts } from "../lib/memory-processor";
+import { extractFacts, summarizeSession } from "../lib/memory-processor";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import { transcribeAudio } from "../lib/stt";
 import type {
@@ -35,24 +36,32 @@ import type {
 	ChatMessage,
 	ProviderId,
 } from "../lib/types";
-import { hasApiKey } from "../lib/config";
 import { parseEmotion } from "../lib/vrm/expression";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 import { useLogsStore } from "../stores/logs";
 import { useProgressStore } from "../stores/progress";
-import { PermissionModal } from "./PermissionModal";
+import { useSkillsStore } from "../stores/skills";
+import { AgentsTab } from "./AgentsTab";
+import { ChannelsTab } from "./ChannelsTab";
 import { CostDashboard } from "./CostDashboard";
+import { DiagnosticsTab } from "./DiagnosticsTab";
 import { HistoryTab } from "./HistoryTab";
+import { PermissionModal } from "./PermissionModal";
 import { SettingsTab } from "./SettingsTab";
 import { SkillsTab } from "./SkillsTab";
 import { ToolActivity } from "./ToolActivity";
-import { AgentsTab } from "./AgentsTab";
-import { ChannelsTab } from "./ChannelsTab";
-import { DiagnosticsTab } from "./DiagnosticsTab";
 import { WorkProgressPanel } from "./WorkProgressPanel";
 
-type TabId = "chat" | "progress" | "skills" | "channels" | "agents" | "diagnostics" | "settings" | "history";
+type TabId =
+	| "chat"
+	| "progress"
+	| "skills"
+	| "channels"
+	| "agents"
+	| "diagnostics"
+	| "settings"
+	| "history";
 
 const TAB_ICONS: Record<TabId, string> = {
 	chat: "💬",
@@ -74,6 +83,7 @@ const BUILTIN_SKILLS = new Set([
 	"skill_weather",
 	"skill_notify_slack",
 	"skill_notify_discord",
+	"skill_naia_discord",
 	"skill_skill_manager",
 ]);
 
@@ -95,7 +105,6 @@ function formatCost(cost: number): string {
 
 /** Summarize a previous session and extract facts (fire-and-forget). */
 async function summarizePreviousSession(
-	sessionId: string,
 	messages: ChatMessage[],
 	apiKey: string,
 	provider: ProviderId,
@@ -103,7 +112,7 @@ async function summarizePreviousSession(
 	try {
 		const rows = messages.map((m) => ({
 			id: m.id,
-			session_id: sessionId,
+			session_id: "",
 			role: m.role,
 			content: m.content,
 			timestamp: m.timestamp,
@@ -112,8 +121,9 @@ async function summarizePreviousSession(
 		}));
 		const summary = await summarizeSession(rows, apiKey, provider);
 		if (summary) {
-			await updateSessionSummary(sessionId, summary);
-			Logger.info("ChatPanel", "Session summarized", { sessionId });
+			// Save summary to Gateway session metadata
+			await patchGatewaySession("agent:main:main", { summary });
+			Logger.info("ChatPanel", "Session summarized via Gateway");
 
 			// Extract facts from summary
 			const rawFacts = await extractFacts(rows, summary, apiKey, provider);
@@ -123,7 +133,7 @@ async function summarizePreviousSession(
 					id: `fact-${f.key}-${now}`,
 					key: f.key,
 					value: f.value,
-					source_session: sessionId,
+					source_session: null,
 					created_at: now,
 					updated_at: now,
 				});
@@ -143,11 +153,6 @@ async function buildMemoryContext(): Promise<MemoryContext> {
 		const cfg = loadConfig();
 		ctx.userName = cfg?.userName;
 		ctx.agentName = cfg?.agentName;
-
-		const sessions = await getSessionsWithCount(5);
-		ctx.recentSummaries = (sessions ?? [])
-			.filter((s) => s.summary)
-			.map((s) => s.summary as string);
 
 		const facts = await getAllFacts();
 		if (facts && facts.length > 0) {
@@ -223,16 +228,6 @@ function sendApprovalResponse(
 	});
 }
 
-/** Persist a ChatMessage to the memory DB. Noop if sessionId is not set. */
-function persistMessage(msg: ChatMessage): void {
-	const sessionId = useChatStore.getState().sessionId;
-	if (!sessionId) return;
-	saveMessage(chatMessageToRow(sessionId, msg)).catch((err) => {
-		Logger.warn("ChatPanel", "Failed to persist message", {
-			error: String(err),
-		});
-	});
-}
 
 export function ChatPanel() {
 	const [input, setInput] = useState("");
@@ -261,27 +256,29 @@ export function ChatPanel() {
 
 	const setEmotion = useAvatarStore((s) => s.setEmotion);
 
-	// Load previous session on mount
+	// Load previous session from Gateway (SoT)
 	useEffect(() => {
 		if (sessionLoaded.current) return;
 		sessionLoaded.current = true;
-		loadOrCreateSession()
-			.then(({ session, messages: rows }) => {
-				const store = useChatStore.getState();
-				store.setSessionId(session.id);
-				if (rows.length > 0) {
-					store.setMessages(rows.map(rowToChatMessage));
-				}
-				Logger.info("ChatPanel", "Session loaded", {
-					sessionId: session.id,
-					messageCount: rows.length,
+
+		const loadSession = async () => {
+			const store = useChatStore.getState();
+			store.setSessionId("agent:main:main");
+
+			const messages = await getGatewayHistory("agent:main:main");
+			if (messages.length > 0) {
+				store.setMessages(messages);
+				Logger.info("ChatPanel", "Session loaded from Gateway", {
+					messageCount: messages.length,
 				});
-			})
-			.catch((err) => {
-				Logger.warn("ChatPanel", "Failed to load session", {
-					error: String(err),
-				});
+			}
+		};
+
+		loadSession().catch((err) => {
+			Logger.warn("ChatPanel", "Failed to load session", {
+				error: String(err),
 			});
+		});
 	}, []);
 
 	useEffect(() => {
@@ -315,6 +312,21 @@ export function ChatPanel() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
+	// Discord polling: start when tools are enabled, stop on unmount
+	useEffect(() => {
+		const config = loadConfig();
+		if (!config?.enableTools) return;
+
+		startDiscordPoll((messages) => {
+			const store = useChatStore.getState();
+			for (const msg of messages) {
+				store.addDiscordMessage(msg.from, msg.content);
+			}
+		});
+
+		return () => stopDiscordPoll();
+	}, []);
+
 	// Auto-send queued messages when streaming ends
 	useEffect(() => {
 		if (!isStreaming && messageQueue.length > 0) {
@@ -329,16 +341,15 @@ export function ChatPanel() {
 
 	async function handleNewConversation() {
 		const store = useChatStore.getState();
-		const prevSessionId = store.sessionId;
 		const prevMessages = store.messages;
 		store.newConversation();
+		resetDiscordPollState();
 
-		// Summarize previous session in background
-		if (prevSessionId && prevMessages.length >= 2) {
+		// Summarize previous session in background + extract facts
+		if (prevMessages.length >= 2) {
 			const config = loadConfig();
 			if (config?.apiKey) {
 				summarizePreviousSession(
-					prevSessionId,
 					prevMessages,
 					config.apiKey,
 					config.provider || "gemini",
@@ -346,15 +357,13 @@ export function ChatPanel() {
 			}
 		}
 
+		// Reset Gateway session and set local session ID
 		try {
-			const id = generateSessionId();
-			const session = await createSession(id);
-			useChatStore.getState().setSessionId(session.id);
-			Logger.info("ChatPanel", "New conversation started", {
-				sessionId: session.id,
-			});
+			await resetGatewaySession();
+			useChatStore.getState().setSessionId("agent:main:main");
+			Logger.info("ChatPanel", "New conversation started via Gateway");
 		} catch (err) {
-			Logger.warn("ChatPanel", "Failed to create new session", {
+			Logger.warn("ChatPanel", "Failed to reset Gateway session", {
 				error: String(err),
 			});
 		}
@@ -374,21 +383,6 @@ export function ChatPanel() {
 		setInput("");
 		useChatStore.getState().addMessage({ role: "user", content: text });
 
-		// Persist user message
-		const msgs = useChatStore.getState().messages;
-		const userMsg = msgs[msgs.length - 1];
-		if (userMsg) persistMessage(userMsg);
-
-		// Auto-generate session title from first user message
-		const userMessages = msgs.filter((m) => m.role === "user");
-		if (userMessages.length === 1) {
-			const sessionId = useChatStore.getState().sessionId;
-			if (sessionId) {
-				const title = text.length > 40 ? `${text.slice(0, 40)}…` : text;
-				updateSessionTitle(sessionId, title).catch(() => {});
-			}
-		}
-
 		useChatStore.getState().startStreaming();
 
 		const requestId = generateRequestId();
@@ -396,11 +390,22 @@ export function ChatPanel() {
 		const store = useChatStore.getState();
 
 		const config = loadConfig();
-		if (!config?.apiKey && !config?.labKey) {
-			useChatStore.getState().appendStreamChunk(t("chat.noApiKey"));
+			if (config?.provider === "nextain" && !config?.labKey) {
+			useChatStore
+				.getState()
+				.appendStreamChunk(
+					"Nextain provider를 사용하려면 설정에서 Naia OS 계정 로그인(Naia Lab 연결)이 필요합니다.",
+				);
 			useChatStore.getState().finishStreaming();
 			return;
-		}
+			}
+			const isApiKeyOptionalProvider =
+				config?.provider === "claude-code-cli" || config?.provider === "ollama";
+			if (!isApiKeyOptionalProvider && !config?.apiKey && !config?.labKey) {
+				useChatStore.getState().appendStreamChunk(t("chat.noApiKey"));
+				useChatStore.getState().finishStreaming();
+				return;
+			}
 
 		const history = store.messages
 			.filter((m) => m.role === "user" || m.role === "assistant")
@@ -408,6 +413,12 @@ export function ChatPanel() {
 
 		const ttsEnabled = config.ttsEnabled !== false;
 		const activeProvider = config.provider || provider;
+		const ttsEngine = (config.ttsEngine ?? "auto") as
+			| "auto"
+			| "openclaw"
+			| "google";
+		const wantsGatewayForTts =
+			ttsEnabled && (ttsEngine === "openclaw" || ttsEngine === "auto");
 		const memoryCtx = await buildMemoryContext();
 		try {
 			await sendChatMessage({
@@ -423,15 +434,29 @@ export function ChatPanel() {
 				requestId,
 				ttsVoice: ttsEnabled ? config.ttsVoice : undefined,
 				ttsApiKey: ttsEnabled ? config.googleApiKey : undefined,
+				ttsEngine: ttsEnabled ? ttsEngine : undefined,
 				systemPrompt: buildSystemPrompt(config.persona, memoryCtx),
 				enableTools: config.enableTools,
-				gatewayUrl: config.enableTools
-					? config.gatewayUrl || "ws://localhost:18789"
-					: undefined,
-				gatewayToken: config.gatewayToken,
+				gatewayUrl:
+					config.enableTools || wantsGatewayForTts
+						? config.gatewayUrl || "ws://localhost:18789"
+						: undefined,
+				gatewayToken:
+					config.enableTools || wantsGatewayForTts
+						? config.gatewayToken
+						: undefined,
 				disabledSkills: config.enableTools
 					? sanitizeDisabledSkills(config.disabledSkills)
 					: undefined,
+				routeViaGateway:
+					config.enableTools && (config.chatRouting ?? "auto") !== "direct"
+						? true
+						: undefined,
+				slackWebhookUrl: config.slackWebhookUrl,
+				discordWebhookUrl: config.discordWebhookUrl,
+				googleChatWebhookUrl: config.googleChatWebhookUrl,
+				discordDefaultUserId: config.discordDefaultUserId,
+				discordDefaultTarget: config.discordDefaultTarget,
 			});
 		} catch (err) {
 			useChatStore
@@ -492,19 +517,11 @@ export function ChatPanel() {
 					provider: activeProvider,
 					model: chunk.model,
 				});
-				{
-					const asMsgs = useChatStore.getState().messages;
-					const assistantMsg = asMsgs[asMsgs.length - 1];
-					if (assistantMsg) persistMessage(assistantMsg);
-				}
 				break;
 			case "finish":
 				if (store.isStreaming) {
 					store.finishStreaming();
 					setEmotion("neutral");
-					const asMsgs = useChatStore.getState().messages;
-					const assistantMsg = asMsgs[asMsgs.length - 1];
-					if (assistantMsg) persistMessage(assistantMsg);
 				}
 				break;
 			case "config_update": {
@@ -512,10 +529,14 @@ export function ChatPanel() {
 				if (cfg) {
 					// Ignore built-in skill toggles from chat/tool output.
 					if (BUILTIN_SKILLS.has(chunk.skillName)) {
-						Logger.info("ChatPanel", "Ignored config_update for built-in skill", {
-							skillName: chunk.skillName,
-							action: chunk.action,
-						});
+						Logger.info(
+							"ChatPanel",
+							"Ignored config_update for built-in skill",
+							{
+								skillName: chunk.skillName,
+								action: chunk.action,
+							},
+						);
 						break;
 					}
 					const disabled = cfg.disabledSkills ?? [];
@@ -549,15 +570,16 @@ export function ChatPanel() {
 					timestamp: chunk.timestamp,
 				});
 				break;
+			case "discord_message": {
+				// Display Discord DM messages inline in the chat
+				const sender = chunk.from || "Discord";
+				store.appendStreamChunk(`\n[Discord: ${sender}] ${chunk.content}`);
+				break;
+			}
 			case "error":
 				store.appendStreamChunk(`\n[${t("chat.error")}] ${chunk.message}`);
 				store.finishStreaming();
 				setEmotion("neutral");
-				{
-					const asMsgs = useChatStore.getState().messages;
-					const assistantMsg = asMsgs[asMsgs.length - 1];
-					if (assistantMsg) persistMessage(assistantMsg);
-				}
 				break;
 		}
 	}
@@ -665,7 +687,9 @@ export function ChatPanel() {
 						aria-label={t("progress.tabChat")}
 						data-tooltip={t("progress.tabChat")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.chat}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.chat}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -675,7 +699,9 @@ export function ChatPanel() {
 						aria-label={t("history.tabHistory")}
 						data-tooltip={t("history.tabHistory")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.history}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.history}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -685,7 +711,9 @@ export function ChatPanel() {
 						aria-label={t("progress.tabProgress")}
 						data-tooltip={t("progress.tabProgress")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.progress}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.progress}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -695,7 +723,9 @@ export function ChatPanel() {
 						aria-label={t("skills.tabSkills")}
 						data-tooltip={t("skills.tabSkills")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.skills}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.skills}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -705,7 +735,9 @@ export function ChatPanel() {
 						aria-label={t("channels.tabChannels")}
 						data-tooltip={t("channels.tabChannels")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.channels}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.channels}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -715,7 +747,9 @@ export function ChatPanel() {
 						aria-label={t("agents.tabAgents")}
 						data-tooltip={t("agents.tabAgents")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.agents}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.agents}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -725,7 +759,9 @@ export function ChatPanel() {
 						aria-label={t("diagnostics.tabDiagnostics")}
 						data-tooltip={t("diagnostics.tabDiagnostics")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.diagnostics}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.diagnostics}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -735,7 +771,9 @@ export function ChatPanel() {
 						aria-label={t("settings.title")}
 						data-tooltip={t("settings.title")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.settings}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.settings}
+						</span>
 					</button>
 				</div>
 				<div className="chat-header-right">
@@ -809,7 +847,10 @@ export function ChatPanel() {
 			)}
 
 			{/* Messages (chat tab) */}
-			<div className="chat-messages" style={{ display: activeTab === "chat" ? "flex" : "none" }}>
+			<div
+				className="chat-messages"
+				style={{ display: activeTab === "chat" ? "flex" : "none" }}
+			>
 				{messages.map((msg) => (
 					<div key={msg.id} className={`chat-message ${msg.role}`}>
 						{msg.toolCalls?.map((tc) => (
@@ -859,7 +900,10 @@ export function ChatPanel() {
 			)}
 
 			{/* Input (chat tab only) */}
-			<div className="chat-input-bar" style={{ display: activeTab === "chat" ? "flex" : "none" }}>
+			<div
+				className="chat-input-bar"
+				style={{ display: activeTab === "chat" ? "flex" : "none" }}
+			>
 				{sttEnabled && (
 					<button
 						type="button"

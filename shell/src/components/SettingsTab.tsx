@@ -20,15 +20,13 @@ import {
 import {
 	type Fact,
 	deleteFact,
-	deleteSession,
 	getAllFacts,
-	getRecentSessions,
 } from "../lib/db";
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
 import { Logger } from "../lib/logger";
 import { syncToOpenClaw } from "../lib/openclaw-sync";
-import { DEFAULT_PERSONA } from "../lib/persona";
+import { DEFAULT_PERSONA, buildSystemPrompt } from "../lib/persona";
 import { persistDiscordDefaults } from "../lib/discord-auth";
 import type { ProviderId } from "../lib/types";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
@@ -732,7 +730,6 @@ export function SettingsTab() {
 
 	// In-app confirmation state (replaces window.confirm to avoid WebKitGTK double-dialog)
 	const [showResetConfirm, setShowResetConfirm] = useState(false);
-	const [resetClearHistory, setResetClearHistory] = useState(false);
 	const [showLabDisconnect, setShowLabDisconnect] = useState(false);
 
 	const fetchGatewayTts = useCallback(async () => {
@@ -910,7 +907,11 @@ export function SettingsTab() {
 				}
 
 				// Sync to OpenClaw (no API key for Lab proxy)
-				syncToOpenClaw("nextain", nextModel);
+				const labFullPrompt = buildSystemPrompt(current?.persona, {
+					agentName: current?.agentName,
+					userName: current?.userName,
+				});
+				syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, labFullPrompt, current?.locale || getLocale());
 			},
 		);
 		return () => {
@@ -1185,16 +1186,6 @@ export function SettingsTab() {
 	}
 
 	async function executeReset() {
-		if (resetClearHistory) {
-			try {
-				const sessions = await getRecentSessions(10000);
-				await Promise.all(sessions.map((s) => deleteSession(s.id)));
-			} catch (err) {
-				Logger.warn("SettingsTab", "Failed to clear chat history", {
-					error: String(err),
-				});
-			}
-		}
 		localStorage.removeItem("naia-config");
 		localStorage.removeItem("naia-camera");
 		invoke("reset_window_state").catch(() => {});
@@ -1260,8 +1251,12 @@ export function SettingsTab() {
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2000);
 
-		// Sync provider/model to OpenClaw gateway config
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey);
+		// Sync provider/model + full system prompt to OpenClaw gateway config
+		const fullPrompt = buildSystemPrompt(newConfig.persona, {
+			agentName: newConfig.agentName,
+			userName: newConfig.userName,
+		});
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale());
 
 		// Auto-sync to Lab if connected
 		if (labKey && labUserId) {
@@ -2199,14 +2194,6 @@ export function SettingsTab() {
 				{showResetConfirm ? (
 					<div className="reset-confirm-panel">
 						<p className="reset-confirm-msg">{t("settings.resetConfirm")}</p>
-						<label className="reset-confirm-checkbox">
-							<input
-								type="checkbox"
-								checked={resetClearHistory}
-								onChange={(e) => setResetClearHistory(e.target.checked)}
-							/>
-							{t("settings.resetClearHistory")}
-						</label>
 						<div className="reset-confirm-actions">
 							<button
 								type="button"
@@ -2220,7 +2207,6 @@ export function SettingsTab() {
 								className="settings-cancel-btn"
 								onClick={() => {
 									setShowResetConfirm(false);
-									setResetClearHistory(false);
 								}}
 							>
 								{t("settings.cancel")}

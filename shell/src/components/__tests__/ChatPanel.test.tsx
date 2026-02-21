@@ -6,6 +6,15 @@ import { useAvatarStore } from "../../stores/avatar";
 import { useChatStore } from "../../stores/chat";
 import { ChatPanel } from "../ChatPanel";
 
+vi.mock("@tauri-apps/plugin-store", () => {
+	const store = {
+		get: vi.fn().mockResolvedValue(null),
+		set: vi.fn().mockResolvedValue(undefined),
+		delete: vi.fn().mockResolvedValue(undefined),
+	};
+	return { load: vi.fn().mockResolvedValue(store) };
+});
+
 // Mock chat-service — capture onChunk callback
 let capturedOnChunk: ((chunk: AgentResponseChunk) => void) | null = null;
 vi.mock("../../lib/chat-service", () => ({
@@ -20,13 +29,20 @@ vi.mock("../../lib/chat-service", () => ({
 	cancelChat: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock Tauri APIs (needed by chat-service and approval flow)
+// Mock Tauri APIs (needed by approval flow)
 const mockInvoke = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/api/core", () => ({
 	invoke: (...args: unknown[]) => mockInvoke(...args),
 }));
 vi.mock("@tauri-apps/api/event", () => ({
 	listen: vi.fn().mockResolvedValue(() => {}),
+}));
+
+// Mock gateway-sessions (SoT for session loading)
+vi.mock("../../lib/gateway-sessions", () => ({
+	getGatewayHistory: vi.fn().mockResolvedValue([]),
+	resetGatewaySession: vi.fn().mockResolvedValue(true),
+	patchGatewaySession: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock Audio element (not available in jsdom)
@@ -61,7 +77,11 @@ describe("ChatPanel", () => {
 	it("does not send empty message", () => {
 		localStorage.setItem(
 			"naia-config",
-			JSON.stringify({ apiKey: "test-key", provider: "gemini", model: "gemini-2.5-flash" }),
+			JSON.stringify({
+				apiKey: "test-key",
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+			}),
 		);
 		render(<ChatPanel />);
 		// Send button is the last button in the input bar
@@ -331,47 +351,30 @@ describe("ChatPanel", () => {
 		localStorage.removeItem("naia-config");
 	});
 
-	// === Memory integration ===
+	// === Session loading from Gateway ===
 
-	it("loads previous session on mount", async () => {
-		const session = {
-			id: "sess-prev",
-			created_at: 1000,
-			title: null,
-			summary: null,
-		};
-		const rows = [
+	it("loads session from Gateway on mount", async () => {
+		const { getGatewayHistory } = await import("../../lib/gateway-sessions");
+		(getGatewayHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{
-				id: "m1",
-				session_id: "sess-prev",
+				id: "gw-1",
 				role: "user",
 				content: "이전 메시지",
 				timestamp: 1000,
-				cost_json: null,
-				tool_calls_json: null,
 			},
 			{
-				id: "m2",
-				session_id: "sess-prev",
+				id: "gw-2",
 				role: "assistant",
 				content: "이전 응답",
 				timestamp: 2000,
-				cost_json: null,
-				tool_calls_json: null,
 			},
-		];
-
-		mockInvoke.mockImplementation((cmd: string) => {
-			if (cmd === "memory_get_last_session") return Promise.resolve(session);
-			if (cmd === "memory_get_messages") return Promise.resolve(rows);
-			return Promise.resolve(undefined);
-		});
+		]);
 
 		render(<ChatPanel />);
 		await new Promise((r) => setTimeout(r, 100));
 
 		const state = useChatStore.getState();
-		expect(state.sessionId).toBe("sess-prev");
+		expect(state.sessionId).toBe("agent:main:main");
 		expect(state.messages).toHaveLength(2);
 		expect(state.messages[0].content).toBe("이전 메시지");
 		expect(state.messages[1].content).toBe("이전 응답");
@@ -384,10 +387,10 @@ describe("ChatPanel", () => {
 		expect(btn.textContent).toBe("+");
 	});
 
-	it("new conversation resets messages and creates session", async () => {
+	it("new conversation resets messages", async () => {
 		// Pre-populate some state
 		useChatStore.setState({
-			sessionId: "old-session",
+			sessionId: "agent:main:main",
 			messages: [
 				{
 					id: "m1",
@@ -398,18 +401,6 @@ describe("ChatPanel", () => {
 			],
 		});
 
-		const newSession = {
-			id: "new-session",
-			created_at: 5000,
-			title: null,
-			summary: null,
-		};
-		mockInvoke.mockImplementation((cmd: string) => {
-			if (cmd === "memory_create_session")
-				return Promise.resolve(newSession);
-			return Promise.resolve(undefined);
-		});
-
 		render(<ChatPanel />);
 		const btn = screen.getByTitle(/새 대화|New Chat/);
 		fireEvent.click(btn);
@@ -418,6 +409,6 @@ describe("ChatPanel", () => {
 
 		const state = useChatStore.getState();
 		expect(state.messages).toHaveLength(0);
-		expect(state.sessionId).toBe("new-session");
+		expect(state.sessionId).toBe("agent:main:main");
 	});
 });

@@ -1,6 +1,11 @@
 import { Logger } from "./logger";
-import type { MessageRow } from "./db";
 import type { ProviderId } from "./types";
+
+/** Minimal message shape for summarization/fact extraction */
+interface MessageRow {
+	role: string;
+	content: string;
+}
 
 /** Summarize a list of messages into 2-3 sentences using LLM API */
 export async function summarizeSession(
@@ -62,32 +67,6 @@ ${conversationText}`;
 	}
 }
 
-/** Embed text using Gemini text-embedding-004 (768 dims) */
-export async function embedText(
-	text: string,
-	apiKey: string,
-): Promise<number[]> {
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key=${apiKey}`;
-	const res = await fetch(url, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			requests: [
-				{
-					model: "models/text-embedding-004",
-					content: { parts: [{ text }] },
-				},
-			],
-		}),
-	});
-	if (!res.ok) throw new Error(`Gemini Embedding API error: ${res.status}`);
-	const data = await res.json();
-	if (!data.embeddings || data.embeddings.length === 0) {
-		throw new Error("No embedding returned from Gemini API");
-	}
-	return data.embeddings[0].values;
-}
-
 /** Default models per provider for memory processing tasks */
 const DEFAULT_MEMORY_MODELS: Record<string, string> = {
 	gemini: "gemini-2.5-flash",
@@ -109,11 +88,7 @@ async function callLlmApi(
 ): Promise<string> {
 	switch (provider) {
 		case "gemini":
-			return callGemini(
-				prompt,
-				apiKey,
-				model || DEFAULT_MEMORY_MODELS.gemini,
-			);
+			return callGemini(prompt, apiKey, model || DEFAULT_MEMORY_MODELS.gemini);
 		case "xai":
 			return callOpenAICompat(
 				prompt,
@@ -143,7 +118,10 @@ async function callGemini(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			contents: [{ parts: [{ text: prompt }] }],
-			generationConfig: { maxOutputTokens: 256, temperature: geminiTemperature(model) },
+			generationConfig: {
+				maxOutputTokens: 256,
+				temperature: geminiTemperature(model),
+			},
 		}),
 	});
 	if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
