@@ -56,6 +56,11 @@ fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> 
     }
 }
 
+fn is_valid_discord_snowflake(value: &str) -> bool {
+    let trimmed = value.trim();
+    (6..=32).contains(&trimmed.len()) && trimmed.chars().all(|c| c.is_ascii_digit())
+}
+
 /// JSON chunk forwarded from agent-core stdout to the frontend
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct AgentChunk {
@@ -400,7 +405,14 @@ fn find_openclaw_paths() -> Result<(std::path::PathBuf, String, String), String>
             openclaw_bin
         ));
     }
-    let config_path = format!("{}/.naia/openclaw/openclaw.json", home);
+    // Prefer ~/.openclaw/openclaw.json (standard path), fallback to legacy ~/.naia/openclaw/
+    let primary = format!("{}/.openclaw/openclaw.json", home);
+    let legacy = format!("{}/.naia/openclaw/openclaw.json", home);
+    let config_path = if std::path::Path::new(&primary).exists() {
+        primary
+    } else {
+        legacy
+    };
     Ok((node_bin, openclaw_bin, config_path))
 }
 
@@ -1242,6 +1254,135 @@ async fn reset_window_state(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn read_local_binary(path: String) -> Result<Vec<u8>, String> {
+    let file_path = std::path::PathBuf::from(&path);
+    if !file_path.is_absolute() {
+        return Err("Path must be absolute".to_string());
+    }
+
+    let metadata = std::fs::metadata(&file_path)
+        .map_err(|e| format!("Failed to read metadata for {}: {}", path, e))?;
+    if !metadata.is_file() {
+        return Err(format!("Not a file: {}", path));
+    }
+
+    // Prevent accidental huge payloads over IPC.
+    const MAX_BYTES: u64 = 100 * 1024 * 1024;
+    if metadata.len() > MAX_BYTES {
+        return Err(format!(
+            "File too large: {} bytes (max {} bytes)",
+            metadata.len(),
+            MAX_BYTES
+        ));
+    }
+
+    std::fs::read(&file_path).map_err(|e| format!("Failed to read {}: {}", path, e))
+}
+
+/// Parameters for syncing Shell provider settings to OpenClaw gateway config
+#[derive(Deserialize)]
+struct OpenClawSyncParams {
+    provider: String,
+    model: String,
+    api_key: Option<String>,
+}
+
+/// Sync Shell provider/model/API-key to ~/.openclaw/openclaw.json so the
+/// OpenClaw gateway agent uses the same settings (e.g. for Discord DM replies).
+#[tauri::command]
+async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> {
+    // Map Shell ProviderId → OpenClaw provider name + env key
+    let (oc_provider, env_key) = match params.provider.as_str() {
+        "gemini" => ("google", Some("GEMINI_API_KEY")),
+        "nextain" => ("google", None), // Lab proxy key cannot be forwarded
+        "anthropic" => ("anthropic", Some("ANTHROPIC_API_KEY")),
+        "openai" => ("openai", Some("OPENAI_API_KEY")),
+        "xai" => ("xai", Some("XAI_API_KEY")),
+        "zai" => ("zai", Some("ZAI_API_KEY")),
+        // claude-code-cli and ollama don't use openclaw config
+        _ => return Ok(()),
+    };
+
+    let home = std::env::var("HOME").unwrap_or_default();
+    // Prefer ~/.openclaw/ (standard), fallback to ~/.naia/openclaw/
+    let primary = format!("{}/.openclaw/openclaw.json", home);
+    let legacy = format!("{}/.naia/openclaw/openclaw.json", home);
+    let config_path = if std::path::Path::new(&primary).exists() {
+        primary
+    } else if std::path::Path::new(&legacy).exists() {
+        legacy
+    } else {
+        // Create in standard location
+        primary
+    };
+
+    // Read existing config or start fresh
+    let mut root: serde_json::Value = if std::path::Path::new(&config_path).exists() {
+        let raw = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read {}: {}", config_path, e))?;
+        serde_json::from_str(&raw)
+            .map_err(|e| format!("Failed to parse {}: {}", config_path, e))?
+    } else {
+        serde_json::json!({})
+    };
+
+    // Set agents.defaults.model.primary = "{oc_provider}/{model}"
+    let model_value = format!("{}/{}", oc_provider, params.model);
+    let obj = root.as_object_mut().ok_or("Config root is not an object")?;
+    let agents = obj
+        .entry("agents")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("agents is not an object")?;
+    let defaults = agents
+        .entry("defaults")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("defaults is not an object")?;
+    let model_obj = defaults
+        .entry("model")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("model is not an object")?;
+    model_obj.insert(
+        "primary".to_string(),
+        serde_json::Value::String(model_value.clone()),
+    );
+
+    // Set env.{ENV_KEY} if api_key is provided and env_key is known
+    if let (Some(ek), Some(ak)) = (env_key, &params.api_key) {
+        if !ak.is_empty() {
+            let env = obj
+                .entry("env")
+                .or_insert_with(|| serde_json::json!({}))
+                .as_object_mut()
+                .ok_or("env is not an object")?;
+            env.insert(ek.to_string(), serde_json::Value::String(ak.clone()));
+        }
+    }
+
+    // Atomic write: tmp file → rename
+    let dir = std::path::Path::new(&config_path)
+        .parent()
+        .ok_or("No parent dir")?;
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("Failed to create dir {}: {}", dir.display(), e))?;
+    let tmp_path = format!("{}.tmp", config_path);
+    let pretty =
+        serde_json::to_string_pretty(&root).map_err(|e| format!("JSON serialize: {}", e))?;
+    std::fs::write(&tmp_path, pretty.as_bytes())
+        .map_err(|e| format!("Failed to write {}: {}", tmp_path, e))?;
+    std::fs::rename(&tmp_path, &config_path)
+        .map_err(|e| format!("Failed to rename {} → {}: {}", tmp_path, config_path, e))?;
+
+    log_both(&format!(
+        "[Naia] Synced OpenClaw config: model={}",
+        model_value
+    ));
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1290,6 +1431,8 @@ pub fn run() {
             memory_search_semantic,
             validate_api_key,
             generate_oauth_state,
+            read_local_binary,
+            sync_openclaw_config,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -1340,14 +1483,27 @@ pub fn run() {
                     if let Ok(parsed) = url::Url::parse(url_str) {
                         if parsed.host_str() == Some("auth") || parsed.path() == "auth" || parsed.path() == "/auth" {
                             let mut key = None;
+                            let mut code = None;
                             let mut user_id = None;
                             let mut incoming_state = None;
+                            let mut channel = None;
+                            let mut discord_user_id = None;
+                            let mut discord_channel_id = None;
+                            let mut discord_target = None;
                             for (k, v) in parsed.query_pairs() {
                                 match k.as_ref() {
                                     "key" => key = Some(v.to_string()),
-                                    "code" => key = Some(v.to_string()),
+                                    "code" => code = Some(v.to_string()),
                                     "user_id" => user_id = Some(v.to_string()),
                                     "state" => incoming_state = Some(v.to_string()),
+                                    "channel" => channel = Some(v.to_string()),
+                                    "discord_user_id" | "discordUserId" => discord_user_id = Some(v.to_string()),
+                                    "discord_channel_id" | "discordChannelId" => {
+                                        discord_channel_id = Some(v.to_string())
+                                    }
+                                    "discord_target" | "discordTarget" => {
+                                        discord_target = Some(v.to_string())
+                                    }
                                     _ => {}
                                 }
                             }
@@ -1380,14 +1536,29 @@ pub fn run() {
                             // If no expected state (e.g. manual key entry), allow without check
 
                             // Validate user_id if present: alphanumeric, hyphens, underscores, dots, max 256 chars
-                            let validated_user_id = user_id.filter(|uid| {
+                            let validated_user_id = user_id.clone().filter(|uid| {
                                 uid.len() <= 256
                                     && uid.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
                             });
-                            if let Some(lab_key) = key {
-                                // Validate key: alphanumeric, hyphens, underscores, max 256 chars
-                                let is_valid = lab_key.len() <= 256
-                                    && lab_key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.');
+                            let resolved_key = if key.is_some() {
+                                key
+                            } else if let Some(code_val) = code {
+                                // Some OAuth providers return ?code=. Only accept it when it is already a gateway API key.
+                                if code_val.starts_with("gw-") {
+                                    Some(code_val)
+                                } else {
+                                    log_both("[Naia] Deep link rejected: code is not a gateway API key (expected gw-*)");
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+
+                            if let Some(lab_key) = resolved_key {
+                                // Validate key format: gw- prefix + [A-Za-z0-9_-], max 256 chars
+                                let is_valid = lab_key.starts_with("gw-")
+                                    && lab_key.len() <= 256
+                                    && lab_key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_');
                                 if !is_valid {
                                     log_both("[Naia] Deep link rejected: invalid key format");
                                     continue;
@@ -1398,6 +1569,51 @@ pub fn run() {
                                 });
                                 let _ = deep_link_handle.emit("lab_auth_complete", payload);
                                 log_both("[Naia] Lab auth complete — key received via deep link");
+                            }
+
+                            let is_discord_flow = matches!(channel.as_deref(), Some("discord"))
+                                || discord_user_id.is_some()
+                                || discord_channel_id.is_some()
+                                || discord_target.is_some();
+                            if is_discord_flow {
+                                let validated_discord_user_id = discord_user_id
+                                    .or_else(|| {
+                                        if matches!(channel.as_deref(), Some("discord")) {
+                                            user_id.clone()
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .filter(|uid| is_valid_discord_snowflake(uid));
+                                let validated_discord_channel_id = discord_channel_id
+                                    .filter(|cid| is_valid_discord_snowflake(cid));
+                                let normalized_target = discord_target
+                                    .and_then(|target| {
+                                        let t = target.trim().to_string();
+                                        if t.starts_with("user:") || t.starts_with("channel:") {
+                                            Some(t)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .or_else(|| {
+                                        validated_discord_user_id
+                                            .as_ref()
+                                            .map(|uid| format!("user:{}", uid))
+                                    })
+                                    .or_else(|| {
+                                        validated_discord_channel_id
+                                            .as_ref()
+                                            .map(|cid| format!("channel:{}", cid))
+                                    });
+
+                                let payload = serde_json::json!({
+                                    "discordUserId": validated_discord_user_id,
+                                    "discordChannelId": validated_discord_channel_id,
+                                    "discordTarget": normalized_target,
+                                });
+                                let _ = deep_link_handle.emit("discord_auth_complete", payload);
+                                log_both("[Naia] Discord auth complete — deep link payload received");
                             }
                         }
                     }

@@ -2,7 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLongPress } from "../hooks/useLongPress";
 import { directToolCall } from "../lib/chat-service";
 import {
@@ -15,6 +15,7 @@ import {
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
+	getLabKeySecure,
 } from "../lib/config";
 import {
 	type Fact,
@@ -26,11 +27,16 @@ import {
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
 import { Logger } from "../lib/logger";
+import { syncToOpenClaw } from "../lib/openclaw-sync";
 import { DEFAULT_PERSONA } from "../lib/persona";
+import { persistDiscordDefaults } from "../lib/discord-auth";
 import type { ProviderId } from "../lib/types";
+import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { useAvatarStore } from "../stores/avatar";
 
 const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
+	{ id: "nextain", label: "Nextain (Naia OS)" },
+	{ id: "claude-code-cli", label: "Claude Code CLI (Local)" },
 	{ id: "gemini", label: "Google Gemini" },
 	{ id: "openai", label: "OpenAI (ChatGPT)", disabled: true },
 	{ id: "anthropic", label: "Anthropic (Claude)", disabled: true },
@@ -53,6 +59,10 @@ const TTS_VOICES: { id: string; label: string; price: string }[] = [
 	{ id: "ko-KR-Standard-D", label: "남성 D (Standard)", price: "$4/1M자" },
 ];
 
+type TtsEngine = "auto" | "openclaw" | "google";
+type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
+type GatewayTtsMode = "final" | "all";
+
 const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "ko", label: "한국어" },
 	{ id: "en", label: "English" },
@@ -70,6 +80,13 @@ const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "vi", label: "Tiếng Việt" },
 ];
 
+function getNaiaWebBaseUrl() {
+	return (
+		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() ||
+		"https://naia.nextain.io"
+	);
+}
+
 interface DeviceNode {
 	nodeId: string;
 	displayName?: string;
@@ -80,6 +97,74 @@ interface PairReq {
 	requestId: string;
 	nodeId: string;
 	status: string;
+}
+
+function normalizeLocalPath(path: string): string {
+	if (!path.startsWith("file://")) return path;
+	try {
+		return decodeURIComponent(new URL(path).pathname);
+	} catch {
+		return path.replace(/^file:\/\//, "");
+	}
+}
+
+function toAssetUrl(path: string): string {
+	const normalized = normalizeLocalPath(path);
+	if (normalized.startsWith("http://localhost")) {
+		return normalized.replace(
+			/^http:\/\/localhost\/?/,
+			"http://asset.localhost/",
+		);
+	}
+	if (
+		normalized.startsWith("/assets/") ||
+		normalized.startsWith("/avatars/") ||
+		normalized.startsWith("asset:") ||
+		normalized.startsWith("http://asset.localhost") ||
+		normalized.startsWith("tauri://") ||
+		normalized.startsWith("blob:") ||
+		normalized.startsWith("data:")
+	) {
+		return normalized;
+	}
+	const assetUrl = convertFileSrc(normalized);
+	return assetUrl
+		.replace(/^asset:\/\/localhost\/?/, "http://asset.localhost/")
+		.replace(/^http:\/\/localhost\/?/, "http://asset.localhost/");
+}
+
+function buildVrmPreviewCandidates(path: string): string[] {
+	const rootPath = normalizeLocalPath(path).replace(/\.vrm$/i, "");
+	const candidates = [".webp", ".png", ".jpg", ".jpeg"];
+	return candidates.map((ext) => toAssetUrl(`${rootPath}${ext}`));
+}
+
+function buildLocalVrmPreviewCandidates(path: string): string[] {
+	const rootPath = normalizeLocalPath(path).replace(/\.vrm$/i, "");
+	return [".webp", ".png", ".jpg", ".jpeg"].map((ext) => `${rootPath}${ext}`);
+}
+
+function isAbsoluteLocalFilePath(path: string): boolean {
+	return path.startsWith("/");
+}
+
+function guessMimeType(path: string): string {
+	const ext = path.toLowerCase().split(".").pop() ?? "";
+	switch (ext) {
+		case "png":
+			return "image/png";
+		case "jpg":
+		case "jpeg":
+			return "image/jpeg";
+		case "webp":
+			return "image/webp";
+		case "gif":
+			return "image/gif";
+		case "bmp":
+			return "image/bmp";
+		default:
+			return "application/octet-stream";
+	}
 }
 
 function CustomAssetCard({
@@ -96,6 +181,58 @@ function CustomAssetCard({
 	type: "vrm" | "bg";
 }) {
 	const [deleteMode, setDeleteMode] = useState(false);
+	const previewCandidates = useMemo(
+		() => (type === "vrm" ? buildVrmPreviewCandidates(path) : []),
+		[path, type],
+	);
+	const [previewIndex, setPreviewIndex] = useState(0);
+	const [localPreviewSrc, setLocalPreviewSrc] = useState<string | null>(null);
+	useEffect(() => {
+		setPreviewIndex(0);
+	}, [path, type]);
+	useEffect(() => {
+		let revokedUrl = "";
+		let cancelled = false;
+		setLocalPreviewSrc(null);
+
+		const normalized = normalizeLocalPath(path);
+		const isLocal =
+			isAbsoluteLocalFilePath(normalized) &&
+			!normalized.startsWith("/assets/") &&
+			!normalized.startsWith("/avatars/");
+		if (!isLocal) return;
+
+		const loadLocalPreview = async () => {
+			try {
+				const targetPaths =
+					type === "bg" ? [normalized] : buildLocalVrmPreviewCandidates(normalized);
+				for (const targetPath of targetPaths) {
+					try {
+						const bytes = await invoke<number[]>("read_local_binary", {
+							path: targetPath,
+						});
+						if (cancelled) return;
+						const blob = new Blob([new Uint8Array(bytes)], {
+							type: guessMimeType(targetPath),
+						});
+						revokedUrl = URL.createObjectURL(blob);
+						setLocalPreviewSrc(revokedUrl);
+						return;
+					} catch {
+						// try next candidate
+					}
+				}
+			} catch {
+				// keep default preview fallback
+			}
+		};
+
+		void loadLocalPreview();
+		return () => {
+			cancelled = true;
+			if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+		};
+	}, [path, type]);
 	const lp = useLongPress(
 		() => setDeleteMode(true),
 		() => {
@@ -105,22 +242,44 @@ function CustomAssetCard({
 	);
 
 	if (type === "vrm") {
+		const previewSrc = localPreviewSrc ?? previewCandidates[previewIndex];
 		return (
 			<button
 				type="button"
 				className={`vrm-card ${isSelected ? "active" : ""} ${deleteMode ? "shake" : ""}`}
 				title={path}
 				{...lp}
+				onClick={(e) => {
+					e.preventDefault();
+					if (!deleteMode) onSelect();
+				}}
 				style={{ position: "relative" }}
 				onMouseLeave={() => {
 					lp.onMouseLeave();
 					setDeleteMode(false);
 				}}
 			>
-				<span className="vrm-card-icon">&#x1F464;</span>
-				<span className="vrm-card-label">
-					{path.split("/").pop()?.replace(".vrm", "")}
-				</span>
+				{previewSrc ? (
+					<img
+						src={previewSrc}
+						alt={path.split("/").pop()?.replace(".vrm", "") ?? "VRM"}
+						style={{ width: "100%", height: "100%", objectFit: "cover" }}
+						onError={() => {
+							if (previewIndex < previewCandidates.length - 1) {
+								setPreviewIndex((prev) => prev + 1);
+							} else {
+								setPreviewIndex(-1);
+							}
+						}}
+					/>
+				) : (
+					<>
+						<span className="vrm-card-icon">&#x1F464;</span>
+						<span className="vrm-card-label">
+							{path.split("/").pop()?.replace(".vrm", "")}
+						</span>
+					</>
+				)}
 				{deleteMode && <div className="delete-overlay">🗑️</div>}
 			</button>
 		);
@@ -132,6 +291,10 @@ function CustomAssetCard({
 			className={`bg-card ${isSelected ? "active" : ""} ${deleteMode ? "shake" : ""}`}
 			title={path}
 			{...lp}
+			onClick={(e) => {
+				e.preventDefault();
+				if (!deleteMode) onSelect();
+			}}
 			style={{ position: "relative" }}
 			onMouseLeave={() => {
 				lp.onMouseLeave();
@@ -140,7 +303,9 @@ function CustomAssetCard({
 		>
 			<span
 				className="bg-card-preview"
-				style={{ backgroundImage: `url(${convertFileSrc(path)})` }}
+				style={{
+					backgroundImage: `url(${localPreviewSrc ?? toAssetUrl(path)})`,
+				}}
 			/>
 			<span className="bg-card-label">{path.split("/").pop()}</span>
 			{deleteMode && <div className="delete-overlay">🗑️</div>}
@@ -312,29 +477,6 @@ function DevicePairingSection() {
 	);
 }
 
-const VRM_SAMPLES: { path: string; label: string; previewImage?: string }[] = [
-	{
-		path: "/avatars/01-Sendagaya-Shino-uniform.vrm",
-		label: "Shino",
-		previewImage: "/avatars/01-Sendagaya-Shino-uniform.webp",
-	},
-	{
-		path: "/avatars/02-Sakurada-Fumiriya.vrm",
-		label: "Sakurada Fumiriya",
-		previewImage: "/avatars/02-Sakurada-Fumiriya.webp",
-	},
-	{
-		path: "/avatars/03-OL_Woman.vrm",
-		label: "OL Woman",
-		previewImage: "/avatars/03-OL_Woman.webp",
-	},
-	{
-		path: "/avatars/04-Hood_Boy.vrm",
-		label: "Hood Boy",
-		previewImage: "/avatars/04-Hood_Boy.webp",
-	},
-];
-
 const BG_SAMPLES: { path: string; label: string }[] = [
 	{ path: "/assets/background-space.webp", label: "Space" },
 ];
@@ -355,10 +497,10 @@ export function SettingsTab() {
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
 	const setAvatarBackgroundImage = useAvatarStore((s) => s.setBackgroundImage);
 	const [savedVrmModel, setSavedVrmModel] = useState(
-		existing?.vrmModel ?? "/avatars/01-Sendagaya-Shino-uniform.vrm"
+		normalizeLocalPath(existing?.vrmModel ?? DEFAULT_AVATAR_MODEL)
 	);
 	const [savedBgImage, setSavedBgImage] = useState(
-		existing?.backgroundImage ?? ""
+		normalizeLocalPath(existing?.backgroundImage ?? "")
 	);
 	const [provider, setProvider] = useState<ProviderId>(
 		existing?.provider ?? "gemini",
@@ -377,19 +519,23 @@ export function SettingsTab() {
 	const [theme, setTheme] = useState<ThemeId>(existing?.theme ?? "espresso");
 	const [vrmModel, setVrmModel] = useState(savedVrmModel);
 	const [customVrms, setCustomVrms] = useState<string[]>(
-		existing?.customVrms ?? [],
+		(existing?.customVrms ?? []).map(normalizeLocalPath),
 	);
 	const [customBgs, setCustomBgs] = useState<string[]>(
-		existing?.customBgs ?? [],
+		(existing?.customBgs ?? []).map(normalizeLocalPath),
 	);
 	const [backgroundImage, setBackgroundImage] = useState(
-		existing?.backgroundImage ?? "",
+		normalizeLocalPath(existing?.backgroundImage ?? ""),
 	);
 	const [ttsVoice, setTtsVoice] = useState(
 		existing?.ttsVoice ?? "ko-KR-Neural2-A",
 	);
 	const [googleApiKey, setGoogleApiKey] = useState(
 		existing?.googleApiKey ?? "",
+	);
+	const [ttsEngine, setTtsEngine] = useState<TtsEngine>(
+		existing?.ttsEngine ??
+			(existing?.provider === "nextain" ? "openclaw" : "auto"),
 	);
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
 	const [sttEnabled, setSttEnabled] = useState(existing?.sttEnabled ?? true);
@@ -398,53 +544,17 @@ export function SettingsTab() {
 		existing?.enableTools ?? false,
 	);
 	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
-
-	useEffect(() => {
-		async function fetchModels() {
-			try {
-				const config = loadConfig();
-				const res = await directToolCall({
-					toolName: "skill_config",
-					args: { action: "models" },
-					requestId: `fetch-models-${Date.now()}`,
-					gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY_URL,
-					gatewayToken: config?.gatewayToken,
-				});
-
-				if (res.success && res.output) {
-					const parsed = JSON.parse(res.output);
-					if (parsed.models && Array.isArray(parsed.models)) {
-						const grouped = { ...MODEL_OPTIONS };
-						for (const m of parsed.models) {
-							if (!grouped[m.provider as ProviderId]) {
-								grouped[m.provider as ProviderId] = [];
-							}
-							if (
-								!grouped[m.provider as ProviderId].some((x) => x.id === m.id)
-							) {
-								const priceStr = m.price
-									? ` ($${m.price.input} / $${m.price.output})`
-									: "";
-								grouped[m.provider as ProviderId].push({
-									id: m.id,
-									label: `${m.name || m.id}${priceStr}`,
-								});
-							}
-						}
-						setDynamicModels(grouped);
-					}
-				}
-			} catch {
-				// Fallback to static MODEL_OPTIONS
-			}
-		}
-		fetchModels();
-	}, []);
 	const [gatewayUrl, setGatewayUrl] = useState(
 		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
 	const [gatewayToken, setGatewayToken] = useState(
 		existing?.gatewayToken ?? "",
+	);
+	const [discordDefaultUserId, setDiscordDefaultUserId] = useState(
+		existing?.discordDefaultUserId ?? "",
+	);
+	const [discordDefaultTarget, setDiscordDefaultTarget] = useState(
+		existing?.discordDefaultTarget ?? "",
 	);
 	const [error, setError] = useState("");
 	const [saved, setSaved] = useState(false);
@@ -453,15 +563,163 @@ export function SettingsTab() {
 	const allowedToolsCount = existing?.allowedTools?.length ?? 0;
 	const [labKey, setLabKeyState] = useState(existing?.labKey ?? "");
 	const [labUserId, setLabUserIdState] = useState(existing?.labUserId ?? "");
+
+	useEffect(() => {
+		const modelPrefixPattern =
+			/^(nextain|claude-code-cli|claude-code|gemini|google|openai|anthropic|claude|xai|grok|zai|glm|ollama)[:/](.+)$/i;
+		const providerAlias: Record<string, ProviderId> = {
+			nextain: "nextain",
+			"claude-code-cli": "claude-code-cli",
+			"claude-code": "claude-code-cli",
+			gemini: "gemini",
+			google: "gemini",
+			openai: "openai",
+			anthropic: "anthropic",
+			claude: "anthropic",
+			xai: "xai",
+			grok: "xai",
+			zai: "zai",
+			glm: "zai",
+			ollama: "ollama",
+		};
+
+		const normalizeModelId = (raw: string): string => {
+			const matched = modelPrefixPattern.exec(raw);
+			if (matched?.[2]) return matched[2];
+			return raw;
+		};
+
+		const resolveProvider = (raw: unknown): ProviderId | null => {
+			if (typeof raw !== "string") return null;
+			return providerAlias[raw.toLowerCase()] ?? null;
+		};
+
+		const resolveProviderFromId = (id: string): ProviderId | null => {
+			const matched = modelPrefixPattern.exec(id);
+			if (!matched?.[1]) return null;
+			return resolveProvider(matched[1]);
+		};
+
+		const extractModels = (
+			parsed: unknown,
+		): Array<{
+			id: string;
+			name?: string;
+			provider?: string;
+			price?: { input?: number; output?: number };
+		}> => {
+			if (Array.isArray(parsed)) return parsed as any[];
+
+			if (parsed && typeof parsed === "object") {
+				const root = parsed as Record<string, unknown>;
+
+				if (Array.isArray(root.models)) {
+					return root.models as any[];
+				}
+
+				if (root.data && typeof root.data === "object") {
+					const data = root.data as Record<string, unknown>;
+					if (Array.isArray(data.models)) {
+						return data.models as any[];
+					}
+				}
+
+				if (root.providers && typeof root.providers === "object") {
+					const providers = root.providers as Record<string, unknown>;
+					const out: any[] = [];
+					for (const [providerName, value] of Object.entries(providers)) {
+						if (!Array.isArray(value)) continue;
+						for (const item of value) {
+							if (typeof item === "string") {
+								out.push({ id: item, provider: providerName, name: item });
+							} else if (item && typeof item === "object") {
+								out.push({ provider: providerName, ...(item as object) });
+							}
+						}
+					}
+					return out;
+				}
+			}
+
+			return [];
+		};
+
+		async function fetchModels() {
+			try {
+				const res = await directToolCall({
+					toolName: "skill_config",
+					args: { action: "models" },
+					requestId: `fetch-models-${Date.now()}`,
+					gatewayUrl: gatewayUrl.trim() || DEFAULT_GATEWAY_URL,
+					gatewayToken,
+				});
+
+				if (res.success && res.output) {
+					const parsed = JSON.parse(res.output);
+					const models = extractModels(parsed);
+					if (models.length === 0) return;
+
+					const grouped = Object.fromEntries(
+						Object.entries(MODEL_OPTIONS).map(([k, v]) => [k, [...v]]),
+					) as typeof MODEL_OPTIONS;
+
+					for (const m of models) {
+						if (!m || typeof m.id !== "string") continue;
+						const modelId = normalizeModelId(m.id);
+						const priceStr = m.price
+							? ` ($${m.price.input ?? "?"} / $${m.price.output ?? "?"})`
+							: "";
+						const label = `${m.name || modelId}${priceStr}`;
+
+						const pushModel = (key: ProviderId) => {
+							if (!grouped[key].some((x) => x.id === modelId)) {
+								grouped[key].push({ id: modelId, label });
+							}
+						};
+
+			const mappedProvider =
+				resolveProvider(m.provider) || resolveProviderFromId(m.id);
+			if (mappedProvider) pushModel(mappedProvider);
+			if (mappedProvider === "anthropic") pushModel("claude-code-cli");
+			pushModel("nextain");
+		}
+
+					setDynamicModels(grouped);
+				}
+			} catch {
+				// Fallback to static MODEL_OPTIONS
+			}
+		}
+		fetchModels();
+	}, [gatewayUrl, gatewayToken]);
+
+	useEffect(() => {
+		getLabKeySecure().then((key) => {
+			if (key && key !== labKey) {
+				setLabKeyState(key);
+			}
+		});
+	}, [labKey]);
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labBalance, setLabBalance] = useState<number | null>(null);
 	const [labBalanceLoading, setLabBalanceLoading] = useState(false);
+
+	const startLabLogin = () => {
+		setLabWaiting(true);
+		openUrl("https://naia.nextain.io/ko/login?redirect=desktop").catch(() =>
+			setLabWaiting(false),
+		);
+		setTimeout(() => setLabWaiting(false), 60_000);
+	};
 
 	// Gateway TTS state
 	const [gatewayTtsProviders, setGatewayTtsProviders] = useState<
 		{ id: string; label: string; configured: boolean; voices: string[] }[]
 	>([]);
 	const [gatewayTtsProvider, setGatewayTtsProvider] = useState("");
+	const [gatewayTtsEnabled, setGatewayTtsEnabled] = useState(true);
+	const [gatewayTtsAuto, setGatewayTtsAuto] = useState<GatewayTtsAuto>("off");
+	const [gatewayTtsMode, setGatewayTtsMode] = useState<GatewayTtsMode>("final");
 	const [gatewayTtsLoading, setGatewayTtsLoading] = useState(false);
 
 	// Voice wake state
@@ -469,6 +727,8 @@ export function SettingsTab() {
 	const [voiceWakeInput, setVoiceWakeInput] = useState("");
 	const [voiceWakeLoading, setVoiceWakeLoading] = useState(false);
 	const [voiceWakeSaved, setVoiceWakeSaved] = useState(false);
+	const [discordBotConnected, setDiscordBotConnected] = useState(false);
+	const [discordBotLoading, setDiscordBotLoading] = useState(false);
 
 	// In-app confirmation state (replaces window.confirm to avoid WebKitGTK double-dialog)
 	const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -476,7 +736,6 @@ export function SettingsTab() {
 	const [showLabDisconnect, setShowLabDisconnect] = useState(false);
 
 	const fetchGatewayTts = useCallback(async () => {
-		if (!enableTools) return;
 		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		setGatewayTtsLoading(true);
 		try {
@@ -497,8 +756,16 @@ export function SettingsTab() {
 				}),
 			]);
 			if (statusRes.success && statusRes.output) {
-				const status = JSON.parse(statusRes.output);
+				const status = JSON.parse(statusRes.output) as {
+					enabled?: boolean;
+					provider?: string;
+					auto?: GatewayTtsAuto;
+					mode?: GatewayTtsMode;
+				};
 				setGatewayTtsProvider(status.provider || "");
+				setGatewayTtsEnabled(status.enabled !== false);
+				setGatewayTtsAuto(status.auto ?? "off");
+				setGatewayTtsMode(status.mode ?? "final");
 			}
 			if (providersRes.success && providersRes.output) {
 				setGatewayTtsProviders(JSON.parse(providersRes.output));
@@ -510,10 +777,9 @@ export function SettingsTab() {
 		} finally {
 			setGatewayTtsLoading(false);
 		}
-	}, [enableTools, gatewayUrl, gatewayToken]);
+	}, [gatewayUrl, gatewayToken]);
 
 	const fetchVoiceWake = useCallback(async () => {
-		if (!enableTools) return;
 		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		setVoiceWakeLoading(true);
 		try {
@@ -535,12 +801,47 @@ export function SettingsTab() {
 		} finally {
 			setVoiceWakeLoading(false);
 		}
+	}, [gatewayUrl, gatewayToken]);
+
+	const fetchDiscordBotStatus = useCallback(async () => {
+		if (!enableTools) {
+			setDiscordBotConnected(false);
+			return;
+		}
+		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+		setDiscordBotLoading(true);
+		try {
+			const result = await directToolCall({
+				toolName: "skill_channels",
+				args: { action: "status" },
+				requestId: `discord-status-${Date.now()}`,
+				gatewayUrl: effectiveGatewayUrl,
+				gatewayToken,
+			});
+			if (result.success && result.output) {
+				const channels = JSON.parse(result.output) as Array<{
+					id?: string;
+					accounts?: Array<{ connected?: boolean }>;
+				}>;
+				const discord = channels.find((ch) => ch.id === "discord");
+				const connected =
+					discord?.accounts?.some((acc) => acc.connected === true) ?? false;
+				setDiscordBotConnected(connected);
+			} else {
+				setDiscordBotConnected(false);
+			}
+		} catch {
+			setDiscordBotConnected(false);
+		} finally {
+			setDiscordBotLoading(false);
+		}
 	}, [enableTools, gatewayUrl, gatewayToken]);
 
 	useEffect(() => {
 		fetchGatewayTts();
 		fetchVoiceWake();
-	}, [fetchGatewayTts, fetchVoiceWake]);
+		fetchDiscordBotStatus();
+	}, [fetchGatewayTts, fetchVoiceWake, fetchDiscordBotStatus]);
 
 	useEffect(() => {
 		getAllFacts()
@@ -588,19 +889,28 @@ export function SettingsTab() {
 				const nextLabUserId = event.payload.labUserId ?? "";
 				setLabKeyState(nextLabKey);
 				setLabUserIdState(nextLabUserId);
+				setProvider("nextain");
+				setModel((prev) => prev || getDefaultModel("nextain"));
+				setError("");
 				// In Lab mode, clear direct API key input to avoid confusion.
 				setApiKey("");
 				setLabWaiting(false);
 
 				// Persist immediately so ChatPanel routes requests through Lab proxy
 				const current = loadConfig();
+				const nextModel = current?.model || getDefaultModel("nextain");
 				if (current) {
 					saveConfig({
 						...current,
+						provider: "nextain",
+						model: nextModel,
 						labKey: nextLabKey,
 						labUserId: nextLabUserId || undefined,
 					});
 				}
+
+				// Sync to OpenClaw (no API key for Lab proxy)
+				syncToOpenClaw("nextain", nextModel);
 			},
 		);
 		return () => {
@@ -608,15 +918,38 @@ export function SettingsTab() {
 		};
 	}, []);
 
+	// Listen for Discord auth deep-link callback
+	useEffect(() => {
+		const unlisten = listen<{
+			discordUserId?: string | null;
+			discordChannelId?: string | null;
+			discordTarget?: string | null;
+		}>("discord_auth_complete", (event) => {
+			const next = persistDiscordDefaults(event.payload);
+			if (!next) {
+				return;
+			}
+
+			setDiscordDefaultUserId(next.discordDefaultUserId ?? "");
+			setDiscordDefaultTarget(next.discordDefaultTarget ?? "");
+			setDiscordBotConnected(true);
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, []);
+
 	// Live-preview: apply VRM instantly on selection
 	function handleVrmSelect(path: string) {
-		setVrmModel(path);
-		setAvatarModelPath(path);
+		const normalized = normalizeLocalPath(path);
+		setVrmModel(normalized);
+		setAvatarModelPath(normalized);
 	}
 
 	function handleBgSelect(path: string) {
-		setBackgroundImage(path);
-		setAvatarBackgroundImage(path);
+		const normalized = normalizeLocalPath(path);
+		setBackgroundImage(normalized);
+		setAvatarBackgroundImage(normalized);
 	}
 
 	// Revert on unmount if not saved
@@ -637,6 +970,14 @@ export function SettingsTab() {
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
 		setModel(getDefaultModel(id));
+		if (id === "nextain" && ttsEngine === "auto") {
+			setTtsEngine("openclaw");
+		}
+		setError("");
+		if (id === "nextain" && !labKey) {
+			setError("Naia OS 계정 로그인이 필요합니다. 먼저 Nextain 계정에 로그인하세요.");
+			startLabLogin();
+		}
 	}
 
 	function handleLocaleChange(id: Locale) {
@@ -656,11 +997,12 @@ export function SettingsTab() {
 			multiple: false,
 		});
 		if (selected) {
+			const normalized = normalizeLocalPath(selected as string);
 			setCustomVrms((prev) => {
-				if (prev.includes(selected as string)) return prev;
-				return [...prev, selected as string];
+				if (prev.includes(normalized)) return prev;
+				return [...prev, normalized];
 			});
-			handleVrmSelect(selected as string);
+			handleVrmSelect(normalized);
 		}
 	}
 
@@ -673,29 +1015,60 @@ export function SettingsTab() {
 			multiple: false,
 		});
 		if (selected) {
+			const normalized = normalizeLocalPath(selected as string);
 			setCustomBgs((prev) => {
-				if (prev.includes(selected as string)) return prev;
-				return [...prev, selected as string];
+				if (prev.includes(normalized)) return prev;
+				return [...prev, normalized];
 			});
-			handleBgSelect(selected as string);
+			handleBgSelect(normalized);
 		}
 	}
 
 	async function handleVoicePreview() {
-		const key =
-			googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
-		if (!key || isPreviewing) return;
+		if (isPreviewing) return;
+		setError("");
 		setIsPreviewing(true);
 		try {
-			const base64 = await invoke<string>("preview_tts", {
-				apiKey: key,
-				voice: ttsVoice,
-				text: "안녕하세요, 저는 낸예요.",
-			});
+			let base64 = "";
+			const useGatewayPreview =
+				ttsEngine === "openclaw" ||
+				(provider === "nextain" && ttsEngine !== "google");
+			if (useGatewayPreview) {
+				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+				const result = await directToolCall({
+					toolName: "skill_tts",
+					args: { action: "convert", text: "안녕하세요, 저는 낸예요.", voice: ttsVoice },
+					requestId: `tts-preview-${Date.now()}`,
+					gatewayUrl: effectiveGatewayUrl,
+					gatewayToken,
+				});
+				if (!result.success || !result.output) {
+					throw new Error("Gateway TTS 변환에 실패했습니다.");
+				}
+				const parsed = JSON.parse(result.output) as { audio?: string };
+				if (!parsed.audio) {
+					throw new Error("Gateway TTS 응답에 오디오가 없습니다.");
+				}
+				base64 = parsed.audio;
+			} else {
+				const key =
+					googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
+				if (!key) {
+					setError("TTS 미리듣기를 사용하려면 Google TTS API Key를 입력하세요.");
+					return;
+				}
+				base64 = await invoke<string>("preview_tts", {
+					apiKey: key,
+					voice: ttsVoice,
+					text: "안녕하세요, 저는 낸예요.",
+				});
+			}
 			const audio = new Audio(`data:audio/mp3;base64,${base64}`);
 			await audio.play();
-		} catch {
-			// preview failure is non-critical
+		} catch (err) {
+			setError(
+				`TTS 미리듣기 실패: ${err instanceof Error ? err.message : String(err)}`,
+			);
 		} finally {
 			setIsPreviewing(false);
 		}
@@ -704,15 +1077,73 @@ export function SettingsTab() {
 	async function handleGatewayTtsProviderChange(newProvider: string) {
 		setGatewayTtsProvider(newProvider);
 		try {
+			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 			await directToolCall({
 				toolName: "skill_tts",
 				args: { action: "set_provider", provider: newProvider },
 				requestId: `tts-set-${Date.now()}`,
-				gatewayUrl,
+				gatewayUrl: effectiveGatewayUrl,
 				gatewayToken,
 			});
 		} catch (err) {
 			Logger.warn("SettingsTab", "Failed to set Gateway TTS provider", {
+				error: String(err),
+			});
+		}
+	}
+
+	async function handleGatewayTtsEnabledChange(enabled: boolean) {
+		setGatewayTtsEnabled(enabled);
+		try {
+			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+			await directToolCall({
+				toolName: "skill_tts",
+				args: { action: enabled ? "enable" : "disable" },
+				requestId: `tts-enabled-${Date.now()}`,
+				gatewayUrl: effectiveGatewayUrl,
+				gatewayToken,
+			});
+			if (!enabled) {
+				setGatewayTtsAuto("off");
+			}
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to toggle Gateway TTS", {
+				error: String(err),
+			});
+		}
+	}
+
+	async function handleGatewayTtsAutoChange(auto: GatewayTtsAuto) {
+		setGatewayTtsAuto(auto);
+		try {
+			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+			await directToolCall({
+				toolName: "skill_tts",
+				args: { action: "set_auto", auto },
+				requestId: `tts-auto-${Date.now()}`,
+				gatewayUrl: effectiveGatewayUrl,
+				gatewayToken,
+			});
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to set Gateway TTS auto mode", {
+				error: String(err),
+			});
+		}
+	}
+
+	async function handleGatewayTtsModeChange(mode: GatewayTtsMode) {
+		setGatewayTtsMode(mode);
+		try {
+			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+			await directToolCall({
+				toolName: "skill_tts",
+				args: { action: "set_mode", mode },
+				requestId: `tts-mode-${Date.now()}`,
+				gatewayUrl: effectiveGatewayUrl,
+				gatewayToken,
+			});
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to set Gateway TTS output mode", {
 				error: String(err),
 			});
 		}
@@ -775,16 +1206,28 @@ export function SettingsTab() {
 	function handleSave() {
 		// Keep previous key when input is empty (password field UX).
 		const resolvedApiKey = apiKey.trim() || existing?.apiKey || "";
-		if (!resolvedApiKey && !labKey) {
+		const isNextainProvider = provider === "nextain";
+		const isApiKeyOptionalProvider =
+			provider === "claude-code-cli" || provider === "ollama";
+		if (isNextainProvider && !labKey) {
+			setError("Naia OS 계정 로그인이 필요합니다. Nextain 계정 연결 후 저장하세요.");
+			return;
+		}
+		if (
+			!isNextainProvider &&
+			!isApiKeyOptionalProvider &&
+			!resolvedApiKey &&
+			!labKey
+		) {
 			setError(t("settings.apiKeyRequired"));
 			return;
 		}
-		const defaultVrm = "/avatars/01-Sendagaya-Shino-uniform.vrm";
+		const defaultVrm = DEFAULT_AVATAR_MODEL;
 		const newConfig = {
 			...existing,
 			provider,
 			model,
-			apiKey: labKey ? "" : resolvedApiKey,
+			apiKey: isNextainProvider || isApiKeyOptionalProvider ? "" : resolvedApiKey,
 			labKey: labKey || undefined,
 			labUserId: labUserId || undefined,
 			locale,
@@ -796,6 +1239,7 @@ export function SettingsTab() {
 			ttsEnabled,
 			sttEnabled,
 			ttsVoice,
+			ttsEngine,
 			googleApiKey: googleApiKey.trim() || undefined,
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
@@ -804,6 +1248,8 @@ export function SettingsTab() {
 				? gatewayUrl.trim() || DEFAULT_GATEWAY_URL
 				: undefined,
 			gatewayToken: gatewayToken.trim() || undefined,
+			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
+			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
 		};
 		saveConfig(newConfig);
 		setLocale(locale);
@@ -813,6 +1259,9 @@ export function SettingsTab() {
 		setSavedBgImage(backgroundImage);
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2000);
+
+		// Sync provider/model to OpenClaw gateway config
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey);
 
 		// Auto-sync to Lab if connected
 		if (labKey && labUserId) {
@@ -835,6 +1284,7 @@ export function SettingsTab() {
 			ttsEnabled: config?.ttsEnabled,
 			sttEnabled: config?.sttEnabled,
 			ttsVoice: config?.ttsVoice,
+			ttsEngine: config?.ttsEngine,
 			persona: config?.persona,
 			userName: config?.userName,
 			agentName: config?.agentName,
@@ -851,24 +1301,61 @@ export function SettingsTab() {
 			Logger.warn("SettingsTab", "Lab sync failed", {
 				error: String(err),
 			});
-		});
+			});
+	}
+
+	const providerModels = dynamicModels[provider] ?? [];
+	const selectedModelMeta = providerModels.find((m) => m.id === model);
+	const hasSelectedModel = Boolean(selectedModelMeta);
+	const manualUrl = `https://naia.nextain.io/${locale}/manual`;
+
+	async function handleDiscordBotConnect() {
+		if (!enableTools) {
+			setError("먼저 Tools를 활성화하세요.");
+			return;
+		}
+		setError("");
+		setDiscordBotLoading(true);
+		try {
+			const connectUrl = `${getNaiaWebBaseUrl()}/${locale}/settings/integrations?channel=discord&source=naia-shell`;
+			await openUrl(connectUrl);
+			await fetchDiscordBotStatus();
+		} catch (err) {
+			setError(
+				`Discord 봇 연결 실패: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		} finally {
+			setDiscordBotLoading(false);
+		}
 	}
 
 	return (
 		<div className="settings-tab">
 			<div className="settings-field">
-				<label htmlFor="locale-select">{t("settings.language")}</label>
-				<select
-					id="locale-select"
-					value={locale}
-					onChange={(e) => handleLocaleChange(e.target.value as Locale)}
-				>
-					{LOCALES.map((l) => (
-						<option key={l.id} value={l.id}>
-							{l.label}
-						</option>
-					))}
-				</select>
+				<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+					<label htmlFor="locale-select" style={{ margin: 0 }}>
+						{t("settings.language")}
+					</label>
+					<select
+						id="locale-select"
+						value={locale}
+						onChange={(e) => handleLocaleChange(e.target.value as Locale)}
+						style={{ width: "auto", minWidth: 120 }}
+					>
+						{LOCALES.map((l) => (
+							<option key={l.id} value={l.id}>
+								{l.label}
+							</option>
+						))}
+					</select>
+					<button
+						type="button"
+						className="voice-preview-btn"
+						onClick={() => openUrl(manualUrl).catch(() => {})}
+					>
+						{t("settings.manual")}
+					</button>
+				</div>
 			</div>
 
 			<div className="settings-field">
@@ -894,7 +1381,7 @@ export function SettingsTab() {
 			<div className="settings-field">
 				<label>{t("settings.vrmModel")}</label>
 				<div className="vrm-picker">
-					{VRM_SAMPLES.map((v) => (
+					{AVATAR_PRESETS.map((v) => (
 						<button
 							key={v.path}
 							type="button"
@@ -927,7 +1414,7 @@ export function SettingsTab() {
 							onDelete={() => {
 								setCustomVrms((prev) => prev.filter((p) => p !== path));
 								if (vrmModel === path) {
-									handleVrmSelect(VRM_SAMPLES[0].path);
+									handleVrmSelect(AVATAR_PRESETS[0].path);
 								}
 							}}
 						/>
@@ -1019,19 +1506,23 @@ export function SettingsTab() {
 				<div className="settings-hint">{t("settings.personaHint")}</div>
 			</div>
 
-			<div className="settings-section-divider">
-				<span>{t("settings.labSection")}</span>
-			</div>
+				{provider !== "nextain" && (
+					<>
+						<div className="settings-section-divider">
+							<span>{t("settings.labSection")}</span>
+						</div>
 
-			<div className="settings-field">
-				<label>
-					{labKey ? t("settings.labConnected") : t("settings.labDisconnected")}
-				</label>
-				{labKey ? (
-					<div className="lab-info-block">
-						{labUserId && <span className="lab-user-id">{labUserId}</span>}
-						<div className="lab-balance-row">
-							<span className="lab-balance-label">
+						<div className="settings-field">
+							<label>
+								{labKey
+									? t("settings.labConnected")
+									: t("settings.labDisconnected")}
+							</label>
+							{labKey ? (
+								<div className="lab-info-block">
+							{labUserId && <span className="lab-user-id">{labUserId}</span>}
+							<div className="lab-balance-row">
+								<span className="lab-balance-label">
 								{t("settings.labBalance")}
 							</span>
 							<span className="lab-balance-value">
@@ -1076,11 +1567,21 @@ export function SettingsTab() {
 												setLabKeyState("");
 												setLabUserIdState("");
 												setLabBalance(null);
+													setProvider("gemini");
+													setModel(getDefaultModel("gemini"));
 												setShowLabDisconnect(false);
 												const current = loadConfig();
 												if (current) {
 													saveConfig({
 														...current,
+														provider:
+															current.provider === "nextain"
+																? "gemini"
+																: current.provider,
+														model:
+															current.provider === "nextain"
+																? getDefaultModel("gemini")
+																: current.model,
 														labKey: undefined,
 														labUserId: undefined,
 													});
@@ -1108,37 +1609,22 @@ export function SettingsTab() {
 								</button>
 							)}
 						</div>
-					</div>
-				) : (
-					<button
-						type="button"
-						className="voice-preview-btn"
-						disabled={labWaiting}
-						onClick={() => {
-							setLabWaiting(true);
-							openUrl(
-								"https://naia.nextain.io/ko/login?redirect=desktop",
-							).catch(() => setLabWaiting(false));
-							// Reset after 60s if deep-link callback never arrives
-							setTimeout(() => setLabWaiting(false), 60_000);
-						}}
-					>
-						{labWaiting ? t("onboard.lab.waiting") : t("settings.labConnect")}
-					</button>
+								</div>
+							) : (
+								<button
+									type="button"
+									className="voice-preview-btn"
+									disabled={labWaiting}
+									onClick={startLabLogin}
+								>
+									{labWaiting
+										? t("onboard.lab.waiting")
+										: t("settings.labConnect")}
+								</button>
+							)}
+						</div>
+					</>
 				)}
-			</div>
-
-			<div className="settings-field">
-				<button
-					type="button"
-					className="voice-preview-btn"
-					onClick={() =>
-						openUrl("https://naia.nextain.io/ko/manual").catch(() => {})
-					}
-				>
-					{t("settings.manual")}
-				</button>
-			</div>
 
 			<div className="settings-section-divider">
 				<span>{t("settings.aiSection")}</span>
@@ -1160,37 +1646,163 @@ export function SettingsTab() {
 			</div>
 
 			<div className="settings-field">
-				<label htmlFor="model-input">{t("settings.model")}</label>
-				<input
-					id="model-input"
-					list="models-list"
-					value={model}
-					onChange={(e) => setModel(e.target.value)}
-					placeholder="Enter or select a model..."
-				/>
-				<datalist id="models-list">
-					{(dynamicModels[provider] ?? []).map((m) => (
+				<label htmlFor="model-select">{t("settings.model")}</label>
+				<select
+					id="model-select"
+					value={hasSelectedModel ? model : "__custom__"}
+					onChange={(e) => {
+						if (e.target.value === "__custom__") return;
+						setModel(e.target.value);
+					}}
+				>
+					{!hasSelectedModel && model ? (
+						<option value="__custom__">{`${model} (현재값)`}</option>
+					) : null}
+					{providerModels.map((m) => (
 						<option key={m.id} value={m.id}>
 							{m.label}
 						</option>
 					))}
-				</datalist>
+				</select>
+				<div className="settings-hint">
+					{selectedModelMeta?.label ?? model}
+				</div>
 			</div>
 
-			<div className="settings-field">
-				<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
-				<input
-					id="apikey-input"
-					type="password"
-					value={apiKey}
-					onChange={(e) => {
-						setApiKey(e.target.value);
-						setError("");
-					}}
-					placeholder="sk-..."
-				/>
-				{error && <div className="settings-error">{error}</div>}
-			</div>
+			{provider === "nextain" ? (
+				<div className="settings-field">
+					<label>Nextain Account</label>
+					<div className="settings-hint">
+						Nextain provider는 API 키 대신 Naia OS 계정 로그인을 사용합니다.
+					</div>
+						{labKey ? (
+							<div className="lab-info-block">
+								<span className="settings-hint">
+									로그인됨{labUserId ? ` (${labUserId})` : ""}
+								</span>
+								<div className="lab-balance-row">
+									<span className="lab-balance-label">{t("settings.labBalance")}</span>
+									<span className="lab-balance-value">
+										{labBalanceLoading
+											? t("settings.labBalanceLoading")
+											: labBalance !== null
+												? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
+												: "-"}
+									</span>
+								</div>
+								<div className="lab-actions-row">
+								<button
+									type="button"
+									className="voice-preview-btn"
+									onClick={() =>
+										openUrl("https://naia.nextain.io/ko/dashboard").catch(() => {})
+									}
+								>
+									{t("settings.labDashboard")}
+								</button>
+								<button
+									type="button"
+									className="voice-preview-btn"
+									onClick={() =>
+										openUrl("https://naia.nextain.io/ko/billing").catch(() => {})
+									}
+								>
+									{t("cost.labCharge")}
+								</button>
+								{showLabDisconnect ? (
+									<div className="reset-confirm-panel" style={{ marginTop: 8 }}>
+										<p className="reset-confirm-msg">
+											{t("settings.labDisconnectConfirm")}
+										</p>
+										<div className="reset-confirm-actions">
+											<button
+												type="button"
+												className="settings-reset-btn"
+												onClick={() => {
+													setLabKeyState("");
+													setLabUserIdState("");
+													setLabBalance(null);
+													setProvider("gemini");
+													setModel(getDefaultModel("gemini"));
+													setShowLabDisconnect(false);
+													const current = loadConfig();
+													if (current) {
+														saveConfig({
+															...current,
+															provider:
+																current.provider === "nextain"
+																	? "gemini"
+																	: current.provider,
+															model:
+																current.provider === "nextain"
+																	? getDefaultModel("gemini")
+																	: current.model,
+															labKey: undefined,
+															labUserId: undefined,
+														});
+													}
+												}}
+											>
+												{t("settings.labDisconnect")}
+											</button>
+											<button
+												type="button"
+												className="settings-cancel-btn"
+												onClick={() => setShowLabDisconnect(false)}
+											>
+												{t("settings.cancel")}
+											</button>
+										</div>
+									</div>
+								) : (
+									<button
+										type="button"
+										className="voice-preview-btn lab-disconnect-btn"
+										onClick={() => setShowLabDisconnect(true)}
+									>
+										{t("settings.labDisconnect")}
+									</button>
+								)}
+								</div>
+							</div>
+						) : (
+						<button
+							type="button"
+							className="voice-preview-btn"
+							disabled={labWaiting}
+							onClick={startLabLogin}
+						>
+							{labWaiting ? t("onboard.lab.waiting") : t("settings.labConnect")}
+						</button>
+					)}
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+				) : provider === "claude-code-cli" || provider === "ollama" ? (
+					<div className="settings-field">
+						<label>{t("settings.apiKey")}</label>
+						<div className="settings-hint">
+							{provider === "claude-code-cli"
+								? "Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다."
+								: "Ollama provider는 API 키가 필요 없습니다."}
+						</div>
+						{error && <div className="settings-error">{error}</div>}
+					</div>
+				) : (
+					<div className="settings-field">
+						<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
+					<input
+						id="apikey-input"
+						type="password"
+						value={apiKey}
+						onChange={(e) => {
+							setApiKey(e.target.value);
+							setError("");
+						}}
+						placeholder="sk-..."
+					/>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			)}
 
 			<div className="settings-section-divider">
 				<span>{t("settings.voiceSection")}</span>
@@ -1216,22 +1828,41 @@ export function SettingsTab() {
 				/>
 			</div>
 
-			<div className="settings-field">
-				<label htmlFor="google-apikey-input">
-					{t("settings.googleApiKey")}
-				</label>
-				<input
-					id="google-apikey-input"
-					type="password"
-					value={googleApiKey}
-					onChange={(e) => setGoogleApiKey(e.target.value)}
-					placeholder={
-						provider === "gemini"
-							? t("settings.googleApiKeyGeminiFallback")
-							: "AIza..."
-					}
-				/>
-			</div>
+			{provider === "nextain" && (
+				<div className="settings-field">
+					<label htmlFor="tts-engine-select">TTS 엔진</label>
+					<select
+						id="tts-engine-select"
+						value={ttsEngine}
+						onChange={(e) => setTtsEngine(e.target.value as TtsEngine)}
+					>
+						<option value="openclaw">OpenClaw Gateway (권장)</option>
+						<option value="google">Google Cloud TTS</option>
+					</select>
+					<div className="settings-hint">
+						Nextain 계정은 기본적으로 OpenClaw 음성 엔진을 사용합니다.
+					</div>
+				</div>
+			)}
+
+			{provider !== "nextain" || ttsEngine === "google" ? (
+				<div className="settings-field">
+					<label htmlFor="google-apikey-input">
+						{t("settings.googleApiKey")}
+					</label>
+					<input
+						id="google-apikey-input"
+						type="password"
+						value={googleApiKey}
+						onChange={(e) => setGoogleApiKey(e.target.value)}
+						placeholder={
+							provider === "gemini"
+								? t("settings.googleApiKeyGeminiFallback")
+								: "AIza..."
+						}
+					/>
+				</div>
+			) : null}
 
 			<div className="settings-field">
 				<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
@@ -1297,6 +1928,8 @@ export function SettingsTab() {
 				/>
 			</div>
 
+			{/* Discord ID / target — managed via Channels tab & OAuth deep link */}
+
 			{allowedToolsCount > 0 && (
 				<div className="settings-field">
 					<label>
@@ -1314,16 +1947,6 @@ export function SettingsTab() {
 					</button>
 				</div>
 			)}
-
-			<div className="settings-actions">
-				<button
-					type="button"
-					className="settings-save-btn"
-					onClick={handleSave}
-				>
-					{saved ? t("settings.saved") : t("settings.save")}
-				</button>
-			</div>
 
 			{enableTools && (
 				<>
@@ -1343,6 +1966,40 @@ export function SettingsTab() {
 					</div>
 
 					<div className="settings-section-divider">
+						<span>Discord 봇 연결</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							버튼을 누르면 Discord 로그인/연결 페이지를 엽니다.
+						</span>
+					</div>
+					<div className="settings-field">
+						<button
+							type="button"
+							className="voice-preview-btn"
+							onClick={handleDiscordBotConnect}
+							disabled={discordBotLoading}
+						>
+							{discordBotLoading ? "연결 중..." : "Discord 봇 연결"}
+						</button>
+						<button
+							type="button"
+							className="voice-preview-btn"
+							onClick={() => fetchDiscordBotStatus()}
+							disabled={discordBotLoading}
+							style={{ marginLeft: 8 }}
+						>
+							연결 상태 확인
+						</button>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							상태:{" "}
+							{discordBotConnected ? "연결됨" : discordBotLoading ? "확인 중..." : "미연결"}
+						</span>
+					</div>
+
+					<div className="settings-section-divider">
 						<span>{t("settings.gatewayTtsSection")}</span>
 					</div>
 					<div className="settings-field">
@@ -1356,33 +2013,81 @@ export function SettingsTab() {
 								{t("settings.gatewayTtsLoading")}
 							</span>
 						</div>
-					) : gatewayTtsProviders.length > 0 ? (
-						<div className="settings-field">
-							<label htmlFor="gateway-tts-provider">
-								{t("settings.gatewayTtsProvider")}
-							</label>
-							<select
-								id="gateway-tts-provider"
-								data-testid="gateway-tts-provider"
-								value={gatewayTtsProvider}
-								onChange={(e) => handleGatewayTtsProviderChange(e.target.value)}
-							>
-								{gatewayTtsProviders.map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.label}
-										{!p.configured
-											? ` ${t("settings.gatewayTtsNotConfigured")}`
-											: ""}
-									</option>
-								))}
-							</select>
-						</div>
 					) : (
-						<div className="settings-field">
-							<span className="settings-hint">
-								{t("settings.gatewayTtsNone")}
-							</span>
-						</div>
+						<>
+							<div className="settings-field settings-toggle-row">
+								<label htmlFor="gateway-tts-enabled">OpenClaw TTS 사용</label>
+								<input
+									id="gateway-tts-enabled"
+									type="checkbox"
+									checked={gatewayTtsEnabled}
+									onChange={(e) =>
+										handleGatewayTtsEnabledChange(e.target.checked)}
+								/>
+							</div>
+
+							{gatewayTtsProviders.length > 0 ? (
+								<div className="settings-field">
+									<label htmlFor="gateway-tts-provider">
+										{t("settings.gatewayTtsProvider")}
+									</label>
+									<select
+										id="gateway-tts-provider"
+										data-testid="gateway-tts-provider"
+										value={gatewayTtsProvider}
+										onChange={(e) =>
+											handleGatewayTtsProviderChange(e.target.value)}
+									>
+										{gatewayTtsProviders.map((p) => (
+											<option key={p.id} value={p.id}>
+												{p.label}
+												{!p.configured
+													? ` ${t("settings.gatewayTtsNotConfigured")}`
+													: ""}
+											</option>
+										))}
+									</select>
+								</div>
+							) : (
+								<div className="settings-field">
+									<span className="settings-hint">
+										{t("settings.gatewayTtsNone")}
+									</span>
+								</div>
+							)}
+
+							<div className="settings-field">
+								<label htmlFor="gateway-tts-auto">자동 발화 모드</label>
+								<select
+									id="gateway-tts-auto"
+									value={gatewayTtsAuto}
+									onChange={(e) =>
+										handleGatewayTtsAutoChange(
+											e.target.value as GatewayTtsAuto,
+										)}
+								>
+									<option value="off">off</option>
+									<option value="always">always</option>
+									<option value="inbound">inbound</option>
+									<option value="tagged">tagged</option>
+								</select>
+							</div>
+
+							<div className="settings-field">
+								<label htmlFor="gateway-tts-mode">출력 범위</label>
+								<select
+									id="gateway-tts-mode"
+									value={gatewayTtsMode}
+									onChange={(e) =>
+										handleGatewayTtsModeChange(
+											e.target.value as GatewayTtsMode,
+										)}
+								>
+									<option value="final">final</option>
+									<option value="all">all</option>
+								</select>
+							</div>
+						</>
 					)}
 
 					<div className="settings-section-divider">
@@ -1531,6 +2236,16 @@ export function SettingsTab() {
 						{t("settings.reset")}
 					</button>
 				)}
+			</div>
+
+			<div className="settings-actions">
+				<button
+					type="button"
+					className="settings-save-btn"
+					onClick={handleSave}
+				>
+					{saved ? t("settings.saved") : t("settings.save")}
+				</button>
 			</div>
 		</div>
 	);

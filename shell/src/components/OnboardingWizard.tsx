@@ -1,15 +1,21 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
+import { directToolCall } from "../lib/chat-service";
 import {
+	DEFAULT_GATEWAY_URL,
 	LAB_GATEWAY_URL,
 	getDefaultModel,
 	loadConfig,
+	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
+import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
-import { t } from "../lib/i18n";
+import { getLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
+import { syncToOpenClaw } from "../lib/openclaw-sync";
+import { persistDiscordDefaults } from "../lib/discord-auth";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
 import { VrmPreview } from "./VrmPreview";
@@ -21,7 +27,6 @@ type Step =
 	| "userName"
 	| "character"
 	| "personality"
-	| "webhooks"
 	| "complete";
 
 const STEPS: Step[] = [
@@ -31,32 +36,26 @@ const STEPS: Step[] = [
 	"userName",
 	"character",
 	"personality",
-	"webhooks",
 	"complete",
 ];
 
-const VRM_CHOICES: { path: string; label: string; previewImage?: string }[] = [
-	{ 
-		path: "/avatars/Sendagaya-Shino-dark-uniform.vrm", 
-		label: "Shino (Dark)",
-		previewImage: "/avatars/Sendagaya-Shino-dark-uniform.webp",
-	},
-	{
-		path: "/avatars/Sendagaya-Shino-light-uniform.vrm",
-		label: "Shino (Light)",
-		previewImage: "/avatars/Sendagaya-Shino-light-uniform.webp",
-	},
-	{ 
-		path: "/avatars/vrm-ol-girl.vrm", 
-		label: "Girl",
-		previewImage: "/avatars/vrm-ol-girl.webp",
-	},
-	{ 
-		path: "/avatars/vrm-sample-boy.vrm", 
-		label: "Boy",
-		previewImage: "/avatars/vrm-sample-boy.webp",
-	},
-];
+function looksLikeApiKey(value: string): boolean {
+	const v = value.trim();
+	if (!v) return false;
+	return (
+		/^AIza[0-9A-Za-z_\-]{20,}$/.test(v) ||
+		/^sk-[0-9A-Za-z_\-]{16,}$/.test(v) ||
+		/^gw-[0-9A-Za-z_\-]{10,}$/.test(v) ||
+		/^xai-[0-9A-Za-z_\-]{16,}$/.test(v) ||
+		/^claude_[0-9A-Za-z_\-]{10,}$/i.test(v)
+	);
+}
+
+function sanitizeName(value: string): string {
+	const trimmed = value.trim();
+	if (!trimmed) return "";
+	return looksLikeApiKey(trimmed) ? "" : trimmed;
+}
 
 const PERSONALITY_PRESETS: {
 	id: string;
@@ -117,6 +116,11 @@ const PROVIDERS: {
 	disabled?: boolean;
 }[] = [
 	{
+		id: "claude-code-cli",
+		label: "Claude Code CLI (Local)",
+		description: "로컬 Claude CLI 로그인 세션 사용",
+	},
+	{
 		id: "gemini",
 		label: "Google Gemini",
 		description: "Chat + TTS + Vision + Tool",
@@ -148,6 +152,13 @@ const PROVIDERS: {
 	},
 ];
 
+function getNaiaWebBaseUrl() {
+	return (
+		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() ||
+		"https://naia.nextain.io"
+	);
+}
+
 export function OnboardingWizard({
 	onComplete,
 }: {
@@ -157,11 +168,8 @@ export function OnboardingWizard({
 	const [step, setStep] = useState<Step>("provider");
 	const [agentName, setAgentName] = useState("");
 	const [userName, setUserName] = useState("");
-	const [selectedVrm, setSelectedVrm] = useState(VRM_CHOICES[0].path);
+	const [selectedVrm, setSelectedVrm] = useState(AVATAR_PRESETS[0].path);
 	const [selectedPersonality, setSelectedPersonality] = useState("friendly");
-	const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
-	const [discordWebhookUrl, setDiscordWebhookUrl] = useState("");
-	const [googleChatWebhookUrl, setGoogleChatWebhookUrl] = useState("");
 	const [provider, setProvider] = useState<ProviderId>("gemini");
 	const [apiKey, setApiKey] = useState("");
 	const [validating, setValidating] = useState(false);
@@ -172,6 +180,8 @@ export function OnboardingWizard({
 	const [labUserId, setLabUserId] = useState("");
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labTimeout, setLabTimeout] = useState(false);
+	const [discordConnectLoading, setDiscordConnectLoading] = useState(false);
+	const [discordConnected, setDiscordConnected] = useState(false);
 
 	// Listen for deep-link Lab auth callback
 	useEffect(() => {
@@ -183,17 +193,18 @@ export function OnboardingWizard({
 				const userId = event.payload.labUserId ?? "";
 				setLabKey(key);
 				setLabUserId(userId);
+				setProvider("nextain");
 				setLabWaiting(false);
 				setLabTimeout(false);
 
-				// Restore previous settings if they exist
-				const existing = loadConfig();
-				if (existing?.agentName) setAgentName(existing.agentName);
-				if (existing?.userName) setUserName(existing.userName);
+					// Restore previous settings if they exist
+					const existing = loadConfig();
+					if (existing?.agentName) {
+						setAgentName(sanitizeName(existing.agentName));
+					}
+					if (existing?.userName) setUserName(existing.userName);
 				if (existing?.vrmModel) {
-					const match = VRM_CHOICES.find(
-						(v) => v.path === existing.vrmModel,
-					);
+					const match = AVATAR_PRESETS.find((v) => v.path === existing.vrmModel);
 					if (match) setSelectedVrm(match.path);
 				}
 				if (existing?.persona) {
@@ -217,8 +228,58 @@ export function OnboardingWizard({
 		};
 	}, []);
 
+	// Listen for Discord auth deep-link callback
+	useEffect(() => {
+		const unlisten = listen<{
+			discordUserId?: string | null;
+			discordChannelId?: string | null;
+			discordTarget?: string | null;
+		}>("discord_auth_complete", (event) => {
+			const next = persistDiscordDefaults(event.payload);
+			if (!next) return;
+			setDiscordConnected(true);
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, []);
+
+	useEffect(() => {
+		if (step !== "complete") return;
+		let cancelled = false;
+		const refreshDiscordStatus = async () => {
+			try {
+				const cfg = loadConfig();
+				const gatewayUrl = resolveGatewayUrl(cfg) || DEFAULT_GATEWAY_URL;
+				const result = await directToolCall({
+					toolName: "skill_channels",
+					args: { action: "status" },
+					requestId: `onboard-discord-status-${Date.now()}`,
+					gatewayUrl,
+					gatewayToken: cfg?.gatewayToken,
+				});
+				if (!result.success || !result.output || cancelled) return;
+				const channels = JSON.parse(result.output) as Array<{
+					id?: string;
+					accounts?: Array<{ connected?: boolean }>;
+				}>;
+				const discord = channels.find((ch) => ch.id === "discord");
+				const connected =
+					discord?.accounts?.some((acc) => acc.connected === true) ?? false;
+				setDiscordConnected(connected);
+			} catch {
+				// Keep optional flow non-blocking
+			}
+		};
+		void refreshDiscordStatus();
+		return () => {
+			cancelled = true;
+		};
+	}, [step]);
+
 	const stepIndex = STEPS.indexOf(step);
-	const displayName = agentName.trim() || "Naia";
+	const safeAgentName = sanitizeName(agentName);
+	const displayName = safeAgentName || "Naia";
 
 	// Enter key advances to next step
 	function handleKeyDown(e: React.KeyboardEvent) {
@@ -233,10 +294,11 @@ export function OnboardingWizard({
 	}
 
 	function goNext() {
+		const skipApiKey = labKey || provider === "claude-code-cli" || provider === "ollama";
 		if (stepIndex < STEPS.length - 1) {
 			let nextStep = STEPS[stepIndex + 1];
 			// Skip apiKey step if Lab key is set
-			if (nextStep === "apiKey" && labKey) {
+			if (nextStep === "apiKey" && skipApiKey) {
 				nextStep = STEPS[stepIndex + 2];
 			}
 			setStep(nextStep);
@@ -244,10 +306,11 @@ export function OnboardingWizard({
 	}
 
 	function goBack() {
+		const skipApiKey = labKey || provider === "claude-code-cli" || provider === "ollama";
 		if (stepIndex > 0) {
 			let prevStep = STEPS[stepIndex - 1];
 			// Skip apiKey step going back if Lab key is set
-			if (prevStep === "apiKey" && labKey) {
+			if (prevStep === "apiKey" && skipApiKey) {
 				prevStep = STEPS[stepIndex - 2];
 			}
 			setStep(prevStep);
@@ -271,6 +334,10 @@ export function OnboardingWizard({
 	}
 
 	async function handleValidate() {
+		if (provider === "claude-code-cli" || provider === "ollama") {
+			setValidationResult("success");
+			return;
+		}
 		if (!apiKey.trim()) return;
 		setValidating(true);
 		setValidationResult("idle");
@@ -295,23 +362,28 @@ export function OnboardingWizard({
 			? preset.persona.replace(/\{name\}/g, displayName)
 			: undefined;
 
-		const defaultVrm = VRM_CHOICES[0].path;
+		const defaultVrm = DEFAULT_AVATAR_MODEL;
+		const effectiveProvider: ProviderId = labKey ? "nextain" : provider;
 		const config = {
-			provider,
-			model: getDefaultModel(provider),
-			apiKey: labKey ? "" : apiKey.trim(),
+			provider: effectiveProvider,
+			model: getDefaultModel(effectiveProvider),
+			apiKey:
+				labKey || provider === "claude-code-cli" || provider === "ollama"
+					? ""
+					: apiKey.trim(),
 			userName: userName.trim() || undefined,
-			agentName: agentName.trim() || undefined,
+			agentName: safeAgentName || undefined,
 			vrmModel: selectedVrm !== defaultVrm ? selectedVrm : undefined,
 			persona,
-			slackWebhookUrl: slackWebhookUrl.trim() || undefined,
-			discordWebhookUrl: discordWebhookUrl.trim() || undefined,
-			googleChatWebhookUrl: googleChatWebhookUrl.trim() || undefined,
+			enableTools: true,
 			onboardingComplete: true,
 			labKey: labKey || undefined,
 			labUserId: labUserId || undefined,
 		};
 		saveConfig(config);
+
+		// Sync provider/model to OpenClaw gateway config
+		syncToOpenClaw(config.provider, config.model, config.apiKey);
 
 		// Sync to Lab if connected
 		if (labKey && labUserId) {
@@ -325,19 +397,16 @@ export function OnboardingWizard({
 				userName: config.userName,
 				agentName: config.agentName,
 			};
-			fetch(
-				`${LAB_GATEWAY_URL}/v1/users/${encodeURIComponent(labUserId)}`,
-				{
-					method: "PATCH",
-					headers: {
-						"Content-Type": "application/json",
-						"X-AnyLLM-Key": `Bearer ${labKey}`,
-					},
-					body: JSON.stringify({
-						metadata: { nan_config: syncData },
-					}),
+			fetch(`${LAB_GATEWAY_URL}/v1/users/${encodeURIComponent(labUserId)}`, {
+				method: "PATCH",
+				headers: {
+					"Content-Type": "application/json",
+					"X-AnyLLM-Key": `Bearer ${labKey}`,
 				},
-			).catch((err) => {
+				body: JSON.stringify({
+					metadata: { nan_config: syncData },
+				}),
+			}).catch((err) => {
 				Logger.warn("OnboardingWizard", "Lab sync failed", {
 					error: String(err),
 				});
@@ -353,13 +422,33 @@ export function OnboardingWizard({
 			case "provider":
 				return true;
 			case "apiKey":
-				return !!apiKey.trim() || !!labKey;
+				return (
+					!!apiKey.trim() ||
+					!!labKey ||
+					provider === "claude-code-cli" ||
+					provider === "ollama"
+				);
 			case "agentName":
-				return !!agentName.trim();
+				return !!sanitizeName(agentName);
 			case "userName":
 				return !!userName.trim();
 			default:
 				return true;
+		}
+	}
+
+	async function handleOptionalDiscordConnect() {
+		setDiscordConnectLoading(true);
+		try {
+			const lang = getLocale();
+			const connectUrl = `${getNaiaWebBaseUrl()}/${lang}/settings/integrations?channel=discord&source=naia-shell`;
+			await openUrl(connectUrl);
+		} catch (err) {
+			Logger.warn("OnboardingWizard", "Optional discord connect failed", {
+				error: String(err),
+			});
+		} finally {
+			setDiscordConnectLoading(false);
 		}
 	}
 
@@ -507,22 +596,55 @@ export function OnboardingWizard({
 				{step === "character" && (
 					<div className="onboarding-content">
 						<h2>
-							{t("onboard.character.title").replace("{user}", userName.trim() || "").replace("{agent}", displayName)}
+							{t("onboard.character.title")
+								.replace("{user}", userName.trim() || "")
+								.replace("{agent}", displayName)}
 						</h2>
 						<VrmPreview modelPath={selectedVrm} />
 						<div className="onboarding-vrm-cards">
-							{VRM_CHOICES.map((v) => (
+							{AVATAR_PRESETS.map((v) => (
 								<button
 									key={v.path}
 									type="button"
 									className={`onboarding-vrm-card${selectedVrm === v.path ? " selected" : ""}`}
 									onClick={() => setSelectedVrm(v.path)}
-									style={v.previewImage ? { padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" } : {}}
+									style={
+										v.previewImage
+											? {
+													padding: 0,
+													overflow: "hidden",
+													display: "flex",
+													flexDirection: "column",
+												}
+											: {}
+									}
 								>
 									{v.previewImage && (
-										<img src={v.previewImage} alt={v.label} style={{ width: "100%", height: "60px", objectFit: "cover", flexShrink: 0 }} />
+										<img
+											src={v.previewImage}
+											alt={v.label}
+											style={{
+												width: "100%",
+												height: "60px",
+												objectFit: "cover",
+												flexShrink: 0,
+											}}
+										/>
 									)}
-									<span className="onboarding-vrm-label" style={v.previewImage ? { flexGrow: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "4px" } : {}}>
+									<span
+										className="onboarding-vrm-label"
+										style={
+											v.previewImage
+												? {
+														flexGrow: 1,
+														display: "flex",
+														alignItems: "center",
+														justifyContent: "center",
+														padding: "4px",
+													}
+												: {}
+										}
+									>
 										{v.label}
 									</span>
 								</button>
@@ -549,58 +671,13 @@ export function OnboardingWizard({
 									onClick={() => setSelectedPersonality(p.id)}
 								>
 									<span className="personality-card-label">{p.label}</span>
-									<span className="personality-card-desc">
-										{p.description}
-									</span>
+									<span className="personality-card-desc">{p.description}</span>
 								</button>
 							))}
 						</div>
 						<p className="onboarding-description">
 							{t("onboard.personality.hint")}
 						</p>
-					</div>
-				)}
-
-				{/* Step: Webhooks */}
-				{step === "webhooks" && (
-					<div className="onboarding-content">
-						<h2>메신저 연동 (선택)</h2>
-						<p className="onboarding-description">
-							{displayName}가 알림을 보낼 메신저 웹훅 URL을 입력해주세요. 나중에 설정에서 추가할 수도 있습니다.
-						</p>
-						<div className="onboarding-input-group">
-							<label htmlFor="slack-webhook">Slack 웹훅 URL</label>
-							<input
-								id="slack-webhook"
-								className="onboarding-input"
-								type="password"
-								placeholder="https://hooks.slack.com/services/..."
-								value={slackWebhookUrl}
-								onChange={(e) => setSlackWebhookUrl(e.target.value)}
-							/>
-						</div>
-						<div className="onboarding-input-group" style={{ marginTop: 12 }}>
-							<label htmlFor="discord-webhook">Discord 웹훅 URL</label>
-							<input
-								id="discord-webhook"
-								className="onboarding-input"
-								type="password"
-								placeholder="https://discord.com/api/webhooks/..."
-								value={discordWebhookUrl}
-								onChange={(e) => setDiscordWebhookUrl(e.target.value)}
-							/>
-						</div>
-						<div className="onboarding-input-group" style={{ marginTop: 12 }}>
-							<label htmlFor="google-chat-webhook">Google Chat 웹훅 URL</label>
-							<input
-								id="google-chat-webhook"
-								className="onboarding-input"
-								type="password"
-								placeholder="https://chat.googleapis.com/v1/spaces/..."
-								value={googleChatWebhookUrl}
-								onChange={(e) => setGoogleChatWebhookUrl(e.target.value)}
-							/>
-						</div>
 					</div>
 				)}
 
@@ -616,6 +693,36 @@ export function OnboardingWizard({
 						<p className="onboarding-description">
 							{t("onboard.complete.ready").replace("{agent}", displayName)}
 						</p>
+						<div
+							style={{
+								marginTop: 12,
+								display: "flex",
+								flexDirection: "column",
+								gap: 8,
+							}}
+						>
+							<span className="onboarding-description">
+								선택: Discord 봇도 지금 연결할 수 있어요.
+							</span>
+							<div style={{ display: "flex", gap: 8 }}>
+								<button
+									type="button"
+									className="onboarding-back-btn"
+									onClick={() => void handleOptionalDiscordConnect()}
+									disabled={discordConnectLoading}
+									data-testid="onboarding-discord-connect-btn"
+								>
+									{discordConnectLoading
+										? "Discord 연결 중..."
+										: "Discord 봇 연결(선택)"}
+								</button>
+								<span className="onboarding-description">
+									{discordConnected
+										? "연결됨"
+										: "상태: 브라우저에서 연동 진행"}
+								</span>
+							</div>
+						</div>
 					</div>
 				)}
 
