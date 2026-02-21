@@ -246,8 +246,16 @@ const VRM_SAMPLES: { path: string; label: string; previewImage?: string }[] = [
 		label: "Shino (Light)",
 		previewImage: "/avatars/Sendagaya-Shino-light-uniform.webp",
 	},
-	{ path: "/avatars/vrm-ol-girl.vrm", label: "Girl" },
-	{ path: "/avatars/vrm-sample-boy.vrm", label: "Boy" },
+	{ 
+		path: "/avatars/vrm-ol-girl.vrm", 
+		label: "Girl",
+		previewImage: "/avatars/vrm-ol-girl.webp",
+	},
+	{ 
+		path: "/avatars/vrm-sample-boy.vrm", 
+		label: "Boy",
+		previewImage: "/avatars/vrm-sample-boy.webp",
+	},
 ];
 
 const BG_SAMPLES: { path: string; label: string }[] = [

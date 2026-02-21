@@ -35,14 +35,27 @@ const STEPS: Step[] = [
 	"complete",
 ];
 
-const VRM_CHOICES: { path: string; label: string }[] = [
-	{ path: "/avatars/Sendagaya-Shino-dark-uniform.vrm", label: "Shino (Dark)" },
+const VRM_CHOICES: { path: string; label: string; previewImage?: string }[] = [
+	{ 
+		path: "/avatars/Sendagaya-Shino-dark-uniform.vrm", 
+		label: "Shino (Dark)",
+		previewImage: "/avatars/Sendagaya-Shino-dark-uniform.webp",
+	},
 	{
 		path: "/avatars/Sendagaya-Shino-light-uniform.vrm",
 		label: "Shino (Light)",
+		previewImage: "/avatars/Sendagaya-Shino-light-uniform.webp",
 	},
-	{ path: "/avatars/vrm-ol-girl.vrm", label: "Girl" },
-	{ path: "/avatars/vrm-sample-boy.vrm", label: "Boy" },
+	{ 
+		path: "/avatars/vrm-ol-girl.vrm", 
+		label: "Girl",
+		previewImage: "/avatars/vrm-ol-girl.webp",
+	},
+	{ 
+		path: "/avatars/vrm-sample-boy.vrm", 
+		label: "Boy",
+		previewImage: "/avatars/vrm-sample-boy.webp",
+	},
 ];
 
 const PERSONALITY_PRESETS: {

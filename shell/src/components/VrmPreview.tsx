@@ -88,9 +88,9 @@ export function VrmPreview({ modelPath }: { modelPath: string }) {
 			0.1,
 			100,
 		);
-		// Bust shot: close up, slightly above center
-		camera.position.set(0.0, 1.45, -0.85);
-		camera.lookAt(new Vector3(0, 1.35, 0));
+		// Bust shot: wider view showing upper chest
+		camera.position.set(0.0, 1.35, -1.2);
+		camera.lookAt(new Vector3(0, 1.3, 0));
 
 		function tick() {
 			if (disposed) return;
