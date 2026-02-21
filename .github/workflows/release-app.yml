@@ -81,19 +81,64 @@ jobs:
             shell/src-tauri/target/release/bundle/rpm/*.rpm
           if-no-files-found: error
 
+  build-flatpak:
+    name: Build Flatpak (x86_64)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Flatpak and flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install GNOME SDK and runtime
+        run: |
+          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
+          sudo flatpak install -y flathub org.freedesktop.Sdk.Extension.rust-stable//24.08
+          sudo flatpak install -y flathub org.freedesktop.Sdk.Extension.node22//24.08
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --force-clean --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml
+
+      - name: Create Flatpak bundle
+        run: |
+          flatpak build-bundle flatpak-repo Naia-Shell-x86_64.flatpak io.nextain.naia
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: naia-shell-flatpak-x86_64
+          path: Naia-Shell-x86_64.flatpak
+          if-no-files-found: error
+
   release:
     name: Create GitHub Release
-    needs: build-linux
+    needs: [build-linux, build-flatpak]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
 
     steps:
-      - name: Download artifacts
+      - name: Download Tauri artifacts
         uses: actions/download-artifact@v4
         with:
           name: naia-shell-linux-x86_64
+          path: artifacts
+
+      - name: Download Flatpak artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: naia-shell-flatpak-x86_64
           path: artifacts
 
       - name: List downloaded artifacts
@@ -119,7 +164,7 @@ jobs:
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) \
+          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" \) \
             -exec sha256sum {} + > SHA256SUMS
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS
@@ -132,9 +177,10 @@ jobs:
           body: |
             ## Naia Shell ${{ steps.version.outputs.tag }}
 
-            AI Avatar Desktop — Chat with Alpha.
+            AI Avatar Desktop — Chat with Naia.
 
             ### Downloads
+            - **Flatpak** (Recommended): `flatpak install --user ./Naia-Shell-x86_64.flatpak`
             - **AppImage**: Download and run directly (`chmod +x`, then execute)
             - **DEB**: For Debian/Ubuntu (`sudo dpkg -i *.deb`)
             - **RPM**: For Fedora/RHEL (`sudo rpm -i *.rpm`)
@@ -148,6 +194,7 @@ jobs:
             - Linux x86_64
             - Node.js 22+ (for Agent backend)
           files: |
+            artifacts/**/*.flatpak
             artifacts/**/*.AppImage
             artifacts/**/*.deb
             artifacts/**/*.rpm
