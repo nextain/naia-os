@@ -20,6 +20,11 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 	openUrl: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { directToolCall } from "../../lib/chat-service";
+vi.mock("../../lib/chat-service", () => ({
+	directToolCall: vi.fn().mockResolvedValue({ success: false }),
+}));
+
 import { SettingsTab } from "../SettingsTab";
 
 describe("SettingsTab", () => {
@@ -27,6 +32,23 @@ describe("SettingsTab", () => {
 		cleanup();
 		localStorage.clear();
 		vi.clearAllMocks();
+	});
+
+	it("renders dynamic models with pricing info", async () => {
+		mockInvoke.mockResolvedValue([]);
+		(directToolCall as any).mockResolvedValueOnce({
+			success: true,
+			output: JSON.stringify({
+				models: [
+					{ id: "test-model-1", name: "Test Model", provider: "gemini", price: { input: 1.5, output: 2.5 } }
+				]
+			})
+		});
+		render(<SettingsTab />);
+		
+		await vi.waitFor(() => {
+			expect(screen.getByText("Test Model ($1.5 / $2.5)")).toBeDefined();
+		});
 	});
 
 	it("renders provider select and API key input", () => {

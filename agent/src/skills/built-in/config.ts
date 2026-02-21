@@ -1,3 +1,4 @@
+import { MODEL_PRICING } from "../../providers/cost.js";
 import {
 	getConfig,
 	getConfigSchema,
@@ -85,7 +86,10 @@ export function createConfigSkill(): SkillDefinition {
 						{ id: "deepseek-r1:8b", name: "DeepSeek R1 (8B)", provider: "ollama" },
 						{ id: "gpt-oss:20b", name: "GPT-OSS (20B)", provider: "ollama" },
 						{ id: "llama3.2", name: "Llama 3.2", provider: "ollama" }
-					];
+					].map(m => {
+						const price = MODEL_PRICING[m.id];
+						return price ? { ...m, price } : m;
+					});
 
 					let gatewayModels: any[] = [];
 					if (gateway?.isConnected()) {

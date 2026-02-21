@@ -1,5 +1,5 @@
 /** Per-million-token pricing for supported models */
-const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 	// Gemini 3
 	"gemini-3.1-pro-preview": { input: 2.0, output: 12.0 },
 	"gemini-3-flash-preview": { input: 0.5, output: 3.0 },

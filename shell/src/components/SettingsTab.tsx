@@ -321,7 +321,8 @@ export function SettingsTab() {
 								grouped[m.provider as ProviderId] = [];
 							}
 							if (!grouped[m.provider as ProviderId].some((x) => x.id === m.id)) {
-								grouped[m.provider as ProviderId].push({ id: m.id, label: m.name || m.id });
+								const priceStr = m.price ? ` ($${m.price.input} / $${m.price.output})` : "";
+								grouped[m.provider as ProviderId].push({ id: m.id, label: `${m.name || m.id}${priceStr}` });
 							}
 						}
 						setDynamicModels(grouped);
