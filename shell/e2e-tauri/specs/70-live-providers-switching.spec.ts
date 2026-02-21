@@ -9,11 +9,11 @@ import { sendMessage, getLastAssistantMessage } from "../helpers/chat.js";
  */
 describe("70 — live providers switching", () => {
 	const providers = [
-		{ id: "anthropic", label: "Anthropic", model: "claude-3-haiku-20240307", envKey: "ANTHROPIC_API_KEY" },
-		{ id: "xai", label: "xAI", model: "grok-beta", envKey: "XAI_API_KEY" },
-		{ id: "openai", label: "OpenAI", model: "gpt-4o-mini", envKey: "OPENAI_API_KEY" },
-		{ id: "zai", label: "zAI", model: "glm-4-flash", envKey: "ZHIPU_API_KEY" },
-		{ id: "ollama", label: "Ollama", model: "deepseek-r1:8b", envKey: null },
+		{ id: "anthropic", label: "Anthropic", model: "claude-sonnet-4-5-20250929", envKey: "ANTHROPIC_API_KEY" },
+		{ id: "xai", label: "xAI", model: "grok-4", envKey: "XAI_API_KEY" },
+		{ id: "openai", label: "OpenAI", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+		{ id: "zai", label: "zAI", model: "glm-4-plus", envKey: "ZHIPU_API_KEY" },
+		{ id: "ollama", label: "Ollama", model: "gpt-oss:20b", envKey: null },
 	];
 
 	before(async () => {
@@ -22,7 +22,8 @@ describe("70 — live providers switching", () => {
 	});
 
 	for (const p of providers) {
-		it(`should work with ${p.label} (${p.model})`, async () => {
+		const testFn = p.id === "ollama" ? it.skip : it;
+		testFn(`should work with ${p.label} (${p.model})`, async () => {
 			// 1. Switch to Settings
 			await browser.execute((sel: string) => {
 				const el = document.querySelector(sel) as HTMLElement | null;

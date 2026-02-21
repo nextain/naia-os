@@ -431,7 +431,7 @@ fn spawn_node_host(
         .arg("--port")
         .arg("18789")
         .arg("--display-name")
-        .arg("CafeLuaLocal")
+        .arg("NaiaLocal")
         .env("OPENCLAW_CONFIG_PATH", config_path)
         .stdout(stdout_cfg)
         .stderr(stderr_cfg)
