@@ -1,0 +1,105 @@
+description: Naia OS distribution and release pipeline
+
+formats:
+  flatpak:
+    app_id: io.nextain.naia
+    manifest: flatpak/io.nextain.naia.yml
+    flathub_manifest: flatpak/flathub/io.nextain.naia.yml
+    metainfo: flatpak/io.nextain.naia.metainfo.xml
+    desktop: flatpak/io.nextain.naia.desktop
+    shared_modules: flatpak/shared-modules/ (git submodule from flathub/shared-modules)
+    runtime: org.gnome.Platform//47
+    sdk_extensions:
+      - org.freedesktop.Sdk.Extension.rust-stable//24.08
+      - org.freedesktop.Sdk.Extension.node22//24.08
+    status: working
+
+  appimage:
+    built_by: tauri build
+    status: working
+
+  deb:
+    built_by: tauri build
+    status: working
+
+  rpm:
+    built_by: tauri build
+    status: working
+
+  iso:
+    builder: jasonn3/build-container-installer@v1.4.0
+    base_image: ghcr.io/nextain/naia-os:latest
+    variant: Kinoite (KDE Plasma)
+    fedora_version: "43"
+    recipe: recipes/recipe.yml
+    status: blocked (GHCR image not published yet)
+
+release:
+  current_version: v0.1.0
+  assets:
+    - Naia.Shell_0.1.0_amd64.AppImage
+    - Naia.Shell_0.1.0_amd64.deb
+    - Naia.Shell-0.1.0-1.x86_64.rpm
+    - Naia-Shell-x86_64.flatpak
+    - SHA256SUMS
+  download_page: https://naia.nextain.io/download
+  download_page_repo: naia.nextain.io/
+
+workflows:
+  release_app: .github/workflows/release-app.yml
+  build_os_image: .github/workflows/build.yml
+  generate_iso: .github/workflows/iso.yml
+
+ci_pipeline:
+  # Parallel
+  build_linux: "tauri build → AppImage, DEB, RPM"
+  build_flatpak: "flatpak-builder → flatpak build-bundle"
+  # Sequential (depends on both above)
+  release: "download artifacts → SHA256SUMS → GitHub Release"
+  # Triggered by release success
+  generate_iso: "OCI image → bootable ISO (needs GHCR image first)"
+
+local_build:
+  flatpak:
+    prerequisites:
+      - flatpak-builder installed
+      - "org.gnome.Platform//47 + Sdk//47"
+      - "org.freedesktop.Sdk.Extension.rust-stable//24.08"
+      - "org.freedesktop.Sdk.Extension.node22//24.08"
+    commands:
+      clean: "rm -rf flatpak-repo build-dir .flatpak-builder"
+      build: "flatpak-builder --force-clean --disable-rofiles-fuse --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml"
+      bundle: "flatpak build-bundle flatpak-repo Naia-Shell-x86_64.flatpak io.nextain.naia"
+      upload: "gh release upload v0.1.0 Naia-Shell-x86_64.flatpak --clobber"
+    important_notes:
+      - MUST clean flatpak-repo before build to avoid 'invalid rdev' corruption
+      - Old app-id artifacts (com.naia.shell) can corrupt the ostree repo
+      - CI workflow includes rm -rf cleanup step before flatpak-builder
+
+flathub_submission:
+  guide: docs/flathub-submission-guide.md
+  status: not_started
+  blockers:
+    - cargo-sources.json not generated
+    - node-sources-agent.json not generated
+    - node-sources-shell.json not generated
+  steps:
+    1: Generate offline dependency JSONs (flatpak-builder-tools)
+    2: Finalize flathub manifest (remove --share=network, add commit SHA)
+    3: Fork flathub/flathub on GitHub
+    4: Create PR with manifest + dependency files
+    5: Address reviewer feedback
+
+os_image:
+  builder: blue-build/github-action@v1
+  base: ghcr.io/ublue-os/bazzite (Fedora Atomic)
+  recipe: recipes/recipe.yml
+  scripts:
+    - config/scripts/install-pnpm.sh
+    - config/scripts/install-naia-shell.sh (downloads AppImage from GitHub Release)
+    - config/scripts/branding.sh (os-release customization)
+    - config/scripts/setup-openclaw.sh (gateway systemd service)
+  systemd_services:
+    - config/files/usr/lib/systemd/user/naia-gateway.service
+  status: blocked
+  blocker: ".gitmodules submodule mapping error in BlueBuild Docker context"

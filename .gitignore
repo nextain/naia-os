@@ -8,4 +8,8 @@ target/
 test-results/
 playwright-report/
 shell/e2e-tauri/.artifacts/ui-message-trace.ndjson
-shell/e2e-tauri/.artifacts/ui-message-trace.ndjson
+
+# Flatpak build artifacts
+flatpak-repo/
+build-dir/
+.flatpak-builder/
