@@ -1,10 +1,14 @@
-/** Per-million-token pricing for supported models */
+/**
+ * Per-million-token pricing for supported models.
+ * Source of truth: project-careti/src/shared/api.ts (ModelInfo.inputPrice / outputPrice)
+ */
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 	// Gemini 3
 	"gemini-3.1-pro-preview": { input: 2.0, output: 12.0 },
 	"gemini-3-flash": { input: 0.5, output: 3.0 },
+	"gemini-3-flash-preview": { input: 0.5, output: 3.0 },
 	// Gemini 2.5
-	"gemini-2.5-flash": { input: 0.15, output: 0.6 },
+	"gemini-2.5-flash": { input: 0.3, output: 2.5 },
 	"gemini-2.5-pro": { input: 1.25, output: 10.0 },
 	// Gemini 2.0
 	"gemini-2.0-flash": { input: 0.1, output: 0.4 },
@@ -19,7 +23,7 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
 	"grok-2": { input: 2.0, output: 10.0 },
 	// Anthropic
 	"claude-sonnet-4-5-20250929": { input: 3.0, output: 15.0 },
-	"claude-haiku-4-5-20251001": { input: 0.8, output: 4.0 },
+	"claude-haiku-4-5-20251001": { input: 1.0, output: 5.0 },
 	"claude-opus-4-6": { input: 15.0, output: 75.0 },
 	"claude-3-7-sonnet-20250219": { input: 3.0, output: 15.0 },
 	// OpenAI

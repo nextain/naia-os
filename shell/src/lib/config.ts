@@ -44,6 +44,8 @@ export interface AppConfig {
 	allowedTools?: string[];
 	userName?: string;
 	agentName?: string;
+	honorific?: string;
+	speechStyle?: string;
 	onboardingComplete?: boolean;
 	labKey?: string;
 	labUserId?: string;
@@ -77,24 +79,15 @@ export const MODEL_OPTIONS: Record<
 		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
 	],
 	"claude-code-cli": [
-		{
-			id: "claude-sonnet-4-5-20250929",
-			label: "Claude Sonnet 4.5 ($3.00 / $15.00)",
-		},
-		{
-			id: "claude-haiku-4-5-20251001",
-			label: "Claude Haiku 4.5 ($0.80 / $4.00)",
-		},
-		{
-			id: "claude-3-7-sonnet-20250219",
-			label: "Claude Sonnet 3.7 ($3.00 / $15.00)",
-		},
+		{ id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
+		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+		{ id: "claude-3-7-sonnet-20250219", label: "Claude Sonnet 3.7" },
 	],
 	gemini: [
 		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)" },
 		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($2.50 / $10.00)" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $1.20)" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($1.25 / $10.00)" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)" },
 	],
 	openai: [{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)" }],
 	anthropic: [
@@ -103,8 +96,8 @@ export const MODEL_OPTIONS: Record<
 			label: "Claude Sonnet 4.5 ($3.00 / $15.00)",
 		},
 	],
-	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini" }],
-	zai: [{ id: "glm-4.7", label: "GLM 4.7" }],
+	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini ($0.30 / $0.50)" }],
+	zai: [{ id: "glm-4.7", label: "GLM 4.7 ($0.60 / $2.20)" }],
 	ollama: [{ id: "llama3.2", label: "Llama 3.2" }],
 };
 

@@ -610,8 +610,9 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			}
 		}
 
-		// Send usage + finish
-		if (totalInputTokens > 0 || totalOutputTokens > 0) {
+		// Send usage + finish (skip cost for local providers like claude-code-cli)
+		const skipCost = providerConfig.provider === "claude-code-cli";
+		if (!skipCost && (totalInputTokens > 0 || totalOutputTokens > 0)) {
 			const cost = calculateCost(
 				providerConfig.model,
 				totalInputTokens,
