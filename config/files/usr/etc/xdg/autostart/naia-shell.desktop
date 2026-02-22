@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Naia Shell
+Comment=Personal AI avatar shell
+Exec=/usr/bin/naia-shell
+Icon=naia
+Type=Application
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

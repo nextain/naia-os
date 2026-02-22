@@ -4,7 +4,7 @@ set -euo pipefail
 # Download Naia Shell AppImage from GitHub Releases and install it.
 # This runs during the BlueBuild container image build.
 
-REPO="nextain/Naia-OS"
+REPO="nextain/naia-os"
 INSTALL_DIR="/usr/bin"
 BINARY_NAME="naia-shell"
 
