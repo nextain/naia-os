@@ -90,6 +90,30 @@ cd shell && pnpm run test:e2e:tauri
 cd agent && CAFE_LIVE_GATEWAY_E2E=1 pnpm exec vitest run src/__tests__/gateway-e2e.test.ts
 ```
 
+## 배포 빌드
+
+배포 관련 상세 컨텍스트: `.agents/context/distribution.yaml`
+
+```bash
+# Flatpak 로컬 빌드 (MUST clean before build)
+rm -rf flatpak-repo build-dir .flatpak-builder
+flatpak-builder --force-clean --disable-rofiles-fuse --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml
+flatpak build-bundle flatpak-repo Naia-Shell-x86_64.flatpak io.nextain.naia
+
+# GitHub Release에 업로드
+gh release upload v0.1.0 Naia-Shell-x86_64.flatpak --clobber
+
+# OS 이미지 (BlueBuild → GHCR) — CI에서 자동
+# ISO 생성 — GHCR 이미지 필요, CI에서 자동 또는 수동 트리거
+gh workflow run iso.yml
+```
+
+### 필수 SDK (Flatpak 로컬 빌드)
+- `flatpak-builder`
+- `org.gnome.Platform//47` + `org.gnome.Sdk//47`
+- `org.freedesktop.Sdk.Extension.rust-stable//24.08`
+- `org.freedesktop.Sdk.Extension.node22//24.08`
+
 ## 개발 사이클
 
 **코딩 전 반드시 읽기:** `.agents/workflows/development-cycle.yaml`
