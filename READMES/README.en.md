@@ -1,10 +1,10 @@
-[English](README.md) | [한국어](READMES/README.ko.md) | [日本語](READMES/README.ja.md) | [中文](READMES/README.zh.md) | [Français](READMES/README.fr.md) | [Deutsch](READMES/README.de.md) | [Русский](READMES/README.ru.md) | [Español](READMES/README.es.md) | [Português](READMES/README.pt.md) | [Tiếng Việt](READMES/README.vi.md) | [Bahasa Indonesia](READMES/README.id.md) | [العربية](READMES/README.ar.md) | [हिन्दी](READMES/README.hi.md) | [বাংলা](READMES/README.bn.md)
+[English](../README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文](README.zh.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Español](README.es.md) | [Português](README.pt.md) | [Tiếng Việt](README.vi.md) | [Bahasa Indonesia](README.id.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [বাংলা](README.bn.md)
 
 # Naia OS
 
 **The Next Generation AI OS** — A personal desktop operating system where an AI avatar lives
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "The OS itself is the AI's tool. The AI doesn't run on top of the OS — the AI controls the OS."
 
@@ -242,7 +242,7 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 
 ## License
 
-[Apache License 2.0](LICENSE) — Copyright 2026 Nextain
+[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
 
 ## Links
 

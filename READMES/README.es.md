@@ -1,0 +1,251 @@
+[English](../README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [中文](README.zh.md) | [Français](README.fr.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Español](README.es.md) | [Português](README.pt.md) | [Tiếng Việt](README.vi.md) | [Bahasa Indonesia](README.id.md) | [العربية](README.ar.md) | [हिन्दी](README.hi.md) | [বাংলা](README.bn.md)
+
+# Naia OS
+
+**The Next Generation AI OS** — Un sistema operativo de escritorio personal donde vive un avatar de IA
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
+
+> "El SO en si es la herramienta de la IA. La IA no se ejecuta sobre el SO — la IA controla el SO."
+
+## Que es Naia OS?
+
+Naia OS es una aplicacion de escritorio Linux donde reside permanentemente un avatar de IA 3D. Habla con la IA a traves de chat y voz, y ella ejecuta directamente la gestion de archivos, comandos de terminal, busquedas web y escritura de codigo. Cualquier persona — no solo desarrolladores — puede tener su propio agente de IA.
+
+### Funciones principales
+
+- **Avatar 3D** — Personaje VRM ofrece conversaciones vividas con expresiones de emociones (alegria/tristeza/sorpresa/reflexion, etc.) y sincronizacion labial
+- **Multi LLM** — Soporte para 7 proveedores: Gemini, Claude, GPT, Grok, zAI, Ollama, Claude Code CLI
+- **Ejecucion de herramientas** — 8 herramientas incluyendo lectura/escritura de archivos, ejecucion de terminal, busqueda web, navegador, sub-agente
+- **70 habilidades** — 7 integradas + 63 personalizadas (clima, GitHub, Slack, Notion, Spotify, Discord, etc.)
+- **Conversacion por voz** — TTS con 5 proveedores (Nextain Cloud, Edge, Google, OpenAI, ElevenLabs) + STT
+- **14 idiomas** — Coreano, ingles, japones, chino, frances, aleman, ruso y mas
+- **Integracion de canales** — Habla con la IA en cualquier momento via Discord DM
+- **Seguridad de 4 niveles** — Jerarquia de permisos desde T0 (lectura) hasta T3 (peligroso), sistema de aprobacion por herramienta, registros de auditoria
+- **Cuenta Nextain** — Comienza inmediatamente con uso basado en creditos, sin necesidad de clave API
+- **Personalizacion** — Personaliza nombre, personalidad, estilo de habla, avatar y tema (8 tipos)
+
+## Por que Naia OS?
+
+Las herramientas de IA existentes siguen el paradigma "los humanos usan la IA como herramienta". Naia OS invierte esta relacion — **"Dale a la IA el SO completo."**
+
+| Enfoque existente | Limitacion | Naia OS |
+|-------------------|------------|---------|
+| **Extensiones VS Code** (Copilot, Cline) | Hay que abrir el IDE para usar IA | No necesita IDE. Siempre encendido |
+| **Agentes CLI** (Claude Code, Aider) | Solo funciona dentro del terminal | Controla archivos, navegador, todo el sistema |
+| **Apps de chatbot** (ChatGPT, Gemini) | Solo puede chatear, no ejecutar | Chat + Ejecucion. Di "crea un archivo" y realmente lo crea |
+| **Demonio macOS** (OpenClaw) | brew install, solo macOS, CLI | Aplicacion de escritorio + avatar 3D. Basado en Linux |
+| **Frameworks de IA** (LangChain) | Solo usable por desarrolladores | Onboarding de 7 pasos para que cualquiera empiece |
+
+## Relacion con OpenClaw
+
+Naia OS esta construido sobre el ecosistema [OpenClaw](https://github.com/openclaw-ai/openclaw), pero es un producto fundamentalmente diferente.
+
+| | OpenClaw | Naia OS |
+|---|---------|---------|
+| **Forma** | Demonio CLI + terminal | Aplicacion de escritorio + avatar 3D |
+| **Objetivo** | Desarrolladores | Todos |
+| **UI** | Ninguna (terminal) | Aplicacion nativa Tauri 2 (React + Three.js) |
+| **Avatar** | Ninguno | Personaje VRM 3D (emociones, sincronizacion labial, mirada) |
+| **LLM** | Proveedor unico | Multi-proveedor 7 + cambio en tiempo real |
+| **Voz** | TTS 3 (Edge, OpenAI, ElevenLabs) | TTS 5 (+Google, Nextain) + STT + sincronizacion labial del avatar |
+| **Emociones** | Ninguna | 6 emociones mapeadas a expresiones faciales |
+| **Onboarding** | CUI | GUI + seleccion de avatar VRM |
+| **Seguimiento de costos** | Ninguno | Panel de creditos en tiempo real |
+| **Distribucion** | npm install | Flatpak / AppImage / DEB / RPM + imagen de SO |
+| **Multilingue** | CLI en ingles | GUI de 14 idiomas |
+| **Canales** | Bot de servidor (multicanal) | Bot de Discord DM dedicado a Naia |
+
+**Lo que tomamos de OpenClaw:** Arquitectura de demonio, motor de ejecucion de herramientas, sistema de canales, ecosistema de habilidades (compatible con 5,700+ habilidades Clawhub)
+
+**Lo que Naia OS construyo nuevo:** Tauri Shell, sistema de avatar VRM, agente multi-LLM, motor de emociones, integracion TTS/STT, asistente de onboarding, seguimiento de costos, integracion de cuenta Nextain, sistema de memoria (STM/LTM), capas de seguridad
+
+## Arquitectura
+
+```
+┌──────────────────────────────────────────────────┐
+│  Naia Shell (Tauri 2 + React + Three.js)         │
+│  Chat · Avatar · Skills · Channels · Settings    │
+│  State: Zustand │ DB: SQLite │ Auth: OAuth        │
+└──────────────┬───────────────────────────────────┘
+               │ stdio JSON lines
+┌──────────────▼───────────────────────────────────┐
+│  Naia Agent (Node.js + TypeScript)               │
+│  LLM: Gemini, Claude, GPT, Grok, zAI, Ollama    │
+│  TTS: Nextain, Edge, Google, OpenAI, ElevenLabs  │
+│  Skills: 7 built-in + 63 custom                  │
+└──────────────┬───────────────────────────────────┘
+               │ WebSocket (ws://127.0.0.1:18789)
+┌──────────────▼───────────────────────────────────┐
+│  OpenClaw Gateway (systemd user daemon)          │
+│  88 RPC methods │ Tool exec │ Channels │ Memory  │
+└──────────────────────────────────────────────────┘
+```
+
+**Una fusion de 3 proyectos:**
+- **OpenClaw** — Demonio + ejecucion de herramientas + canales + ecosistema de habilidades
+- **Careti** — Multi-LLM + protocolo de herramientas + comunicacion stdio
+- **OpenCode** — Patron de separacion cliente/servidor
+
+## Estructura del proyecto
+
+```
+naia-os/
+├── shell/              # Aplicacion de escritorio Tauri 2 (React + Rust)
+│   ├── src/            #   Componentes React + gestion de estado
+│   ├── src-tauri/      #   Backend Rust (gestion de procesos, SQLite, autenticacion)
+│   └── e2e-tauri/      #   Pruebas E2E WebDriver
+├── agent/              # Nucleo del agente IA Node.js
+│   ├── src/providers/  #   Proveedores LLM (Gemini, Claude, GPT, etc.)
+│   ├── src/tts/        #   Proveedores TTS (Edge, Google, OpenAI, etc.)
+│   ├── src/skills/     #   Habilidades integradas (13 TypeScript especificos de Naia)
+│   └── assets/         #   Habilidades incluidas (64 skill.json)
+├── gateway/            # Puente OpenClaw Gateway
+├── flatpak/            # Empaquetado Flatpak (io.nextain.naia)
+├── recipes/            # Recetas de imagen de SO BlueBuild
+├── config/             # Configuracion de SO (systemd, scripts envolventes)
+├── .agents/            # Contexto de IA (ingles, JSON/YAML)
+└── .users/             # Documentacion humana (coreano, Markdown)
+```
+
+## Documentos de contexto (Dual-directory Architecture)
+
+Una estructura de documentacion dual para agentes de IA y desarrolladores humanos. `.agents/` contiene JSON/YAML eficiente en tokens para IA, `.users/` contiene Markdown en coreano para humanos.
+
+| Contexto IA (`.agents/`) | Documentos humanos (`.users/`) | Descripcion |
+|---|---|---|
+| `context/agents-rules.json` | `context/agents-rules.md` | Reglas del proyecto (SoT) |
+| `context/project-index.yaml` | — | Indice de contexto + reglas de espejo |
+| `context/vision.yaml` | `context/vision.md` | Vision del proyecto, conceptos fundamentales |
+| `context/plan.yaml` | `context/plan.md` | Plan de implementacion, estado por fase |
+| `context/architecture.yaml` | `context/architecture.md` | Arquitectura hibrida, capas de seguridad |
+| `context/openclaw-sync.yaml` | `context/openclaw-sync.md` | Sincronizacion de OpenClaw Gateway |
+| `context/channels-discord.yaml` | `context/channels-discord.md` | Arquitectura de integracion Discord |
+| `workflows/development-cycle.yaml` | `workflows/development-cycle.md` | Ciclo de desarrollo (PLAN->BUILD->VERIFY) |
+
+**Regla de espejo:** Cuando se modifica un lado, el otro siempre debe sincronizarse.
+
+## Stack tecnologico
+
+| Capa | Tecnologia | Proposito |
+|------|-----------|-----------|
+| SO | Bazzite (Fedora Atomic) | Linux inmutable, controladores GPU |
+| Build SO | BlueBuild | Imagenes de SO basadas en contenedores |
+| App de escritorio | Tauri 2 (Rust) | Shell nativo |
+| Frontend | React 18 + TypeScript + Vite | UI |
+| Avatar | Three.js + @pixiv/three-vrm | Renderizado VRM 3D |
+| Gestion de estado | Zustand | Estado del cliente |
+| Motor LLM | Node.js + multi SDK | Nucleo del agente |
+| Protocolo | stdio JSON lines | Comunicacion Shell <-> Agent |
+| Gateway | OpenClaw | Demonio + servidor RPC |
+| BD | SQLite (rusqlite) | Memoria, registros de auditoria |
+| Formateador | Biome | Linting + formateo |
+| Pruebas | Vitest + tauri-driver | Unitarias + E2E |
+| Paquetes | pnpm | Gestion de dependencias |
+
+## Inicio rapido
+
+### Requisitos previos
+
+- Linux (Bazzite, Ubuntu, Fedora, etc.)
+- Node.js 22+, pnpm 9+
+- Rust stable (para compilacion de Tauri)
+- Paquetes del sistema: `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel` (Fedora)
+
+### Ejecucion en desarrollo
+
+```bash
+# Instalar dependencias
+cd shell && pnpm install
+cd ../agent && pnpm install
+
+# Ejecutar aplicacion Tauri (Gateway + Agent auto-spawn)
+cd ../shell && pnpm run tauri dev
+```
+
+Al iniciar la aplicacion, automaticamente:
+1. Verificacion de salud de OpenClaw Gateway → reutilizar si esta en ejecucion, si no auto-spawn
+2. Spawn de Agent Core (Node.js, conexion stdio)
+3. Al cerrar la aplicacion, solo se termina el Gateway auto-spawneado
+
+### Pruebas
+
+```bash
+cd shell && pnpm test                # Pruebas unitarias de Shell
+cd agent && pnpm test                # Pruebas unitarias de Agent
+cd agent && pnpm exec tsc --noEmit   # Verificacion de tipos
+cargo test --manifest-path shell/src-tauri/Cargo.toml  # Pruebas Rust
+
+# E2E (se requiere Gateway + clave API)
+cd shell && pnpm run test:e2e:tauri
+```
+
+### Compilacion Flatpak
+
+```bash
+flatpak install --user flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+flatpak-builder --user --install --force-clean build-dir flatpak/io.nextain.naia.yml
+flatpak run io.nextain.naia
+```
+
+## Modelo de seguridad
+
+Naia OS aplica un modelo de seguridad de **Defensa en profundidad (Defense in Depth)**:
+
+| Capa | Proteccion |
+|------|-----------|
+| SO | rootfs inmutable de Bazzite + SELinux |
+| Gateway | Autenticacion de dispositivo OpenClaw + alcances de token |
+| Agente | Permisos de 4 niveles (T0~T3) + bloqueo por herramienta |
+| Shell | Modal de aprobacion del usuario + interruptor ON/OFF de herramientas |
+| Auditoria | Registro de auditoria SQLite (todas las ejecuciones de herramientas registradas) |
+
+## Sistema de memoria
+
+- **Memoria a corto plazo (STM):** Conversacion de la sesion actual (Zustand + SQLite)
+- **Memoria a largo plazo (LTM):** Resumenes de sesion (generados por LLM) + extraccion automatica de hechos/preferencias del usuario
+- **Habilidad de memo:** Guardado/recuperacion explicita de memos via `skill_memo`
+
+## Estado actual
+
+| Fase | Descripcion | Estado |
+|------|-------------|--------|
+| 0 | Pipeline de despliegue (BlueBuild -> ISO) | ✅ Completado |
+| 1 | Integracion de avatar (renderizado VRM 3D) | ✅ Completado |
+| 2 | Conversacion (texto/voz + sincronizacion labial + emociones) | ✅ Completado |
+| 3 | Ejecucion de herramientas (8 herramientas + permisos + auditoria) | ✅ Completado |
+| 4 | Demonio siempre activo (Gateway + Skills + Memoria + Discord) | ✅ Completado |
+| 5 | Integracion de cuenta Nextain (OAuth + creditos + proxy LLM) | ✅ Completado |
+| 6 | Distribucion de app Tauri (Flatpak/DEB/RPM/AppImage) | 🟡 En progreso |
+| 7 | Imagen ISO de SO (arranque USB -> IA SO) | ⏳ Planificado |
+
+## Proceso de desarrollo
+
+```
+PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
+```
+
+- **BUILD = TDD** — Pruebas primero (RED) -> implementacion minima (GREEN) -> refactorizacion
+- **VERIFY** — Confirmar ejecutando realmente la aplicacion (la verificacion de tipos sola es insuficiente)
+- **Commits** — Ingles, `<type>(<scope>): <description>`
+- **Formateador** — Biome (tab, comillas dobles, puntos y coma)
+
+## Proyectos de referencia
+
+| Proyecto | Lo que tomamos |
+|----------|---------------|
+| [Bazzite](https://github.com/ublue-os/bazzite) | SO Linux inmutable, GPU, optimizacion para gaming |
+| [OpenClaw](https://github.com/steipete/openclaw) | Demonio Gateway, integracion de canales, Skills |
+| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, protocolo de plugins |
+| [OpenCode](https://github.com/anomalyco/opencode) | Separacion cliente/servidor, abstraccion de proveedores |
+| Careti | Conexion LLM, conjunto de herramientas, sub-agente, gestion de contexto |
+
+## Licencia
+
+[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+
+## Enlaces
+
+- **Sitio oficial:** [naia.nextain.io](https://naia.nextain.io)
+- **Manual:** [naia.nextain.io/es/manual](https://naia.nextain.io/es/manual)
+- **Panel de control:** [naia.nextain.io/es/dashboard](https://naia.nextain.io/es/dashboard)
