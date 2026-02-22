@@ -1,0 +1,101 @@
+# Flathub manifest for Naia OS
+# This manifest differs from the CI version (../io.nextain.naia.yml):
+#   - Uses git source with tag/commit pinning instead of type: dir
+#   - No --share=network in build-args (Flathub requires offline builds)
+#   - Cargo dependencies vendored via cargo-sources.json
+#   - Node dependencies vendored via node-sources-agent.json and node-sources-shell.json
+#
+# To regenerate dependency sources:
+#   pip install flatpak-builder-tools
+#   # Cargo
+#   cd shell/src-tauri && python3 flatpak-cargo-generator.py Cargo.lock -o ../../flatpak/flathub/cargo-sources.json
+#   # Node (agent)
+#   cd agent && flatpak-node-generator pnpm pnpm-lock.yaml -o ../flatpak/flathub/node-sources-agent.json
+#   # Node (shell)
+#   cd shell && flatpak-node-generator pnpm pnpm-lock.yaml -o ../flatpak/flathub/node-sources-shell.json
+
+app-id: io.nextain.naia
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+command: naia-os
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --share=network
+  - --filesystem=xdg-config/naia:create
+  - --filesystem=xdg-data/naia:create
+  - --talk-name=org.freedesktop.Notifications
+  - --env=FLATPAK=1
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+modules:
+  - shared-modules/libappindicator/libappindicator-gtk3-12.10.json
+
+  # Cargo dependencies (offline)
+  - name: cargo-sources
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /run/build/Naia-OS/cargo
+    sources:
+      - cargo-sources.json
+
+  # Node dependencies for agent (offline)
+  - name: node-sources-agent
+    buildsystem: simple
+    build-commands: []
+    sources:
+      - node-sources-agent.json
+
+  # Node dependencies for shell (offline)
+  - name: node-sources-shell
+    buildsystem: simple
+    build-commands: []
+    sources:
+      - node-sources-shell.json
+
+  - name: Naia-OS
+    buildsystem: simple
+    sources:
+      - type: git
+        url: https://github.com/nextain/naia-os.git
+        tag: v0.1.0
+        # TODO: pin commit hash after first release
+        # commit: <sha>
+    build-options:
+      env:
+        CARGO_HOME: /run/build/Naia-OS/cargo
+        CI: "true"
+    build-commands:
+      # Agent build
+      - cd agent && npx pnpm install --offline --no-frozen-lockfile
+      - cd agent && npx tsc
+      # Shell frontend + Tauri binary
+      - cd shell && npx pnpm install --offline --no-frozen-lockfile
+      - cd shell && npx pnpm run build
+      - cd shell/src-tauri && cargo build --release --offline
+      # Install binary
+      - install -Dm755 shell/src-tauri/target/release/naia-os /app/bin/naia-os
+      # Node.js runtime (for agent)
+      - install -Dm755 /usr/lib/sdk/node22/bin/node /app/bin/node
+      # Agent bundle
+      - mkdir -p /app/lib/naia-os/agent
+      - cp -r agent/dist /app/lib/naia-os/agent/dist
+      - cp -r agent/node_modules /app/lib/naia-os/agent/node_modules
+      - cp agent/package.json /app/lib/naia-os/agent/
+      # Desktop integration
+      - install -Dm644 flatpak/io.nextain.naia.desktop /app/share/applications/io.nextain.naia.desktop
+      - install -Dm644 flatpak/io.nextain.naia.metainfo.xml /app/share/metainfo/io.nextain.naia.metainfo.xml
+      # Icons
+      - install -Dm644 shell/src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/io.nextain.naia.png
+      - install -Dm644 shell/src-tauri/icons/64x64.png /app/share/icons/hicolor/64x64/apps/io.nextain.naia.png
+      - install -Dm644 shell/src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.nextain.naia.png
+      - install -Dm644 shell/src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/io.nextain.naia.png
+      - install -Dm644 shell/src-tauri/icons/icon.png /app/share/icons/hicolor/512x512/apps/io.nextain.naia.png
