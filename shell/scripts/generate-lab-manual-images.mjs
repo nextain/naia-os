@@ -1,62 +1,62 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 import { chromium } from "@playwright/test";
 
 const outBase = "/home/luke/dev/naia.nextain.io/public/manual";
 
 const texts = {
-  ko: {
-    dashboardTitle: "대시보드",
-    usageTitle: "사용량",
-    logsTitle: "로그",
-    keysTitle: "API 키",
-    credit: "크레딧 잔액",
-    req: "총 요청 수",
-    tok: "총 토큰 수",
-    spend: "총 지출",
-    period: "현재 기간",
-    active: "활성",
-    dailyReq: "일별 요청 수",
-    dailyTok: "일별 토큰 수",
-    dailyCost: "일별 비용",
-    filter: "필터",
-    status: "상태",
-    model: "모델",
-    time: "시간",
-    cost: "비용",
-    create: "새 키 만들기",
-    keyName: "키 이름",
-    expires: "만료일",
-    createdAt: "생성일",
-    actions: "작업",
-    delete: "삭제",
-  },
-  en: {
-    dashboardTitle: "Dashboard",
-    usageTitle: "Usage",
-    logsTitle: "Logs",
-    keysTitle: "API Keys",
-    credit: "Credit Balance",
-    req: "Total Requests",
-    tok: "Total Tokens",
-    spend: "Total Spend",
-    period: "Current Period",
-    active: "Active",
-    dailyReq: "Requests per Day",
-    dailyTok: "Tokens per Day",
-    dailyCost: "Spend per Day",
-    filter: "Filters",
-    status: "Status",
-    model: "Model",
-    time: "Time",
-    cost: "Cost",
-    create: "Create New Key",
-    keyName: "Key Name",
-    expires: "Expires",
-    createdAt: "Created",
-    actions: "Actions",
-    delete: "Delete",
-  },
+	ko: {
+		dashboardTitle: "대시보드",
+		usageTitle: "사용량",
+		logsTitle: "로그",
+		keysTitle: "API 키",
+		credit: "크레딧 잔액",
+		req: "총 요청 수",
+		tok: "총 토큰 수",
+		spend: "총 지출",
+		period: "현재 기간",
+		active: "활성",
+		dailyReq: "일별 요청 수",
+		dailyTok: "일별 토큰 수",
+		dailyCost: "일별 비용",
+		filter: "필터",
+		status: "상태",
+		model: "모델",
+		time: "시간",
+		cost: "비용",
+		create: "새 키 만들기",
+		keyName: "키 이름",
+		expires: "만료일",
+		createdAt: "생성일",
+		actions: "작업",
+		delete: "삭제",
+	},
+	en: {
+		dashboardTitle: "Dashboard",
+		usageTitle: "Usage",
+		logsTitle: "Logs",
+		keysTitle: "API Keys",
+		credit: "Credit Balance",
+		req: "Total Requests",
+		tok: "Total Tokens",
+		spend: "Total Spend",
+		period: "Current Period",
+		active: "Active",
+		dailyReq: "Requests per Day",
+		dailyTok: "Tokens per Day",
+		dailyCost: "Spend per Day",
+		filter: "Filters",
+		status: "Status",
+		model: "Model",
+		time: "Time",
+		cost: "Cost",
+		create: "Create New Key",
+		keyName: "Key Name",
+		expires: "Expires",
+		createdAt: "Created",
+		actions: "Actions",
+		delete: "Delete",
+	},
 };
 
 const baseCss = `
@@ -86,7 +86,7 @@ const baseCss = `
 `;
 
 function htmlDashboard(t) {
-  return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
+	return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
     <h1>${t.dashboardTitle}</h1>
     <div class="grid4">
       <div class="card"><div class="label">${t.credit}</div><div class="val">18.4</div></div>
@@ -102,9 +102,10 @@ function htmlDashboard(t) {
 }
 
 function htmlUsage(t) {
-  const bars = [40,70,55,90,65,45,80,60,38,75,58,88];
-  const makeBars = (cls, mul = 1) => `<div class="chart ${cls}">${bars.map((v)=>`<div class="bar" style="height:${Math.max(20,Math.round(v*mul))}px"></div>`).join("")}</div>`;
-  return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
+	const bars = [40, 70, 55, 90, 65, 45, 80, 60, 38, 75, 58, 88];
+	const makeBars = (cls, mul = 1) =>
+		`<div class="chart ${cls}">${bars.map((v) => `<div class="bar" style="height:${Math.max(20, Math.round(v * mul))}px"></div>`).join("")}</div>`;
+	return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
     <h1>${t.usageTitle}</h1>
     <div class="grid4">
       <div class="card"><div class="label">${t.req}</div><div class="val">124</div></div>
@@ -113,22 +114,22 @@ function htmlUsage(t) {
       <div class="card"><div class="label">Period</div><div class="val" style="font-size:24px">30 days</div></div>
     </div>
     <div class="section">
-      <div class="card"><div class="panel-title">${t.dailyReq}</div>${makeBars("bars1",1)}</div>
-      <div class="card"><div class="panel-title">${t.dailyTok}</div>${makeBars("bars2",0.9)}</div>
-      <div class="card"><div class="panel-title">${t.dailyCost}</div>${makeBars("bars3",0.7)}</div>
+      <div class="card"><div class="panel-title">${t.dailyReq}</div>${makeBars("bars1", 1)}</div>
+      <div class="card"><div class="panel-title">${t.dailyTok}</div>${makeBars("bars2", 0.9)}</div>
+      <div class="card"><div class="panel-title">${t.dailyCost}</div>${makeBars("bars3", 0.7)}</div>
     </div>
   </div></body></html>`;
 }
 
 function htmlLogs(t) {
-  const rows = [
-    ["2026-02-19 10:21", "200", "gpt-4o-mini", "1,252", "$0.0124"],
-    ["2026-02-19 10:16", "200", "claude-3-5-haiku", "884", "$0.0071"],
-    ["2026-02-19 10:11", "429", "gemini-2.5-flash", "0", "$0.0000"],
-    ["2026-02-19 09:58", "200", "gpt-4.1-mini", "2,030", "$0.0188"],
-    ["2026-02-19 09:43", "200", "gemini-2.5-flash", "1,440", "$0.0102"],
-  ];
-  return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
+	const rows = [
+		["2026-02-19 10:21", "200", "gpt-4o-mini", "1,252", "$0.0124"],
+		["2026-02-19 10:16", "200", "claude-3-5-haiku", "884", "$0.0071"],
+		["2026-02-19 10:11", "429", "gemini-2.5-flash", "0", "$0.0000"],
+		["2026-02-19 09:58", "200", "gpt-4.1-mini", "2,030", "$0.0188"],
+		["2026-02-19 09:43", "200", "gemini-2.5-flash", "1,440", "$0.0102"],
+	];
+	return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
     <h1>${t.logsTitle}</h1>
     <div class="card">
       <div class="toolbar">
@@ -138,19 +139,19 @@ function htmlLogs(t) {
       </div>
       <table>
         <thead><tr><th>${t.time}</th><th>${t.status}</th><th>${t.model}</th><th>Tokens</th><th>${t.cost}</th></tr></thead>
-        <tbody>${rows.map((r)=>`<tr><td>${r[0]}</td><td><span class="badge">${r[1]}</span></td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`).join("")}</tbody>
+        <tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td><span class="badge">${r[1]}</span></td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td></tr>`).join("")}</tbody>
       </table>
     </div>
   </div></body></html>`;
 }
 
 function htmlKeys(t) {
-  const rows = [
-    ["desktop-main", "2026-02-18", "2026-08-18", "active"],
-    ["automation-ci", "2026-02-15", "2026-05-15", "active"],
-    ["old-key", "2025-12-01", "2026-02-01", "revoked"],
-  ];
-  return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
+	const rows = [
+		["desktop-main", "2026-02-18", "2026-08-18", "active"],
+		["automation-ci", "2026-02-15", "2026-05-15", "active"],
+		["old-key", "2025-12-01", "2026-02-01", "revoked"],
+	];
+	return `<!doctype html><html><head><style>${baseCss}</style></head><body><div class="wrap">
     <h1>${t.keysTitle}</h1>
     <div class="card" style="margin-bottom:14px">
       <div class="panel-title">${t.create}</div>
@@ -163,32 +164,38 @@ function htmlKeys(t) {
     <div class="card">
       <table>
         <thead><tr><th>${t.keyName}</th><th>${t.createdAt}</th><th>${t.expires}</th><th>${t.status}</th><th>${t.actions}</th></tr></thead>
-        <tbody>${rows.map((r)=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="badge">${r[3]}</span></td><td><span class="btn">${t.delete}</span></td></tr>`).join("")}</tbody>
+        <tbody>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="badge">${r[3]}</span></td><td><span class="btn">${t.delete}</span></td></tr>`).join("")}</tbody>
       </table>
     </div>
   </div></body></html>`;
 }
 
 const pages = [
-  ["lab-dashboard.png", htmlDashboard],
-  ["lab-usage.png", htmlUsage],
-  ["lab-logs.png", htmlLogs],
-  ["lab-keys.png", htmlKeys],
+	["lab-dashboard.png", htmlDashboard],
+	["lab-usage.png", htmlUsage],
+	["lab-logs.png", htmlLogs],
+	["lab-keys.png", htmlKeys],
 ];
 
 const browser = await chromium.launch({ headless: true });
-const ctx = await browser.newContext({ viewport: { width: 380, height: 720 }, deviceScaleFactor: 3 });
+const ctx = await browser.newContext({
+	viewport: { width: 380, height: 720 },
+	deviceScaleFactor: 3,
+});
 const page = await ctx.newPage();
 
 for (const lang of ["ko", "en"]) {
-  const t = texts[lang];
-  const outDir = path.join(outBase, lang);
-  fs.mkdirSync(outDir, { recursive: true });
+	const t = texts[lang];
+	const outDir = path.join(outBase, lang);
+	fs.mkdirSync(outDir, { recursive: true });
 
-  for (const [filename, render] of pages) {
-    await page.setContent(render(t), { waitUntil: "domcontentloaded" });
-    await page.screenshot({ path: path.join(outDir, filename), fullPage: false });
-  }
+	for (const [filename, render] of pages) {
+		await page.setContent(render(t), { waitUntil: "domcontentloaded" });
+		await page.screenshot({
+			path: path.join(outDir, filename),
+			fullPage: false,
+		});
+	}
 }
 
 await browser.close();
