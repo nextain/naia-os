@@ -159,16 +159,15 @@ phases:
         known_issues:
           - "skill_memo 'list all' hangs occasionally (Gateway response timeout)"
       step_4_3b:
-        name: "OpenClaw skills migration (all 51)"
-        status: "planned"
-        description: "Port ALL 51 OpenClaw built-in skills to Naia Shell. Can run parallel with 4.4."
-        current: "4 built-in (time, memo, system_status, weather)"
-        target: "All 51 OpenClaw built-in skills + E2E tests for each"
+        name: "Skills ecosystem (7 built-in + 63 custom)"
+        status: "complete"
+        description: "7 hardcoded built-in skills (Rust list_skills()) + 63 custom skills (~/.naia/skills/ skill.json)"
+        current: "7 built-in + 63 custom (13 Naia-specific + 50 OpenClaw community)"
+        target: "All skills registered + runtime loading"
         strategy: |
-          Primary: Gateway proxy via ~/.naia/skills/ manifest (bulk migration).
-          Each skill gets a skill.json manifest → Gateway proxies to OpenClaw skill.
-          Batch approach: generate manifests programmatically from OpenClaw SKILL.md frontmatter.
-          E2E test per skill: invoke via agent → verify response format.
+          Built-in: 7 hardcoded in Rust list_skills() — time, memo, weather, system_status, naia_discord, soul, exit.
+          Custom: skill.json manifests in ~/.naia/skills/ — bootstrapped from agent/assets/default-skills/.
+          Agent loadCustomSkills() scans directory at runtime, skips already-registered built-ins.
         skills_list:
           knowledge: "1password, apple-notes, bear-notes, notion, obsidian, nano-pdf, trello"
           tasks: "apple-reminders, things-mac, oracle"
@@ -182,7 +181,7 @@ phases:
           ai: "gemini, model-usage, clawhub"
           system: "tmux, healthcheck, session-logs, weather, canvas"
         testing: "E2E test per skill: shell/e2e-tauri/specs/09-skills-*.spec.ts"
-        done_when: "All 51 skills registered + E2E tests passing."
+        done_when: "7 built-in + 63 custom skills registered + toggleable in SkillsTab."
       step_4_4:
         name: "Memory + UX + Onboarding"
         status: "complete"
@@ -286,26 +285,21 @@ phases:
           phase_5_plus: "sLLM (Ollama/llama.cpp) for local summarize/embed"
       step_4_5:
         name: "External channels"
-        status: "partial"
+        status: "complete"
         items:
-          - "Discord bot (discord.js) ✅ — lab.naia.com 내 별도 프로세스, WebSocket 기반"
-          - "Google Chat webhook ✅ — POST /api/webhooks/googlechat"
-          - "Telegram bot (grammY) — planned"
+          - "Discord DM bot ✅ — Naia 전용 DM 봇 (naia-discord skill), OAuth 연동"
+          - "Google Chat — planned (webhook 준비, 앱 등록 미완)"
           - "External channels limited to Tier 0-1"
         implementation:
           gateway_changes:
-            - "CaretUser.provider_account_id column added (Discord user ID / Google sub mapping)"
+            - "CaretUser.provider_account_id column added (Discord user ID mapping)"
             - "GET /v1/auth/lookup endpoint (master key, provider + provider_account_id or email)"
             - "Alembic migration a2f7b8c9d0e1"
-          lab_changes:
-            - "discord-bot.ts: WebSocket bot (mention/DM → user lookup → LLM → reply)"
-            - "webhooks/googlechat/route.ts: POST handler (email lookup → LLM → response)"
-            - "settings/integrations/page.tsx: integration status UI"
-            - "socialLogin() passes providerAccountId, lookupUser() added"
-          pending_manual:
-            - "Run Discord bot: npm run bot:discord"
-            - "Register Google Chat app + webhook URL"
-            - "Production deployment"
+          naia_changes:
+            - "discord-auth.ts: OAuth login → discoverDmChannelId() → Shell config 저장"
+            - "naia-discord.ts: DM 전용 스킬 (send/status/history)"
+            - "openclaw-sync.ts: syncDiscordToGateway() → Gateway runtime config.patch"
+            - "settings/integrations: Discord 연동 상태 UI"
       step_4_6:
         name: "systemd auto-start integration"
         items:
@@ -315,13 +309,13 @@ phases:
     reuse: "MoltBot: Gateway pattern, channel SDKs, Skills"
 
   phase_5:
-    name: "lab.naia.com integration"
+    name: "Nextain account integration"
     timeline: "Week 8-9"
-    deliverable: "OAuth login via lab.naia.com, automatic API key provisioning, credit dashboard"
-    status: "partial"
-    notes: "Deep link (5-1) ✅, Auth flow UI (5-2) partial ✅, LLM proxy (5-3) ✅, Credit display (5-4) partial ✅. Discord/Google Chat integration done via lab."
+    deliverable: "OAuth login via naia.nextain.io, automatic API key provisioning, credit dashboard"
+    status: "complete"
+    notes: "Deep link (5-1) ✅, Auth flow UI (5-2) ✅, LLM proxy (5-3) ✅, Credit display (5-4) ✅, Discord integration ✅."
     architecture: |
-      Shell (Tauri) → OAuth → lab.naia.com → deep link naia:// → gatewayKey stored local
+      Shell (Tauri) → OAuth → naia.nextain.io → deep link naia:// → gatewayKey stored local
       Agent → X-AnyLLM-Key: Bearer {key} → any-llm Gateway (GCP) → LLM proxy + credit deduction
       Existing direct API key mode preserved for offline/self-hosted users.
     tasks:
@@ -337,9 +331,9 @@ phases:
         name: "Auth flow UI"
         items:
           - "config.ts: labKey?, labUserId? fields + hasLabKey() util"
-          - "OnboardingWizard.tsx: 'Lab Login' button alongside provider selection"
-          - "Browser open → lab.naia.com/ko/login?redirect=desktop → deep link callback → skip apiKey step"
-          - "SettingsTab.tsx: 'Lab Account' section (connected/disconnected status, disconnect button)"
+          - "OnboardingWizard.tsx: 'Nextain' button alongside provider selection"
+          - "Browser open → naia.nextain.io/ko/login?redirect=desktop → deep link callback → skip apiKey step"
+          - "SettingsTab.tsx: 'Nextain Account' section (connected/disconnected status, disconnect button)"
       step_5_3:
         name: "LLM proxy integration"
         items:
@@ -352,7 +346,7 @@ phases:
         items:
           - "CostDashboard.tsx: server balance query + display when Lab connected"
           - "Balance API: GET /v1/profile/balance (labKey auth)"
-          - "'Charge credits' button → lab.naia.com/billing link"
+          - "'Charge credits' button → naia.nextain.io/billing link"
       step_5_5:
         name: "Tests"
         items:
@@ -360,7 +354,7 @@ phases:
           - "NEW agent/src/__tests__/lab-proxy.test.ts (proxy provider unit test)"
           - "NEW shell/e2e-tauri/specs/13-lab-login.spec.ts (E2E deep link simulation)"
           - "MOD shell/e2e-tauri/specs/02-configure.spec.ts (Lab login option exists)"
-    done_when: "Lab login → auto key provisioning → LLM calls via gateway → credit balance visible"
+    done_when: "Nextain login → auto key provisioning → LLM calls via gateway → credit balance visible"
 
   phase_6:
     name: "Tauri app distribution (Linux packages)"
@@ -385,7 +379,7 @@ phases:
         name: "Flathub (optional)"
         status: "partial"
         items:
-          - "flatpak/com.naia.shell.yml manifest ✅ (GNOME 47, npx pnpm, cargo build)"
+          - "flatpak/io.nextain.naia.yml manifest ✅ (GNOME 47, npx pnpm, cargo build)"
           - "Build success: x86-64 ELF 204.9 MB ✅"
           - "Known: GNOME 47 EOL but required (Tauri 2 needs webkit2gtk-4.1)"
           - "Flathub submission (separate repo) — pending"

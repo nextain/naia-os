@@ -1,245 +1,249 @@
 # Naia OS
 
-Bazzite 기반 배포형 AI OS. USB 꽂으면 Naia가 맞이하는 개인 AI 운영체제.
+**The Next Generation AI OS** — AI 아바타가 살고 있는 개인 데스크톱 운영체제
 
-## 비전
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-```
-USB 꽂기 → Bazzite 부팅 → Naia(AI 아바타)가 화면에 등장 → 대화 시작
-```
+> "OS 자체가 AI의 도구다. AI가 OS 위에서 실행되는 게 아니라, AI가 OS를 제어한다."
 
-- **OS 자체가 AI의 도구** — AI에게 OS를 통째로 준다
-- **Virtual Avatar** — Naia가 화면에 살아있는 존재
-- **개인 AI 데몬** — 항상 켜져있고, 어디서든 대화 가능
-- **게임도 같이** — AI랑 Minecraft, Factorio 등을 함께 플레이
+## Naia OS란?
+
+Naia OS는 3D 아바타 AI가 상주하는 Linux 데스크톱 앱입니다. 채팅과 음성으로 AI와 대화하고, AI가 파일 관리, 터미널 명령, 웹 검색, 코드 작성까지 직접 수행합니다. 개발자가 아니어도 누구나 자신만의 AI 에이전트를 가질 수 있습니다.
+
+### 핵심 기능
+
+- **3D 아바타** — VRM 캐릭터가 감정 표현(기쁨/슬픔/놀람/생각 등)과 립싱크로 살아있는 대화
+- **멀티 LLM** — Gemini, Claude, GPT, Grok, zAI, Ollama, Claude Code CLI 등 7개 제공업체 지원
+- **도구 실행** — 파일 읽기/쓰기, 터미널 실행, 웹 검색, 브라우저, 서브 에이전트 등 8가지 도구
+- **70개 스킬** — 7개 내장 + 63개 커스텀 (날씨, GitHub, Slack, Notion, Spotify, Discord 등)
+- **음성 대화** — TTS 5개 제공업체 (Nextain Cloud, Edge, Google, OpenAI, ElevenLabs) + STT
+- **14개 언어** — 한국어, 영어, 일본어, 중국어, 프랑스어, 독일어, 러시아어 등
+- **채널 연동** — Discord DM으로 언제 어디서나 AI와 대화
+- **4단계 보안** — T0(읽기) ~ T3(위험) 권한 계층, 도구별 승인 시스템, 감사 로그
+- **Nextain 계정** — API 키 없이 크레딧 기반으로 바로 사용 가능
+- **개인화** — 이름, 성격, 말투, 아바타, 테마(8종) 모두 커스터마이즈
 
 ## 왜 Naia OS인가?
 
-기존 AI 도구들은 **"사람이 AI를 도구로 쓰는"** 구조다. ChatGPT에 질문하고, Copilot에 코드 완성 요청하고, CLI 에이전트에 명령을 내린다. AI는 특정 앱 안에 갇혀 있다.
-
-Naia OS는 이 관계를 뒤집는다 — **"AI에게 OS를 통째로 준다."** Naia는 파일을 읽고 쓰고, 터미널을 실행하고, 앱을 제어한다. 특정 도구가 아니라 운영체제 자체가 AI의 작업 공간이다.
-
-### 기존 접근과의 차이
+기존 AI 도구들은 "사람이 AI를 도구로 쓰는" 구조입니다. Naia OS는 이 관계를 뒤집습니다 — **"AI에게 OS를 통째로 준다."**
 
 | 기존 접근 | 한계 | Naia OS |
-|-----------|------|-----------|
-| **VS Code 확장** (Copilot, Cline 등) | IDE를 열어야 AI를 쓸 수 있음 | IDE 불필요. 항상 켜져있음 |
-| **CLI 에이전트** (Claude Code, Aider 등) | 터미널 안에서만 동작 | 파일, 브라우저, 시스템 전체를 제어 |
-| **챗봇 앱** (ChatGPT, Gemini 등) | 대화만 가능, 실행 불가 | 대화 + 실행. "파일 만들어줘"하면 실제로 만듦 |
-| **macOS 데몬** (MoltBot/OpenClaw 등) | brew 설치 필요, macOS 전용 | USB 하나로 어디서든 부팅. Linux 기반 |
-| **AI 에이전트 프레임워크** (LangChain 등) | 개발자만 사용 가능 | 비개발자도 USB 꽂으면 바로 사용 |
+|-----------|------|---------|
+| **VS Code 확장** (Copilot, Cline) | IDE를 열어야 AI 사용 | IDE 불필요. 항상 켜져있음 |
+| **CLI 에이전트** (Claude Code, Aider) | 터미널 안에서만 동작 | 파일, 브라우저, 시스템 전체 제어 |
+| **챗봇 앱** (ChatGPT, Gemini) | 대화만 가능, 실행 불가 | 대화 + 실행. "파일 만들어줘"하면 실제로 만듦 |
+| **macOS 데몬** (OpenClaw) | brew 설치, macOS 전용, CLI | 데스크톱 앱 + 3D 아바타. Linux 기반 |
+| **AI 프레임워크** (LangChain) | 개발자만 사용 가능 | 7단계 온보딩으로 누구나 시작 |
 
-### 실제 구현된 차별 기능
+## OpenClaw과의 관계
 
-- **3D VRM 아바타**: Naia가 Three.js로 렌더링된 3D 캐릭터로 존재. 대화 중 감정 표현(기쁨, 놀람, 생각 중)과 립싱크가 실시간으로 동작
-- **불변 OS (Bazzite/Fedora Atomic)**: rpm-ostree 기반으로 시스템이 깨져도 롤백 가능. AI가 OS를 제어해도 안전
-- **멀티 LLM**: Gemini, Grok, Claude 등 여러 LLM 프로바이더를 선택해서 사용. 특정 회사에 종속되지 않음
-- **8개 도구 실행**: 파일 읽기/쓰기/편집, 터미널 명령, 웹 검색, 브라우저 제어, 파일 검색, 서브에이전트 생성이 실제로 동작
-- **4단계 권한 시스템**: 읽기(자동) → 생성/수정(알림) → 삭제/설치(승인 필요) → 시스템 파일(차단). 모든 작업은 감사 로그에 기록
-- **Gateway 데몬**: 앱을 닫아도 AI가 백그라운드에서 계속 동작. 외부 채널(Discord, Telegram 등)에서도 접근 가능한 구조
-- **Skills 시스템**: 시간 조회, 시스템 상태, 메모 등의 경량 스킬을 LLM 호출 없이 즉시 실행
-- **USB 부팅**: 설치 없이 USB에 ISO를 구워서 어떤 PC에서든 바로 사용. BlueBuild로 push할 때마다 자동 빌드
-- **음성 대화**: Google TTS/STT 연동으로 음성 입출력 + 아바타 립싱크 지원 (Gemini 프로바이더)
-- **Tauri Webview E2E**: 실제 Tauri 바이너리를 tauri-driver + WebdriverIO로 자동화하는 E2E 테스트 (7개 시나리오, 실제 LLM 호출)
+Naia OS는 [OpenClaw](https://github.com/openclaw-ai/openclaw) 생태계 위에 구축되었지만, 근본적으로 다른 제품입니다.
+
+| | OpenClaw | Naia OS |
+|---|---------|---------|
+| **형태** | CLI 데몬 + 터미널 | 데스크톱 앱 + 3D 아바타 |
+| **대상** | 개발자 | 누구나 |
+| **UI** | 없음 (터미널) | Tauri 2 네이티브 앱 (React + Three.js) |
+| **아바타** | 없음 | VRM 3D 캐릭터 (감정, 립싱크, 시선) |
+| **LLM** | 단일 프로바이더 | 멀티 프로바이더 7개 + 실시간 전환 |
+| **음성** | TTS 3개 (Edge, OpenAI, ElevenLabs) | TTS 5개 (+Google, Nextain) + STT + 아바타 립싱크 |
+| **감정** | 없음 | 6가지 감정 → 표정 매핑 |
+| **온보딩** | CUI | GUI + VRM 아바타 선택 |
+| **비용 추적** | 없음 | 실시간 크레딧 대시보드 |
+| **배포** | npm install | Flatpak / AppImage / DEB / RPM + OS 이미지 |
+| **다국어** | 영어 CLI | 14개 언어 GUI |
+| **채널** | 서버 봇 (멀티채널) | Naia 전용 Discord DM 봇 |
+
+**OpenClaw에서 가져온 것:** 데몬 아키텍처, 도구 실행 엔진, 채널 시스템, 스킬 생태계 (5,700+ Clawhub 스킬 호환)
+
+**Naia OS가 새로 만든 것:** Tauri Shell, VRM 아바타 시스템, 멀티 LLM 에이전트, 감정 엔진, TTS/STT 통합, 온보딩 마법사, 비용 추적, Nextain 계정 연동, 메모리 시스템 (STM/LTM), 보안 계층
 
 ## 아키텍처
 
 ```
-┌─────────────────────────────────────┐
-│         Naia Shell (UI)          │
-│  ┌──────────┬──────────────────┐    │
-│  │  Naia   │  대화 / 작업     │    │
-│  │  Avatar  │  패널            │    │
-│  │ (VRM 3D) │                  │    │
-│  └──────────┴──────────────────┘    │
-├──────────────┬──────────────────────┤
-│ stdio JSON   │  Tauri 2 (Rust)     │
-│ lines        │  Gateway lifecycle  │
-├──────────────┴──────────────────────┤
-│         Agent Core (Node.js)        │
-│  LLM 연결 · 도구 · 서브에이전트     │
-│         ↓ WebSocket (ws://127.0.0.1:18789)
-├─────────────────────────────────────┤
-│     OpenClaw Gateway (데몬)         │
-│  도구 실행 · 채널 · Skills · 메모리  │
-│  (앱 시작 시 자동 spawn / 기존 재사용)│
-├─────────────────────────────────────┤
-│         Bazzite (불변 Linux OS)      │
-│  GPU 드라이버 · Podman · rpm-ostree │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│  Naia Shell (Tauri 2 + React + Three.js)         │
+│  Chat · Avatar · Skills · Channels · Settings    │
+│  State: Zustand │ DB: SQLite │ Auth: OAuth        │
+└──────────────┬───────────────────────────────────┘
+               │ stdio JSON lines
+┌──────────────▼───────────────────────────────────┐
+│  Naia Agent (Node.js + TypeScript)               │
+│  LLM: Gemini, Claude, GPT, Grok, zAI, Ollama    │
+│  TTS: Nextain, Edge, Google, OpenAI, ElevenLabs  │
+│  Skills: 7 built-in + 63 custom                  │
+└──────────────┬───────────────────────────────────┘
+               │ WebSocket (ws://127.0.0.1:18789)
+┌──────────────▼───────────────────────────────────┐
+│  OpenClaw Gateway (systemd user daemon)          │
+│  88 RPC methods │ Tool exec │ Channels │ Memory  │
+└──────────────────────────────────────────────────┘
 ```
+
+**3개 프로젝트의 융합:**
+- **OpenClaw** → 데몬 + 도구 실행 + 채널 + 스킬 생태계
+- **Careti** → 멀티 LLM + 도구 프로토콜 + stdio 통신
+- **OpenCode** → 클라이언트/서버 분리 패턴
 
 ## 프로젝트 구조
 
 ```
-Naia-OS/
-├── shell/          # Naia Shell (Tauri 2 + Three.js Avatar)
-├── agent/          # AI 에이전트 코어 (Node.js, LLM + 도구)
-├── config/         # OS 이미지 설정 (scripts, systemd, wrapper)
-├── recipes/        # BlueBuild recipe
-├── os/             # Bazzite 커스텀 이미지 (BlueBuild)
-├── work-logs/      # 개발 작업 로그
-├── .agents/        # AI용 컨텍스트 (영어, JSON/YAML)
-└── .users/         # 사람용 컨텍스트 (한국어, Markdown)
+naia-os/
+├── shell/              # Tauri 2 데스크톱 앱 (React + Rust)
+│   ├── src/            #   React 컴포넌트 + 상태 관리
+│   ├── src-tauri/      #   Rust 백엔드 (프로세스 관리, SQLite, 인증)
+│   └── e2e-tauri/      #   WebDriver E2E 테스트
+├── agent/              # Node.js AI 에이전트 코어
+│   ├── src/providers/  #   LLM 제공업체 (Gemini, Claude, GPT 등)
+│   ├── src/tts/        #   TTS 제공업체 (Edge, Google, OpenAI 등)
+│   ├── src/skills/     #   내장 스킬 (13개 Naia 전용 TypeScript)
+│   └── assets/         #   번들 스킬 (64개 skill.json)
+├── gateway/            # OpenClaw Gateway 브릿지
+├── flatpak/            # Flatpak 패키징 (io.nextain.naia)
+├── recipes/            # BlueBuild OS 이미지 레시피
+├── config/             # OS 설정 (systemd, 래퍼 스크립트)
+├── .agents/            # AI 컨텍스트 (영어, JSON/YAML)
+└── .users/             # 사람 문서 (한국어, Markdown)
 ```
 
-## 문서
+## 컨텍스트 문서 (Dual-directory Architecture)
 
-- [비전](.users/context/vision.md) — 핵심 컨셉: "OS 자체가 AI의 도구"
-- [구현 계획](.users/context/plan.md) — Phase 0-5 상세 계획, 각 단계 결과물
-- [Careti 재사용](.users/context/careti-reuse.md) — project-careti에서 가져올 코드/전략
-- [프로젝트 규칙](.users/context/agents-rules.md) — 코딩 컨벤션, 테스트, 로깅, 보안, 개발 프로세스
+AI 에이전트와 사람 개발자를 위한 이중 문서 구조입니다. `.agents/`는 AI가 토큰 효율적으로 읽는 JSON/YAML, `.users/`는 사람이 읽는 한국어 Markdown입니다.
+
+| AI 컨텍스트 (`.agents/`) | 사람 문서 (`.users/`) | 설명 |
+|---|---|---|
+| `context/agents-rules.json` | `context/agents-rules.md` | 프로젝트 규칙 (SoT) |
+| `context/project-index.yaml` | — | 컨텍스트 인덱스 + 미러링 규칙 |
+| `context/vision.yaml` | `context/vision.md` | 프로젝트 비전, 핵심 컨셉 |
+| `context/plan.yaml` | `context/plan.md` | 구현 계획, 페이즈별 진행 상태 |
+| `context/architecture.yaml` | `context/architecture.md` | 하이브리드 아키텍처, 보안 계층 |
+| `context/openclaw-sync.yaml` | `context/openclaw-sync.md` | OpenClaw Gateway 동기화 |
+| `context/channels-discord.yaml` | `context/channels-discord.md` | Discord 통합 아키텍처 |
+| `workflows/development-cycle.yaml` | `workflows/development-cycle.md` | 개발 사이클 (PLAN→BUILD→VERIFY) |
+
+**미러링 규칙:** 한쪽을 수정하면 반드시 다른 쪽도 동기화합니다.
 
 ## 기술 스택
 
-| 계층 | 기술 |
-|------|------|
-| OS 기반 | Bazzite (Fedora Atomic, 불변) |
-| 이미지 빌드 | BlueBuild + GitHub Actions |
-| 데스크탑 셸 | Tauri 2 + Three.js (VRM Avatar) |
-| AI 엔진 | Node.js (멀티 LLM 프로바이더) |
-| 데몬 | systemd 서비스 |
-| 메모리 | SQLite + 벡터 검색 |
-| 포맷터 | Biome |
-| 테스트 | Vitest + tauri-driver (WebDriver) |
+| 레이어 | 기술 | 용도 |
+|--------|------|------|
+| OS | Bazzite (Fedora Atomic) | 불변 Linux, GPU 드라이버 |
+| OS 빌드 | BlueBuild | 컨테이너 기반 OS 이미지 |
+| 데스크톱 앱 | Tauri 2 (Rust) | 네이티브 셸 |
+| 프론트엔드 | React 18 + TypeScript + Vite | UI |
+| 아바타 | Three.js + @pixiv/three-vrm | 3D VRM 렌더링 |
+| 상태 관리 | Zustand | 클라이언트 상태 |
+| LLM 엔진 | Node.js + 멀티 SDK | 에이전트 코어 |
+| 프로토콜 | stdio JSON lines | Shell ↔ Agent 통신 |
+| 게이트웨이 | OpenClaw | 데몬 + RPC 서버 |
+| DB | SQLite (rusqlite) | 메모리, 감사 로그 |
+| 포매터 | Biome | 린팅 + 포매팅 |
+| 테스트 | Vitest + tauri-driver | 단위 + E2E |
+| 패키지 | pnpm | 의존성 관리 |
+
+## 빠른 시작
+
+### 사전 요구사항
+
+- Linux (Bazzite, Ubuntu, Fedora 등)
+- Node.js 22+, pnpm 9+
+- Rust stable (Tauri 빌드용)
+- 시스템 패키지: `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel` (Fedora)
+
+### 개발 실행
+
+```bash
+# 의존성 설치
+cd shell && pnpm install
+cd ../agent && pnpm install
+
+# Tauri 앱 실행 (Gateway + Agent 자동 spawn)
+cd ../shell && pnpm run tauri dev
+```
+
+앱 실행 시 자동으로:
+1. OpenClaw Gateway health check → 실행 중이면 재사용, 아니면 자동 spawn
+2. Agent Core spawn (Node.js, stdio 연결)
+3. 앱 종료 시 자동 spawn한 Gateway만 종료
+
+### 테스트
+
+```bash
+cd shell && pnpm test                # Shell 단위 테스트
+cd agent && pnpm test                # Agent 단위 테스트
+cd agent && pnpm exec tsc --noEmit   # 타입 체크
+cargo test --manifest-path shell/src-tauri/Cargo.toml  # Rust 테스트
+
+# E2E (Gateway + API 키 필요)
+cd shell && pnpm run test:e2e:tauri
+```
+
+### Flatpak 빌드
+
+```bash
+flatpak install --user flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+flatpak-builder --user --install --force-clean build-dir flatpak/io.nextain.naia.yml
+flatpak run io.nextain.naia
+```
+
+## 보안 모델
+
+Naia OS는 **다층 방어(Defense in Depth)** 보안 모델을 적용합니다:
+
+| 계층 | 보호 수단 |
+|------|----------|
+| OS | Bazzite 불변 rootfs + SELinux |
+| Gateway | OpenClaw 디바이스 인증 + 토큰 스코프 |
+| Agent | 4단계 권한 (T0~T3) + 도구별 차단 |
+| Shell | 사용자 승인 모달 + 도구 ON/OFF 토글 |
+| 감사 | SQLite 감사 로그 (모든 도구 실행 기록) |
+
+## 메모리 시스템
+
+- **단기 기억 (STM):** 현재 세션 대화 (Zustand + SQLite)
+- **장기 기억 (LTM):** 세션 요약 (LLM 생성) + 사용자 사실/선호 자동 추출
+- **메모 스킬:** `skill_memo`로 명시적 메모 저장/조회
+
+## 현재 상태
+
+| Phase | 내용 | 상태 |
+|-------|------|------|
+| 0 | 배포 파이프라인 (BlueBuild → ISO) | ✅ 완료 |
+| 1 | 아바타 탑재 (VRM 3D 렌더링) | ✅ 완료 |
+| 2 | 대화 (텍스트/음성 + 립싱크 + 감정) | ✅ 완료 |
+| 3 | 도구 실행 (8개 도구 + 권한 + 감사) | ✅ 완료 |
+| 4 | 상시 데몬 (Gateway + Skills + 메모리 + Discord) | ✅ 완료 |
+| 5 | Nextain 계정 연동 (OAuth + 크레딧 + LLM 프록시) | ✅ 완료 |
+| 6 | Tauri 앱 배포 (Flatpak/DEB/RPM/AppImage) | 🟡 진행 중 |
+| 7 | OS ISO 이미지 (USB 부팅 → AI OS) | ⏳ 예정 |
+
+## 개발 프로세스
+
+```
+PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
+```
+
+- **BUILD = TDD** — 테스트 먼저 (RED) → 최소 구현 (GREEN) → 리팩터
+- **VERIFY** — 실제 앱 실행 확인 (타입체크만으로 불충분)
+- **커밋** — 영어, `<type>(<scope>): <description>`
+- **포매터** — Biome (tab, double quote, semicolons)
 
 ## 참조 프로젝트
 
 | 프로젝트 | 가져오는 것 |
 |---------|------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | 불변 Linux OS, GPU, 게이밍 최적화 |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, 플러그인 프로토콜, 게임 에이전트 |
-| [MoltBot/OpenClaw](https://github.com/steipete/openclaw) | Gateway 데몬, 채널 통합, Skills |
+| [OpenClaw](https://github.com/steipete/openclaw) | Gateway 데몬, 채널 통합, Skills |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, 플러그인 프로토콜 |
 | [OpenCode](https://github.com/anomalyco/opencode) | Client/Server 분리, Provider 추상화 |
 | Careti | LLM 연결, 도구 세트, 서브에이전트, 컨텍스트 관리 |
 
-## 개발 환경
+## 라이선스
 
-### 전제조건
+[Apache License 2.0](LICENSE) — Copyright 2026 Nextain
 
-| 항목 | 버전 | 비고 |
-|------|------|------|
-| Node.js | 22+ | nvm 권장 |
-| Rust | stable | `rustup update` |
-| pnpm | 9+ | `corepack enable` |
-| 시스템 패키지 | — | `sudo dnf install webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel` (Fedora) |
+## 링크
 
-### Gateway 설치 (최초 1회)
-
-```bash
-# OpenClaw Gateway 설치 (~/.naia/openclaw/)
-bash config/scripts/setup-openclaw.sh
-```
-
-### 개발 빌드 + 실행
-
-```bash
-# 1. 의존성 설치
-cd shell && pnpm install
-cd ../agent && pnpm install
-
-# 2. Tauri 앱 실행 (Gateway + Agent 자동 시작)
-cd shell && pnpm run tauri dev
-```
-
-앱 실행 시 자동으로:
-1. OpenClaw Gateway health check → 이미 실행 중이면 재사용, 아니면 자동 spawn
-2. Agent Core spawn (Node.js, stdio 연결)
-3. 앱 종료 시 자동 spawn한 Gateway만 종료 (systemd 서비스는 유지)
-
-### 테스트
-
-```bash
-cd agent && pnpm test              # Agent 유닛 테스트
-cd shell && pnpm test              # Shell 유닛 테스트
-cargo test --manifest-path shell/src-tauri/Cargo.toml  # Rust 테스트
-
-# Tauri Webview E2E (실제 앱 자동화, Gateway 실행 중일 때)
-cd shell && pnpm run test:e2e:tauri
-
-# Gateway E2E (Gateway 실행 중일 때)
-cd agent && CAFE_LIVE_GATEWAY_E2E=1 pnpm exec vitest run src/__tests__/gateway-e2e.test.ts
-```
-
-### 수동 Gateway 실행 (개발용)
-
-```bash
-# 별도 터미널에서 수동 실행 시
-~/.naia/openclaw/node_modules/.bin/openclaw gateway run --bind loopback --port 18789
-```
-
-## 배포
-
-```
-Phase 0 (Day 1-3):  BlueBuild 파이프라인 → push하면 ISO 자동 생성
-Phase 1 (Week 1):   아바타 탑재 → Naia가 보이는 ISO
-Phase 2 (Week 2):   대화 추가 → Naia와 대화하는 ISO ← 공개 데모
-Phase 3 (Week 3-4): 도구 → Naia가 일하는 ISO          ✅ 완료
-Phase 4 (Week 5-7): 데몬 → 완성된 AI OS               🟡 진행 중
-Phase 5 (Week 8+):  게임 → AI랑 마인크래프트
-```
-
-## Google Gemini 설정 가이드
-
-### 1. API 키 발급
-
-1. [Google AI Studio](https://aistudio.google.com/) 접속 → 로그인
-2. 좌측 메뉴 **Get API Key** → **Create API Key** 클릭
-3. 프로젝트 선택 (없으면 새로 생성) → API 키 복사
-
-### 2. Cloud API 활성화 (TTS/STT용)
-
-AI Studio에서 발급한 키는 기본적으로 Gemini만 사용 가능합니다.
-음성 기능(TTS/STT)을 쓰려면 Google Cloud Console에서 추가 API를 활성화해야 합니다.
-
-1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-2. AI Studio 키가 속한 **같은 프로젝트** 선택
-3. **APIs & Services** → **Enable APIs and Services** 클릭
-4. 아래 두 API를 검색하여 각각 **Enable** 클릭:
-   - **Cloud Text-to-Speech API** (TTS — AI 음성 합성)
-   - **Cloud Speech-to-Text API** (STT — 음성 인식)
-
-> 두 API 모두 매월 무료 할당량이 있습니다:
-> - TTS: 월 400만 글자 무료 (WaveNet)
-> - STT: 월 60분 무료
-
-### 3. Naia OS에서 설정
-
-1. 앱 실행 후 우측 상단 ⚙️ (설정) 클릭
-2. 아래와 같이 입력:
-
-| 항목 | 값 |
-|------|------|
-| **프로바이더** | `gemini` |
-| **모델** | `gemini-2.5-flash` (권장) 또는 `gemini-2.5-pro` |
-| **API 키** | AI Studio에서 발급한 키 붙여넣기 |
-
-3. **저장** 클릭
-
-### 4. 기능별 동작
-
-| 기능 | 설명 | 필요 API |
-|------|------|----------|
-| **대화** | 텍스트 입력 → AI 응답 | Gemini API (기본) |
-| **TTS (음성 합성)** | AI 응답 완료 후 자동 음성 재생 + 립싱크 | Cloud Text-to-Speech |
-| **STT (음성 인식)** | 🎤 버튼 누른 채로 말하기 → 텍스트 변환 | Cloud Speech-to-Text |
-
-### 5. 다른 프로바이더 사용 시
-
-| 프로바이더 | 대화 | TTS | STT |
-|-----------|------|-----|-----|
-| **Gemini** | ✅ | ✅ 자동 | ✅ 마이크 버튼 |
-| **xAI (Grok)** | ✅ | ❌ | ❌ |
-| **Claude** | ✅ | ❌ | ❌ |
-
-> TTS/STT는 현재 Google API 키를 재사용하는 Gemini 프로바이더에서만 작동합니다.
-
-## 상태
-
-- **Phase 3 완료**: 8개 도구(파일/터미널/검색/웹/브라우저/서브에이전트), 권한 승인, 감사 로그, 작업 패널
-- **Phase 4 진행 중**: Gateway 자동 라이프사이클, Skills 시스템 (time/system_status/memo), Tauri Webview E2E 테스트 (7/7 통과)
-
-## 참고
-
-- Bazzite fork 불필요 — BlueBuild 레이어링으로 충분
-- 상세 보안 정책은 [규칙 문서](.users/context/agents-rules.md#보안) 참조
+- **공식 사이트:** [naia.nextain.io](https://naia.nextain.io)
+- **매뉴얼:** [naia.nextain.io/ko/manual](https://naia.nextain.io/ko/manual)
+- **대시보드:** [naia.nextain.io/ko/dashboard](https://naia.nextain.io/ko/dashboard)

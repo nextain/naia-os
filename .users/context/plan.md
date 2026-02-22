@@ -303,15 +303,13 @@ git push → GitHub Actions → ghcr.io/luke-n-alpha/naia-os:latest
 **알려진 이슈:**
 - skill_memo "전체 목록 보기"가 간헐적으로 행(Gateway 응답 타임아웃)
 
-### 4-3b. OpenClaw 스킬 전체 이식 (51개) — 계획됨
+### 4-3b. 스킬 생태계 (7 built-in + 63 custom) ✅
 
-> 4.4와 **병렬 진행 가능** (의존성 없음)
-> 현재: 4개 built-in (time, memo, system_status, weather)
-> 목표: **OpenClaw 51개 built-in 스킬 전부 이식 + 각 스킬별 E2E 테스트**
+> 7개 기본 스킬 (Rust `list_skills()` 하드코딩) + 63개 커스텀 스킬 (`~/.naia/skills/` skill.json)
+> 기본 스킬: time, memo, weather, system_status, naia_discord, soul, exit
+> 커스텀: 13개 Naia 전용 + 50개 OpenClaw 커뮤니티
 
-**전략:** Gateway 프록시 방식으로 일괄 이식.
-OpenClaw SKILL.md frontmatter에서 manifest를 자동 생성 → `~/.naia/skills/`에 배치.
-각 스킬마다 E2E 테스트 작성.
+**전략:** 기본 스킬은 Rust에서 하드코딩 (비활성화 불가). 커스텀 스킬은 `agent/assets/default-skills/`에서 `~/.naia/skills/`로 bootstrap 복사 후 런타임 로드.
 
 #### 전체 스킬 목록 (51개)
 
@@ -333,7 +331,7 @@ OpenClaw SKILL.md frontmatter에서 manifest를 자동 생성 → `~/.naia/skill
 - E2E spec: `shell/e2e-tauri/specs/09-skills-*.spec.ts`
 - 각 스킬: invoke → 응답 형식 검증
 
-**완료 조건**: 51개 스킬 등록 + E2E 테스트 통과
+**완료 조건**: 7개 기본 + 63개 커스텀 스킬 등록 + SkillsTab에서 토글 가능
 
 ---
 
@@ -479,22 +477,18 @@ interface MemoryProcessor {
 // 5+: LocalLLMMemoryProcessor (Ollama)
 ```
 
-### 4-5. 채널 통합 — 부분 완료 ✅
+### 4-5. 채널 통합 ✅
 
 **완료:**
-- Discord 봇 (discord.js) ✅ — lab.naia.com 내 별도 프로세스, WebSocket 기반
-  - 멘션/DM 감지 → 유저 조회 → LLM 호출 → 응답
-  - 미등록 유저 안내 메시지, Rate limiting (분당 10회), 2000자 분할
-- Google Chat 웹훅 ✅ — POST /api/webhooks/googlechat
-  - 이메일 기반 유저 조회 → LLM 호출 → 응답
+- Discord DM 봇 ✅ — Naia 전용 DM 봇 (naia-discord 스킬), OAuth 연동
+  - `discord-auth.ts`: OAuth → `discoverDmChannelId()` → Shell config 저장
+  - `naia-discord.ts`: DM 전용 스킬 (send/status/history)
+  - `openclaw-sync.ts`: `syncDiscordToGateway()` → Gateway runtime config.patch
 - Gateway에 `provider_account_id` 컬럼 + `GET /v1/auth/lookup` 엔드포인트 추가 ✅
 - 연동 설정 UI (settings/integrations) ✅
 
-**남은 작업:**
-- Telegram 봇 (grammY) — 미구현
-- Discord 봇 실제 실행 테스트 (`npm run bot:discord`)
-- Google Chat 앱 등록 + webhook URL 설정
-- 프로덕션 배포
+**예정:**
+- Google Chat — webhook 준비, 앱 등록 미완
 
 **결과:** 밖에서 "집 PC 상태?" → Alpha 응답
 
@@ -514,17 +508,17 @@ interface MemoryProcessor {
 
 ---
 
-## Phase 5: lab.naia.com 통합 (Week 8-9) — 부분 완료
+## Phase 5: Nextain 계정 연동 (Week 8-9) ✅ 완료
 
-> **결과물**: Lab OAuth 로그인으로 API 키 입력 없이 편리하게 사용. 기존 수동 키 입력 유지.
-> **현황**: Deep link (5-1) ✅, Auth flow UI (5-2) 부분 ✅, LLM proxy (5-3) ✅, Credit display (5-4) 부분 ✅. Discord/Google Chat 연동 완료.
+> **결과물**: Nextain OAuth 로그인으로 API 키 입력 없이 편리하게 사용. 기존 수동 키 입력 유지.
+> **현황**: Deep link (5-1) ✅, Auth flow UI (5-2) ✅, LLM proxy (5-3) ✅, Credit display (5-4) ✅, Discord 연동 ✅.
 
 ### 아키텍처
 
 ```
 ┌────────────────┐    OAuth     ┌─────────────────────┐
-│  Naia Shell │ ──────────→  │  lab.naia.com     │
-│  (Tauri 앱)    │  ←────────── │  (Next.js 포털)      │
+│  Naia Shell    │ ──────────→  │  naia.nextain.io      │
+│  (Tauri 앱)    │  ←────────── │  (Next.js 포털)       │
 │                │  deep link   │                       │
 │  gatewayKey    │  naia://  │  POST desktop-key     │
 │  stored local  │              │  → virtual key 발급   │
@@ -550,9 +544,9 @@ interface MemoryProcessor {
 ### 5-2. 인증 흐름 UI
 
 - `config.ts`: `labKey?`, `labUserId?` 필드 + `hasLabKey()` 유틸
-- `OnboardingWizard.tsx`: "Lab 로그인" 버튼 (기존 프로바이더 선택과 병행)
-- 브라우저 → lab.naia.com 로그인 → deep link 콜백 → 키 저장 → apiKey 스텝 건너뛰기
-- `SettingsTab.tsx`: "Lab 계정 연결" 섹션 (연결 상태 표시, 해제 버튼)
+- `OnboardingWizard.tsx`: "Nextain" 버튼 (기존 프로바이더 선택과 병행)
+- 브라우저 → naia.nextain.io 로그인 → deep link 콜백 → 키 저장 → apiKey 스텝 건너뛰기
+- `SettingsTab.tsx`: "Nextain 계정" 섹션 (연결 상태 표시, 해제 버튼)
 
 ### 5-3. LLM 프록시 연동
 
@@ -563,9 +557,9 @@ interface MemoryProcessor {
 
 ### 5-4. 크레딧 잔액 표시
 
-- `CostDashboard.tsx`: Lab 연결 시 서버 잔액 조회 + 표시
+- `CostDashboard.tsx`: Nextain 연결 시 서버 잔액 조회 + 표시
 - 잔액 API: `GET /v1/profile/balance` (labKey 인증)
-- "크레딧 충전" 버튼 → lab.naia.com/billing 링크
+- "크레딧 충전" 버튼 → naia.nextain.io/billing 링크
 
 ### 5-5. 테스트
 
@@ -575,7 +569,7 @@ interface MemoryProcessor {
 
 ### Phase 5 완료 = 크레딧 기반 서비스 모드
 ```
-✅ Lab 로그인 → 자동 키 발급 → Gateway 경유 LLM 호출
+✅ Nextain 로그인 → 자동 키 발급 → Gateway 경유 LLM 호출
 ✅ 크레딧 잔액 실시간 표시
 ✅ 기존 로컬 모드 (직접 API 키) 병행 유지
 ```
@@ -601,7 +595,7 @@ interface MemoryProcessor {
 
 ### 6-3. Flathub (선택) — 부분 완료 ✅
 
-- `flatpak/com.naia.shell.yml` 매니페스트 완성 ✅
+- `flatpak/io.nextain.naia.yml` 매니페스트 완성 ✅
   - GNOME 47 런타임 (Tauri 2의 webkit2gtk-4.1 호환)
   - `npx pnpm` + `CI=true`로 SDK 읽기 전용 파일시스템 대응
   - `cargo build --release`로 바이너리 빌드 (번들링 건너뛰기)
@@ -637,7 +631,7 @@ interface MemoryProcessor {
 ```
 ✅ USB 부팅 → Naia OS 설치
 ✅ Naia Shell 자동 시작
-✅ Lab 로그인 또는 로컬 모드 선택
+✅ Nextain 로그인 또는 로컬 모드 선택
 ```
 
 ---
@@ -680,7 +674,7 @@ Week 1:    Phase 1 (아바타)     → Alpha가 보이는 ISO
 Week 2:    Phase 2 (대화)       → Alpha와 대화하는 ISO  ← 공개 데모
 Week 3-4:  Phase 3 (도구)       → Alpha가 일하는 ISO
 Week 5-7:  Phase 4 (데몬)       → 완성된 AI OS ISO
-Week 8-9:  Phase 5 (Lab 통합)   → 크레딧 서비스 모드 추가
+Week 8-9:  Phase 5 (Nextain 연동) → 크레딧 서비스 모드 추가
 Week 10:   Phase 6 (앱 배포)    → 독립 Linux 앱 배포
 Week 11:   Phase 7 (OS ISO)     → 최종 ISO 빌드
 Week 12+:  Phase 8 (게임)       → 게임하는 AI OS ISO
@@ -698,7 +692,7 @@ push → GitHub Actions → 빌드 → ISO → 다운로드 가능.
 | **Phase 2** | **데모 영상: AI와 대화하는 OS** | **높음 — 여기서 공개** |
 | Phase 3 | 데모: AI가 터미널/파일 제어 | 매우 높음 |
 | Phase 4 | "Discord에서 집 AI에게 명령" | 높음 |
-| **Phase 5** | **"Lab 로그인으로 API 키 없이 AI OS"** | **높음 — 크레딧 서비스** |
+| **Phase 5** | **"Nextain 로그인으로 API 키 없이 AI OS"** | **높음 — 크레딧 서비스** |
 | Phase 6 | "AppImage로 기존 Linux에 설치" | 중간 |
 | Phase 7 | "완성된 AI OS ISO" | 매우 높음 |
 | Phase 8 | "AI랑 마인크래프트" | 바이럴 가능성 |
