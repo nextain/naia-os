@@ -5,7 +5,7 @@ export function useLongPress(
 	onClick: () => void,
 	ms = 500,
 ) {
-	const timerRef = useRef<NodeJS.Timeout | null>(null);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isLongPress = useRef(false);
 
 	const start = useCallback(() => {
