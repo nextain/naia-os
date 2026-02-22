@@ -2,7 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLongPress } from "../hooks/useLongPress";
 import { directToolCall } from "../lib/chat-service";
 import {
@@ -10,6 +10,7 @@ import {
 	LAB_GATEWAY_URL,
 	MODEL_OPTIONS,
 	type ThemeId,
+	type TtsProviderId,
 	clearAllowedTools,
 	getDefaultModel,
 	loadConfig,
@@ -28,9 +29,11 @@ import { Logger } from "../lib/logger";
 import { syncToOpenClaw } from "../lib/openclaw-sync";
 import { DEFAULT_PERSONA, buildSystemPrompt } from "../lib/persona";
 import { persistDiscordDefaults } from "../lib/discord-auth";
+import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { useAvatarStore } from "../stores/avatar";
+import { useChatStore } from "../stores/chat";
 
 const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
 	{ id: "nextain", label: "Nextain (Naia OS)" },
@@ -57,9 +60,137 @@ const TTS_VOICES: { id: string; label: string; price: string }[] = [
 	{ id: "ko-KR-Standard-D", label: "남성 D (Standard)", price: "$4/1M자" },
 ];
 
-type TtsEngine = "auto" | "openclaw" | "google";
+// Fallback voice lists for gateway providers that don't return voices dynamically
+const ALL_EDGE_VOICES: string[] = [
+	// 한국어
+	"ko-KR-SunHiNeural",
+	"ko-KR-InJoonNeural",
+	"ko-KR-HyunsuMultilingualNeural",
+	// English
+	"en-US-AvaNeural",
+	"en-US-AndrewNeural",
+	"en-US-EmmaNeural",
+	"en-US-BrianNeural",
+	"en-US-AriaNeural",
+	"en-US-AnaNeural",
+	"en-US-ChristopherNeural",
+	"en-US-EricNeural",
+	"en-US-GuyNeural",
+	"en-US-JennyNeural",
+	"en-US-MichelleNeural",
+	"en-US-RogerNeural",
+	"en-US-SteffanNeural",
+	"en-US-AndrewMultilingualNeural",
+	"en-US-AvaMultilingualNeural",
+	"en-US-BrianMultilingualNeural",
+	"en-US-EmmaMultilingualNeural",
+	"en-GB-LibbyNeural",
+	"en-GB-SoniaNeural",
+	"en-GB-RyanNeural",
+	"en-GB-ThomasNeural",
+	"en-GB-MaisieNeural",
+	"en-AU-NatashaNeural",
+	"en-AU-WilliamMultilingualNeural",
+	// 日本語
+	"ja-JP-NanamiNeural",
+	"ja-JP-KeitaNeural",
+	// 中文
+	"zh-CN-XiaoxiaoNeural",
+	"zh-CN-XiaoyiNeural",
+	"zh-CN-YunjianNeural",
+	"zh-CN-YunxiNeural",
+	"zh-CN-YunxiaNeural",
+	"zh-CN-YunyangNeural",
+	"zh-TW-HsiaoChenNeural",
+	"zh-TW-HsiaoYuNeural",
+	"zh-TW-YunJheNeural",
+	// Français
+	"fr-FR-DeniseNeural",
+	"fr-FR-HenriNeural",
+	"fr-FR-EloiseNeural",
+	"fr-FR-VivienneMultilingualNeural",
+	"fr-FR-RemyMultilingualNeural",
+	// Deutsch
+	"de-DE-KatjaNeural",
+	"de-DE-ConradNeural",
+	"de-DE-AmalaNeural",
+	"de-DE-KillianNeural",
+	"de-DE-SeraphinaMultilingualNeural",
+	"de-DE-FlorianMultilingualNeural",
+	// Русский
+	"ru-RU-SvetlanaNeural",
+	"ru-RU-DmitryNeural",
+	// Español
+	"es-ES-ElviraNeural",
+	"es-ES-AlvaroNeural",
+	"es-ES-XimenaNeural",
+	"es-MX-DaliaNeural",
+	"es-MX-JorgeNeural",
+	// العربية
+	"ar-SA-ZariyahNeural",
+	"ar-SA-HamedNeural",
+	"ar-EG-SalmaNeural",
+	"ar-EG-ShakirNeural",
+	// हिन्दी
+	"hi-IN-SwaraNeural",
+	"hi-IN-MadhurNeural",
+	// বাংলা
+	"bn-BD-NabanitaNeural",
+	"bn-BD-PradeepNeural",
+	"bn-IN-TanishaaNeural",
+	"bn-IN-BashkarNeural",
+	// Português
+	"pt-BR-FranciscaNeural",
+	"pt-BR-AntonioNeural",
+	"pt-BR-ThalitaMultilingualNeural",
+	"pt-PT-RaquelNeural",
+	"pt-PT-DuarteNeural",
+	// Bahasa Indonesia
+	"id-ID-GadisNeural",
+	"id-ID-ArdiNeural",
+	// Tiếng Việt
+	"vi-VN-HoaiMyNeural",
+	"vi-VN-NamMinhNeural",
+];
+
+/** Filter Edge voices by locale; multilingual voices always included */
+function getEdgeVoicesForLocale(loc: string): string[] {
+	const langPrefix = loc.slice(0, 2).toLowerCase() + "-";
+	return ALL_EDGE_VOICES.filter(
+		(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
+	);
+}
+
+const OPENAI_VOICES: string[] = [
+	"alloy", "ash", "coral", "echo", "fable",
+	"nova", "onyx", "sage", "shimmer",
+];
+
+// Voices that require gpt-4o-mini-tts or are unreliable with tts-1
+const OPENAI_EXCLUDED_VOICES = new Set(["ballad", "cedar", "juniper", "marin", "verse"]);
+
+const ELEVENLABS_VOICES: string[] = [
+	"Rachel", "Domi", "Bella", "Antoni", "Elli",
+	"Josh", "Arnold", "Adam", "Sam",
+];
+
 type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
 type GatewayTtsMode = "final" | "all";
+
+const TTS_PROVIDERS: {
+	id: TtsProviderId;
+	label: string;
+	needsKey: boolean;
+	keyLabel?: string;
+	keyPlaceholder?: string;
+	usesGateway: boolean;
+	gatewayProviderId?: string; // maps to OpenClaw TTS provider ID
+}[] = [
+	{ id: "edge", label: "Edge TTS (Free)", needsKey: false, usesGateway: true, gatewayProviderId: "edge" },
+	{ id: "google", label: "Google Cloud TTS", needsKey: true, keyLabel: "Google API Key", keyPlaceholder: "AIza...", usesGateway: false },
+	{ id: "openai", label: "OpenAI TTS", needsKey: true, keyLabel: "OpenAI API Key", keyPlaceholder: "sk-...", usesGateway: true, gatewayProviderId: "openai" },
+	{ id: "elevenlabs", label: "ElevenLabs", needsKey: true, keyLabel: "ElevenLabs API Key", keyPlaceholder: "xi-...", usesGateway: true, gatewayProviderId: "elevenlabs" },
+];
 
 const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "ko", label: "한국어" },
@@ -531,15 +662,16 @@ export function SettingsTab() {
 	const [googleApiKey, setGoogleApiKey] = useState(
 		existing?.googleApiKey ?? "",
 	);
-	const [ttsEngine, setTtsEngine] = useState<TtsEngine>(
-		existing?.ttsEngine ??
-			(existing?.provider === "nextain" ? "openclaw" : "auto"),
+	const [ttsProvider, setTtsProvider] = useState<TtsProviderId>(
+		existing?.ttsProvider ??
+			(existing?.ttsEngine === "openclaw" ? "edge" :
+			 existing?.ttsEngine === "google" ? "google" : "edge"),
 	);
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
 	const [sttEnabled, setSttEnabled] = useState(existing?.sttEnabled ?? true);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [enableTools, setEnableTools] = useState(
-		existing?.enableTools ?? false,
+		existing?.enableTools ?? true,
 	);
 	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
 	const [gatewayUrl, setGatewayUrl] = useState(
@@ -554,11 +686,14 @@ export function SettingsTab() {
 	const [discordDefaultTarget, setDiscordDefaultTarget] = useState(
 		existing?.discordDefaultTarget ?? "",
 	);
+	const [discordDmChannelId, setDiscordDmChannelId] = useState(
+		existing?.discordDmChannelId ?? "",
+	);
 	const [error, setError] = useState("");
 	const [saved, setSaved] = useState(false);
 	const [isPreviewing, setIsPreviewing] = useState(false);
 	const [facts, setFacts] = useState<Fact[]>([]);
-	const allowedToolsCount = existing?.allowedTools?.length ?? 0;
+	const [allowedToolsCount, setAllowedToolsCount] = useState(existing?.allowedTools?.length ?? 0);
 	const [labKey, setLabKeyState] = useState(existing?.labKey ?? "");
 	const [labUserId, setLabUserIdState] = useState(existing?.labUserId ?? "");
 
@@ -679,7 +814,18 @@ export function SettingsTab() {
 				resolveProvider(m.provider) || resolveProviderFromId(m.id);
 			if (mappedProvider) pushModel(mappedProvider);
 			if (mappedProvider === "anthropic") pushModel("claude-code-cli");
-			pushModel("nextain");
+			// Nextain only supports curated Gemini models
+			if (mappedProvider === "gemini") {
+				const NEXTAIN_ALLOWED = [
+					"gemini-3.1-pro-preview",
+					"gemini-3-flash-preview",
+					"gemini-2.5-pro",
+					"gemini-2.5-flash",
+				];
+				if (NEXTAIN_ALLOWED.includes(modelId)) {
+					pushModel("nextain");
+				}
+			}
 		}
 
 					setDynamicModels(grouped);
@@ -714,11 +860,19 @@ export function SettingsTab() {
 	const [gatewayTtsProviders, setGatewayTtsProviders] = useState<
 		{ id: string; label: string; configured: boolean; voices: string[] }[]
 	>([]);
-	const [gatewayTtsProvider, setGatewayTtsProvider] = useState("");
-	const [gatewayTtsEnabled, setGatewayTtsEnabled] = useState(true);
+	// gatewayTtsActiveProvider tracks which provider the gateway is using (for API sync only)
+	const gatewayTtsActiveProviderRef = useRef("");
 	const [gatewayTtsAuto, setGatewayTtsAuto] = useState<GatewayTtsAuto>("off");
 	const [gatewayTtsMode, setGatewayTtsMode] = useState<GatewayTtsMode>("final");
 	const [gatewayTtsLoading, setGatewayTtsLoading] = useState(false);
+	const [gatewayTtsApiKey, setGatewayTtsApiKey] = useState(() => {
+		const p = existing?.ttsProvider ?? "edge";
+		if (p === "openai") return existing?.openaiTtsApiKey ?? "";
+		if (p === "elevenlabs") return existing?.elevenlabsApiKey ?? "";
+		return "";
+	});
+	const [gatewayTtsKeySaving, setGatewayTtsKeySaving] = useState(false);
+	const [gatewayTtsKeySaved, setGatewayTtsKeySaved] = useState(false);
 
 	// Voice wake state
 	const [voiceWakeTriggers, setVoiceWakeTriggers] = useState<string[]>([]);
@@ -730,6 +884,7 @@ export function SettingsTab() {
 
 	// In-app confirmation state (replaces window.confirm to avoid WebKitGTK double-dialog)
 	const [showResetConfirm, setShowResetConfirm] = useState(false);
+	const [resetClearHistory, setResetClearHistory] = useState(false);
 	const [showLabDisconnect, setShowLabDisconnect] = useState(false);
 
 	const fetchGatewayTts = useCallback(async () => {
@@ -759,13 +914,26 @@ export function SettingsTab() {
 					auto?: GatewayTtsAuto;
 					mode?: GatewayTtsMode;
 				};
-				setGatewayTtsProvider(status.provider || "");
-				setGatewayTtsEnabled(status.enabled !== false);
+				gatewayTtsActiveProviderRef.current = status.provider || "";
 				setGatewayTtsAuto(status.auto ?? "off");
 				setGatewayTtsMode(status.mode ?? "final");
 			}
 			if (providersRes.success && providersRes.output) {
-				setGatewayTtsProviders(JSON.parse(providersRes.output));
+				const raw = JSON.parse(providersRes.output);
+				// Gateway may return array or object with providers
+				const providers = Array.isArray(raw)
+					? raw
+					: Array.isArray(raw?.providers)
+						? raw.providers
+						: Object.entries(raw)
+								.filter(([k]) => k !== "current" && k !== "fallback")
+								.map(([id, v]) => ({
+									id,
+									label: id,
+									configured: (v as Record<string, unknown>)?.configured === true,
+									voices: ((v as Record<string, unknown>)?.voices as string[]) ?? [],
+								}));
+				setGatewayTtsProviders(providers);
 			}
 		} catch (err) {
 			Logger.warn("SettingsTab", "Failed to load Gateway TTS", {
@@ -801,10 +969,6 @@ export function SettingsTab() {
 	}, [gatewayUrl, gatewayToken]);
 
 	const fetchDiscordBotStatus = useCallback(async () => {
-		if (!enableTools) {
-			setDiscordBotConnected(false);
-			return;
-		}
 		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 		setDiscordBotLoading(true);
 		try {
@@ -832,7 +996,7 @@ export function SettingsTab() {
 		} finally {
 			setDiscordBotLoading(false);
 		}
-	}, [enableTools, gatewayUrl, gatewayToken]);
+	}, [gatewayUrl, gatewayToken]);
 
 	useEffect(() => {
 		fetchGatewayTts();
@@ -910,8 +1074,10 @@ export function SettingsTab() {
 				const labFullPrompt = buildSystemPrompt(current?.persona, {
 					agentName: current?.agentName,
 					userName: current?.userName,
+					discordDefaultUserId: current?.discordDefaultUserId,
+					discordDmChannelId: current?.discordDmChannelId,
 				});
-				syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, labFullPrompt, current?.locale || getLocale());
+				syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, labFullPrompt, current?.locale || getLocale(), current?.discordDmChannelId, current?.discordDefaultUserId);
 			},
 		);
 		return () => {
@@ -933,6 +1099,7 @@ export function SettingsTab() {
 
 			setDiscordDefaultUserId(next.discordDefaultUserId ?? "");
 			setDiscordDefaultTarget(next.discordDefaultTarget ?? "");
+			setDiscordDmChannelId(next.discordDmChannelId ?? "");
 			setDiscordBotConnected(true);
 		});
 		return () => {
@@ -971,9 +1138,6 @@ export function SettingsTab() {
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
 		setModel(getDefaultModel(id));
-		if (id === "nextain" && ttsEngine === "auto") {
-			setTtsEngine("openclaw");
-		}
 		setError("");
 		if (id === "nextain" && !labKey) {
 			setError("Naia OS 계정 로그인이 필요합니다. 먼저 Nextain 계정에 로그인하세요.");
@@ -1025,35 +1189,54 @@ export function SettingsTab() {
 		}
 	}
 
+	const ttsProviderMeta = TTS_PROVIDERS.find((p) => p.id === ttsProvider);
+	const ttsUsesGateway = ttsProviderMeta?.usesGateway ?? false;
+
+	// Persist TTS voice/provider changes immediately (without full handleSave)
+	function persistTtsVoice(voice: string) {
+		setTtsVoice(voice);
+		if (existing) {
+			saveConfig({ ...existing, ttsVoice: voice });
+		}
+	}
+	function persistTtsProvider(p: TtsProviderId) {
+		setTtsProvider(p);
+		const derivedEngine = p === "google" ? "google" : "openclaw";
+		if (existing) {
+			saveConfig({ ...existing, ttsProvider: p, ttsEngine: derivedEngine as "google" | "openclaw" });
+		}
+	}
+
+	function getPreviewText(voice: string): string {
+		const lang = voice.slice(0, 2).toLowerCase();
+		switch (lang) {
+			case "en": return "Hello, nice to meet you. Have a great day!";
+			case "ja": return "こんにちは、はじめまして。良い一日をお過ごしください。";
+			case "zh": return "你好，很高兴认识你。祝你有美好的一天！";
+			case "fr": return "Bonjour, enchanté. Passez une bonne journée !";
+			case "de": return "Hallo, freut mich. Einen schönen Tag noch!";
+			case "es": return "Hola, mucho gusto. ¡Que tengas un buen día!";
+			case "ru": return "Здравствуйте, приятно познакомиться. Хорошего дня!";
+			case "ar": return "مرحباً، سعيد بلقائك. أتمنى لك يوماً سعيداً!";
+			case "hi": return "नमस्ते, आपसे मिलकर खुशी हुई। आपका दिन शुभ हो!";
+			case "bn": return "নমস্কার, আপনার সাথে দেখা হয়ে ভালো লাগলো। শুভ দিন!";
+			case "pt": return "Olá, prazer em conhecê-lo. Tenha um ótimo dia!";
+			case "id": return "Halo, senang bertemu Anda. Semoga hari Anda menyenangkan!";
+			case "vi": return "Xin chào, rất vui được gặp bạn. Chúc bạn một ngày tốt lành!";
+			default: return "안녕하세요, 반갑습니다. 오늘도 좋은 하루 되세요.";
+		}
+	}
+
 	async function handleVoicePreview() {
 		if (isPreviewing) return;
 		setError("");
 		setIsPreviewing(true);
 		try {
 			let base64 = "";
-			const useGatewayPreview =
-				ttsEngine === "openclaw" ||
-				(provider === "nextain" && ttsEngine !== "google");
-			if (useGatewayPreview) {
-				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-				const result = await directToolCall({
-					toolName: "skill_tts",
-					args: { action: "convert", text: "안녕하세요, 저는 낸예요.", voice: ttsVoice },
-					requestId: `tts-preview-${Date.now()}`,
-					gatewayUrl: effectiveGatewayUrl,
-					gatewayToken,
-				});
-				if (!result.success || !result.output) {
-					throw new Error("Gateway TTS 변환에 실패했습니다.");
-				}
-				const parsed = JSON.parse(result.output) as { audio?: string };
-				if (!parsed.audio) {
-					throw new Error("Gateway TTS 응답에 오디오가 없습니다.");
-				}
-				base64 = parsed.audio;
-			} else {
-				const key =
-					googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
+			const previewText = getPreviewText(ttsVoice);
+			if (ttsProvider === "google") {
+				// Direct Google TTS preview via Rust (needs Google API key)
+				const key = googleApiKey.trim() || (provider === "gemini" ? apiKey.trim() : "");
 				if (!key) {
 					setError("TTS 미리듣기를 사용하려면 Google TTS API Key를 입력하세요.");
 					return;
@@ -1061,8 +1244,42 @@ export function SettingsTab() {
 				base64 = await invoke<string>("preview_tts", {
 					apiKey: key,
 					voice: ttsVoice,
-					text: "안녕하세요, 저는 낸예요.",
+					text: previewText,
 				});
+			} else {
+				// Direct TTS preview via agent (edge/openai/elevenlabs — no Gateway needed)
+				const previewArgs: Record<string, unknown> = {
+					action: "preview",
+					provider: ttsProvider,
+					text: previewText,
+					voice: ttsVoice,
+				};
+				// Pass API key for providers that need it
+				if (ttsProvider === "openai") {
+					previewArgs.apiKey = gatewayTtsApiKey.trim() || existing?.openaiTtsApiKey || undefined;
+				} else if (ttsProvider === "elevenlabs") {
+					previewArgs.apiKey = gatewayTtsApiKey.trim() || existing?.elevenlabsApiKey || undefined;
+				}
+				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+				const result = await directToolCall({
+					toolName: "skill_tts",
+					args: previewArgs,
+					requestId: `tts-preview-${Date.now()}`,
+					gatewayUrl: effectiveGatewayUrl,
+					gatewayToken,
+				});
+				if (!result.success || !result.output) {
+					throw new Error(
+						ttsProvider === "edge"
+							? "Edge TTS 미리듣기에 실패했습니다."
+							: "TTS 미리듣기에 실패했습니다. API Key를 확인하세요.",
+					);
+				}
+				const parsed = JSON.parse(result.output) as { audio?: string };
+				if (!parsed.audio) {
+					throw new Error("TTS 오디오 데이터를 수신하지 못했습니다.");
+				}
+				base64 = parsed.audio;
 			}
 			const audio = new Audio(`data:audio/mp3;base64,${base64}`);
 			await audio.play();
@@ -1076,7 +1293,7 @@ export function SettingsTab() {
 	}
 
 	async function handleGatewayTtsProviderChange(newProvider: string) {
-		setGatewayTtsProvider(newProvider);
+		gatewayTtsActiveProviderRef.current = newProvider;
 		try {
 			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 			await directToolCall({
@@ -1088,27 +1305,6 @@ export function SettingsTab() {
 			});
 		} catch (err) {
 			Logger.warn("SettingsTab", "Failed to set Gateway TTS provider", {
-				error: String(err),
-			});
-		}
-	}
-
-	async function handleGatewayTtsEnabledChange(enabled: boolean) {
-		setGatewayTtsEnabled(enabled);
-		try {
-			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-			await directToolCall({
-				toolName: "skill_tts",
-				args: { action: enabled ? "enable" : "disable" },
-				requestId: `tts-enabled-${Date.now()}`,
-				gatewayUrl: effectiveGatewayUrl,
-				gatewayToken,
-			});
-			if (!enabled) {
-				setGatewayTtsAuto("off");
-			}
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to toggle Gateway TTS", {
 				error: String(err),
 			});
 		}
@@ -1147,6 +1343,56 @@ export function SettingsTab() {
 			Logger.warn("SettingsTab", "Failed to set Gateway TTS output mode", {
 				error: String(err),
 			});
+		}
+	}
+
+	async function handleGatewayTtsApiKeySave() {
+		const key = gatewayTtsApiKey.trim();
+		if (!key) return;
+		const meta = TTS_PROVIDERS.find((p) => p.id === ttsProvider);
+		const gwProviderId = meta?.gatewayProviderId;
+		if (!gwProviderId || gwProviderId === "edge") return;
+
+		setGatewayTtsKeySaving(true);
+		try {
+			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
+			// skill_config patch action uses args.patch object
+			// patchConfig() internally does config.get for hash + config.patch with raw JSON
+			await directToolCall({
+				toolName: "skill_config",
+				args: {
+					action: "patch",
+					patch: {
+						messages: { tts: { [gwProviderId]: { apiKey: key } } },
+					},
+				},
+				requestId: `config-patch-tts-key-${Date.now()}`,
+				gatewayUrl: effectiveGatewayUrl,
+				gatewayToken,
+			});
+
+			// Persist key in Shell config for preview reuse across reloads
+			if (existing) {
+				if (ttsProvider === "openai") {
+					saveConfig({ ...existing, openaiTtsApiKey: key });
+				} else if (ttsProvider === "elevenlabs") {
+					saveConfig({ ...existing, elevenlabsApiKey: key });
+				}
+			}
+			setGatewayTtsKeySaved(true);
+			setTimeout(() => setGatewayTtsKeySaved(false), 4000);
+
+			// Gateway restarts after config.patch (SIGUSR1, ~2s delay)
+			// Wait before refreshing provider status
+			await new Promise((r) => setTimeout(r, 3500));
+			await fetchGatewayTts();
+		} catch (err) {
+			Logger.warn("SettingsTab", "Failed to save Gateway TTS API key", {
+				error: String(err),
+			});
+			setError(`TTS API Key 저장 실패: ${err instanceof Error ? err.message : String(err)}`);
+		} finally {
+			setGatewayTtsKeySaving(false);
 		}
 	}
 
@@ -1189,6 +1435,11 @@ export function SettingsTab() {
 		localStorage.removeItem("naia-config");
 		localStorage.removeItem("naia-camera");
 		invoke("reset_window_state").catch(() => {});
+		if (resetClearHistory) {
+			useChatStore.getState().newConversation();
+			resetGatewaySession().catch(() => {});
+			invoke("reset_openclaw_data").catch(() => {});
+		}
 		setLocale("ko");
 		document.documentElement.setAttribute("data-theme", "espresso");
 		window.location.reload();
@@ -1214,6 +1465,9 @@ export function SettingsTab() {
 			return;
 		}
 		const defaultVrm = DEFAULT_AVATAR_MODEL;
+		// Derive ttsEngine from ttsProvider for agent compatibility
+		// Only "google" uses direct Google TTS; all others (including nextain) use Gateway
+		const derivedTtsEngine = ttsProvider === "google" ? "google" : "openclaw";
 		const newConfig = {
 			...existing,
 			provider,
@@ -1230,8 +1484,15 @@ export function SettingsTab() {
 			ttsEnabled,
 			sttEnabled,
 			ttsVoice,
-			ttsEngine,
+			ttsProvider,
+			ttsEngine: derivedTtsEngine as "google" | "openclaw",
 			googleApiKey: googleApiKey.trim() || undefined,
+			openaiTtsApiKey: (ttsProvider === "openai" && gatewayTtsApiKey.trim())
+				? gatewayTtsApiKey.trim()
+				: (existing?.openaiTtsApiKey || undefined),
+			elevenlabsApiKey: (ttsProvider === "elevenlabs" && gatewayTtsApiKey.trim())
+				? gatewayTtsApiKey.trim()
+				: (existing?.elevenlabsApiKey || undefined),
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
 			enableTools,
@@ -1241,6 +1502,7 @@ export function SettingsTab() {
 			gatewayToken: gatewayToken.trim() || undefined,
 			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
 			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
+			discordDmChannelId: discordDmChannelId.trim() || undefined,
 		};
 		saveConfig(newConfig);
 		setLocale(locale);
@@ -1255,8 +1517,10 @@ export function SettingsTab() {
 		const fullPrompt = buildSystemPrompt(newConfig.persona, {
 			agentName: newConfig.agentName,
 			userName: newConfig.userName,
+			discordDefaultUserId: newConfig.discordDefaultUserId,
+			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale());
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId);
 
 		// Auto-sync to Lab if connected
 		if (labKey && labUserId) {
@@ -1279,6 +1543,7 @@ export function SettingsTab() {
 			ttsEnabled: config?.ttsEnabled,
 			sttEnabled: config?.sttEnabled,
 			ttsVoice: config?.ttsVoice,
+			ttsProvider: config?.ttsProvider,
 			ttsEngine: config?.ttsEngine,
 			persona: config?.persona,
 			userName: config?.userName,
@@ -1823,24 +2088,52 @@ export function SettingsTab() {
 				/>
 			</div>
 
-			{provider === "nextain" && (
-				<div className="settings-field">
-					<label htmlFor="tts-engine-select">TTS 엔진</label>
-					<select
-						id="tts-engine-select"
-						value={ttsEngine}
-						onChange={(e) => setTtsEngine(e.target.value as TtsEngine)}
-					>
-						<option value="openclaw">OpenClaw Gateway (권장)</option>
-						<option value="google">Google Cloud TTS</option>
-					</select>
-					<div className="settings-hint">
-						Nextain 계정은 기본적으로 OpenClaw 음성 엔진을 사용합니다.
-					</div>
-				</div>
-			)}
+			<div className="settings-field">
+				<label htmlFor="tts-provider-select">TTS 프로바이더</label>
+				<select
+					id="tts-provider-select"
+					value={ttsProvider}
+					onChange={(e) => {
+						const newProvider = e.target.value as TtsProviderId;
+						persistTtsProvider(newProvider);
+						// Reset voice to first available for the new provider
+						if (newProvider === "google") {
+							persistTtsVoice(TTS_VOICES[0]?.id ?? "ko-KR-Neural2-A");
+						} else if (newProvider === "edge") {
+							const edgeVoices = getEdgeVoicesForLocale(locale);
+							persistTtsVoice(edgeVoices[0] ?? "ko-KR-SunHiNeural");
+						} else if (newProvider === "openai") {
+							persistTtsVoice(OPENAI_VOICES[0] ?? "alloy");
+						} else if (newProvider === "elevenlabs") {
+							persistTtsVoice(ELEVENLABS_VOICES[0] ?? "Rachel");
+						}
+						// Restore saved key for the new provider
+						const cfg = loadConfig();
+						if (newProvider === "openai") {
+							setGatewayTtsApiKey(cfg?.openaiTtsApiKey ?? "");
+						} else if (newProvider === "elevenlabs") {
+							setGatewayTtsApiKey(cfg?.elevenlabsApiKey ?? "");
+						} else {
+							setGatewayTtsApiKey("");
+						}
+						// When switching to a gateway provider, set gateway provider then refresh voices
+						const meta = TTS_PROVIDERS.find((p) => p.id === newProvider);
+						if (meta?.usesGateway) {
+							const gwId = meta.gatewayProviderId ?? newProvider;
+							handleGatewayTtsProviderChange(gwId).then(() => fetchGatewayTts());
+						}
+					}}
+				>
+					{TTS_PROVIDERS.map((p) => (
+						<option key={p.id} value={p.id}>
+							{p.label}
+						</option>
+					))}
+				</select>
+			</div>
 
-			{provider !== "nextain" || ttsEngine === "google" ? (
+			{/* API Key — provider-specific */}
+			{ttsProvider === "google" && (
 				<div className="settings-field">
 					<label htmlFor="google-apikey-input">
 						{t("settings.googleApiKey")}
@@ -1857,33 +2150,174 @@ export function SettingsTab() {
 						}
 					/>
 				</div>
-			) : null}
+			)}
 
-			<div className="settings-field">
-				<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
-				<div className="voice-picker">
-					<select
-						id="tts-voice-select"
-						value={ttsVoice}
-						onChange={(e) => setTtsVoice(e.target.value)}
-					>
-						{TTS_VOICES.map((v) => (
-							<option key={v.id} value={v.id}>
-								{v.label} — {v.price}
-							</option>
-						))}
-					</select>
-					<button
-						type="button"
-						className="voice-preview-btn"
-						onClick={handleVoicePreview}
-						disabled={isPreviewing}
-					>
-						{isPreviewing
-							? t("settings.voicePreviewing")
-							: t("settings.voicePreview")}
-					</button>
+			{/* Gateway TTS API Key input — for OpenAI, ElevenLabs */}
+			{ttsProviderMeta?.usesGateway && ttsProviderMeta?.needsKey && (() => {
+				const gwId = ttsProviderMeta.gatewayProviderId ?? ttsProvider;
+				const gwProvider = gatewayTtsProviders.find((p) => p.id === gwId);
+				const isConfigured = gwProvider?.configured ?? false;
+				return (
+					<div className="settings-field">
+						<label htmlFor="gateway-tts-apikey-input">
+							{ttsProviderMeta.keyLabel ?? "API Key"}
+							{isConfigured && <span style={{ color: "var(--color-success, #22c55e)", marginLeft: 8, fontSize: "0.85em" }}>설정됨</span>}
+						</label>
+						<div className="voice-picker">
+							<input
+								id="gateway-tts-apikey-input"
+								type="password"
+								value={gatewayTtsApiKey}
+								onChange={(e) => setGatewayTtsApiKey(e.target.value)}
+								placeholder={isConfigured ? "변경하려면 새 키를 입력하세요" : (ttsProviderMeta.keyPlaceholder ?? "")}
+							/>
+							<button
+								type="button"
+								className="voice-preview-btn"
+								onClick={handleGatewayTtsApiKeySave}
+								disabled={gatewayTtsKeySaving || !gatewayTtsApiKey.trim()}
+							>
+								{gatewayTtsKeySaved ? "저장됨" : gatewayTtsKeySaving ? "저장 중..." : "저장"}
+							</button>
+						</div>
+					</div>
+				);
+			})()}
+
+			{/* Voice list — Google voices (google provider) */}
+			{ttsProvider === "google" && (
+				<div className="settings-field">
+					<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+					<div className="voice-picker">
+						<select
+							id="tts-voice-select"
+							value={ttsVoice}
+							onChange={(e) => persistTtsVoice(e.target.value)}
+						>
+							{TTS_VOICES.map((v) => (
+								<option key={v.id} value={v.id}>
+									{v.label} — {v.price}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							className="voice-preview-btn"
+							onClick={handleVoicePreview}
+							disabled={isPreviewing}
+						>
+							{isPreviewing
+								? t("settings.voicePreviewing")
+								: t("settings.voicePreview")}
+						</button>
+					</div>
 				</div>
+			)}
+
+			{/* Voice list — Gateway voices (nextain, edge, openai, elevenlabs) */}
+			{ttsUsesGateway && (
+				<>
+					{gatewayTtsLoading ? (
+						<div className="settings-field">
+							<span className="settings-hint">
+								{t("settings.gatewayTtsLoading")}
+							</span>
+						</div>
+					) : (() => {
+						const gwId = ttsProviderMeta?.gatewayProviderId ?? ttsProvider;
+						const gwProvider = gatewayTtsProviders.find((p) => p.id === gwId);
+						// Use gateway voices, fall back to hardcoded lists for providers that don't enumerate
+						let gwVoices = gwProvider?.voices ?? [];
+						if (gwId === "openai" && gwVoices.length > 0) {
+							gwVoices = gwVoices.filter((v) => !OPENAI_EXCLUDED_VOICES.has(v));
+						}
+						// Edge: filter by locale (both gateway and fallback)
+						if (gwId === "edge" && gwVoices.length > 0) {
+							const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
+							gwVoices = gwVoices.filter(
+								(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
+							);
+						}
+						const fallbackVoices = gwId === "edge" ? getEdgeVoicesForLocale(locale)
+							: gwId === "openai" ? OPENAI_VOICES
+							: gwId === "elevenlabs" ? ELEVENLABS_VOICES : [];
+						const voices = gwVoices.length > 0 ? gwVoices : fallbackVoices;
+						if (voices.length > 0) {
+							return (
+								<div className="settings-field">
+									<label htmlFor="gateway-tts-voice">{t("settings.ttsVoice")}</label>
+									<div className="voice-picker">
+										<select
+											id="gateway-tts-voice"
+											data-testid="gateway-tts-voice"
+											value={ttsVoice}
+											onChange={(e) => persistTtsVoice(e.target.value)}
+										>
+											{voices.map((v) => (
+												<option key={v} value={v}>
+													{v}
+												</option>
+											))}
+										</select>
+										<button
+											type="button"
+											className="voice-preview-btn"
+											onClick={handleVoicePreview}
+											disabled={isPreviewing}
+										>
+											{isPreviewing
+												? t("settings.voicePreviewing")
+												: t("settings.voicePreview")}
+										</button>
+									</div>
+								</div>
+							);
+						}
+						return (
+							<div className="settings-field">
+								<span className="settings-hint">
+									{gatewayTtsProviders.length === 0
+										? "Gateway에 연결할 수 없습니다. Gateway가 실행 중인지 확인하세요."
+										: `사용 가능한 음성이 없습니다.${gwProvider && !gwProvider.configured ? " API Key를 먼저 설정하세요." : ""}`}
+								</span>
+							</div>
+						);
+					})()}
+				</>
+			)}
+
+			{/* 자동 발화 모드 */}
+			<div className="settings-field">
+				<label htmlFor="tts-auto-mode">자동 발화 모드</label>
+				<select
+					id="tts-auto-mode"
+					value={gatewayTtsAuto}
+					onChange={(e) =>
+						handleGatewayTtsAutoChange(
+							e.target.value as GatewayTtsAuto,
+						)}
+				>
+					<option value="off">off</option>
+					<option value="always">always</option>
+					<option value="inbound">inbound</option>
+					<option value="tagged">tagged</option>
+				</select>
+			</div>
+
+			{/* 출력 범위 */}
+			<div className="settings-field">
+				<label htmlFor="tts-output-mode">출력 범위</label>
+				<select
+					id="tts-output-mode"
+					value={gatewayTtsMode}
+					onChange={(e) =>
+						handleGatewayTtsModeChange(
+							e.target.value as GatewayTtsMode,
+						)}
+				>
+					<option value="final">final</option>
+					<option value="all">all</option>
+				</select>
 			</div>
 
 			<div className="settings-section-divider">
@@ -1935,7 +2369,7 @@ export function SettingsTab() {
 						className="voice-preview-btn"
 						onClick={() => {
 							clearAllowedTools();
-							window.location.reload();
+							setAllowedToolsCount(0);
 						}}
 					>
 						{t("settings.clearAllowedTools")}
@@ -1951,139 +2385,63 @@ export function SettingsTab() {
 					<div className="settings-field">
 						<span className="settings-hint">{t("settings.channelsHint")}</span>
 					</div>
-					<div className="settings-field">
-						<span
-							className="settings-hint"
-							data-testid="channels-settings-hint"
-						>
-							{t("settings.channelsOpenTab")}
-						</span>
-					</div>
 
-					<div className="settings-section-divider">
-						<span>Discord 봇 연결</span>
-					</div>
-					<div className="settings-field">
-						<span className="settings-hint">
-							버튼을 누르면 Discord 로그인/연결 페이지를 엽니다.
-						</span>
-					</div>
-					<div className="settings-field">
-						<button
-							type="button"
-							className="voice-preview-btn"
-							onClick={handleDiscordBotConnect}
-							disabled={discordBotLoading}
-						>
-							{discordBotLoading ? "연결 중..." : "Discord 봇 연결"}
-						</button>
-						<button
-							type="button"
-							className="voice-preview-btn"
-							onClick={() => fetchDiscordBotStatus()}
-							disabled={discordBotLoading}
-							style={{ marginLeft: 8 }}
-						>
-							연결 상태 확인
-						</button>
-					</div>
-					<div className="settings-field">
-						<span className="settings-hint">
-							상태:{" "}
-							{discordBotConnected ? "연결됨" : discordBotLoading ? "확인 중..." : "미연결"}
-						</span>
-					</div>
-
-					<div className="settings-section-divider">
-						<span>{t("settings.gatewayTtsSection")}</span>
-					</div>
-					<div className="settings-field">
-						<span className="settings-hint">
-							{t("settings.gatewayTtsHint")}
-						</span>
-					</div>
-					{gatewayTtsLoading ? (
-						<div className="settings-field">
-							<span className="settings-hint">
-								{t("settings.gatewayTtsLoading")}
+					{/* Discord channel card */}
+					<div className="channel-card" data-testid="discord-settings-card">
+						<div className="channel-card-header">
+							<span className="channel-name">Discord</span>
+							<span
+								className={`channel-status-badge ${discordBotConnected ? "connected" : "disconnected"}`}
+								data-testid="channel-status"
+							>
+								{discordBotConnected
+									? t("channels.connected")
+									: discordBotLoading
+										? "..."
+										: t("channels.disconnected")}
 							</span>
 						</div>
-					) : (
-						<>
-							<div className="settings-field settings-toggle-row">
-								<label htmlFor="gateway-tts-enabled">OpenClaw TTS 사용</label>
-								<input
-									id="gateway-tts-enabled"
-									type="checkbox"
-									checked={gatewayTtsEnabled}
-									onChange={(e) =>
-										handleGatewayTtsEnabledChange(e.target.checked)}
-								/>
-							</div>
-
-							{gatewayTtsProviders.length > 0 ? (
-								<div className="settings-field">
-									<label htmlFor="gateway-tts-provider">
-										{t("settings.gatewayTtsProvider")}
-									</label>
-									<select
-										id="gateway-tts-provider"
-										data-testid="gateway-tts-provider"
-										value={gatewayTtsProvider}
-										onChange={(e) =>
-											handleGatewayTtsProviderChange(e.target.value)}
-									>
-										{gatewayTtsProviders.map((p) => (
-											<option key={p.id} value={p.id}>
-												{p.label}
-												{!p.configured
-													? ` ${t("settings.gatewayTtsNotConfigured")}`
-													: ""}
-											</option>
-										))}
-									</select>
-								</div>
-							) : (
-								<div className="settings-field">
-									<span className="settings-hint">
-										{t("settings.gatewayTtsNone")}
-									</span>
-								</div>
-							)}
-
-							<div className="settings-field">
-								<label htmlFor="gateway-tts-auto">자동 발화 모드</label>
-								<select
-									id="gateway-tts-auto"
-									value={gatewayTtsAuto}
-									onChange={(e) =>
-										handleGatewayTtsAutoChange(
-											e.target.value as GatewayTtsAuto,
-										)}
+						<div className="settings-field" style={{ marginBottom: 6 }}>
+							<div style={{ display: "flex", gap: 8 }}>
+								<button
+									type="button"
+									className="voice-preview-btn"
+									onClick={handleDiscordBotConnect}
+									disabled={discordBotLoading}
 								>
-									<option value="off">off</option>
-									<option value="always">always</option>
-									<option value="inbound">inbound</option>
-									<option value="tagged">tagged</option>
-								</select>
-							</div>
-
-							<div className="settings-field">
-								<label htmlFor="gateway-tts-mode">출력 범위</label>
-								<select
-									id="gateway-tts-mode"
-									value={gatewayTtsMode}
-									onChange={(e) =>
-										handleGatewayTtsModeChange(
-											e.target.value as GatewayTtsMode,
-										)}
+									{discordBotLoading ? "연결 중..." : discordBotConnected ? "재연결" : "Discord 봇 연결"}
+								</button>
+								<button
+									type="button"
+									className="voice-preview-btn"
+									onClick={() => fetchDiscordBotStatus()}
+									disabled={discordBotLoading}
 								>
-									<option value="final">final</option>
-									<option value="all">all</option>
-								</select>
+									상태 확인
+								</button>
 							</div>
-						</>
-					)}
+						</div>
+						<div className="settings-field">
+							<label htmlFor="discord-user-id">Discord User ID</label>
+							<input
+								id="discord-user-id"
+								type="text"
+								value={discordDefaultUserId}
+								onChange={(e) => setDiscordDefaultUserId(e.target.value)}
+								placeholder="예: 865850174651498506"
+							/>
+						</div>
+						<div className="settings-field">
+							<label htmlFor="discord-dm-channel-id">Discord DM Channel ID</label>
+							<input
+								id="discord-dm-channel-id"
+								type="text"
+								value={discordDmChannelId}
+								onChange={(e) => setDiscordDmChannelId(e.target.value)}
+								placeholder="예: 1474816723579306105"
+							/>
+						</div>
+					</div>
 
 					<div className="settings-section-divider">
 						<span>{t("settings.voiceWakeSection")}</span>
@@ -2194,6 +2552,14 @@ export function SettingsTab() {
 				{showResetConfirm ? (
 					<div className="reset-confirm-panel">
 						<p className="reset-confirm-msg">{t("settings.resetConfirm")}</p>
+						<label className="reset-confirm-checkbox">
+							<input
+								type="checkbox"
+								checked={resetClearHistory}
+								onChange={(e) => setResetClearHistory(e.target.checked)}
+							/>
+							{t("settings.resetClearHistory")}
+						</label>
 						<div className="reset-confirm-actions">
 							<button
 								type="button"

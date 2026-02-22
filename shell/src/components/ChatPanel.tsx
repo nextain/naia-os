@@ -3,11 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
 import { cancelChat, sendChatMessage } from "../lib/chat-service";
-import {
-	startDiscordPoll,
-	stopDiscordPoll,
-	resetDiscordPollState,
-} from "../lib/discord-poll";
+import { resetDiscordPollState } from "../lib/discord-poll";
 import {
 	addAllowedTool,
 	isToolAllowed,
@@ -20,6 +16,7 @@ import {
 	upsertFact,
 } from "../lib/db";
 import {
+	discoverAndPersistDiscordDmChannel,
 	getGatewayHistory,
 	patchGatewaySession,
 	resetGatewaySession,
@@ -153,6 +150,8 @@ async function buildMemoryContext(): Promise<MemoryContext> {
 		const cfg = loadConfig();
 		ctx.userName = cfg?.userName;
 		ctx.agentName = cfg?.agentName;
+		ctx.discordDefaultUserId = cfg?.discordDefaultUserId;
+		ctx.discordDmChannelId = cfg?.discordDmChannelId;
 
 		const facts = await getAllFacts();
 		if (facts && facts.length > 0) {
@@ -279,6 +278,9 @@ export function ChatPanel() {
 				error: String(err),
 			});
 		});
+
+		// Auto-discover Discord DM channel ID from Gateway sessions
+		discoverAndPersistDiscordDmChannel().catch(() => {});
 	}, []);
 
 	useEffect(() => {
@@ -312,20 +314,8 @@ export function ChatPanel() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	// Discord polling: start when tools are enabled, stop on unmount
-	useEffect(() => {
-		const config = loadConfig();
-		if (!config?.enableTools) return;
-
-		startDiscordPoll((messages) => {
-			const store = useChatStore.getState();
-			for (const msg of messages) {
-				store.addDiscordMessage(msg.from, msg.content);
-			}
-		});
-
-		return () => stopDiscordPoll();
-	}, []);
+	// Discord messages are now shown in the dedicated Channels tab (ChannelsTab)
+	// via direct Discord REST API, so no polling into main chat.
 
 	// Auto-send queued messages when streaming ends
 	useEffect(() => {
@@ -413,12 +403,14 @@ export function ChatPanel() {
 
 		const ttsEnabled = config.ttsEnabled !== false;
 		const activeProvider = config.provider || provider;
-		const ttsEngine = (config.ttsEngine ?? "auto") as
-			| "auto"
-			| "openclaw"
-			| "google";
+		// Derive ttsEngine from ttsProvider (new) or fall back to legacy ttsEngine
+		// Only "google" provider uses direct Google TTS; all others use Gateway
+		const cfgTtsProvider = config.ttsProvider;
+		const ttsEngine: "google" | "openclaw" = cfgTtsProvider
+			? (cfgTtsProvider === "google" ? "google" : "openclaw")
+			: ((config.ttsEngine ?? "auto") === "google" ? "google" : "openclaw");
 		const wantsGatewayForTts =
-			ttsEnabled && (ttsEngine === "openclaw" || ttsEngine === "auto");
+			ttsEnabled && ttsEngine === "openclaw";
 		const memoryCtx = await buildMemoryContext();
 		try {
 			await sendChatMessage({
@@ -433,8 +425,17 @@ export function ChatPanel() {
 				onChunk: (chunk) => handleChunk(chunk, activeProvider),
 				requestId,
 				ttsVoice: ttsEnabled ? config.ttsVoice : undefined,
-				ttsApiKey: ttsEnabled ? config.googleApiKey : undefined,
+				ttsApiKey: ttsEnabled
+					? (cfgTtsProvider === "google"
+						? (config.googleApiKey || (activeProvider === "gemini" ? config.apiKey : ""))
+						: cfgTtsProvider === "openai"
+						? (config.openaiTtsApiKey || undefined)
+						: cfgTtsProvider === "elevenlabs"
+						? (config.elevenlabsApiKey || undefined)
+						: undefined)
+					: undefined,
 				ttsEngine: ttsEnabled ? ttsEngine : undefined,
+				ttsProvider: ttsEnabled ? cfgTtsProvider : undefined,
 				systemPrompt: buildSystemPrompt(config.persona, memoryCtx),
 				enableTools: config.enableTools,
 				gatewayUrl:
@@ -457,6 +458,7 @@ export function ChatPanel() {
 				googleChatWebhookUrl: config.googleChatWebhookUrl,
 				discordDefaultUserId: config.discordDefaultUserId,
 				discordDefaultTarget: config.discordDefaultTarget,
+				discordDmChannelId: config.discordDmChannelId,
 			});
 		} catch (err) {
 			useChatStore
@@ -570,12 +572,10 @@ export function ChatPanel() {
 					timestamp: chunk.timestamp,
 				});
 				break;
-			case "discord_message": {
-				// Display Discord DM messages inline in the chat
-				const sender = chunk.from || "Discord";
-				store.appendStreamChunk(`\n[Discord: ${sender}] ${chunk.content}`);
+			case "discord_message":
+				// Discord DM messages are shown in the dedicated Channels tab.
+				// Ignore them here to keep the main chat clean.
 				break;
-			}
 			case "error":
 				store.appendStreamChunk(`\n[${t("chat.error")}] ${chunk.message}`);
 				store.finishStreaming();
@@ -838,7 +838,10 @@ export function ChatPanel() {
 
 			{/* History tab */}
 			{activeTab === "history" && (
-				<HistoryTab onLoadSession={() => setActiveTab("chat")} />
+				<HistoryTab
+					onLoadSession={() => setActiveTab("chat")}
+					onLoadDiscordSession={() => setActiveTab("channels")}
+				/>
 			)}
 
 			{/* Cost dashboard (dropdown) */}

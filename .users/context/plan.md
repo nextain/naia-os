@@ -173,7 +173,7 @@ git push → GitHub Actions → ghcr.io/luke-n-alpha/naia-os:latest
 
 **결과:** 채팅 패널에서 Alpha와 실시간 대화
 
-### 2-3. Avatar 감정 + 립싱크 (Google TTS)
+### 2-3. Avatar 감정 + 립싱크 + TTS (멀티 프로바이더)
 
 **작업:**
 - LLM 응답에서 감정 추출

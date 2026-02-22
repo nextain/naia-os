@@ -8,10 +8,19 @@ export interface ChatRequest {
 	systemPrompt?: string;
 	ttsVoice?: string;
 	ttsApiKey?: string;
+	ttsEngine?: "auto" | "openclaw" | "google";
+	ttsProvider?: "google" | "edge" | "openai" | "elevenlabs";
 	enableTools?: boolean;
 	gatewayUrl?: string;
 	gatewayToken?: string;
 	disabledSkills?: string[];
+	routeViaGateway?: boolean;
+	slackWebhookUrl?: string;
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
 }
 
 export interface CancelRequest {
@@ -35,6 +44,12 @@ export interface ToolRequest {
 	args: Record<string, unknown>;
 	gatewayUrl?: string;
 	gatewayToken?: string;
+	slackWebhookUrl?: string;
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
 }
 
 export type AgentRequest =

@@ -10,11 +10,20 @@ interface SendChatOptions {
 	requestId: string;
 	ttsVoice?: string;
 	ttsApiKey?: string;
+	ttsEngine?: "auto" | "openclaw" | "google";
+	ttsProvider?: "google" | "edge" | "openai" | "elevenlabs";
 	systemPrompt?: string;
 	enableTools?: boolean;
 	gatewayUrl?: string;
 	gatewayToken?: string;
 	disabledSkills?: string[];
+	routeViaGateway?: boolean;
+	slackWebhookUrl?: string;
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
 }
 
 const RESPONSE_TIMEOUT_MS = 120_000; // Safety: clean up listener if no finish/error
@@ -28,11 +37,20 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 		requestId,
 		ttsVoice,
 		ttsApiKey,
+		ttsEngine,
+		ttsProvider,
 		systemPrompt,
 		enableTools,
 		gatewayUrl,
 		gatewayToken,
 		disabledSkills,
+		routeViaGateway,
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
 	} = opts;
 
 	const request = {
@@ -42,11 +60,20 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 		messages: [...history, { role: "user", content: message }],
 		...(ttsVoice && { ttsVoice }),
 		...(ttsApiKey && { ttsApiKey }),
+		...(ttsEngine && { ttsEngine }),
+		...(ttsProvider && { ttsProvider }),
 		...(systemPrompt && { systemPrompt }),
 		...(enableTools != null && { enableTools }),
 		...(gatewayUrl && { gatewayUrl }),
 		...(gatewayToken && { gatewayToken }),
 		...(disabledSkills && disabledSkills.length > 0 && { disabledSkills }),
+		...(routeViaGateway != null && { routeViaGateway }),
+		...(slackWebhookUrl !== undefined && { slackWebhookUrl }),
+		...(discordWebhookUrl !== undefined && { discordWebhookUrl }),
+		...(googleChatWebhookUrl !== undefined && { googleChatWebhookUrl }),
+		...(discordDefaultUserId !== undefined && { discordDefaultUserId }),
+		...(discordDefaultTarget !== undefined && { discordDefaultTarget }),
+		...(discordDmChannelId !== undefined && { discordDmChannelId }),
 	};
 
 	// Listen for agent responses before sending to avoid race conditions
@@ -97,8 +124,26 @@ export async function directToolCall(opts: {
 	requestId: string;
 	gatewayUrl?: string;
 	gatewayToken?: string;
+	slackWebhookUrl?: string;
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
 }): Promise<{ success: boolean; output: string }> {
-	const { toolName, args, requestId, gatewayUrl, gatewayToken } = opts;
+	const {
+		toolName,
+		args,
+		requestId,
+		gatewayUrl,
+		gatewayToken,
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
+	} = opts;
 
 	const request = {
 		type: "tool_request",
@@ -107,6 +152,12 @@ export async function directToolCall(opts: {
 		args,
 		...(gatewayUrl && { gatewayUrl }),
 		...(gatewayToken && { gatewayToken }),
+		...(slackWebhookUrl !== undefined && { slackWebhookUrl }),
+		...(discordWebhookUrl !== undefined && { discordWebhookUrl }),
+		...(googleChatWebhookUrl !== undefined && { googleChatWebhookUrl }),
+		...(discordDefaultUserId !== undefined && { discordDefaultUserId }),
+		...(discordDefaultTarget !== undefined && { discordDefaultTarget }),
+		...(discordDmChannelId !== undefined && { discordDmChannelId }),
 	};
 
 	return new Promise(async (resolve, reject) => {

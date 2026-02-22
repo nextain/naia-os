@@ -59,6 +59,16 @@ describe("skill_tts", () => {
 							durationMs: 1200,
 						});
 						break;
+					case "config.get":
+						respond.ok({
+							exists: true,
+							hash: "abc123",
+							config: {},
+						});
+						break;
+					case "config.patch":
+						respond.ok({ ok: true });
+						break;
 					default:
 						respond.error("UNKNOWN", `Unknown: ${method}`);
 				}
@@ -72,6 +82,8 @@ describe("skill_tts", () => {
 					"tts.enable",
 					"tts.disable",
 					"tts.convert",
+					"config.get",
+					"config.patch",
 				],
 			},
 		);
@@ -91,7 +103,7 @@ describe("skill_tts", () => {
 	it("has correct metadata", () => {
 		expect(skill.name).toBe("skill_tts");
 		expect(skill.tier).toBe(0);
-		expect(skill.requiresGateway).toBe(true);
+		expect(skill.requiresGateway).toBe(false);
 		expect(skill.source).toBe("built-in");
 	});
 
@@ -139,6 +151,44 @@ describe("skill_tts", () => {
 
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("provider is required");
+	});
+
+	it("sets auto mode", async () => {
+		const result = await skill.execute(
+			{ action: "set_auto", auto: "tagged" },
+			{ gateway: client },
+		);
+		expect(result.success).toBe(true);
+		const parsed = JSON.parse(result.output);
+		expect(parsed.auto).toBe("tagged");
+	});
+
+	it("requires auto for set_auto action", async () => {
+		const result = await skill.execute(
+			{ action: "set_auto" },
+			{ gateway: client },
+		);
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("auto is required");
+	});
+
+	it("sets output mode", async () => {
+		const result = await skill.execute(
+			{ action: "set_mode", mode: "all" },
+			{ gateway: client },
+		);
+		expect(result.success).toBe(true);
+		const parsed = JSON.parse(result.output);
+		expect(parsed.mode).toBe("all");
+	});
+
+	it("requires mode for set_mode action", async () => {
+		const result = await skill.execute(
+			{ action: "set_mode" },
+			{ gateway: client },
+		);
+		expect(result.success).toBe(false);
+		expect(result.error).toContain("mode is required");
 	});
 
 	it("enables TTS", async () => {

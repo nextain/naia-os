@@ -1,10 +1,6 @@
 import type { Locale } from "./i18n";
+import { SECRET_KEYS, getSecretKey, saveSecretKey } from "./secure-store";
 import type { ProviderId } from "./types";
-import {
-	SECRET_KEYS,
-	getSecretKey,
-	saveSecretKey,
-} from "./secure-store";
 
 const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
@@ -19,6 +15,8 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
+export type TtsProviderId = "google" | "edge" | "openai" | "elevenlabs";
+
 export interface AppConfig {
 	provider: ProviderId;
 	model: string;
@@ -27,14 +25,22 @@ export interface AppConfig {
 	theme?: ThemeId;
 	backgroundImage?: string;
 	vrmModel?: string;
+	customVrms?: string[];
+	customBgs?: string[];
 	ttsEnabled?: boolean;
 	sttEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;
+	ttsProvider?: TtsProviderId;
+	ttsEngine?: "auto" | "openclaw" | "google";
 	persona?: string;
 	enableTools?: boolean;
 	gatewayUrl?: string;
 	gatewayToken?: string;
+	chatRouting?: "gateway" | "direct" | "auto";
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
 	allowedTools?: string[];
 	userName?: string;
 	agentName?: string;
@@ -45,9 +51,13 @@ export interface AppConfig {
 	slackWebhookUrl?: string;
 	discordWebhookUrl?: string;
 	googleChatWebhookUrl?: string;
+	openaiTtsApiKey?: string;
+	elevenlabsApiKey?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
+	nextain: "gemini-3-flash-preview",
+	"claude-code-cli": "claude-sonnet-4-5-20250929",
 	gemini: "gemini-3-flash-preview",
 	openai: "gpt-4o",
 	anthropic: "claude-sonnet-4-5-20250929",
@@ -56,15 +66,43 @@ const DEFAULT_MODELS: Record<ProviderId, string> = {
 	ollama: "llama3.2",
 };
 
-export const MODEL_OPTIONS: Record<ProviderId, { id: string; label: string }[]> = {
-	gemini: [
-		{ id: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
+export const MODEL_OPTIONS: Record<
+	ProviderId,
+	{ id: string; label: string }[]
+> = {
+	nextain: [
 		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash" },
 		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
 		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
 	],
-	openai: [{ id: "gpt-4o", label: "GPT-4o" }],
-	anthropic: [{ id: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" }],
+	"claude-code-cli": [
+		{
+			id: "claude-sonnet-4-5-20250929",
+			label: "Claude Sonnet 4.5 ($3.00 / $15.00)",
+		},
+		{
+			id: "claude-haiku-4-5-20251001",
+			label: "Claude Haiku 4.5 ($0.80 / $4.00)",
+		},
+		{
+			id: "claude-3-7-sonnet-20250219",
+			label: "Claude Sonnet 3.7 ($3.00 / $15.00)",
+		},
+	],
+	gemini: [
+		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($2.50 / $10.00)" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $1.20)" },
+	],
+	openai: [{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)" }],
+	anthropic: [
+		{
+			id: "claude-sonnet-4-5-20250929",
+			label: "Claude Sonnet 4.5 ($3.00 / $15.00)",
+		},
+	],
 	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini" }],
 	zai: [{ id: "glm-4.7", label: "GLM 4.7" }],
 	ollama: [{ id: "llama3.2", label: "Llama 3.2" }],
@@ -183,6 +221,11 @@ export async function getLabKeySecure(): Promise<string | undefined> {
 	const secureVal = await getSecretKey("labKey");
 	if (secureVal) return secureVal;
 	return getLabKey();
+}
+
+export async function hasLabKeySecure(): Promise<boolean> {
+	const key = await getLabKeySecure();
+	return !!key;
 }
 
 // ── Utility functions (sync, unchanged) ──

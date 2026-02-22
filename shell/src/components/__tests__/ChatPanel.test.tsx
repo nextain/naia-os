@@ -43,6 +43,14 @@ vi.mock("../../lib/gateway-sessions", () => ({
 	getGatewayHistory: vi.fn().mockResolvedValue([]),
 	resetGatewaySession: vi.fn().mockResolvedValue(true),
 	patchGatewaySession: vi.fn().mockResolvedValue(true),
+	discoverAndPersistDiscordDmChannel: vi.fn().mockResolvedValue(null),
+}));
+
+// Mock discord-poll (no longer used in ChatPanel, but import may exist)
+vi.mock("../../lib/discord-poll", () => ({
+	resetDiscordPollState: vi.fn(),
+	startDiscordPoll: vi.fn(),
+	stopDiscordPoll: vi.fn(),
 }));
 
 // Mock Audio element (not available in jsdom)

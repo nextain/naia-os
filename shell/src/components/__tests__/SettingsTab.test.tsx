@@ -2,6 +2,15 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@tauri-apps/plugin-store", () => {
+	const store = {
+		get: vi.fn().mockResolvedValue(null),
+		set: vi.fn().mockResolvedValue(undefined),
+		delete: vi.fn().mockResolvedValue(undefined),
+	};
+	return { load: vi.fn().mockResolvedValue(store) };
+});
+
 const mockInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
 	invoke: (...args: unknown[]) => mockInvoke(...args),
@@ -40,31 +49,94 @@ describe("SettingsTab", () => {
 			success: true,
 			output: JSON.stringify({
 				models: [
-					{ id: "test-model-1", name: "Test Model", provider: "gemini", price: { input: 1.5, output: 2.5 } }
-				]
-			})
+					{
+						id: "test-model-1",
+						name: "Test Model",
+						provider: "gemini",
+						price: { input: 1.5, output: 2.5 },
+					},
+				],
+			}),
 		});
 		render(<SettingsTab />);
-		
+
 		await vi.waitFor(() => {
 			expect(screen.getByText("Test Model ($1.5 / $2.5)")).toBeDefined();
+		});
+	});
+
+	it("accepts gateway model payload as plain array", async () => {
+		mockInvoke.mockResolvedValue([]);
+		(directToolCall as any).mockResolvedValueOnce({
+			success: true,
+			output: JSON.stringify([
+				{
+					id: "gemini/gemini-ultra-test",
+					name: "Gemini Ultra Test",
+				},
+			]),
+		});
+		render(<SettingsTab />);
+
+		await vi.waitFor(() => {
+			expect(screen.getByText("Gemini Ultra Test")).toBeDefined();
 		});
 	});
 
 	it("renders provider select and API key input", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		expect(screen.getByLabelText(/provider|프로바이더/i)).toBeDefined();
+		const providerSelect = document.getElementById("provider-select");
+		expect(providerSelect).toBeDefined();
 		expect(screen.getByLabelText(/^API/i)).toBeDefined();
+	});
+
+	it("replaces API key input with Nextain account UI", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+		fireEvent.change(providerSelect, { target: { value: "nextain" } });
+		expect(screen.queryByLabelText(/^API/i)).toBeNull();
+		expect(
+			screen.getByText("Nextain provider는 API 키 대신 Naia OS 계정 로그인을 사용합니다."),
+		).toBeDefined();
+	});
+
+	it("shows unified TTS provider selector and Google key only when google selected", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		// TTS provider selector is always visible
+		expect(screen.getByLabelText("TTS 프로바이더")).toBeDefined();
+
+		// Default is edge → no Google API key
+		expect(screen.queryByLabelText(/google api key/i)).toBeNull();
+
+		// switch to google → Google API key should appear
+		fireEvent.change(screen.getByLabelText("TTS 프로바이더"), {
+			target: { value: "google" },
+		});
+		expect(screen.getByLabelText(/google api key/i)).toBeDefined();
+	});
+
+	it("hides API key input for Claude Code CLI provider", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+		fireEvent.change(providerSelect, { target: { value: "claude-code-cli" } });
+		expect(screen.queryByLabelText(/^API/i)).toBeNull();
+		expect(
+			screen.getByText("Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다."),
+		).toBeDefined();
 	});
 
 	it("renders VRM model picker with sample cards", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		expect(screen.getByAltText("Shino (Dark)")).toBeDefined();
-		expect(screen.getByAltText("Shino (Light)")).toBeDefined();
-		expect(screen.getByText("Girl")).toBeDefined();
-		expect(screen.getByText("Boy")).toBeDefined();
+		expect(screen.getByAltText("Shino")).toBeDefined();
+		expect(screen.getByAltText("Sakurada Fumiriya")).toBeDefined();
+		expect(screen.getByAltText("Girl")).toBeDefined();
+		expect(screen.getByAltText("Boy")).toBeDefined();
 	});
 
 	it("renders background image picker with none option", () => {
@@ -83,18 +155,16 @@ describe("SettingsTab", () => {
 	it("selects VRM card and marks as active", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		const girlCard = screen.getByTitle("Girl");
-		fireEvent.click(girlCard);
-		expect(girlCard.className).toContain("active");
+		const avatarCard = screen.getByTitle("Girl");
+		fireEvent.click(avatarCard);
+		expect(avatarCard.className).toContain("active");
 	});
 
 	it("renders memory section with empty state", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
 		expect(screen.getByText(/기억|Memory/i)).toBeDefined();
-		expect(
-			screen.getByText(/저장된 기억이|No stored memories/i),
-		).toBeDefined();
+		expect(screen.getByText(/저장된 기억이|No stored memories/i)).toBeDefined();
 	});
 
 	it("renders facts when available", async () => {
@@ -125,24 +195,22 @@ describe("SettingsTab", () => {
 		fireEvent.change(apiInput, { target: { value: "test-key" } });
 
 		// Select non-default VRM
-		const girlCard = screen.getByTitle("Girl");
-		fireEvent.click(girlCard);
+		const avatarCard = screen.getByTitle("Girl");
+		fireEvent.click(avatarCard);
 
 		// Save
 		fireEvent.click(screen.getByText(/save|저장/i));
 
-		const saved = JSON.parse(
-			localStorage.getItem("naia-config") || "{}",
-		);
+		const saved = JSON.parse(localStorage.getItem("naia-config") || "{}");
 		expect(saved.apiKey).toBe("test-key");
-		expect(saved.vrmModel).toBe("/avatars/vrm-ol-girl.vrm");
+		expect(saved.vrmModel).toBe("/avatars/03-OL_Woman.vrm");
 	});
 
 	it("renders theme picker", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		expect(screen.getByTitle("Espresso")).toBeDefined();
-		expect(screen.getByTitle("Midnight")).toBeDefined();
+		expect(screen.getByTitle("Light")).toBeDefined();
+		expect(screen.getByTitle("Dark")).toBeDefined();
 	});
 
 	it("shows error for empty API key", () => {

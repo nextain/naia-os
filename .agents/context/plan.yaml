@@ -80,7 +80,7 @@ phases:
       - "AAIF context consumption (.agents/ + AGENTS.md hierarchy)"
       - "Tauri stdio bridge (spawn agent-core as child process)"
       - "Chat panel UI + streaming response + cost display"
-      - "Avatar emotion mapping + lip-sync (Google TTS)"
+      - "Avatar emotion mapping + lip-sync + TTS (multi-provider: Edge free, Google, OpenAI, ElevenLabs)"
       - "Onboarding: API key setup on first boot (support xAI, Google, Claude keys)"
     done_when: "USB boot → API key → chat with Alpha (lip-sync + emotions + cost visible)"
     reuse: "Careti: stdio-adapter.ts, lib.rs, LLM providers (xAI/Google/Claude), F06 context system"

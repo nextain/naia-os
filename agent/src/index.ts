@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
@@ -17,9 +20,11 @@ import {
 import { calculateCost } from "./providers/cost.js";
 import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
-import { convertTts } from "./gateway/tts-proxy.js";
 import { ALPHA_SYSTEM_PROMPT } from "./system-prompt.js";
+import { synthesizeEdgeSpeech } from "./tts/edge-tts.js";
+import { synthesizeElevenLabsSpeech } from "./tts/elevenlabs-tts.js";
 import { synthesizeSpeech } from "./tts/google-tts.js";
+import { synthesizeOpenAISpeech } from "./tts/openai-tts.js";
 import type { ToolDefinition } from "./providers/types.js";
 
 const activeStreams = new Map<string, AbortController>();
@@ -49,6 +54,14 @@ function buildToolStatusPrompt(
 		status += "\nGateway 연결됨 ✓";
 	}
 
+	if (toolNames.includes("skill_naia_discord")) {
+		status +=
+			"\n\n[Tool Guide: skill_naia_discord]" +
+			"\n- 메시지 전송: action='send', message='내용' (to 생략 가능 — 자동 타깃)" +
+			"\n- 상태 확인: action='status'" +
+			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요.";
+	}
+
 	return base + status;
 }
 
@@ -60,6 +73,116 @@ const pendingApprovals = new Map<
 		resolve: (decision: ApprovalResponse["decision"]) => void;
 	}
 >();
+
+function resolveGatewayToken(token?: string): string {
+	const direct = token?.trim();
+	if (direct) return direct;
+	return resolveFallbackGatewayToken();
+}
+
+function resolveFallbackGatewayToken(): string {
+	const candidates = [
+		join(homedir(), ".openclaw", "openclaw.json"),
+		join(homedir(), ".naia", "openclaw", "openclaw.json"),
+	];
+	for (const path of candidates) {
+		try {
+			const raw = JSON.parse(readFileSync(path, "utf-8")) as {
+				gateway?: { auth?: { token?: string } };
+			};
+			const fallback = raw.gateway?.auth?.token?.trim();
+			if (fallback) return fallback;
+		} catch {
+			// ignore and try next candidate
+		}
+	}
+	return "";
+}
+
+function resolveGatewayTokenCandidates(token?: string): string[] {
+	const direct = token?.trim() ?? "";
+	const fallback = resolveFallbackGatewayToken();
+	const seen = new Set<string>();
+	const tokens: string[] = [];
+
+	if (direct) {
+		seen.add(direct);
+		tokens.push(direct);
+	}
+	if (fallback && !seen.has(fallback)) {
+		seen.add(fallback);
+		tokens.push(fallback);
+	}
+	if (tokens.length === 0) tokens.push("");
+	return tokens;
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectGatewayWithRetry(
+	gatewayUrl: string,
+	gatewayToken: string | undefined,
+): Promise<GatewayClient> {
+	const device = loadDeviceIdentity();
+	const tokenCandidates = resolveGatewayTokenCandidates(gatewayToken);
+	let lastError: unknown;
+
+	for (const token of tokenCandidates) {
+		// Gateway startup can race with first request.
+		// Retry each token a few times with small backoff before giving up.
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			const client = new GatewayClient();
+			try {
+				await client.connect(gatewayUrl, {
+					token,
+					device,
+					role: "operator",
+					scopes: ["operator.read", "operator.write", "operator.admin"],
+				});
+				return client;
+			} catch (err) {
+				lastError = err;
+				client.close();
+				if (attempt < 3) {
+					await delay(200 * attempt);
+				}
+			}
+		}
+	}
+
+	throw lastError instanceof Error
+		? lastError
+		: new Error("Failed to connect gateway");
+}
+
+function applyNotifyWebhookEnv(opts: {
+	slackWebhookUrl?: string;
+	discordWebhookUrl?: string;
+	googleChatWebhookUrl?: string;
+	discordDefaultUserId?: string;
+	discordDefaultTarget?: string;
+	discordDmChannelId?: string;
+}): void {
+	const mappings: Array<[string, string | undefined]> = [
+		["SLACK_WEBHOOK_URL", opts.slackWebhookUrl],
+		["DISCORD_WEBHOOK_URL", opts.discordWebhookUrl],
+		["GOOGLE_CHAT_WEBHOOK_URL", opts.googleChatWebhookUrl],
+		["DISCORD_DEFAULT_USER_ID", opts.discordDefaultUserId],
+		["DISCORD_DEFAULT_TARGET", opts.discordDefaultTarget],
+		["DISCORD_DEFAULT_CHANNEL_ID", opts.discordDmChannelId],
+	];
+	for (const [envKey, value] of mappings) {
+		if (value === undefined) continue;
+		const trimmed = value.trim();
+		if (trimmed.length > 0) {
+			process.env[envKey] = trimmed;
+		} else {
+			delete process.env[envKey];
+		}
+	}
+}
 
 export function handleApprovalResponse(resp: ApprovalResponse): void {
 	const pending = pendingApprovals.get(resp.toolCallId);
@@ -116,11 +239,28 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		systemPrompt,
 		ttsVoice,
 		ttsApiKey,
+		ttsEngine = "auto",
+		ttsProvider,
 		enableTools,
 		gatewayUrl,
 		gatewayToken,
 		disabledSkills,
+		// routeViaGateway — intentionally unused; see NOTE below
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
 	} = req;
+	applyNotifyWebhookEnv({
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
+	});
 	const controller = new AbortController();
 	activeStreams.set(requestId, controller);
 
@@ -128,18 +268,16 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 
 	try {
 		const provider = buildProvider(providerConfig);
-		const wantGateway = !!(enableTools && gatewayUrl);
+		const wantGatewayForTools = !!(enableTools && gatewayUrl);
+		const wantGatewayForTts =
+			!!gatewayUrl && !!ttsVoice && (ttsEngine === "openclaw" || ttsEngine === "auto");
+		const wantGateway = wantGatewayForTools || wantGatewayForTts;
 		let gatewayConnected = false;
 
 		// Connect to Gateway if tools enabled and URL provided
 		if (wantGateway) {
 			try {
-				gateway = new GatewayClient();
-				const device = loadDeviceIdentity();
-				await gateway.connect(gatewayUrl, {
-					token: gatewayToken || "",
-					device,
-				});
+				gateway = await connectGatewayWithRetry(gatewayUrl, gatewayToken);
 				gatewayConnected = true;
 
 				// Register event handler for Gateway-pushed events
@@ -153,6 +291,13 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				gateway = null;
 			}
 		}
+
+		// NOTE: routeViaGateway is intentionally disabled.
+		// Gateway chat (chat.send) delegates to gateway's own agent which only
+		// sees gateway-native tools (8 GATEWAY_TOOLS), completely bypassing
+		// agent built-in skills (20+ skills including skill_naia_discord).
+		// All chat goes through the direct LLM path below which has full
+		// access to both GATEWAY_TOOLS and agent built-in skills via getAllTools().
 
 		const tools = enableTools
 			? getAllTools(gatewayConnected, disabledSkills)
@@ -177,6 +322,58 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		let fullText = "";
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
+
+		const executeToolWithRecovery = async (
+			toolName: string,
+			args: Record<string, unknown>,
+		) => {
+			let result = await executeTool(gateway ?? null, toolName, args, {
+				writeLine,
+				requestId,
+				disabledSkills,
+			});
+
+			if (result.success) return result;
+			if (!gatewayUrl) return result;
+
+			const errText = (result.error ?? "").toLowerCase();
+			const maybeGatewayIssue =
+				errText.includes("gateway not connected") ||
+				errText.includes("requires a running gateway") ||
+				errText.includes("gateway method not available") ||
+				errText.includes("unauthorized");
+			if (!maybeGatewayIssue) return result;
+
+			try {
+				if (gateway) {
+					gateway.close();
+					gateway = null;
+				}
+				gateway = await connectGatewayWithRetry(gatewayUrl, gatewayToken);
+				gatewayConnected = true;
+				const eventHandler = createGatewayEventHandler(
+					writeLine,
+					pendingApprovals as Map<
+						string,
+						{
+							requestId: string;
+							resolve: (decision: "approve" | "reject") => void;
+						}
+					>,
+				);
+				gateway.onEvent(eventHandler);
+
+				result = await executeTool(gateway, toolName, args, {
+					writeLine,
+					requestId,
+					disabledSkills,
+				});
+			} catch {
+				// Keep original failure result if reconnect/retry also fails.
+			}
+
+			return result;
+		};
 
 		// Tool call loop
 		for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
@@ -276,11 +473,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 					}
 				}
 
-				const result = await executeTool(gateway ?? null, call.name, call.args, {
-					writeLine,
-					requestId,
-					disabledSkills,
-				});
+				const result = await executeToolWithRecovery(call.name, call.args);
 				writeLine({
 					type: "tool_result",
 					requestId,
@@ -335,11 +528,10 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				// Execution phase (parallel)
 				const results = await Promise.all(
 					approvedSpawns.map((call) =>
-						executeTool(gateway ?? null, call.name, call.args, {
-							writeLine,
-							requestId,
-							disabledSkills,
-						}).then((result) => ({ call, result })),
+						executeToolWithRecovery(call.name, call.args).then((result) => ({
+							call,
+							result,
+						})),
 					),
 				);
 
@@ -364,28 +556,44 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			}
 		}
 
-		// TTS synthesis — Gateway first, Google TTS fallback
+		// TTS synthesis — provider-specific direct calls
 		if (ttsVoice && fullText.trim()) {
 			const cleanText = fullText
 				.replace(EMOTION_TAG_RE, "")
-				.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "");
-			let audioSent = false;
+				.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+				.trim();
+			let audioSent = !cleanText;
 
-			// Try Gateway TTS first (supports OpenAI, ElevenLabs, Edge)
-			if (gateway?.isConnected()) {
+			// Direct TTS based on selected provider
+			if (ttsProvider === "openai" && ttsApiKey) {
 				try {
-					const result = await convertTts(gateway, cleanText);
-					if (result.audio) {
-						writeLine({ type: "audio", requestId, data: result.audio });
+					const audio = await synthesizeOpenAISpeech(cleanText, ttsApiKey, ttsVoice);
+					if (audio) {
+						writeLine({ type: "audio", requestId, data: audio });
 						audioSent = true;
 					}
-				} catch {
-					// Gateway TTS failed, fall through to Google
-				}
+				} catch { /* non-critical */ }
+			} else if (ttsProvider === "elevenlabs" && ttsApiKey) {
+				try {
+					const audio = await synthesizeElevenLabsSpeech(cleanText, ttsApiKey, ttsVoice);
+					if (audio) {
+						writeLine({ type: "audio", requestId, data: audio });
+						audioSent = true;
+					}
+				} catch { /* non-critical */ }
+			} else if (ttsProvider === "edge" || (!ttsProvider && ttsEngine === "openclaw")) {
+				// Edge TTS: try direct msedge-tts first
+				try {
+					const audio = await synthesizeEdgeSpeech(cleanText, ttsVoice);
+					if (audio) {
+						writeLine({ type: "audio", requestId, data: audio });
+						audioSent = true;
+					}
+				} catch { /* non-critical */ }
 			}
 
 			// Fallback: Google Cloud TTS
-			if (!audioSent) {
+			if (!audioSent && (ttsProvider === "google" || ttsEngine === "google" || ttsEngine === "auto")) {
 				const googleKey =
 					ttsApiKey ||
 					(providerConfig.provider === "gemini" ? providerConfig.apiKey : null);
@@ -439,17 +647,33 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 
 /** Handle direct tool request (no LLM, no token cost) */
 export async function handleToolRequest(req: ToolRequest): Promise<void> {
-	const { requestId, toolName, args, gatewayUrl, gatewayToken } = req;
+	const {
+		requestId,
+		toolName,
+		args,
+		gatewayUrl,
+		gatewayToken,
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
+	} = req;
+	applyNotifyWebhookEnv({
+		slackWebhookUrl,
+		discordWebhookUrl,
+		googleChatWebhookUrl,
+		discordDefaultUserId,
+		discordDefaultTarget,
+		discordDmChannelId,
+	});
+
 	let gateway: GatewayClient | null = null;
 
 	try {
 		if (gatewayUrl) {
-			gateway = new GatewayClient();
-			const device = loadDeviceIdentity();
-			await gateway.connect(gatewayUrl, {
-				token: gatewayToken || "",
-				device,
-			});
+			gateway = await connectGatewayWithRetry(gatewayUrl, gatewayToken);
 		}
 
 		const result = await executeTool(gateway, toolName, args, {

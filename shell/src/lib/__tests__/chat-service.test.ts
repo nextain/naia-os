@@ -158,4 +158,78 @@ describe("chat-service", () => {
 		const parsed = JSON.parse(sentMessage);
 		expect(parsed.enableTools).toBe(false);
 	});
+
+	it("includes ttsEngine in request when provided", async () => {
+		const { sendChatMessage } = await import("../chat-service");
+
+		mockListen.mockImplementation(
+			async (_event: string, handler: (event: { payload: string }) => void) => {
+				setTimeout(() => {
+					handler({
+						payload: JSON.stringify({
+							type: "finish",
+							requestId: "req-tts-engine",
+						}),
+					});
+				}, 10);
+				return mockUnlisten;
+			},
+		);
+
+		await sendChatMessage({
+			message: "test",
+			provider: {
+				provider: "nextain",
+				model: "gemini-3-flash-preview",
+				apiKey: "",
+			},
+			history: [],
+			onChunk: vi.fn(),
+			requestId: "req-tts-engine",
+			ttsEngine: "openclaw",
+		});
+
+		const sentMessage = mockInvoke.mock.calls[0][1].message;
+		const parsed = JSON.parse(sentMessage);
+		expect(parsed.ttsEngine).toBe("openclaw");
+	});
+
+	it("forwards webhook URLs to agent request", async () => {
+		const { sendChatMessage } = await import("../chat-service");
+
+		mockListen.mockImplementation(
+			async (_event: string, handler: (event: { payload: string }) => void) => {
+				setTimeout(() => {
+					handler({
+						payload: JSON.stringify({
+							type: "finish",
+							requestId: "req-webhooks",
+						}),
+					});
+				}, 10);
+				return mockUnlisten;
+			},
+		);
+
+		await sendChatMessage({
+			message: "test",
+			provider: {
+				provider: "nextain",
+				model: "gemini-3-flash-preview",
+				apiKey: "",
+			},
+			history: [],
+			onChunk: vi.fn(),
+			requestId: "req-webhooks",
+			slackWebhookUrl: "https://hooks.slack.com/services/test",
+			discordWebhookUrl: "https://discord.com/api/webhooks/123/abc",
+			googleChatWebhookUrl: "",
+		});
+
+		const sentMessage = mockInvoke.mock.calls[0][1].message;
+		const parsed = JSON.parse(sentMessage);
+		expect(parsed.slackWebhookUrl).toContain("hooks.slack.com");
+		expect(parsed.discordWebhookUrl).toContain("discord.com/api/webhooks");
+		expect(parsed.googleChatWebhookUrl).toBe("");
+	});
 });

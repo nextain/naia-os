@@ -38,7 +38,7 @@ three_pillars:
       - "Memory: conversation persistence, context recall"
       - "Sessions: multi-session management, sub-agent spawn"
       - "ACP (Agent Control Protocol): client↔agent bridge"
-      - "TTS: integrated text-to-speech providers"
+      - "TTS: unified provider selector (Edge TTS free, Google Cloud, OpenAI, ElevenLabs) with direct API calls"
     connection_protocol:
       handshake: "connect.challenge → connect (protocol v3)"
       auth: "device identity + token scopes (Ed25519 signed nonce)"
@@ -108,6 +108,36 @@ runtime_architecture:
     tool_exec: "LLM → Agent (tool_use) → Gateway (exec.bash or node.invoke) → OS → result → LLM"
     approval: "Gateway → Agent (approval_request) → Shell (modal) → user decision → Agent → Gateway"
     external: "Discord msg → Gateway → Agent → LLM → Agent → Gateway → Discord reply"
+
+desktop_avatar_asset_pipeline:
+  purpose: "Stable local-file loading for VRM model/background in Tauri WebView"
+  rules:
+    - "Normalize file:// paths to absolute filesystem paths before storage/rendering."
+    - "If URL appears as http://localhost/... convert to http://asset.localhost/... for Tauri asset protocol compatibility."
+    - "For absolute local VRM, read bytes via Rust command read_local_binary and parse as ArrayBuffer in frontend to avoid CORS/fetch failures."
+    - "Background images may use asset URL conversion; fallback to gradient if loading fails."
+  e2e_note:
+    - "e2e-tauri uses prebuilt binary src-tauri/target/debug/naia-shell (not pnpm build output)."
+    - "When Rust command/invoke_handler changes, run cargo build in src-tauri before wdio e2e."
+
+channel_onboarding_routing:
+  description: "Discord bot add flow is routed through naia.nextain.io instead of direct webhook input"
+  routes:
+    - "Shell ChannelsTab login(discord) -> https://naia.nextain.io/ko/discord/connect?source=naia-shell"
+    - "Onboarding complete optional action -> same route"
+  security:
+    - "Do not expose/use DISCORD_BOT_TOKEN in shell frontend"
+    - "Bot secrets stay server-side in naia.nextain.io env"
+
+deep_link_persistence_contract:
+  description: "OAuth deep-link payload must be persisted even when specific UI tabs are not mounted"
+  requirements:
+    - "Deep-link events that affect runtime behavior (e.g., discord_auth_complete) must be handled by an always-mounted layer (App root or equivalent)."
+    - "Settings/Onboarding listeners may update local UI state, but persistence logic must be centralized in shared lib code."
+    - "Agent send default-target behavior must not depend on whether Settings tab was open during OAuth callback."
+  anti_patterns:
+    - "Persisting critical auth payload only inside feature tabs/components that can be unmounted."
+    - "Duplicating persistence rules across multiple components with divergent fallback behavior."
 
 memory_architecture:
   description: "2-tier memory system for Alpha personal AI agent"

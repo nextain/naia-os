@@ -166,8 +166,10 @@ describe("tts-proxy", () => {
 			expect(result.durationMs).toBe(1500);
 		});
 
-		it("throws when text is empty", async () => {
-			await expect(convertTts(client, "")).rejects.toThrow();
+		it("returns empty audio when text is empty", async () => {
+			const result = await convertTts(client, "");
+			expect(result.audio).toBe("");
+			expect(result.format).toBe("mp3");
 		});
 	});
 

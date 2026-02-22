@@ -72,7 +72,7 @@ OpenClaw이 제공하는 것:
 - **메모리**: 대화 영속, 컨텍스트 리콜
 - **세션**: 멀티 세션, sub-agent spawn
 - **ACP**: Agent Control Protocol (클라이언트↔에이전트 브릿지)
-- **TTS**: 통합 음성 합성
+- **TTS**: 통합 프로바이더 셀렉터 (Edge TTS 무료, Google Cloud, OpenAI, ElevenLabs) — 직접 API 호출
 
 ### 축 2: project-careti (에이전트 지능)
 
@@ -101,6 +101,42 @@ OpenCode가 제공하는 것:
 | **도구 실행** | LLM → Agent (tool_use) → Gateway (exec.bash 또는 node.invoke) → OS → result → LLM |
 | **승인** | Gateway → Agent (approval_request) → Shell (모달) → 사용자 결정 → Agent → Gateway |
 | **외부 채널** | Discord msg → Gateway → Agent → LLM → Agent → Gateway → Discord reply |
+
+## 데스크톱 아바타 로컬 파일 파이프라인
+
+VRM/배경을 로컬 파일에서 안정적으로 로드하기 위한 규칙:
+
+- `file://` 경로는 저장/렌더 전에 절대 경로로 정규화한다.
+- 경로가 `http://localhost/...` 형태로 들어오면 Tauri 자산 프로토콜 호환을 위해 `http://asset.localhost/...`로 변환한다.
+- 절대 로컬 VRM은 Rust 커맨드 `read_local_binary`로 바이트를 읽고, 프론트엔드에서 `ArrayBuffer`로 직접 parse한다.
+  URL fetch 방식의 CORS/접근 제어 실패를 피하기 위함.
+- 배경 이미지는 자산 URL 변환을 사용하고, 실패 시 기본 그라데이션 배경으로 폴백한다.
+
+### E2E 실행 주의
+
+- `e2e-tauri`는 `src-tauri/target/debug/naia-shell` 고정 바이너리를 실행한다 (`pnpm build` 산출물과 별개).
+- Rust `#[tauri::command]` 또는 `invoke_handler` 변경 후에는 E2E 전에 반드시 `src-tauri`에서 `cargo build`를 실행한다.
+
+## 채널/온보딩 Discord 라우팅 규칙
+
+- Discord 봇 추가 플로우는 Shell에서 직접 토큰/웹훅을 다루지 않고 `naia.nextain.io` 라우팅을 사용한다.
+- Channels 탭의 Discord 로그인 버튼과 온보딩 마지막 단계 선택 버튼은 모두 아래 경로를 연다.
+  `https://naia.nextain.io/ko/discord/connect?source=naia-shell`
+- 보안 원칙:
+  - `DISCORD_BOT_TOKEN`은 shell 프론트엔드에서 사용/노출하지 않는다.
+  - 봇 비밀키는 `naia.nextain.io` 서버 환경변수에서만 관리한다.
+
+## 딥링크 저장 계약 (중요)
+
+OAuth 딥링크 페이로드는 특정 탭(설정/온보딩) 렌더 여부와 무관하게 반드시 저장되어야 한다.
+
+- 필수 규칙:
+  - 런타임 동작에 영향 주는 딥링크 이벤트(`discord_auth_complete` 등)는 **항상 마운트된 계층(App 루트)** 에서 수신/저장한다.
+  - Settings/Onboarding 리스너는 UI 상태 동기화 용도로만 쓰고, 저장 로직은 공통 라이브러리로 단일화한다.
+  - Agent 기본 전송 타깃 결정은 "설정 탭이 열려 있었는지"에 의존하면 안 된다.
+- 금지 패턴:
+  - 탭 컴포넌트 내부에서만 인증 페이로드를 저장하는 구조
+  - 컴포넌트별로 서로 다른 fallback 규칙을 중복 구현하는 구조
 
 ## 메모리 아키텍처 (2계층)
 
