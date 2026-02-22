@@ -261,7 +261,7 @@ export function OnboardingWizard({
 						discordDefaultUserId: restored.discordDefaultUserId,
 						discordDmChannelId: restored.discordDmChannelId,
 					});
-					syncToOpenClaw(restored.provider, restored.model, restored.apiKey, restored.persona, restored.agentName, restored.userName, fullPrompt, getLocale(), restored.discordDmChannelId, restored.discordDefaultUserId);
+					syncToOpenClaw(restored.provider, restored.model, restored.apiKey, restored.persona, restored.agentName, restored.userName, fullPrompt, getLocale(), restored.discordDmChannelId, restored.discordDefaultUserId, undefined, undefined, undefined, undefined, key);
 
 					// Push to Lab if not yet saved online
 					if (!onlineConfig) {
@@ -451,7 +451,7 @@ export function OnboardingWizard({
 			discordDefaultUserId: config.discordDefaultUserId,
 			discordDmChannelId: config.discordDmChannelId,
 		});
-		syncToOpenClaw(config.provider, config.model, config.apiKey, config.persona, config.agentName, config.userName, fullPrompt, getLocale(), config.discordDmChannelId, config.discordDefaultUserId);
+		syncToOpenClaw(config.provider, config.model, config.apiKey, config.persona, config.agentName, config.userName, fullPrompt, getLocale(), config.discordDmChannelId, config.discordDefaultUserId, undefined, undefined, undefined, undefined, labKey || undefined);
 
 		// Sync to Lab if connected
 		if (labKey && labUserId) {
@@ -527,7 +527,7 @@ export function OnboardingWizard({
 									? t("onboard.apiKey.success")
 									: labWaiting
 										? t("onboard.lab.waiting")
-										: "Naia Lab"}
+										: "Nextain"}
 							</span>
 							<span className="provider-card-desc">
 								{t("onboard.lab.description")}

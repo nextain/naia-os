@@ -384,7 +384,7 @@ export function ChatPanel() {
 			useChatStore
 				.getState()
 				.appendStreamChunk(
-					"Nextain provider를 사용하려면 설정에서 Naia OS 계정 로그인(Naia Lab 연결)이 필요합니다.",
+					"Nextain provider를 사용하려면 설정에서 Nextain 계정 로그인이 필요합니다.",
 				);
 			useChatStore.getState().finishStreaming();
 			return;

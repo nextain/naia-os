@@ -26,7 +26,7 @@ import {
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
 import { Logger } from "../lib/logger";
-import { syncToOpenClaw } from "../lib/openclaw-sync";
+import { syncToOpenClaw, restartGateway } from "../lib/openclaw-sync";
 import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "../lib/lab-sync";
 import { DEFAULT_PERSONA, buildSystemPrompt } from "../lib/persona";
 import { persistDiscordDefaults } from "../lib/discord-auth";
@@ -925,8 +925,10 @@ export function SettingsTab() {
 					mode?: GatewayTtsMode;
 				};
 				gatewayTtsActiveProviderRef.current = status.provider || "";
-				setGatewayTtsAuto(status.auto ?? "off");
-				setGatewayTtsMode(status.mode ?? "final");
+				// Prefer localStorage values over gateway runtime (which may be stale)
+				const savedConfig = loadConfig();
+				setGatewayTtsAuto(savedConfig?.gatewayTtsAuto as GatewayTtsAuto ?? status.auto ?? "off");
+				setGatewayTtsMode(savedConfig?.gatewayTtsMode as GatewayTtsMode ?? status.mode ?? "final");
 			}
 			if (providersRes.success && providersRes.output) {
 				const raw = JSON.parse(providersRes.output);
@@ -1089,7 +1091,8 @@ export function SettingsTab() {
 					discordDefaultUserId: current?.discordDefaultUserId,
 					discordDmChannelId: current?.discordDmChannelId,
 				});
-				syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, labFullPrompt, current?.locale || getLocale(), current?.discordDmChannelId, current?.discordDefaultUserId);
+				await syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, labFullPrompt, current?.locale || getLocale(), current?.discordDmChannelId, current?.discordDefaultUserId, undefined, undefined, undefined, undefined, nextLabKey);
+				await restartGateway();
 
 				// Try Lab pull — show diff dialog if settings differ
 				if (nextLabUserId) {
@@ -1164,7 +1167,7 @@ export function SettingsTab() {
 		setModel(getDefaultModel(id));
 		setError("");
 		if (id === "nextain" && !labKey) {
-			setError("Naia OS 계정 로그인이 필요합니다. 먼저 Nextain 계정에 로그인하세요.");
+			setError("Nextain 계정 로그인이 필요합니다. 먼저 Nextain에 로그인하세요.");
 			startLabLogin();
 		}
 	}
@@ -1220,7 +1223,16 @@ export function SettingsTab() {
 		if (labSyncTimerRef.current) clearTimeout(labSyncTimerRef.current);
 		labSyncTimerRef.current = setTimeout(() => {
 			const cfg = loadConfig();
-			if (labKey && labUserId && cfg) pushConfigToLab(labKey, labUserId, cfg);
+			if (!cfg) return;
+			if (labKey && labUserId) pushConfigToLab(labKey, labUserId, cfg);
+			// Also sync TTS settings to OpenClaw gateway config
+			syncToOpenClaw(
+				cfg.provider, cfg.model,
+				undefined, undefined, undefined, undefined, undefined, undefined,
+				undefined, undefined,
+				cfg.ttsProvider, cfg.ttsVoice, gatewayTtsAuto, gatewayTtsMode,
+				labKey || undefined,
+			);
 		}, 2000);
 	}
 
@@ -1277,7 +1289,7 @@ export function SettingsTab() {
 			if (ttsProvider === "nextain") {
 				// Nextain TTS preview — call Gateway directly with labKey
 				if (!labKey) {
-					setError("Nextain TTS를 사용하려면 Naia Lab 로그인이 필요합니다.");
+					setError("Nextain TTS를 사용하려면 Nextain 로그인이 필요합니다.");
 					return;
 				}
 				const resp = await fetch(`${LAB_GATEWAY_URL}/v1/audio/speech`, {
@@ -1375,38 +1387,32 @@ export function SettingsTab() {
 
 	async function handleGatewayTtsAutoChange(auto: GatewayTtsAuto) {
 		setGatewayTtsAuto(auto);
-		try {
-			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-			await directToolCall({
-				toolName: "skill_tts",
-				args: { action: "set_auto", auto },
-				requestId: `tts-auto-${Date.now()}`,
-				gatewayUrl: effectiveGatewayUrl,
-				gatewayToken,
-			});
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to set Gateway TTS auto mode", {
-				error: String(err),
-			});
-		}
+		// Persist to localStorage so fetchGatewayTts doesn't revert it
+		const cfg = loadConfig();
+		if (cfg) saveConfig({ ...cfg, gatewayTtsAuto: auto });
+		// Write to openclaw.json then restart gateway to apply
+		await syncToOpenClaw(
+			cfg?.provider || provider, cfg?.model || model,
+			undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined,
+			ttsProvider, ttsVoice, auto, gatewayTtsMode,
+			labKey || undefined,
+		);
+		await restartGateway();
 	}
 
 	async function handleGatewayTtsModeChange(mode: GatewayTtsMode) {
 		setGatewayTtsMode(mode);
-		try {
-			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-			await directToolCall({
-				toolName: "skill_tts",
-				args: { action: "set_mode", mode },
-				requestId: `tts-mode-${Date.now()}`,
-				gatewayUrl: effectiveGatewayUrl,
-				gatewayToken,
-			});
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to set Gateway TTS output mode", {
-				error: String(err),
-			});
-		}
+		const cfg = loadConfig();
+		if (cfg) saveConfig({ ...cfg, gatewayTtsMode: mode });
+		await syncToOpenClaw(
+			cfg?.provider || provider, cfg?.model || model,
+			undefined, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined,
+			ttsProvider, ttsVoice, gatewayTtsAuto, mode,
+			labKey || undefined,
+		);
+		await restartGateway();
 	}
 
 	async function handleGatewayTtsApiKeySave() {
@@ -1537,7 +1543,7 @@ export function SettingsTab() {
 		const isApiKeyOptionalProvider =
 			provider === "claude-code-cli" || provider === "ollama";
 		if (isNextainProvider && !labKey) {
-			setError("Naia OS 계정 로그인이 필요합니다. Nextain 계정 연결 후 저장하세요.");
+			setError("Nextain 계정 로그인이 필요합니다. Nextain 계정 연결 후 저장하세요.");
 			return;
 		}
 		if (
@@ -1592,6 +1598,8 @@ export function SettingsTab() {
 			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
 			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
 			discordDmChannelId: discordDmChannelId.trim() || undefined,
+			gatewayTtsAuto,
+			gatewayTtsMode,
 		};
 		saveConfig(newConfig);
 		setLocale(locale);
@@ -1611,7 +1619,8 @@ export function SettingsTab() {
 			discordDefaultUserId: newConfig.discordDefaultUserId,
 			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId);
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, newConfig.ttsProvider, newConfig.ttsVoice, gatewayTtsAuto, gatewayTtsMode, labKey || undefined)
+			.then(() => restartGateway());
 
 		// Auto-sync to Lab if connected
 		if (labKey && labUserId) {
@@ -2027,9 +2036,9 @@ export function SettingsTab() {
 
 			{provider === "nextain" ? (
 				<div className="settings-field">
-					<label>Nextain Account</label>
+					<label>{t("settings.labSection")}</label>
 					<div className="settings-hint">
-						Nextain provider는 API 키 대신 Naia OS 계정 로그인을 사용합니다.
+						Nextain provider는 API 키 대신 Nextain 계정 로그인을 사용합니다.
 					</div>
 						{labKey ? (
 							<div className="lab-info-block">
@@ -2221,7 +2230,13 @@ export function SettingsTab() {
 					id="tts-toggle"
 					type="checkbox"
 					checked={ttsEnabled}
-					onChange={(e) => setTtsEnabled(e.target.checked)}
+					onChange={(e) => {
+						const on = e.target.checked;
+						setTtsEnabled(on);
+						if (!on && gatewayTtsAuto !== "off") {
+							handleGatewayTtsAutoChange("off");
+						}
+					}}
 				/>
 			</div>
 
@@ -2335,7 +2350,7 @@ export function SettingsTab() {
 			{ttsProvider === "nextain" && !labKey && (
 				<div className="settings-field">
 					<span className="settings-hint" style={{ color: "var(--color-warning, #f59e0b)" }}>
-						Naia Lab 로그인이 필요합니다. 설정 &gt; Naia Lab에서 로그인하세요.
+						Nextain 로그인이 필요합니다. 설정 &gt; Nextain에서 로그인하세요.
 					</span>
 				</div>
 			)}

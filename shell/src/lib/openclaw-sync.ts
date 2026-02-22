@@ -21,6 +21,11 @@ export async function syncToOpenClaw(
 	locale?: string,
 	discordDmChannelId?: string,
 	discordDefaultUserId?: string,
+	ttsProvider?: string,
+	ttsVoice?: string,
+	ttsAuto?: string,
+	ttsMode?: string,
+	labKey?: string,
 ): Promise<void> {
 	try {
 		// Build the complete system prompt that includes emotion tags,
@@ -43,10 +48,29 @@ export async function syncToOpenClaw(
 				locale: locale || null,
 				discord_dm_channel_id: discordDmChannelId || null,
 				discord_default_user_id: discordDefaultUserId || null,
+				tts_provider: ttsProvider || null,
+				tts_voice: ttsVoice || null,
+				tts_auto: ttsAuto || null,
+				tts_mode: ttsMode || null,
+				lab_key: labKey || null,
 			},
 		});
 	} catch (err) {
 		Logger.warn("openclaw-sync", "Failed to sync OpenClaw config", {
+			error: String(err),
+		});
+	}
+}
+
+/**
+ * Restart the OpenClaw gateway so it reads fresh config from openclaw.json.
+ * Best-effort — errors are logged but never block the UI.
+ */
+export async function restartGateway(): Promise<void> {
+	try {
+		await invoke("restart_gateway");
+	} catch (err) {
+		Logger.warn("openclaw-sync", "Failed to restart gateway", {
 			error: String(err),
 		});
 	}

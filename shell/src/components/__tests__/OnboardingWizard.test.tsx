@@ -37,7 +37,7 @@ describe("OnboardingWizard", () => {
 	it("renders provider step first", () => {
 		render(<OnboardingWizard onComplete={onComplete} />);
 		expect(screen.getByText(/두뇌|brain/i)).toBeDefined();
-		expect(screen.getByText("Naia Lab")).toBeDefined();
+		expect(screen.getByText("Nextain")).toBeDefined();
 	});
 
 	it("shows all 5 providers", () => {

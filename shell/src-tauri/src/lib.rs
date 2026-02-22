@@ -506,8 +506,9 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
         None => Stdio::inherit(),
     };
 
-    let child = Command::new(node_bin.as_os_str())
-        .arg(&openclaw_bin)
+    // Load extra env vars from gateway-env.json (e.g. OPENAI_TTS_BASE_URL for Nextain TTS)
+    let mut cmd = Command::new(node_bin.as_os_str());
+    cmd.arg(&openclaw_bin)
         .arg("gateway")
         .arg("run")
         .arg("--bind")
@@ -516,8 +517,25 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
         .arg("18789")
         .env("OPENCLAW_CONFIG_PATH", &config_path)
         .stdout(gw_stdout)
-        .stderr(gw_stderr)
-        .spawn()
+        .stderr(gw_stderr);
+    let env_path = std::path::Path::new(&config_path)
+        .parent()
+        .map(|d| d.join("gateway-env.json"));
+    if let Some(ref ep) = env_path {
+        if ep.exists() {
+            if let Ok(raw) = std::fs::read_to_string(ep) {
+                if let Ok(env_obj) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&raw) {
+                    for (key, val) in &env_obj {
+                        if let Some(s) = val.as_str() {
+                            cmd.env(key, s);
+                            log_both(&format!("[Naia] Gateway env: {}={}", key, s));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Gateway: {}", e))?;
 
     log_both(&format!(
@@ -1115,6 +1133,43 @@ async fn gateway_health() -> Result<bool, String> {
     }
 }
 
+/// Restart the OpenClaw Gateway.
+/// Kills existing gateway + node host, then respawns both.
+/// Call this after writing openclaw.json to ensure the gateway reads fresh config.
+#[tauri::command]
+async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    log_both("[Naia] restart_gateway requested");
+    let guard_result = state.gateway.lock();
+    if let Ok(mut guard) = guard_result {
+        // Kill existing processes
+        if let Some(mut old) = guard.take() {
+            if let Some(ref mut nh) = old.node_host {
+                let _ = nh.kill();
+            }
+            if old.we_spawned {
+                let _ = old.child.kill();
+            }
+            // Give processes time to exit cleanly
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        // Respawn
+        match spawn_gateway() {
+            Ok(process) => {
+                let managed = process.we_spawned;
+                *guard = Some(process);
+                log_both(&format!("[Naia] Gateway restarted (managed={})", managed));
+                Ok(true)
+            }
+            Err(e) => {
+                log_both(&format!("[Naia] Gateway restart failed: {}", e));
+                Err(e)
+            }
+        }
+    } else {
+        Err("Failed to acquire gateway lock".to_string())
+    }
+}
+
 /// Generate a random state token for OAuth deep link CSRF protection.
 /// Frontend calls this before opening the OAuth URL and passes state as query param.
 #[tauri::command]
@@ -1270,6 +1325,11 @@ struct OpenClawSyncParams {
     locale: Option<String>,
     discord_dm_channel_id: Option<String>,
     discord_default_user_id: Option<String>,
+    tts_provider: Option<String>,
+    tts_voice: Option<String>,
+    tts_auto: Option<String>,
+    tts_mode: Option<String>,
+    lab_key: Option<String>,
 }
 
 /// Sync Shell provider/model/API-key to ~/.openclaw/openclaw.json so the
@@ -1333,6 +1393,20 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         serde_json::Value::String(model_value.clone()),
     );
 
+    // Disable file-watcher auto-reload so our explicit restartGateway is the only trigger.
+    // Without this, the file watcher races with restartGateway causing crashes.
+    let gw = obj
+        .entry("gateway")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("gateway is not an object")?;
+    let reload = gw
+        .entry("reload")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("reload is not an object")?;
+    reload.insert("mode".to_string(), serde_json::Value::String("off".to_string()));
+
     // Sync Discord DM defaults into channels.discord so the gateway knows the DM target
     if let Some(ref user_id) = params.discord_default_user_id {
         let channels = obj
@@ -1355,6 +1429,70 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         dm.insert("enabled".to_string(), serde_json::Value::Bool(true));
     }
 
+    // Sync TTS settings into messages.tts so the gateway uses the right provider/voice
+    // When provider is "nextain" and labKey is available, route through Lab gateway's
+    // OpenAI-compatible TTS endpoint instead of falling back to edge.
+    let use_nextain_via_lab = matches!(params.tts_provider.as_deref(), Some("nextain"))
+        && params.lab_key.as_ref().map_or(false, |k| !k.is_empty());
+
+    if params.tts_provider.is_some() || params.tts_voice.is_some() || params.tts_auto.is_some() || params.tts_mode.is_some() {
+        let messages = obj
+            .entry("messages")
+            .or_insert_with(|| serde_json::json!({}))
+            .as_object_mut()
+            .ok_or("messages is not an object")?;
+        let tts = messages
+            .entry("tts")
+            .or_insert_with(|| serde_json::json!({}))
+            .as_object_mut()
+            .ok_or("tts is not an object")?;
+        if let Some(ref provider) = params.tts_provider {
+            let gw_provider = if use_nextain_via_lab {
+                // Route through Lab gateway's OpenAI-compatible TTS endpoint
+                "openai"
+            } else {
+                match provider.as_str() {
+                    "nextain" | "google" => "edge",
+                    other => other,
+                }
+            };
+            tts.insert("provider".to_string(), serde_json::Value::String(gw_provider.to_string()));
+            // Remove "nextain" key — OpenClaw doesn't recognize it and rejects config
+            tts.remove("nextain");
+        }
+        if use_nextain_via_lab {
+            // Configure openai section to point to Lab gateway
+            let openai_obj = tts
+                .entry("openai")
+                .or_insert_with(|| serde_json::json!({}))
+                .as_object_mut()
+                .ok_or("tts openai section is not an object")?;
+            openai_obj.insert("apiKey".to_string(),
+                serde_json::Value::String(params.lab_key.as_ref().unwrap().clone()));
+            if let Some(ref voice) = params.tts_voice {
+                openai_obj.insert("voice".to_string(), serde_json::Value::String(voice.clone()));
+            }
+        } else if let Some(ref voice) = params.tts_voice {
+            // Write voice to the provider-specific section (e.g. edge.voice, openai.voice)
+            let provider_key = match params.tts_provider.as_deref() {
+                Some("nextain") | Some("google") | None => "edge",
+                Some(other) => other,
+            };
+            let provider_obj = tts
+                .entry(provider_key)
+                .or_insert_with(|| serde_json::json!({}))
+                .as_object_mut()
+                .ok_or("tts provider section is not an object")?;
+            provider_obj.insert("voice".to_string(), serde_json::Value::String(voice.clone()));
+        }
+        if let Some(ref auto) = params.tts_auto {
+            tts.insert("auto".to_string(), serde_json::Value::String(auto.clone()));
+        }
+        if let Some(ref mode) = params.tts_mode {
+            tts.insert("mode".to_string(), serde_json::Value::String(mode.clone()));
+        }
+    }
+
     // Atomic write: openclaw.json
     let dir = std::path::Path::new(&config_path)
         .parent()
@@ -1368,6 +1506,75 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         .map_err(|e| format!("Failed to write {}: {}", tmp_path, e))?;
     std::fs::rename(&tmp_path, &config_path)
         .map_err(|e| format!("Failed to rename {} → {}: {}", tmp_path, config_path, e))?;
+
+    // Also write TTS prefs to settings/tts.json (per-host override that takes priority
+    // over messages.tts in openclaw.json). Without this, stale prefs override our config.
+    if params.tts_provider.is_some() || params.tts_auto.is_some() {
+        let openclaw_dir = std::path::Path::new(&config_path)
+            .parent()
+            .ok_or("No parent dir")?;
+        let prefs_path = openclaw_dir.join("settings/tts.json");
+        if let Some(prefs_parent) = prefs_path.parent() {
+            std::fs::create_dir_all(prefs_parent)
+                .map_err(|e| format!("Failed to create settings dir: {}", e))?;
+        }
+        let mut prefs_root: serde_json::Value = if prefs_path.exists() {
+            let raw = std::fs::read_to_string(&prefs_path).unwrap_or_else(|_| "{}".to_string());
+            serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}))
+        } else {
+            serde_json::json!({})
+        };
+        let prefs_tts = prefs_root
+            .as_object_mut()
+            .ok_or("prefs root is not an object")?
+            .entry("tts")
+            .or_insert_with(|| serde_json::json!({}))
+            .as_object_mut()
+            .ok_or("prefs tts is not an object")?;
+        if let Some(ref provider) = params.tts_provider {
+            let gw_provider = if use_nextain_via_lab {
+                "openai"
+            } else {
+                match provider.as_str() {
+                    "nextain" | "google" => "edge",
+                    other => other,
+                }
+            };
+            prefs_tts.insert("provider".to_string(), serde_json::Value::String(gw_provider.to_string()));
+        }
+        if let Some(ref auto) = params.tts_auto {
+            prefs_tts.insert("auto".to_string(), serde_json::Value::String(auto.clone()));
+        }
+        let prefs_pretty = serde_json::to_string_pretty(&prefs_root)
+            .map_err(|e| format!("JSON serialize prefs: {}", e))?;
+        std::fs::write(&prefs_path, prefs_pretty.as_bytes())
+            .map_err(|e| format!("Failed to write tts prefs: {}", e))?;
+    }
+
+    // Write OPENAI_TTS_BASE_URL env file for gateway to pick up on (re)start.
+    // When using Nextain TTS via Lab gateway, point OpenClaw's openai TTS to Lab.
+    {
+        let openclaw_dir = std::path::Path::new(&config_path)
+            .parent()
+            .ok_or("No parent dir")?;
+        let env_path = openclaw_dir.join("gateway-env.json");
+        let mut env_obj: serde_json::Map<String, serde_json::Value> = if env_path.exists() {
+            let raw = std::fs::read_to_string(&env_path).unwrap_or_else(|_| "{}".to_string());
+            serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::Map::new())
+        } else {
+            serde_json::Map::new()
+        };
+        if use_nextain_via_lab {
+            env_obj.insert("OPENAI_TTS_BASE_URL".to_string(),
+                serde_json::Value::String("https://cafelua-gateway-789741003661.asia-northeast3.run.app/v1".to_string()));
+        } else {
+            env_obj.remove("OPENAI_TTS_BASE_URL");
+        }
+        let env_pretty = serde_json::to_string_pretty(&serde_json::Value::Object(env_obj))
+            .map_err(|e| format!("JSON serialize env: {}", e))?;
+        std::fs::write(&env_path, env_pretty.as_bytes())
+            .map_err(|e| format!("Failed to write gateway-env: {}", e))?;
+    }
 
     // Write API key to auth-profiles.json (where OpenClaw actually reads credentials)
     if let Some(ak) = &params.api_key {
@@ -1623,6 +1830,7 @@ pub fn run() {
             reset_openclaw_data,
             preview_tts,
             gateway_health,
+            restart_gateway,
             get_audit_log,
             get_audit_stats,
             memory_get_all_facts,

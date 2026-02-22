@@ -98,7 +98,7 @@ describe("SettingsTab", () => {
 		fireEvent.change(providerSelect, { target: { value: "nextain" } });
 		expect(screen.queryByLabelText(/^API/i)).toBeNull();
 		expect(
-			screen.getByText("Nextain provider는 API 키 대신 Naia OS 계정 로그인을 사용합니다."),
+			screen.getByText("Nextain provider는 API 키 대신 Nextain 계정 로그인을 사용합니다."),
 		).toBeDefined();
 	});
 

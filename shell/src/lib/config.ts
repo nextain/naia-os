@@ -55,6 +55,8 @@ export interface AppConfig {
 	googleChatWebhookUrl?: string;
 	openaiTtsApiKey?: string;
 	elevenlabsApiKey?: string;
+	gatewayTtsAuto?: string;
+	gatewayTtsMode?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
