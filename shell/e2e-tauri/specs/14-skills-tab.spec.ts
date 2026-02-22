@@ -27,7 +27,11 @@ describe("14 — skills tab", () => {
 				const c = await $$(S.skillsCard);
 				return c.length >= 7;
 			},
-			{ timeout: 10_000, interval: 500, timeoutMsg: "Skills cards did not reach 7 within 10s" },
+			{
+				timeout: 10_000,
+				interval: 500,
+				timeoutMsg: "Skills cards did not reach 7 within 10s",
+			},
 		);
 		const cards = await $$(S.skillsCard);
 		expect(cards.length).toBeGreaterThanOrEqual(7);

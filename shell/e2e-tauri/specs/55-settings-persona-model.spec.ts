@@ -38,7 +38,8 @@ describe("55 — settings persona & model", () => {
 		await browser.pause(200);
 
 		const value = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLTextAreaElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLTextAreaElement)?.value ?? "",
 			S.personaInput,
 		);
 		expect(value).toBe(testText);
@@ -47,7 +48,8 @@ describe("55 — settings persona & model", () => {
 	it("should show provider select with valid value", async () => {
 		await scrollToSection(S.providerSelect);
 		const value = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.providerSelect,
 		);
 		expect(value.length).toBeGreaterThan(0);

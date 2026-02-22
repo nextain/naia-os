@@ -52,15 +52,17 @@ describe("61 — channels interactions", () => {
 		);
 
 		// At least one state should be true
-		const hasState = state.loading || state.empty || state.cards > 0 || state.hasError;
+		const hasState =
+			state.loading || state.empty || state.cards > 0 || state.hasError;
 		expect(hasState).toBe(true);
 	});
 
 	it("should render channel name if cards exist", async () => {
 		if (!tabAvailable) return;
 		const names = await browser.execute((sel: string) => {
-			return Array.from(document.querySelectorAll(sel))
-				.map((el) => el.textContent?.trim() ?? "");
+			return Array.from(document.querySelectorAll(sel)).map(
+				(el) => el.textContent?.trim() ?? "",
+			);
 		}, S.channelName);
 
 		// If there are channels, they should have names

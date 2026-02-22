@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -47,9 +44,7 @@ describe("47 — TTS full", () => {
 	});
 
 	it("should enable TTS", async () => {
-		await sendMessage(
-			"TTS를 활성화해줘. skill_tts의 enable 액션을 사용해.",
-		);
+		await sendMessage("TTS를 활성화해줘. skill_tts의 enable 액션을 사용해.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(
@@ -87,9 +82,7 @@ describe("47 — TTS full", () => {
 	});
 
 	it("should disable TTS", async () => {
-		await sendMessage(
-			"TTS를 비활성화해줘. skill_tts의 disable 액션을 사용해.",
-		);
+		await sendMessage("TTS를 비활성화해줘. skill_tts의 disable 액션을 사용해.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(

@@ -1,5 +1,5 @@
-import { configureSettings } from "../helpers/settings.js";
 import { S } from "../helpers/selectors.js";
+import { configureSettings } from "../helpers/settings.js";
 
 const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
 if (!API_KEY) {
@@ -23,7 +23,7 @@ describe("02 — Configure Settings", () => {
 				apiKey: key,
 				agentName: "Naia",
 				userName: "Tester",
-				vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+				vrmModel: "/avatars/01-Sendagaya-Shino-uniform.vrm",
 				persona: "Friendly AI companion",
 				enableTools: true,
 				locale: "ko",
@@ -38,8 +38,14 @@ describe("02 — Configure Settings", () => {
 		await appRoot.waitForDisplayed({ timeout: 15_000 });
 		await browser.waitUntil(
 			async () =>
-				browser.execute((sel: string) => !document.querySelector(sel), S.onboardingOverlay),
-			{ timeout: 15_000, timeoutMsg: "Onboarding still visible in configure spec" },
+				browser.execute(
+					(sel: string) => !document.querySelector(sel),
+					S.onboardingOverlay,
+				),
+			{
+				timeout: 15_000,
+				timeoutMsg: "Onboarding still visible in configure spec",
+			},
 		);
 		await browser.waitUntil(
 			async () =>
@@ -98,11 +104,9 @@ describe("02 — Configure Settings", () => {
 		await settingsTab.waitForDisplayed({ timeout: 10_000 });
 
 		const hasLabSection = await browser.execute(() => {
-			const dividers = document.querySelectorAll(
-				".settings-section-divider",
-			);
+			const dividers = document.querySelectorAll(".settings-section-divider");
 			return Array.from(dividers).some((d) =>
-				/Nextain|Lab/i.test(d.textContent ?? ""),
+				/Naia OS|Nextain|Lab|계정|Account/i.test(d.textContent ?? ""),
 			);
 		});
 		expect(hasLabSection).toBe(true);

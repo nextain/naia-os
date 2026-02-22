@@ -24,10 +24,11 @@ describe("58 — history interactions", () => {
 	it("should navigate to history tab and see items", async () => {
 		await clickBySelector(S.historyTab);
 		await browser.waitUntil(
-			async () => browser.execute(
-				(sel: string) => document.querySelectorAll(sel).length > 0,
-				S.historyItem,
-			),
+			async () =>
+				browser.execute(
+					(sel: string) => document.querySelectorAll(sel).length > 0,
+					S.historyItem,
+				),
 			{ timeout: 10_000 },
 		);
 	});
@@ -68,19 +69,25 @@ describe("58 — history interactions", () => {
 		}
 
 		// Mock window.confirm to return true
-		await browser.execute(() => { window.confirm = () => true; });
+		await browser.execute(() => {
+			window.confirm = () => true;
+		});
 
 		// Click delete on the last non-current item
-		await browser.execute((itemSel: string, delSel: string) => {
-			const items = document.querySelectorAll(itemSel);
-			for (let i = items.length - 1; i >= 0; i--) {
-				if (!items[i].classList.contains("current")) {
-					const btn = items[i].querySelector(delSel) as HTMLElement;
-					if (btn) btn.click();
-					return;
+		await browser.execute(
+			(itemSel: string, delSel: string) => {
+				const items = document.querySelectorAll(itemSel);
+				for (let i = items.length - 1; i >= 0; i--) {
+					if (!items[i].classList.contains("current")) {
+						const btn = items[i].querySelector(delSel) as HTMLElement;
+						if (btn) btn.click();
+						return;
+					}
 				}
-			}
-		}, S.historyItem, S.historyDeleteBtn);
+			},
+			S.historyItem,
+			S.historyDeleteBtn,
+		);
 
 		await browser.pause(1_000);
 

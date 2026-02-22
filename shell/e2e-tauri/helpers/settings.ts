@@ -9,7 +9,10 @@ export async function safeRefresh(maxAttempts = 3): Promise<void> {
 			await browser.refresh();
 			return;
 		} catch {
-			if (attempt === maxAttempts - 1) throw new Error(`browser.refresh() failed after ${maxAttempts} attempts`);
+			if (attempt === maxAttempts - 1)
+				throw new Error(
+					`browser.refresh() failed after ${maxAttempts} attempts`,
+				);
 			await browser.pause(2_000);
 		}
 	}
@@ -33,9 +36,7 @@ export async function enableToolsForSpec(tools: string[]): Promise<void> {
 		const disabled = Array.isArray(config.disabledSkills)
 			? config.disabledSkills
 			: [];
-		const newDisabled = disabled.filter(
-			(s: string) => !toolNames.includes(s),
-		);
+		const newDisabled = disabled.filter((s: string) => !toolNames.includes(s));
 		if (newDisabled.length !== disabled.length) {
 			config.disabledSkills = newDisabled;
 			changed = true;
@@ -61,7 +62,8 @@ export async function enableToolsForSpec(tools: string[]): Promise<void> {
 				await browser.refresh();
 				break;
 			} catch {
-				if (attempt === 2) throw new Error("browser.refresh() failed after 3 attempts");
+				if (attempt === 2)
+					throw new Error("browser.refresh() failed after 3 attempts");
 				await browser.pause(2_000);
 			}
 		}
@@ -84,7 +86,22 @@ export async function configureSettings(opts: {
 	// Provider
 	const providerSelect = await $(S.providerSelect);
 	await providerSelect.waitForDisplayed({ timeout: 10_000 });
-	await providerSelect.selectByAttribute("value", opts.provider);
+	await browser.execute(
+		(sel: string, val: string) => {
+			const el = document.querySelector(sel) as HTMLSelectElement | null;
+			if (!el) throw new Error(`Provider select ${sel} not found`);
+			el.scrollIntoView({ block: "center" });
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLSelectElement.prototype,
+				"value",
+			)?.set;
+			if (setter) setter.call(el, val);
+			else el.value = val;
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		},
+		S.providerSelect,
+		opts.provider,
+	);
 
 	// API Key — use JS native setter (WebDriver setValue may not trigger React state in WebKitGTK)
 	await browser.execute(
@@ -92,7 +109,10 @@ export async function configureSettings(opts: {
 			const el = document.querySelector(sel) as HTMLInputElement | null;
 			if (!el) throw new Error(`API key input ${sel} not found`);
 			el.scrollIntoView({ block: "center" });
-			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
 			if (setter) setter.call(el, val);
 			else el.value = val;
 			el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -115,7 +135,10 @@ export async function configureSettings(opts: {
 			const el = document.querySelector(sel) as HTMLInputElement | null;
 			if (!el) return;
 			el.scrollIntoView({ block: "center" });
-			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
 			if (setter) setter.call(el, val);
 			else el.value = val;
 			el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -130,7 +153,10 @@ export async function configureSettings(opts: {
 			const el = document.querySelector(sel) as HTMLInputElement | null;
 			if (!el) return;
 			el.scrollIntoView({ block: "center" });
-			const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				"value",
+			)?.set;
 			if (setter) setter.call(el, val);
 			else el.value = val;
 			el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -148,9 +174,14 @@ export async function configureSettings(opts: {
 		}
 	}, S.settingsSaveBtn);
 
-	// Switch to chat tab
-	const chatTab = await $(S.chatTab);
-	await chatTab.click();
+	// Switch to chat tab (JS click avoids WebKit "element click intercepted")
+	await browser.execute((sel: string) => {
+		const el = document.querySelector(sel) as HTMLElement | null;
+		if (el) {
+			el.scrollIntoView({ block: "center" });
+			el.click();
+		}
+	}, S.chatTab);
 
 	// Wait for chat input to become visible
 	const chatInput = await $(S.chatInput);
@@ -176,15 +207,22 @@ export async function scrollToSection(selector: string): Promise<void> {
 }
 
 /** Set an input/textarea value using React-compatible native setter. */
-export async function setNativeValue(selector: string, value: string): Promise<void> {
+export async function setNativeValue(
+	selector: string,
+	value: string,
+): Promise<void> {
 	await browser.execute(
 		(sel: string, val: string) => {
-			const el = document.querySelector(sel) as HTMLInputElement | HTMLTextAreaElement | null;
+			const el = document.querySelector(sel) as
+				| HTMLInputElement
+				| HTMLTextAreaElement
+				| null;
 			if (!el) return;
 			el.scrollIntoView({ block: "center" });
-			const proto = el instanceof HTMLTextAreaElement
-				? HTMLTextAreaElement.prototype
-				: HTMLInputElement.prototype;
+			const proto =
+				el instanceof HTMLTextAreaElement
+					? HTMLTextAreaElement.prototype
+					: HTMLInputElement.prototype;
 			const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
 			if (setter) setter.call(el, val);
 			else el.value = val;
@@ -203,7 +241,8 @@ export async function clickBySelector(selector: string): Promise<void> {
 	}, selector);
 }
 
-const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
+const API_KEY =
+	process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 
 /**
  * Ensure the app is ready: bypass onboarding, set base config, wait for tabs.
@@ -227,7 +266,7 @@ export async function ensureAppReady(): Promise<void> {
 				apiKey: config.apiKey || key,
 				agentName: config.agentName || "Naia",
 				userName: config.userName || "Tester",
-				vrmModel: config.vrmModel || "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+				vrmModel: config.vrmModel || "/avatars/01-Sendagaya-Shino-uniform.vrm",
 				persona: config.persona || "Friendly AI companion",
 				enableTools: true,
 				locale: config.locale || "ko",
@@ -241,7 +280,10 @@ export async function ensureAppReady(): Promise<void> {
 				await browser.refresh();
 				break;
 			} catch {
-				if (attempt === 2) throw new Error("browser.refresh() failed after 3 attempts in ensureAppReady");
+				if (attempt === 2)
+					throw new Error(
+						"browser.refresh() failed after 3 attempts in ensureAppReady",
+					);
 				await browser.pause(2_000);
 			}
 		}
@@ -251,16 +293,18 @@ export async function ensureAppReady(): Promise<void> {
 	const appRoot = await $(S.appRoot);
 	await appRoot.waitForDisplayed({ timeout: 15_000 });
 	await browser.waitUntil(
-		async () => browser.execute(
-			(sel: string) => !document.querySelector(sel),
-			S.onboardingOverlay,
-		),
+		async () =>
+			browser.execute(
+				(sel: string) => !document.querySelector(sel),
+				S.onboardingOverlay,
+			),
 		{ timeout: 15_000 },
 	);
 	await browser.waitUntil(
-		async () => browser.execute(
-			() => document.querySelectorAll(".chat-tabs .chat-tab").length >= 8,
-		),
+		async () =>
+			browser.execute(
+				() => document.querySelectorAll(".chat-tabs .chat-tab").length >= 8,
+			),
 		{ timeout: 15_000 },
 	);
 }

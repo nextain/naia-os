@@ -1,14 +1,13 @@
 import { S } from "../helpers/selectors.js";
-import { clickBySelector, ensureAppReady, navigateToSettings, scrollToSection } from "../helpers/settings.js";
+import {
+	clickBySelector,
+	ensureAppReady,
+	navigateToSettings,
+	scrollToSection,
+} from "../helpers/settings.js";
 
 /**
  * 54 — Settings: Avatar VRM & Background
- *
- * Pure client-side interactions:
- * - VRM cards render (built-in + add)
- * - Click different VRM card → active changes
- * - BG cards render
- * - Click different BG card → active changes
  */
 describe("54 — settings avatar & background", () => {
 	before(async () => {
@@ -24,7 +23,6 @@ describe("54 — settings avatar & background", () => {
 			(sel: string) => document.querySelectorAll(sel).length,
 			S.vrmCard,
 		);
-		// At least built-in cards + add card
 		expect(count).toBeGreaterThanOrEqual(3);
 	});
 
@@ -45,7 +43,10 @@ describe("54 — settings avatar & background", () => {
 					all[i].classList.contains("vrm-card-add") ||
 					all[i].classList.contains("active")
 				) continue;
-				(all[i] as HTMLElement).click();
+				// trigger mousedown+up instead of click due to useLongPress
+				const el = all[i] as HTMLElement;
+				el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+				el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
 				return true;
 			}
 			return false;
@@ -67,7 +68,6 @@ describe("54 — settings avatar & background", () => {
 			(sel: string) => document.querySelectorAll(sel).length,
 			S.bgCard,
 		);
-		// "None" + samples + add = at least 3
 		expect(count).toBeGreaterThanOrEqual(2);
 	});
 
@@ -79,7 +79,10 @@ describe("54 — settings avatar & background", () => {
 					all[i].classList.contains("bg-card-add") ||
 					all[i].classList.contains("active")
 				) continue;
-				(all[i] as HTMLElement).click();
+				// trigger mousedown+up instead of click due to useLongPress
+				const el = all[i] as HTMLElement;
+				el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+				el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
 				return true;
 			}
 			return false;

@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -35,9 +32,7 @@ describe("21 — cron recurring", () => {
 	});
 
 	it("should show schedule info in job list", async () => {
-		await sendMessage(
-			"예약된 작업 목록 보여줘. skill_cron의 list를 사용해.",
-		);
+		await sendMessage("예약된 작업 목록 보여줘. skill_cron의 list를 사용해.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(

@@ -110,7 +110,10 @@ describe("08 — Memory (conversation persistence)", () => {
 				const count = await countUserMessages();
 				return count === 0;
 			},
-			{ timeout: 10_000, timeoutMsg: "Messages were not cleared after new conversation" },
+			{
+				timeout: 10_000,
+				timeoutMsg: "Messages were not cleared after new conversation",
+			},
 		);
 
 		const userCount = await countUserMessages();

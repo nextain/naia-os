@@ -1,5 +1,5 @@
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { S } from "../helpers/selectors.js";
-import { sendMessage, getLastAssistantMessage } from "../helpers/chat.js";
 
 /**
  * 70 — Live Providers Switching E2E
@@ -9,9 +9,19 @@ import { sendMessage, getLastAssistantMessage } from "../helpers/chat.js";
  */
 describe("70 — live providers switching", () => {
 	const providers = [
-		{ id: "anthropic", label: "Anthropic", model: "claude-sonnet-4-5-20250929", envKey: "ANTHROPIC_API_KEY" },
+		{
+			id: "anthropic",
+			label: "Anthropic",
+			model: "claude-sonnet-4-5-20250929",
+			envKey: "ANTHROPIC_API_KEY",
+		},
 		{ id: "xai", label: "xAI", model: "grok-4", envKey: "XAI_API_KEY" },
-		{ id: "openai", label: "OpenAI", model: "gpt-4o", envKey: "OPENAI_API_KEY" },
+		{
+			id: "openai",
+			label: "OpenAI",
+			model: "gpt-4o",
+			envKey: "OPENAI_API_KEY",
+		},
 		{ id: "zai", label: "zAI", model: "glm-4-plus", envKey: "ZHIPU_API_KEY" },
 		{ id: "ollama", label: "Ollama", model: "gpt-oss:20b", envKey: null },
 	];
@@ -34,39 +44,53 @@ describe("70 — live providers switching", () => {
 
 			// 2. Select Provider
 			await browser.execute((id: string) => {
-				const select = document.querySelector('select[id="provider-select"]') as HTMLSelectElement | null;
+				const select = document.querySelector(
+					'select[id="provider-select"]',
+				) as HTMLSelectElement | null;
 				if (select) {
 					select.value = id;
-					select.dispatchEvent(new Event('change', { bubbles: true }));
+					select.dispatchEvent(new Event("change", { bubbles: true }));
 				}
 			}, p.id);
 
 			// 3. Select Model
 			await browser.execute((model: string) => {
-				const input = document.querySelector('input#model-input') as HTMLInputElement | null;
+				const input = document.querySelector(
+					"input#model-input",
+				) as HTMLInputElement | null;
 				if (input) {
-					const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+					const setter = Object.getOwnPropertyDescriptor(
+						window.HTMLInputElement.prototype,
+						"value",
+					)?.set;
 					setter?.call(input, model);
-					input.dispatchEvent(new Event('input', { bubbles: true }));
-					input.dispatchEvent(new Event('change', { bubbles: true }));
-					input.dispatchEvent(new Event('blur', { bubbles: true }));
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+					input.dispatchEvent(new Event("change", { bubbles: true }));
+					input.dispatchEvent(new Event("blur", { bubbles: true }));
 				}
 			}, p.model);
 
 			// 3.5 Set API Key & Save
-			const apiKey = p.envKey ? (process.env[p.envKey] || "test-key") : "ollama";
+			const apiKey = p.envKey ? process.env[p.envKey] || "test-key" : "ollama";
 			await browser.execute((key: string) => {
-				const input = document.querySelector('input#apikey-input') as HTMLInputElement | null;
+				const input = document.querySelector(
+					"input#apikey-input",
+				) as HTMLInputElement | null;
 				if (input) {
-					const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+					const setter = Object.getOwnPropertyDescriptor(
+						window.HTMLInputElement.prototype,
+						"value",
+					)?.set;
 					setter?.call(input, key);
-					input.dispatchEvent(new Event('input', { bubbles: true }));
-					input.dispatchEvent(new Event('change', { bubbles: true }));
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+					input.dispatchEvent(new Event("change", { bubbles: true }));
 				}
 			}, apiKey);
 
 			await browser.execute(() => {
-				const saveBtn = document.querySelector('.settings-save-btn') as HTMLElement | null;
+				const saveBtn = document.querySelector(
+					".settings-save-btn",
+				) as HTMLElement | null;
 				if (saveBtn) saveBtn.click();
 			});
 			await browser.pause(500);
@@ -87,7 +111,9 @@ describe("70 — live providers switching", () => {
 			const responseText = await getLastAssistantMessage();
 			console.log(`[E2E] ${p.label} response: ${responseText}`);
 			expect(responseText.length).toBeGreaterThan(0);
-			expect(responseText).not.toMatch(/\[오류\]|API key not valid|Bad Request|not found|Error/i);
+			expect(responseText).not.toMatch(
+				/\[오류\]|API key not valid|Bad Request|not found|Error/i,
+			);
 		});
 	}
 });

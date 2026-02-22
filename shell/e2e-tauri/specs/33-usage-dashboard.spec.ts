@@ -15,13 +15,10 @@ describe("33 — usage dashboard", () => {
 		);
 		// Cost badge only appears after spending tokens — both states valid
 		if (exists) {
-			const displayed = await browser.execute(
-				(sel: string) => {
-					const el = document.querySelector(sel) as HTMLElement | null;
-					return el ? el.offsetParent !== null : false;
-				},
-				S.costBadge,
-			);
+			const displayed = await browser.execute((sel: string) => {
+				const el = document.querySelector(sel) as HTMLElement | null;
+				return el ? el.offsetParent !== null : false;
+			}, S.costBadge);
 			expect(displayed).toBe(true);
 		}
 	});

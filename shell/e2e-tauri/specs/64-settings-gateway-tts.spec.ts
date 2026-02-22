@@ -61,7 +61,8 @@ describe("64 — settings gateway TTS", () => {
 		if (!exists) return;
 
 		const value = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.gatewayTtsProvider,
 		);
 		expect(typeof value).toBe("string");
@@ -76,7 +77,8 @@ describe("64 — settings gateway TTS", () => {
 		if (optionCount < 2) return;
 
 		const original = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.gatewayTtsProvider,
 		);
 
@@ -91,7 +93,8 @@ describe("64 — settings gateway TTS", () => {
 		await browser.pause(500);
 
 		const updated = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.gatewayTtsProvider,
 		);
 

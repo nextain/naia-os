@@ -67,9 +67,13 @@ describe("65 — settings voice wake", () => {
 
 		// Press Enter to add (or click the add button next to input)
 		await browser.execute(() => {
-			const input = document.querySelector('[data-testid="voice-wake-input"]') as HTMLInputElement;
+			const input = document.querySelector(
+				'[data-testid="voice-wake-input"]',
+			) as HTMLInputElement;
 			if (input) {
-				input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+				input.dispatchEvent(
+					new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+				);
 			}
 		});
 		await browser.pause(500);

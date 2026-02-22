@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -22,9 +19,7 @@ describe("16 — skill_weather", () => {
 	});
 
 	it("should get weather for Seoul", async () => {
-		await sendMessage(
-			"서울 날씨 알려줘. skill_weather 도구를 반드시 사용해.",
-		);
+		await sendMessage("서울 날씨 알려줘. skill_weather 도구를 반드시 사용해.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(
@@ -35,9 +30,7 @@ describe("16 — skill_weather", () => {
 	});
 
 	it("should get weather for another city", async () => {
-		await sendMessage(
-			"도쿄 날씨는? skill_weather 도구를 사용해서 알려줘.",
-		);
+		await sendMessage("도쿄 날씨는? skill_weather 도구를 사용해서 알려줘.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(

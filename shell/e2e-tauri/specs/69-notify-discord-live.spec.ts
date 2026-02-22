@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -19,7 +16,7 @@ const DISCORD_WEBHOOK =
  * Bug context: Discord webhook set during onboarding was not reaching
  * the agent because env var name mismatch (DISCORD_WEBHOOK vs DISCORD_WEBHOOK_URL).
  */
-describe("69 — Discord Notify (Live)", function () {
+describe("69 — Discord Notify (Live)", () => {
 	if (!DISCORD_WEBHOOK) {
 		it("(skipped — no DISCORD_WEBHOOK env var)", () => {});
 		return;
@@ -39,11 +36,7 @@ describe("69 — Discord Notify (Live)", function () {
 		}
 
 		for (let i = 0; i < 2; i += 1) {
-			if (
-				!/결과를 받지 못|아직.*결과|still waiting|not received/i.test(
-					text,
-				)
-			)
+			if (!/결과를 받지 못|아직.*결과|still waiting|not received/i.test(text))
 				break;
 			await browser.pause(2_000);
 			await sendMessage(

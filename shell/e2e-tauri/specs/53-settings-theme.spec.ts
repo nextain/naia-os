@@ -1,5 +1,9 @@
 import { S } from "../helpers/selectors.js";
-import { clickBySelector, ensureAppReady, navigateToSettings } from "../helpers/settings.js";
+import {
+	clickBySelector,
+	ensureAppReady,
+	navigateToSettings,
+} from "../helpers/settings.js";
 
 /**
  * 53 — Settings: Theme & Locale
@@ -35,16 +39,20 @@ describe("53 — settings theme & locale", () => {
 
 	it("should change active swatch on click", async () => {
 		// Get the first non-active swatch index
-		const clickedIdx = await browser.execute((activeSel: string, allSel: string) => {
-			const all = document.querySelectorAll(allSel);
-			for (let i = 0; i < all.length; i++) {
-				if (!all[i].classList.contains("active")) {
-					(all[i] as HTMLElement).click();
-					return i;
+		const clickedIdx = await browser.execute(
+			(activeSel: string, allSel: string) => {
+				const all = document.querySelectorAll(allSel);
+				for (let i = 0; i < all.length; i++) {
+					if (!all[i].classList.contains("active")) {
+						(all[i] as HTMLElement).click();
+						return i;
+					}
 				}
-			}
-			return -1;
-		}, S.themeSwatchActive, S.themeSwatch);
+				return -1;
+			},
+			S.themeSwatchActive,
+			S.themeSwatch,
+		);
 
 		expect(clickedIdx).toBeGreaterThanOrEqual(0);
 		await browser.pause(300);
@@ -63,7 +71,8 @@ describe("53 — settings theme & locale", () => {
 
 	it("should show locale select with current value", async () => {
 		const value = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.localeSelect,
 		);
 		expect(["ko", "en"]).toContain(value);
@@ -71,7 +80,8 @@ describe("53 — settings theme & locale", () => {
 
 	it("should switch locale from current to the other", async () => {
 		const original = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.localeSelect,
 		);
 		const target = original === "ko" ? "en" : "ko";
@@ -89,7 +99,8 @@ describe("53 — settings theme & locale", () => {
 		await browser.pause(300);
 
 		const updated = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.localeSelect,
 		);
 		expect(updated).toBe(target);

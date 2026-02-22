@@ -41,18 +41,20 @@ describe("19 — skills bulk migration", () => {
 		);
 
 		if (hasSearch) {
-			await browser.execute(
-				(sel: string) => {
-					const input = document.querySelector(`${sel} input`) as HTMLInputElement | null;
-					if (input) {
-						const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-						if (setter) setter.call(input, "time");
-						else input.value = "time";
-						input.dispatchEvent(new Event("input", { bubbles: true }));
-					}
-				},
-				S.skillsSearch,
-			);
+			await browser.execute((sel: string) => {
+				const input = document.querySelector(
+					`${sel} input`,
+				) as HTMLInputElement | null;
+				if (input) {
+					const setter = Object.getOwnPropertyDescriptor(
+						HTMLInputElement.prototype,
+						"value",
+					)?.set;
+					if (setter) setter.call(input, "time");
+					else input.value = "time";
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+				}
+			}, S.skillsSearch);
 			await browser.pause(500);
 
 			const results = await browser.execute(
@@ -70,18 +72,20 @@ describe("19 — skills bulk migration", () => {
 		);
 
 		if (hasSearch) {
-			await browser.execute(
-				(sel: string) => {
-					const input = document.querySelector(`${sel} input`) as HTMLInputElement | null;
-					if (input) {
-						const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-						if (setter) setter.call(input, "weather");
-						else input.value = "weather";
-						input.dispatchEvent(new Event("input", { bubbles: true }));
-					}
-				},
-				S.skillsSearch,
-			);
+			await browser.execute((sel: string) => {
+				const input = document.querySelector(
+					`${sel} input`,
+				) as HTMLInputElement | null;
+				if (input) {
+					const setter = Object.getOwnPropertyDescriptor(
+						HTMLInputElement.prototype,
+						"value",
+					)?.set;
+					if (setter) setter.call(input, "weather");
+					else input.value = "weather";
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+				}
+			}, S.skillsSearch);
 			await browser.pause(500);
 
 			const results = await browser.execute(

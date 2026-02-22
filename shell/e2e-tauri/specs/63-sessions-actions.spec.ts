@@ -33,20 +33,26 @@ describe("63 — sessions actions", () => {
 		if (!tabAvailable) return;
 		await browser.pause(2_000);
 
-		const state = await browser.execute((cardSel: string) => ({
-			cards: document.querySelectorAll(cardSel).length,
-			hasEmpty: !!document.querySelector(".agents-empty"),
-		}), S.sessionCard);
+		const state = await browser.execute(
+			(cardSel: string) => ({
+				cards: document.querySelectorAll(cardSel).length,
+				hasEmpty: !!document.querySelector(".agents-empty"),
+			}),
+			S.sessionCard,
+		);
 
 		expect(state.cards >= 0 || state.hasEmpty).toBe(true);
 	});
 
 	it("should render session card meta if sessions exist", async () => {
 		if (!tabAvailable) return;
-		const metas = await browser.execute((sel: string) =>
-			Array.from(document.querySelectorAll(sel))
-				.map((el) => el.textContent?.trim() ?? ""),
-		S.sessionCardMeta);
+		const metas = await browser.execute(
+			(sel: string) =>
+				Array.from(document.querySelectorAll(sel)).map(
+					(el) => el.textContent?.trim() ?? "",
+				),
+			S.sessionCardMeta,
+		);
 
 		if (metas.length > 0) {
 			// Meta should contain "msgs" text

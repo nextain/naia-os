@@ -8,7 +8,8 @@ import { safeRefresh } from "../helpers/settings.js";
 
 describe("04 — skill_time", () => {
 	before(async () => {
-		const apiKey = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
+		const apiKey =
+			process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 		const gatewayToken =
 			process.env.CAFE_GATEWAY_TOKEN ||
 			process.env.GATEWAY_MASTER_KEY ||
@@ -17,7 +18,9 @@ describe("04 — skill_time", () => {
 			(key: string, token: string) => {
 				const raw = localStorage.getItem("naia-config");
 				const prev = raw ? JSON.parse(raw) : {};
-				const disabled = Array.isArray(prev.disabledSkills) ? prev.disabledSkills : [];
+				const disabled = Array.isArray(prev.disabledSkills)
+					? prev.disabledSkills
+					: [];
 				const builtins = new Set([
 					"skill_time",
 					"skill_system_status",
@@ -49,7 +52,9 @@ describe("04 — skill_time", () => {
 	});
 
 	it("should execute skill_time and return time info", async () => {
-		await sendMessage("지금 몇 시야? skill_time 도구를 반드시 사용해서 알려줘.");
+		await sendMessage(
+			"지금 몇 시야? skill_time 도구를 반드시 사용해서 알려줘.",
+		);
 		let toolOk = true;
 		try {
 			await waitForToolSuccess();
@@ -64,11 +69,15 @@ describe("04 — skill_time", () => {
 				await waitForToolSuccess();
 			} catch {
 				const last = await getLastAssistantMessage();
-				throw new Error(`skill_time not executed after retry. last="${last.slice(0, 240)}"`);
+				throw new Error(
+					`skill_time not executed after retry. last="${last.slice(0, 240)}"`,
+				);
 			}
 		}
 		const text = await getLastAssistantMessage();
-		expect(text).not.toMatch(/\[오류\]|API key not valid|Bad Request|Tool Call:|print\s*\(/i);
+		expect(text).not.toMatch(
+			/\[오류\]|API key not valid|Bad Request|Tool Call:|print\s*\(/i,
+		);
 		await assertSemantic(
 			text,
 			"skill_time 도구를 사용해서 현재 시각을 알려달라고 했다",

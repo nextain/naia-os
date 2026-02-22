@@ -16,7 +16,9 @@ async function captureUiSnapshot(context: string): Promise<void> {
 				.map((el) => el.textContent?.trim() ?? "")
 				.filter((t) => t.length > 0);
 			const lastAssistant = allAssistant[allAssistant.length - 1] ?? "";
-			const toolNames = Array.from(document.querySelectorAll(".tool-activity .tool-name"))
+			const toolNames = Array.from(
+				document.querySelectorAll(".tool-activity .tool-name"),
+			)
 				.map((el) => el.textContent?.trim() ?? "")
 				.filter((t) => t.length > 0);
 			return {
@@ -66,16 +68,22 @@ function createDeltaTracer(context: string) {
 				)
 					.map((el) => el.textContent?.trim() ?? "")
 					.filter((t) => t.length > 0);
-				const toolNames = Array.from(document.querySelectorAll(".tool-activity .tool-name"))
+				const toolNames = Array.from(
+					document.querySelectorAll(".tool-activity .tool-name"),
+				)
 					.map((el) => el.textContent?.trim() ?? "")
 					.filter((t) => t.length > 0);
 				return {
 					allAssistant,
 					toolNames,
-					hasToolSuccess: !!document.querySelector(".tool-activity.tool-success"),
+					hasToolSuccess: !!document.querySelector(
+						".tool-activity.tool-success",
+					),
 					hasToolError: !!document.querySelector(".tool-activity.tool-error"),
 					isStreaming: !!document.querySelector(".cursor-blink"),
-					hasPermissionModal: !!document.querySelector(".permission-btn-always"),
+					hasPermissionModal: !!document.querySelector(
+						".permission-btn-always",
+					),
 				};
 			});
 			const signature = JSON.stringify(snapshot);
@@ -123,7 +131,9 @@ async function countToolActivities(): Promise<number> {
 export async function getCompletedAssistantMessages(): Promise<string[]> {
 	return browser.execute(() => {
 		return Array.from(
-			document.querySelectorAll(".chat-message.assistant:not(.streaming) .message-content"),
+			document.querySelectorAll(
+				".chat-message.assistant:not(.streaming) .message-content",
+			),
 		)
 			.map((el) => el.textContent?.trim() ?? "")
 			.filter((t) => t.length > 0);
@@ -133,7 +143,9 @@ export async function getCompletedAssistantMessages(): Promise<string[]> {
 /**
  * Return assistant messages added after `beforeCount`.
  */
-export async function getNewAssistantMessages(beforeCount: number): Promise<string[]> {
+export async function getNewAssistantMessages(
+	beforeCount: number,
+): Promise<string[]> {
 	const all = await getCompletedAssistantMessages();
 	return all.slice(beforeCount);
 }
@@ -142,7 +154,10 @@ export async function getNewAssistantMessages(beforeCount: number): Promise<stri
  * Set textarea value via JS (avoids React re-render stale element issues)
  * and click the send button.
  */
-async function setTextareaAndSend(selector: string, text: string): Promise<void> {
+async function setTextareaAndSend(
+	selector: string,
+	text: string,
+): Promise<void> {
 	await browser.execute(
 		(sel: string, val: string) => {
 			const el = document.querySelector(sel) as HTMLTextAreaElement | null;
@@ -206,7 +221,10 @@ export async function sendMessage(text: string): Promise<void> {
 					S.cursorBlink,
 				);
 			},
-			{ timeout: 180_000, timeoutMsg: "Streaming did not finish (cursor-blink still visible)" },
+			{
+				timeout: 180_000,
+				timeoutMsg: "Streaming did not finish (cursor-blink still visible)",
+			},
 		);
 
 		// Wait for a new completed assistant message OR NEW tool activity.
@@ -217,13 +235,19 @@ export async function sendMessage(text: string): Promise<void> {
 				const state = await browser.execute(
 					(baseCount: number, baseToolCount: number, msgSel: string) => {
 						const msgs = document.querySelectorAll(msgSel);
-						const hasNewMsg = msgs.length > baseCount &&
+						const hasNewMsg =
+							msgs.length > baseCount &&
 							(msgs[msgs.length - 1]?.textContent?.trim()?.length ?? 0) > 0;
 						const currentToolCount = document.querySelectorAll(
 							".tool-activity.tool-success, .tool-activity.tool-error",
 						).length;
 						const hasNewTool = currentToolCount > baseToolCount;
-						return { hasNewMsg, hasNewTool, msgCount: msgs.length, currentToolCount };
+						return {
+							hasNewMsg,
+							hasNewTool,
+							msgCount: msgs.length,
+							currentToolCount,
+						};
 					},
 					beforeCount,
 					beforeToolCount,
@@ -231,7 +255,10 @@ export async function sendMessage(text: string): Promise<void> {
 				);
 				return state.hasNewMsg || state.hasNewTool;
 			},
-			{ timeout: 60_000, timeoutMsg: `Completed assistant message did not appear (beforeMsgs=${beforeCount}, beforeTools=${beforeToolCount})` },
+			{
+				timeout: 60_000,
+				timeoutMsg: `Completed assistant message did not appear (beforeMsgs=${beforeCount}, beforeTools=${beforeToolCount})`,
+			},
 		);
 
 		// If new tool activity appeared but no new completed message yet, wait for follow-up
@@ -244,7 +271,8 @@ export async function sendMessage(text: string): Promise<void> {
 					".tool-activity.tool-success, .tool-activity.tool-error",
 				).length;
 				const hasNewTool = currentToolCount > baseToolCount;
-				const hasNewMsg = msgs.length > baseCount &&
+				const hasNewMsg =
+					msgs.length > baseCount &&
 					(msgs[msgs.length - 1]?.textContent?.trim()?.length ?? 0) > 0;
 				return hasNewTool && !hasNewMsg;
 			},
@@ -258,16 +286,16 @@ export async function sendMessage(text: string): Promise<void> {
 					await traceDelta();
 					const count = await countCompletedAssistantMessages();
 					if (count <= beforeCount) return false;
-					const text = await browser.execute(
-						(sel: string) => {
-							const msgs = document.querySelectorAll(sel);
-							return msgs[msgs.length - 1]?.textContent?.trim() ?? "";
-						},
-						".chat-message.assistant:not(.streaming) .message-content",
-					);
+					const text = await browser.execute((sel: string) => {
+						const msgs = document.querySelectorAll(sel);
+						return msgs[msgs.length - 1]?.textContent?.trim() ?? "";
+					}, ".chat-message.assistant:not(.streaming) .message-content");
 					return text.length > 0;
 				},
-				{ timeout: 120_000, timeoutMsg: `Follow-up message after tool execution did not appear (beforeMsgs=${beforeCount}, beforeTools=${beforeToolCount})` },
+				{
+					timeout: 120_000,
+					timeoutMsg: `Follow-up message after tool execution did not appear (beforeMsgs=${beforeCount}, beforeTools=${beforeToolCount})`,
+				},
 			);
 		}
 

@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -44,9 +41,7 @@ describe("30 — exec approvals", () => {
 	});
 
 	it("should handle auto-approve for tool invocations", async () => {
-		await sendMessage(
-			"현재 시각을 확인해줘. skill_time 도구를 사용해.",
-		);
+		await sendMessage("현재 시각을 확인해줘. skill_time 도구를 사용해.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(

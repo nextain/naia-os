@@ -1,6 +1,6 @@
-import { type Page, expect, test } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type Page, expect, test } from "@playwright/test";
 
 /**
  * Nextain Shell — Playwright Screenshot Capture for Manual
@@ -30,27 +30,156 @@ const MOCK_API_KEY = "e2e-mock-key-screenshot";
 
 // ---- Mock skill list for SkillsTab ----
 const MOCK_SKILLS = [
-	{ name: "skill_time", description: "현재 시간/날짜 조회", type: "built-in", tier: 0, source: "built-in" },
-	{ name: "skill_system_status", description: "시스템 상태 확인", type: "built-in", tier: 0, source: "built-in" },
-	{ name: "skill_memo", description: "메모 저장/조회/삭제", type: "built-in", tier: 1, source: "built-in" },
-	{ name: "skill_weather", description: "현재 날씨 조회", type: "built-in", tier: 0, source: "built-in" },
-	{ name: "skill_skill_manager", description: "스킬 관리 (검색/활성화/비활성화)", type: "built-in", tier: 1, source: "built-in" },
-	{ name: "execute_command", description: "셸 명령 실행", type: "gateway", tier: 2, source: "gateway", gatewaySkill: "execute_command" },
-	{ name: "write_file", description: "파일 쓰기", type: "gateway", tier: 2, source: "gateway", gatewaySkill: "write_file" },
-	{ name: "read_file", description: "파일 읽기", type: "gateway", tier: 1, source: "gateway", gatewaySkill: "read_file" },
-	{ name: "search_files", description: "파일 검색", type: "gateway", tier: 1, source: "gateway", gatewaySkill: "search_files" },
-	{ name: "list_files", description: "디렉토리 목록", type: "gateway", tier: 1, source: "gateway", gatewaySkill: "list_files" },
-	{ name: "code_review", description: "코드 리뷰", type: "gateway", tier: 1, source: "gateway", gatewaySkill: "code_review" },
-	{ name: "web_search", description: "웹 검색", type: "gateway", tier: 0, source: "gateway", gatewaySkill: "web_search" },
+	{
+		name: "skill_time",
+		description: "현재 시간/날짜 조회",
+		type: "built-in",
+		tier: 0,
+		source: "built-in",
+	},
+	{
+		name: "skill_system_status",
+		description: "시스템 상태 확인",
+		type: "built-in",
+		tier: 0,
+		source: "built-in",
+	},
+	{
+		name: "skill_memo",
+		description: "메모 저장/조회/삭제",
+		type: "built-in",
+		tier: 1,
+		source: "built-in",
+	},
+	{
+		name: "skill_weather",
+		description: "현재 날씨 조회",
+		type: "built-in",
+		tier: 0,
+		source: "built-in",
+	},
+	{
+		name: "skill_skill_manager",
+		description: "스킬 관리 (검색/활성화/비활성화)",
+		type: "built-in",
+		tier: 1,
+		source: "built-in",
+	},
+	{
+		name: "execute_command",
+		description: "셸 명령 실행",
+		type: "gateway",
+		tier: 2,
+		source: "gateway",
+		gatewaySkill: "execute_command",
+	},
+	{
+		name: "write_file",
+		description: "파일 쓰기",
+		type: "gateway",
+		tier: 2,
+		source: "gateway",
+		gatewaySkill: "write_file",
+	},
+	{
+		name: "read_file",
+		description: "파일 읽기",
+		type: "gateway",
+		tier: 1,
+		source: "gateway",
+		gatewaySkill: "read_file",
+	},
+	{
+		name: "search_files",
+		description: "파일 검색",
+		type: "gateway",
+		tier: 1,
+		source: "gateway",
+		gatewaySkill: "search_files",
+	},
+	{
+		name: "list_files",
+		description: "디렉토리 목록",
+		type: "gateway",
+		tier: 1,
+		source: "gateway",
+		gatewaySkill: "list_files",
+	},
+	{
+		name: "code_review",
+		description: "코드 리뷰",
+		type: "gateway",
+		tier: 1,
+		source: "gateway",
+		gatewaySkill: "code_review",
+	},
+	{
+		name: "web_search",
+		description: "웹 검색",
+		type: "gateway",
+		tier: 0,
+		source: "gateway",
+		gatewaySkill: "web_search",
+	},
 ];
 
 // ---- Mock audit data for ProgressTab ----
 const MOCK_AUDIT_LOG = [
-	{ id: 1, timestamp: "2026-02-19T10:00:00Z", request_id: "r1", event_type: "tool_use", tool_name: "skill_time", tool_call_id: "tc1", tier: 0, success: true, payload: '{"args":{"timezone":"Asia/Seoul"}}' },
-	{ id: 2, timestamp: "2026-02-19T10:00:01Z", request_id: "r1", event_type: "tool_result", tool_name: "skill_time", tool_call_id: "tc1", tier: 0, success: true, payload: '{"output":"2026-02-19 19:00 KST"}' },
-	{ id: 3, timestamp: "2026-02-19T10:01:00Z", request_id: "r2", event_type: "tool_use", tool_name: "execute_command", tool_call_id: "tc2", tier: 2, success: true, payload: '{"args":{"command":"ls"}}' },
-	{ id: 4, timestamp: "2026-02-19T10:01:02Z", request_id: "r2", event_type: "tool_result", tool_name: "execute_command", tool_call_id: "tc2", tier: 2, success: true, payload: '{"output":"file1.txt\\nfile2.txt"}' },
-	{ id: 5, timestamp: "2026-02-19T10:02:00Z", request_id: "r3", event_type: "usage", tool_name: null, tool_call_id: null, tier: null, success: null, payload: '{"cost":0.003,"inputTokens":150,"outputTokens":80}' },
+	{
+		id: 1,
+		timestamp: "2026-02-19T10:00:00Z",
+		request_id: "r1",
+		event_type: "tool_use",
+		tool_name: "skill_time",
+		tool_call_id: "tc1",
+		tier: 0,
+		success: true,
+		payload: '{"args":{"timezone":"Asia/Seoul"}}',
+	},
+	{
+		id: 2,
+		timestamp: "2026-02-19T10:00:01Z",
+		request_id: "r1",
+		event_type: "tool_result",
+		tool_name: "skill_time",
+		tool_call_id: "tc1",
+		tier: 0,
+		success: true,
+		payload: '{"output":"2026-02-19 19:00 KST"}',
+	},
+	{
+		id: 3,
+		timestamp: "2026-02-19T10:01:00Z",
+		request_id: "r2",
+		event_type: "tool_use",
+		tool_name: "execute_command",
+		tool_call_id: "tc2",
+		tier: 2,
+		success: true,
+		payload: '{"args":{"command":"ls"}}',
+	},
+	{
+		id: 4,
+		timestamp: "2026-02-19T10:01:02Z",
+		request_id: "r2",
+		event_type: "tool_result",
+		tool_name: "execute_command",
+		tool_call_id: "tc2",
+		tier: 2,
+		success: true,
+		payload: '{"output":"file1.txt\\nfile2.txt"}',
+	},
+	{
+		id: 5,
+		timestamp: "2026-02-19T10:02:00Z",
+		request_id: "r3",
+		event_type: "usage",
+		tool_name: null,
+		tool_call_id: null,
+		tier: null,
+		success: null,
+		payload: '{"cost":0.003,"inputTokens":150,"outputTokens":80}',
+	},
 ];
 const MOCK_AUDIT_STATS = {
 	total_events: 5,
@@ -68,13 +197,37 @@ const MOCK_AUDIT_STATS = {
 
 // ---- Mock history sessions ----
 const MOCK_SESSIONS = [
-	{ id: "s1", title: "서울 날씨 확인", created_at: "2026-02-19T10:00:00Z", updated_at: "2026-02-19T10:05:00Z", message_count: 4 },
-	{ id: "s2", title: "프로젝트 파일 구조 분석", created_at: "2026-02-18T14:00:00Z", updated_at: "2026-02-18T14:30:00Z", message_count: 8 },
-	{ id: "s3", title: "코드 리뷰 요청", created_at: "2026-02-17T09:00:00Z", updated_at: "2026-02-17T09:20:00Z", message_count: 6 },
+	{
+		id: "s1",
+		title: "서울 날씨 확인",
+		created_at: "2026-02-19T10:00:00Z",
+		updated_at: "2026-02-19T10:05:00Z",
+		message_count: 4,
+	},
+	{
+		id: "s2",
+		title: "프로젝트 파일 구조 분석",
+		created_at: "2026-02-18T14:00:00Z",
+		updated_at: "2026-02-18T14:30:00Z",
+		message_count: 8,
+	},
+	{
+		id: "s3",
+		title: "코드 리뷰 요청",
+		created_at: "2026-02-17T09:00:00Z",
+		updated_at: "2026-02-17T09:20:00Z",
+		message_count: 6,
+	},
 ];
 
 // ---- Tauri IPC Mock (extended from chat-tools.spec.ts) ----
-function buildTauriMockScript(skillsJson: string, auditLogJson: string, auditStatsJson: string, sessionsJson: string, locale: string): string {
+function buildTauriMockScript(
+	skillsJson: string,
+	auditLogJson: string,
+	auditStatsJson: string,
+	sessionsJson: string,
+	locale: string,
+): string {
 	return `
 (function() {
 	window.__TAURI_INTERNALS__ = window.__TAURI_INTERNALS__ || {};
@@ -246,7 +399,7 @@ function getTauriMock(locale: string) {
 		JSON.stringify(MOCK_AUDIT_LOG),
 		JSON.stringify(MOCK_AUDIT_STATS),
 		JSON.stringify(MOCK_SESSIONS),
-		locale
+		locale,
 	);
 }
 
@@ -265,23 +418,40 @@ function escapeRegex(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function tabCandidates(locale: string, tab: "chat" | "history" | "progress" | "skills" | "settings"): string[] {
+function tabCandidates(
+	locale: string,
+	tab: "chat" | "history" | "progress" | "skills" | "settings",
+): string[] {
 	if (tab === "chat") {
-		return locale === "ko" ? ["채팅", "Chat", "progress.tabChat", "chat"] : ["Chat", "채팅", "progress.tabChat", "chat"];
+		return locale === "ko"
+			? ["채팅", "Chat", "progress.tabChat", "chat"]
+			: ["Chat", "채팅", "progress.tabChat", "chat"];
 	}
 	if (tab === "history") {
-		return locale === "ko" ? ["기록", "History", "history.tabHistory", "history"] : ["History", "기록", "history.tabHistory", "history"];
+		return locale === "ko"
+			? ["기록", "History", "history.tabHistory", "history"]
+			: ["History", "기록", "history.tabHistory", "history"];
 	}
 	if (tab === "progress") {
-		return locale === "ko" ? ["작업", "Progress", "progress.tabProgress", "query_stats"] : ["Progress", "작업", "progress.tabProgress", "query_stats"];
+		return locale === "ko"
+			? ["작업", "Progress", "progress.tabProgress", "query_stats"]
+			: ["Progress", "작업", "progress.tabProgress", "query_stats"];
 	}
 	if (tab === "skills") {
-		return locale === "ko" ? ["스킬", "Skills", "skills.tabSkills", "extension"] : ["Skills", "스킬", "skills.tabSkills", "extension"];
+		return locale === "ko"
+			? ["스킬", "Skills", "skills.tabSkills", "extension"]
+			: ["Skills", "스킬", "skills.tabSkills", "extension"];
 	}
-	return locale === "ko" ? ["설정", "Settings", "settings.title", "settings"] : ["Settings", "설정", "settings.title", "settings"];
+	return locale === "ko"
+		? ["설정", "Settings", "settings.title", "settings"]
+		: ["Settings", "설정", "settings.title", "settings"];
 }
 
-async function clickTab(page: Page, locale: string, tab: "chat" | "history" | "progress" | "skills" | "settings") {
+async function clickTab(
+	page: Page,
+	locale: string,
+	tab: "chat" | "history" | "progress" | "skills" | "settings",
+) {
 	const tabs = page.locator(".chat-tabs .chat-tab");
 	await expect(tabs.first()).toBeVisible({ timeout: 10_000 });
 
@@ -294,7 +464,13 @@ async function clickTab(page: Page, locale: string, tab: "chat" | "history" | "p
 		}
 	}
 
-	const indexMap = { chat: 0, history: 1, progress: 2, skills: 3, settings: 4 } as const;
+	const indexMap = {
+		chat: 0,
+		history: 1,
+		progress: 2,
+		skills: 3,
+		settings: 4,
+	} as const;
 	const index = indexMap[tab];
 	if ((await tabs.count()) > index) {
 		await tabs.nth(index).click();
@@ -302,7 +478,9 @@ async function clickTab(page: Page, locale: string, tab: "chat" | "history" | "p
 	}
 
 	const names = (await tabs.allTextContents()).map((s) => s.trim()).join(", ");
-	throw new Error(`Tab not found: ${tab} (locale=${locale}), available=[${names}]`);
+	throw new Error(
+		`Tab not found: ${tab} (locale=${locale}), available=[${names}]`,
+	);
 }
 
 function makeConfig(locale: string) {
@@ -312,7 +490,7 @@ function makeConfig(locale: string) {
 		apiKey: MOCK_API_KEY,
 		agentName: "Naia",
 		userName: locale === "ko" ? "사용자" : "User",
-		vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+		vrmModel: "/avatars/01-Sendagaya-Shino-uniform.vrm",
 		persona: "Friendly AI companion",
 		enableTools: true,
 		locale,
@@ -324,15 +502,15 @@ function makeConfig(locale: string) {
 
 // 폰트와 아이콘이 100% 렌더링될 때까지 기다립니다 (Material Symbols의 X박스 문제 해결용)
 async function ensureIconsLoaded(page: Page) {
-	await page.waitForLoadState('networkidle');
-	
+	await page.waitForLoadState("networkidle");
+
 	// 브라우저 내부적으로 모든 폰트가 로드되었는지 확인
 	await page.evaluate(async () => {
 		await document.fonts.ready;
 	});
 
 	// CSS에서 로드되는 아이콘 폰트가 화면에 완전히 그려질 때까지 강제로 추가 대기
-	await page.waitForTimeout(6000); 
+	await page.waitForTimeout(6000);
 }
 
 // ---- Onboarding Screenshots ----
@@ -345,11 +523,13 @@ async function captureOnboarding(page: Page, dir: string, locale: string) {
 	await page.goto("/");
 	const overlay = page.locator(".onboarding-overlay");
 	await expect(overlay).toBeVisible({ timeout: 15_000 });
-	
+
 	await ensureIconsLoaded(page);
 
 	// Step 1: Provider selection
-	await expect(page.locator(".onboarding-content")).toBeVisible({ timeout: 5_000 });
+	await expect(page.locator(".onboarding-content")).toBeVisible({
+		timeout: 5_000,
+	});
 	await capture(page, dir, "onboarding-provider");
 
 	const providerCard = page.locator(".onboarding-provider-card").first();
@@ -360,7 +540,9 @@ async function captureOnboarding(page: Page, dir: string, locale: string) {
 	await page.waitForTimeout(300);
 
 	// Step 2: API Key
-	await expect(page.locator(".onboarding-input")).toBeVisible({ timeout: 5_000 });
+	await expect(page.locator(".onboarding-input")).toBeVisible({
+		timeout: 5_000,
+	});
 	const apiInput = page.locator(".onboarding-input");
 	if (await apiInput.isVisible()) {
 		await apiInput.fill("AIzaSyxxxxxxxxxxxxxxxxxxxxxxxx");
@@ -422,13 +604,16 @@ async function captureOnboarding(page: Page, dir: string, locale: string) {
 // ---- Main App Screenshots ----
 async function captureMainApp(page: Page, dir: string, locale: string) {
 	await page.addInitScript(getTauriMock(locale));
-	await page.addInitScript((configJson: string) => {
-		localStorage.setItem("naia-config", configJson);
-	}, JSON.stringify(makeConfig(locale)));
+	await page.addInitScript(
+		(configJson: string) => {
+			localStorage.setItem("naia-config", configJson);
+		},
+		JSON.stringify(makeConfig(locale)),
+	);
 
 	await page.goto("/");
 	await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 15_000 });
-	
+
 	// Wait VERY explicitly for Material Icons / Web Fonts to load
 	await ensureIconsLoaded(page);
 
@@ -438,7 +623,9 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	// 2. Chat with text input
 	const chatInput = page.locator(".chat-input");
 	await expect(chatInput).toBeEnabled({ timeout: 5_000 });
-	await chatInput.fill(locale === "ko" ? "서울 날씨 알려줘" : "What's the weather in Seoul?");
+	await chatInput.fill(
+		locale === "ko" ? "서울 날씨 알려줘" : "What's the weather in Seoul?",
+	);
 	await page.waitForTimeout(500);
 	await capture(page, dir, "chat-text");
 
@@ -472,7 +659,7 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	}
 
 	// [Approval capture removed due to flakiness]
-	
+
 	await page.goto("/");
 	await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 15_000 });
 	await ensureIconsLoaded(page);
@@ -484,13 +671,18 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 
 	// 5. Progress tab
 	await clickTab(page, locale, "progress");
-	await expect(page.locator(".work-progress-panel")).toBeVisible({ timeout: 10_000 });
-	await page.waitForFunction(() => {
-		return (
-			document.querySelectorAll(".work-progress-stat").length > 0 ||
-			document.querySelectorAll(".work-progress-event").length > 0
-		);
-	}, { timeout: 10_000 });
+	await expect(page.locator(".work-progress-panel")).toBeVisible({
+		timeout: 10_000,
+	});
+	await page.waitForFunction(
+		() => {
+			return (
+				document.querySelectorAll(".work-progress-stat").length > 0 ||
+				document.querySelectorAll(".work-progress-event").length > 0
+			);
+		},
+		{ timeout: 10_000 },
+	);
 	await page.waitForTimeout(500);
 	await capture(page, dir, "progress-tab");
 
@@ -541,7 +733,10 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	await page.evaluate(() => {
 		const dividers = document.querySelectorAll(".settings-section-divider");
 		for (const d of dividers) {
-			if (d.textContent?.includes("페르소나") || d.textContent?.includes("Persona")) {
+			if (
+				d.textContent?.includes("페르소나") ||
+				d.textContent?.includes("Persona")
+			) {
 				d.scrollIntoView({ behavior: "instant", block: "start" });
 				break;
 			}
@@ -554,7 +749,10 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	await page.evaluate(() => {
 		const dividers = document.querySelectorAll(".settings-section-divider");
 		for (const d of dividers) {
-			if (d.textContent?.includes("AI") || d.textContent?.includes("Provider")) {
+			if (
+				d.textContent?.includes("AI") ||
+				d.textContent?.includes("Provider")
+			) {
 				d.scrollIntoView({ behavior: "instant", block: "start" });
 				break;
 			}
@@ -593,7 +791,12 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	await page.evaluate(() => {
 		const dividers = document.querySelectorAll(".settings-section-divider");
 		for (const d of dividers) {
-			if (d.textContent?.includes("기기") || d.textContent?.includes("호출어") || d.textContent?.includes("Device") || d.textContent?.includes("Wake")) {
+			if (
+				d.textContent?.includes("기기") ||
+				d.textContent?.includes("호출어") ||
+				d.textContent?.includes("Device") ||
+				d.textContent?.includes("Wake")
+			) {
 				d.scrollIntoView({ behavior: "instant", block: "start" });
 				break;
 			}
@@ -619,7 +822,10 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	await page.evaluate(() => {
 		const dividers = document.querySelectorAll(".settings-section-divider");
 		for (const d of dividers) {
-			if (d.textContent?.includes("기억") || d.textContent?.includes("Memory")) {
+			if (
+				d.textContent?.includes("기억") ||
+				d.textContent?.includes("Memory")
+			) {
 				d.scrollIntoView({ behavior: "instant", block: "start" });
 				break;
 			}

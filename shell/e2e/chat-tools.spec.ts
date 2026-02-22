@@ -171,13 +171,21 @@ const TAURI_MOCK_SCRIPT = `
  * a new assistant message, then wait for streaming to finish.
  */
 async function sendMessage(page: Page, text: string) {
+	const beforeCount = await page
+		.locator(".chat-message.assistant")
+		.count();
+
 	const input = page.locator(".chat-input");
 	await expect(input).toBeEnabled({ timeout: 5_000 });
 	await input.fill(text);
 	await input.press("Enter");
 
-	// Wait for streaming to start (cursor appears)
-	await expect(page.locator(".cursor-blink").first()).toBeVisible({ timeout: 10_000 });
+	// Wait for streaming to start (cursor appears) OR a new assistant message to appear.
+	// Mock responses can resolve so fast that cursor-blink is never caught.
+	await Promise.race([
+		expect(page.locator(".cursor-blink").first()).toBeVisible({ timeout: 10_000 }).catch(() => {}),
+		expect(page.locator(".chat-message.assistant")).toHaveCount(beforeCount + 1, { timeout: 10_000 }).catch(() => {}),
+	]);
 
 	// Then wait for streaming to finish (cursor disappears)
 	await expect(page.locator(".cursor-blink")).toBeHidden({ timeout: 15_000 });
@@ -192,7 +200,9 @@ function watchPermissions(page: Page): void {
 				await btn.click();
 				await page.waitForTimeout(200);
 			}
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 	};
 	const interval = setInterval(() => void approve(), 500);
 	page.on("close", () => clearInterval(interval));
@@ -204,15 +214,19 @@ test.describe("Chat + Tool E2E", () => {
 		await page.addInitScript(TAURI_MOCK_SCRIPT);
 
 		// Seed localStorage with valid config
-		await page.addInitScript((configJson: string) => {
-			localStorage.setItem("naia-config", configJson);
-		}, JSON.stringify({
-			provider: "gemini",
-			model: "gemini-2.5-flash",
-			apiKey: API_KEY,
-			enableTools: true,
-			locale: "ko",
-		}));
+		await page.addInitScript(
+			(configJson: string) => {
+				localStorage.setItem("naia-config", configJson);
+			},
+			JSON.stringify({
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+				apiKey: API_KEY,
+				enableTools: true,
+				locale: "ko",
+				onboardingComplete: true,
+			}),
+		);
 
 		await page.goto("/");
 		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
@@ -226,7 +240,9 @@ test.describe("Chat + Tool E2E", () => {
 	test("채팅 전송 — assistant 응답 수신", async ({ page }) => {
 		await sendMessage(page, "안녕");
 
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
 		await expect(assistantMsg.first()).toBeVisible();
 		await expect(assistantMsg.first()).not.toBeEmpty();
 	});
@@ -257,8 +273,12 @@ test.describe("Chat + Tool E2E", () => {
 		await sendMessage(page, "~/test-e2e.txt 읽어줘");
 
 		// Verify response contains the written content
-		const lastAssistant = page.locator(".chat-message.assistant .message-content").last();
-		await expect(lastAssistant).toContainText("playwright-ok", { timeout: 5_000 });
+		const lastAssistant = page
+			.locator(".chat-message.assistant .message-content")
+			.last();
+		await expect(lastAssistant).toContainText("playwright-ok", {
+			timeout: 5_000,
+		});
 	});
 
 	test("도구: search_files — tool activity 표시", async ({ page }) => {

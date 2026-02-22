@@ -39,14 +39,18 @@ describe("62 — agents interactions", () => {
 		// Wait briefly for data to load
 		await browser.pause(2_000);
 
-		const state = await browser.execute((cardSel: string) => ({
-			cards: document.querySelectorAll(cardSel).length,
-			hasError: !!document.querySelector(".agents-error"),
-			hasEmpty: !!document.querySelector(".agents-empty"),
-			hasLoading: !!document.querySelector(".agents-loading"),
-		}), S.agentCard);
+		const state = await browser.execute(
+			(cardSel: string) => ({
+				cards: document.querySelectorAll(cardSel).length,
+				hasError: !!document.querySelector(".agents-error"),
+				hasEmpty: !!document.querySelector(".agents-empty"),
+				hasLoading: !!document.querySelector(".agents-loading"),
+			}),
+			S.agentCard,
+		);
 
-		const hasState = state.cards > 0 || state.hasError || state.hasEmpty || state.hasLoading;
+		const hasState =
+			state.cards > 0 || state.hasError || state.hasEmpty || state.hasLoading;
 		expect(hasState).toBe(true);
 	});
 
@@ -54,10 +58,13 @@ describe("62 — agents interactions", () => {
 		if (!tabAvailable) return;
 		// Wait for potential Gateway data load
 		await browser.pause(3_000);
-		const names = await browser.execute((sel: string) =>
-			Array.from(document.querySelectorAll(sel))
-				.map((el) => el.textContent?.trim() ?? ""),
-		S.agentCardName);
+		const names = await browser.execute(
+			(sel: string) =>
+				Array.from(document.querySelectorAll(sel)).map(
+					(el) => el.textContent?.trim() ?? "",
+				),
+			S.agentCardName,
+		);
 
 		// Agent card names may be empty, loading, or absent — all acceptable (Gateway dependent)
 		expect(Array.isArray(names)).toBe(true);
@@ -80,8 +87,8 @@ describe("62 — agents interactions", () => {
 		await browser.pause(2_000);
 
 		// Files section or empty state should appear
-		const hasFileSection = await browser.execute(() =>
-			!!document.querySelector(".agents-files-section"),
+		const hasFileSection = await browser.execute(
+			() => !!document.querySelector(".agents-files-section"),
 		);
 		expect(hasFileSection).toBe(true);
 	});

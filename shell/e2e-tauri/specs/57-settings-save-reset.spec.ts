@@ -90,7 +90,8 @@ describe("57 — settings save & reset", () => {
 		// Persona should contain our test text
 		await scrollToSection(S.personaInput);
 		const persona = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLTextAreaElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLTextAreaElement)?.value ?? "",
 			S.personaInput,
 		);
 		expect(persona).toContain("저장 테스트");

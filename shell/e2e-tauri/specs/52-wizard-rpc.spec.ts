@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -63,9 +60,7 @@ describe("52 — wizard RPC", () => {
 	});
 
 	it("should handle wizard next on inactive wizard", async () => {
-		await sendMessage(
-			"위저드 다음 단계로 진행해줘. wizard.next RPC를 호출해.",
-		);
+		await sendMessage("위저드 다음 단계로 진행해줘. wizard.next RPC를 호출해.");
 
 		const text = await getLastAssistantMessage();
 		// Should get error or explanation (no active wizard)

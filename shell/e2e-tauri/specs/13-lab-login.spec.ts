@@ -95,10 +95,8 @@ describe("13 — Lab Login Flow", () => {
 			}, savedConfig);
 		} else {
 			// Fallback: restore with API key
-			const apiKey =
-				process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
-			const gatewayToken =
-				process.env.CAFE_GATEWAY_TOKEN || "naia-dev-token";
+			const apiKey = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
+			const gatewayToken = process.env.CAFE_GATEWAY_TOKEN || "naia-dev-token";
 
 			await browser.execute(
 				(key: string, token: string) => {
@@ -118,10 +116,7 @@ describe("13 — Lab Login Flow", () => {
 							"search_files",
 						],
 					};
-					localStorage.setItem(
-						"naia-config",
-						JSON.stringify(config),
-					);
+					localStorage.setItem("naia-config", JSON.stringify(config));
 				},
 				apiKey || "",
 				gatewayToken,

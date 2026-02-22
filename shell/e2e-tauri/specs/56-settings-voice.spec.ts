@@ -34,7 +34,8 @@ describe("56 — settings voice", () => {
 
 	it("should toggle TTS on/off", async () => {
 		const originalState = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
 			S.ttsToggle,
 		);
 
@@ -42,7 +43,8 @@ describe("56 — settings voice", () => {
 		await browser.pause(200);
 
 		const newState = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
 			S.ttsToggle,
 		);
 		expect(newState).toBe(!originalState);
@@ -63,19 +65,17 @@ describe("56 — settings voice", () => {
 
 	it("should have TTS voice select with options", async () => {
 		await scrollToSection(S.ttsVoiceSelect);
-		const optionCount = await browser.execute(
-			(sel: string) => {
-				const select = document.querySelector(sel) as HTMLSelectElement | null;
-				return select?.options.length ?? 0;
-			},
-			S.ttsVoiceSelect,
-		);
+		const optionCount = await browser.execute((sel: string) => {
+			const select = document.querySelector(sel) as HTMLSelectElement | null;
+			return select?.options.length ?? 0;
+		}, S.ttsVoiceSelect);
 		expect(optionCount).toBeGreaterThanOrEqual(1);
 	});
 
 	it("should show current TTS voice selection", async () => {
 		const value = await browser.execute(
-			(sel: string) => (document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLSelectElement)?.value ?? "",
 			S.ttsVoiceSelect,
 		);
 		// Voice should be a ko-KR string or empty

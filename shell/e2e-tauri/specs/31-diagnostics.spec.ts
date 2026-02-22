@@ -44,8 +44,7 @@ describe("31 — diagnostics tab", () => {
 			await browser.waitUntil(
 				async () => {
 					return browser.execute(
-						(sel: string) =>
-							document.querySelectorAll(sel).length > 0,
+						(sel: string) => document.querySelectorAll(sel).length > 0,
 						S.diagnosticsStatusItem,
 					);
 				},

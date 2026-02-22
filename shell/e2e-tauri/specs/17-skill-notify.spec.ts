@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -30,7 +27,8 @@ describe("17 — notification skills", () => {
 
 		// Gateway/agent propagation may lag briefly; poll a couple of times if result isn't ready yet.
 		for (let i = 0; i < 2; i += 1) {
-			if (!/결과를 받지 못|아직.*결과|still waiting|not received/i.test(text)) break;
+			if (!/결과를 받지 못|아직.*결과|still waiting|not received/i.test(text))
+				break;
 			await browser.pause(2_000);
 			await sendMessage(
 				"직전 도구 호출 결과가 도착했는지 다시 확인해줘. 새 도구는 호출하지 말고 결과만 답해.",
@@ -57,8 +55,13 @@ describe("17 — notification skills", () => {
 			const raw = localStorage.getItem("naia-config");
 			if (!raw) return false;
 			const config = JSON.parse(raw);
-			const allowed = Array.isArray(config.allowedTools) ? config.allowedTools : [];
-			return allowed.includes("skill_notify_slack") && allowed.includes("skill_notify_discord");
+			const allowed = Array.isArray(config.allowedTools)
+				? config.allowedTools
+				: [];
+			return (
+				allowed.includes("skill_notify_slack") &&
+				allowed.includes("skill_notify_discord")
+			);
 		});
 		expect(hasNotifyTools).toBe(true);
 	});

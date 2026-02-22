@@ -1,10 +1,14 @@
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const JUDGE_MODEL = process.env.CAFE_E2E_JUDGE_MODEL || "gemini-2.5-flash";
-const JUDGE_API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
-const JUDGE_TIMEOUT_MS = Number(process.env.CAFE_E2E_JUDGE_TIMEOUT_MS || "15000");
-const SEMANTIC_LOG_DIR = process.env.CAFE_E2E_SEMANTIC_LOG_DIR || "/tmp/e2e-semantic-logs";
+const JUDGE_API_KEY =
+	process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
+const JUDGE_TIMEOUT_MS = Number(
+	process.env.CAFE_E2E_JUDGE_TIMEOUT_MS || "15000",
+);
+const SEMANTIC_LOG_DIR =
+	process.env.CAFE_E2E_SEMANTIC_LOG_DIR || "/tmp/e2e-semantic-logs";
 
 let logSeq = 0;
 
@@ -111,8 +115,9 @@ export async function judgeSemantics(opts: {
 
 	const body = await res.json();
 	const text: string =
-		body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ??
-		"";
+		body?.candidates?.[0]?.content?.parts
+			?.map((p: { text?: string }) => p.text ?? "")
+			.join("") ?? "";
 	return extractJson(text);
 }
 
@@ -130,16 +135,28 @@ export async function assertSemantic(
 	criteria: string,
 ): Promise<void> {
 	if (!answer || answer.trim().length === 0) {
-		logSemantic({ task, answer: "(empty)", criteria, verdict: "FAIL", reason: "Empty answer" });
+		logSemantic({
+			task,
+			answer: "(empty)",
+			criteria,
+			verdict: "FAIL",
+			reason: "Empty answer",
+		});
 		throw new Error(`Semantic FAIL — empty answer for task: "${task}"`);
 	}
 	const result = await judgeSemantics({ task, answer, criteria });
-	logSemantic({ task, answer, criteria, verdict: result.verdict, reason: result.reason });
+	logSemantic({
+		task,
+		answer,
+		criteria,
+		verdict: result.verdict,
+		reason: result.reason,
+	});
 	if (result.verdict !== "PASS") {
 		throw new Error(
 			`Semantic FAIL — task: "${task}"\n` +
-			`  answer: "${answer.slice(0, 500)}"\n` +
-			`  reason: ${result.reason}`,
+				`  answer: "${answer.slice(0, 500)}"\n` +
+				`  reason: ${result.reason}`,
 		);
 	}
 }
@@ -157,7 +174,11 @@ export async function judgeAllSemantics(opts: {
 	}
 
 	for (const answer of opts.answers) {
-		if (/Tool Call:|print\s*\(\s*skill_[a-z0-9_-]+\s*\)|잠시만 기다려/i.test(answer)) {
+		if (
+			/Tool Call:|print\s*\(\s*skill_[a-z0-9_-]+\s*\)|잠시만 기다려/i.test(
+				answer,
+			)
+		) {
 			return {
 				verdict: "FAIL",
 				reason: "Placeholder/tool-call-only message detected",
@@ -165,7 +186,7 @@ export async function judgeAllSemantics(opts: {
 		}
 	}
 
-	let reasons: string[] = [];
+	const reasons: string[] = [];
 	for (const answer of opts.answers) {
 		const judged = await judgeSemantics({
 			task: opts.task,
@@ -213,18 +234,20 @@ export async function judgeVisualSemantics(opts: {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
-				contents: [{
-					role: "user",
-					parts: [
-						{ text: prompt },
-						{
-							inlineData: {
-								mimeType: "image/png",
-								data: opts.screenshotBase64
-							}
-						}
-					]
-				}],
+				contents: [
+					{
+						role: "user",
+						parts: [
+							{ text: prompt },
+							{
+								inlineData: {
+									mimeType: "image/png",
+									data: opts.screenshotBase64,
+								},
+							},
+						],
+					},
+				],
 				generationConfig: {
 					temperature: 0,
 				},
@@ -250,8 +273,9 @@ export async function judgeVisualSemantics(opts: {
 
 	const body = await res.json();
 	const text: string =
-		body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ??
-		"";
+		body?.candidates?.[0]?.content?.parts
+			?.map((p: { text?: string }) => p.text ?? "")
+			.join("") ?? "";
 	return extractJson(text);
 }
 
@@ -269,15 +293,32 @@ export async function assertVisual(
 	criteria: string,
 ): Promise<void> {
 	if (!screenshotBase64 || screenshotBase64.trim().length === 0) {
-		logSemantic({ task, answer: "(empty screenshot)", criteria, verdict: "FAIL", reason: "Empty screenshot data" });
-		throw new Error(`Visual Semantic FAIL — empty screenshot for task: "${task}"`);
+		logSemantic({
+			task,
+			answer: "(empty screenshot)",
+			criteria,
+			verdict: "FAIL",
+			reason: "Empty screenshot data",
+		});
+		throw new Error(
+			`Visual Semantic FAIL — empty screenshot for task: "${task}"`,
+		);
 	}
-	const result = await judgeVisualSemantics({ task, screenshotBase64, criteria });
-	logSemantic({ task, answer: "(screenshot)", criteria, verdict: result.verdict, reason: result.reason });
+	const result = await judgeVisualSemantics({
+		task,
+		screenshotBase64,
+		criteria,
+	});
+	logSemantic({
+		task,
+		answer: "(screenshot)",
+		criteria,
+		verdict: result.verdict,
+		reason: result.reason,
+	});
 	if (result.verdict !== "PASS") {
 		throw new Error(
-			`Visual Semantic FAIL — task: "${task}"\n` +
-			`  reason: ${result.reason}`,
+			`Visual Semantic FAIL — task: "${task}"\n` + `  reason: ${result.reason}`,
 		);
 	}
 }

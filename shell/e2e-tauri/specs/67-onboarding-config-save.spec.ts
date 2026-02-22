@@ -106,6 +106,12 @@ describe("67 — Onboarding Config Save", () => {
 		await personalityCard.waitForDisplayed({ timeout: 10_000 });
 		await personalityCard.click();
 		await (await $(S.onboardingNextBtn)).click();
+
+		// Speech style step — advance with defaults
+		const speechStyleCard = await $(S.onboardingPersonalityCard);
+		if (await speechStyleCard.isDisplayed()) {
+			await (await $(S.onboardingNextBtn)).click();
+		}
 	});
 
 	it("should enter discord webhook in webhooks step", async () => {
@@ -113,23 +119,18 @@ describe("67 — Onboarding Config Save", () => {
 		const discordInput = await $("#discord-webhook");
 		await discordInput.waitForDisplayed({ timeout: 10_000 });
 
-		await browser.execute(
-			(val: string) => {
-				const el = document.querySelector(
-					"#discord-webhook",
-				) as HTMLInputElement;
-				if (el) {
-					const setter = Object.getOwnPropertyDescriptor(
-						HTMLInputElement.prototype,
-						"value",
-					)?.set;
-					setter?.call(el, val);
-					el.dispatchEvent(new Event("input", { bubbles: true }));
-					el.dispatchEvent(new Event("change", { bubbles: true }));
-				}
-			},
-			TEST_DISCORD_WEBHOOK,
-		);
+		await browser.execute((val: string) => {
+			const el = document.querySelector("#discord-webhook") as HTMLInputElement;
+			if (el) {
+				const setter = Object.getOwnPropertyDescriptor(
+					HTMLInputElement.prototype,
+					"value",
+				)?.set;
+				setter?.call(el, val);
+				el.dispatchEvent(new Event("input", { bubbles: true }));
+				el.dispatchEvent(new Event("change", { bubbles: true }));
+			}
+		}, TEST_DISCORD_WEBHOOK);
 
 		await (await $(S.onboardingNextBtn)).click();
 	});
@@ -149,8 +150,7 @@ describe("67 — Onboarding Config Save", () => {
 				),
 			{
 				timeout: 15_000,
-				timeoutMsg:
-					"Onboarding overlay did not disappear after complete",
+				timeoutMsg: "Onboarding overlay did not disappear after complete",
 			},
 		);
 
@@ -168,10 +168,8 @@ describe("67 — Onboarding Config Save", () => {
 	});
 
 	it("should restore config for remaining tests", async () => {
-		const apiKey =
-			process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
-		const gatewayToken =
-			process.env.CAFE_GATEWAY_TOKEN || "naia-dev-token";
+		const apiKey = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY;
+		const gatewayToken = process.env.CAFE_GATEWAY_TOKEN || "naia-dev-token";
 
 		await browser.execute(
 			(key: string, token: string) => {

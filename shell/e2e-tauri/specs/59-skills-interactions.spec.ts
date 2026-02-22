@@ -108,7 +108,9 @@ describe("59 — skills interactions", () => {
 	it("should collapse on re-click", async () => {
 		await browser.execute((sel: string) => {
 			const expanded = document.querySelector(sel);
-			const header = expanded?.querySelector(".skill-card-header") as HTMLElement;
+			const header = expanded?.querySelector(
+				".skill-card-header",
+			) as HTMLElement;
 			if (header) header.click();
 		}, S.skillCardExpanded);
 		await browser.pause(300);

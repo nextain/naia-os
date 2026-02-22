@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -47,7 +44,7 @@ describe("46 — channels operations", () => {
 	it("should simulate a realistic Discord notification scenario", async () => {
 		// Enable notification tool and configure dummy webhook in Settings
 		await enableToolsForSpec(["skill_notify_discord"]);
-		
+
 		// Set a mock Webhook URL using Settings UI
 		await browser.execute(() => {
 			const el = document.querySelector(".settings-tab-btn") as HTMLElement;
@@ -56,9 +53,14 @@ describe("46 — channels operations", () => {
 		await browser.pause(500);
 
 		await browser.execute((val: string) => {
-			const el = document.querySelector("#discord-webhook-input") as HTMLInputElement;
+			const el = document.querySelector(
+				"#discord-webhook-input",
+			) as HTMLInputElement;
 			if (el) {
-				const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+				const setter = Object.getOwnPropertyDescriptor(
+					HTMLInputElement.prototype,
+					"value",
+				)?.set;
 				if (setter) setter.call(el, val);
 				else el.value = val;
 				el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -68,8 +70,10 @@ describe("46 — channels operations", () => {
 		await browser.execute(() => {
 			const el = document.querySelector(".settings-save-btn") as HTMLElement;
 			if (el) el.click();
-			
-			const chat = document.querySelector(".chat-tab:first-child") as HTMLElement;
+
+			const chat = document.querySelector(
+				".chat-tab:first-child",
+			) as HTMLElement;
 			if (chat) chat.click();
 		});
 		await browser.pause(500);

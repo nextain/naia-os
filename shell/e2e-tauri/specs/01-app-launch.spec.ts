@@ -1,7 +1,8 @@
 import { S } from "../helpers/selectors.js";
 import { safeRefresh } from "../helpers/settings.js";
 
-const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
+const API_KEY =
+	process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 
 describe("01 — App Launch", () => {
 	it("should display the app root", async () => {
@@ -18,7 +19,7 @@ describe("01 — App Launch", () => {
 				apiKey: key,
 				agentName: "Naia",
 				userName: "Tester",
-				vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+				vrmModel: "/avatars/01-Sendagaya-Shino-uniform.vrm",
 				persona: "Friendly AI companion",
 				enableTools: true,
 				locale: "ko",
@@ -37,7 +38,10 @@ describe("01 — App Launch", () => {
 					S.onboardingOverlay,
 				);
 			},
-			{ timeout: 15_000, timeoutMsg: "Onboarding still visible after config set" },
+			{
+				timeout: 15_000,
+				timeoutMsg: "Onboarding still visible after config set",
+			},
 		);
 
 		// Main app should be visible

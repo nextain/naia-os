@@ -1,7 +1,4 @@
-import {
-	getLastAssistantMessage,
-	sendMessage,
-} from "../helpers/chat.js";
+import { getLastAssistantMessage, sendMessage } from "../helpers/chat.js";
 import { autoApprovePermissions } from "../helpers/permissions.js";
 import { S } from "../helpers/selectors.js";
 import { assertSemantic } from "../helpers/semantic.js";
@@ -31,9 +28,7 @@ describe("39 — web tools", () => {
 	});
 
 	it("should fetch a web page via browser tool", async () => {
-		await sendMessage(
-			"https://example.com 웹페이지를 browser 도구로 읽어줘.",
-		);
+		await sendMessage("https://example.com 웹페이지를 browser 도구로 읽어줘.");
 
 		const text = await getLastAssistantMessage();
 		await assertSemantic(

@@ -1,7 +1,7 @@
-import { S } from "../helpers/selectors.js";
-import { safeRefresh } from "../helpers/settings.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { S } from "../helpers/selectors.js";
+import { safeRefresh } from "../helpers/settings.js";
 
 /**
  * 99 — Screenshot Capture for Manual
@@ -22,26 +22,30 @@ const MANUAL_DIR = path.resolve(
 async function screenshot(name: string): Promise<void> {
 	fs.mkdirSync(MANUAL_DIR, { recursive: true });
 	const filepath = path.join(MANUAL_DIR, `${name}.png`);
-	
+
 	// Force a reflow and wait for paints
 	await browser.execute(() => {
-		window.dispatchEvent(new Event('resize'));
-		document.body.style.display = 'none';
+		window.dispatchEvent(new Event("resize"));
+		document.body.style.display = "none";
 		document.body.offsetHeight; // force reflow
-		document.body.style.display = '';
+		document.body.style.display = "";
 	});
 	await browser.pause(1000);
-	
+
 	await browser.saveScreenshot(filepath);
-	
+
 	const stats = fs.statSync(filepath);
 	if (stats.size < 40000) {
-		console.log(`[screenshot] WARNING: ${name}.png is too small (${stats.size} bytes). Retrying with longer wait...`);
+		console.log(
+			`[screenshot] WARNING: ${name}.png is too small (${stats.size} bytes). Retrying with longer wait...`,
+		);
 		await browser.pause(2000);
 		await browser.saveScreenshot(filepath);
 	}
-	
-	console.log(`[screenshot] Saved: ${filepath} (${fs.statSync(filepath).size} bytes)`);
+
+	console.log(
+		`[screenshot] Saved: ${filepath} (${fs.statSync(filepath).size} bytes)`,
+	);
 }
 
 async function clickTab(selector: string): Promise<void> {
@@ -52,7 +56,8 @@ async function clickTab(selector: string): Promise<void> {
 	await browser.pause(1500); // Wait longer for transition animations
 }
 
-const API_KEY = process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
+const API_KEY =
+	process.env.CAFE_E2E_API_KEY || process.env.GEMINI_API_KEY || "";
 
 describe("99 — manual screenshots", () => {
 	before(async () => {
@@ -61,9 +66,12 @@ describe("99 — manual screenshots", () => {
 		try {
 			await browser.setWindowSize(400, 768);
 		} catch (e) {
-			console.log("[screenshot] Note: setWindowSize failed, trying to continue", e);
+			console.log(
+				"[screenshot] Note: setWindowSize failed, trying to continue",
+				e,
+			);
 		}
-		
+
 		// Bypass onboarding
 		await browser.execute((key: string) => {
 			const config = {
@@ -72,7 +80,7 @@ describe("99 — manual screenshots", () => {
 				apiKey: key,
 				agentName: "AI 아바타",
 				userName: "Tester",
-				vrmModel: "/avatars/Sendagaya-Shino-dark-uniform.vrm",
+				vrmModel: "/avatars/01-Sendagaya-Shino-uniform.vrm",
 				persona: "Friendly AI companion",
 				enableTools: true,
 				onboardingComplete: true,
@@ -139,68 +147,88 @@ describe("99 — manual screenshots", () => {
 		}, S.chatInput);
 	});
 
-		it("should capture history tab", async () => {
-			await clickTab(S.historyTab);
-			try {
-				// Wait for data or empty state to render
-				await browser.waitUntil(async () => {
-					return await browser.execute((s1: string, s2: string) => 
-						!!document.querySelector(s1) || !!document.querySelector(s2), 
-						S.historyItem, S.historyEmpty);
-				}, { timeout: 5000 });
-			} catch {}
-			await screenshot("history-tab");
-		});
-	
-		it("should capture progress tab", async () => {
-			await clickTab(S.progressTabBtn);
-			try {
-				await browser.waitUntil(async () => {
-					return await browser.execute(() => 
-						!!document.querySelector(".progress-event-item") || !!document.querySelector(".diagnostics-status-grid"));
-				}, { timeout: 5000 });
-			} catch {}
-			await screenshot("progress-tab");
-		});
-	
-		it("should capture skills tab", async () => {
-			await clickTab(S.skillsTab);
-			try {
-				await $(S.skillsCard).waitForDisplayed({ timeout: 5000 });
-			} catch {}
-			await screenshot("skills-tab");
-		});
-	
-		it("should capture channels tab", async () => {
-			await clickTab(S.channelsTabBtn);
-			try {
-				await browser.waitUntil(async () => {
-					return await browser.execute((sel: string) => !document.querySelector(sel), ".channels-loading");
-				}, { timeout: 10000 });
-			} catch {}
-			await screenshot("channels-tab");
-		});
-	
-		it("should capture agents tab", async () => {
-			await clickTab(S.agentsTabBtn);
-			try {
-				await $(S.agentCard).waitForDisplayed({ timeout: 5000 });
-			} catch {}
-			await screenshot("agents-tab");
-		});
-	
-		it("should capture diagnostics tab", async () => {
-			await clickTab(S.diagnosticsTabBtn);
-			try {
-				await $(".diagnostics-status-grid").waitForDisplayed({ timeout: 5000 });
-			} catch {}
-			await screenshot("diagnostics-tab");
-		});
+	it("should capture history tab", async () => {
+		await clickTab(S.historyTab);
+		try {
+			// Wait for data or empty state to render
+			await browser.waitUntil(
+				async () => {
+					return await browser.execute(
+						(s1: string, s2: string) =>
+							!!document.querySelector(s1) || !!document.querySelector(s2),
+						S.historyItem,
+						S.historyEmpty,
+					);
+				},
+				{ timeout: 5000 },
+			);
+		} catch {}
+		await screenshot("history-tab");
+	});
+
+	it("should capture progress tab", async () => {
+		await clickTab(S.progressTabBtn);
+		try {
+			await browser.waitUntil(
+				async () => {
+					return await browser.execute(
+						() =>
+							!!document.querySelector(".progress-event-item") ||
+							!!document.querySelector(".diagnostics-status-grid"),
+					);
+				},
+				{ timeout: 5000 },
+			);
+		} catch {}
+		await screenshot("progress-tab");
+	});
+
+	it("should capture skills tab", async () => {
+		await clickTab(S.skillsTab);
+		try {
+			await $(S.skillsCard).waitForDisplayed({ timeout: 5000 });
+		} catch {}
+		await screenshot("skills-tab");
+	});
+
+	it("should capture channels tab", async () => {
+		await clickTab(S.channelsTabBtn);
+		try {
+			await browser.waitUntil(
+				async () => {
+					return await browser.execute(
+						(sel: string) => !document.querySelector(sel),
+						".channels-loading",
+					);
+				},
+				{ timeout: 10000 },
+			);
+		} catch {}
+		await screenshot("channels-tab");
+	});
+
+	it("should capture agents tab", async () => {
+		await clickTab(S.agentsTabBtn);
+		try {
+			await $(S.agentCard).waitForDisplayed({ timeout: 5000 });
+		} catch {}
+		await screenshot("agents-tab");
+	});
+
+	it("should capture diagnostics tab", async () => {
+		await clickTab(S.diagnosticsTabBtn);
+		try {
+			await $(".diagnostics-status-grid").waitForDisplayed({ timeout: 5000 });
+		} catch {}
+		await screenshot("diagnostics-tab");
+	});
 	it("should capture skills card expanded", async () => {
 		// Click first skill card to expand
 		await browser.execute((cardSel: string) => {
 			const card = document.querySelector(cardSel);
-			const header = card?.querySelector(".skill-card-header") as HTMLElement | null;
+			const header = card?.querySelector(
+				".skill-card-header",
+			) as HTMLElement | null;
 			if (header) header.click();
 		}, S.skillsCard);
 		await browser.pause(300);
@@ -209,7 +237,9 @@ describe("99 — manual screenshots", () => {
 		// Collapse
 		await browser.execute((cardSel: string) => {
 			const card = document.querySelector(cardSel);
-			const header = card?.querySelector(".skill-card-header") as HTMLElement | null;
+			const header = card?.querySelector(
+				".skill-card-header",
+			) as HTMLElement | null;
 			if (header) header.click();
 		}, S.skillsCard);
 	});
