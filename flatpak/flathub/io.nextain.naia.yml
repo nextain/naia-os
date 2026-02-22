@@ -82,7 +82,7 @@ modules:
       - cd shell && npx pnpm run build
       - cd shell/src-tauri && cargo build --release --offline
       # Install binary
-      - install -Dm755 shell/src-tauri/target/release/naia-os /app/bin/naia-os
+      - install -Dm755 shell/src-tauri/target/release/naia-shell /app/bin/naia-os
       # Node.js runtime (for agent)
       - install -Dm755 /usr/lib/sdk/node22/bin/node /app/bin/node
       # Agent bundle
