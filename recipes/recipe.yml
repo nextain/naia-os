@@ -20,6 +20,7 @@ modules:
       - fcitx5-configtool
       - fcitx5-gtk
       - fcitx5-qt
+      - fcitx5-wayland
       - google-noto-sans-cjk-kr-fonts
       # Utilities
       - jq
@@ -30,6 +31,7 @@ modules:
     scripts:
       - install-pnpm.sh
       - install-naia-shell.sh
+      - setup-openclaw.sh
       - branding.sh
 
   - type: files

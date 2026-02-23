@@ -3,15 +3,26 @@ set -euo pipefail
 
 # Naia Gateway Wrapper
 # Runs OpenClaw Gateway with Naia-safe defaults
+# OpenClaw is installed system-wide at /usr/share/naia/openclaw/
 
-OPENCLAW_DIR="${HOME}/.naia/openclaw"
-OPENCLAW_BIN="${OPENCLAW_DIR}/node_modules/.bin/openclaw"
+SYSTEM_OPENCLAW="/usr/share/naia/openclaw"
+USER_OPENCLAW="${HOME}/.naia/openclaw"
+OPENCLAW_BIN="${SYSTEM_OPENCLAW}/node_modules/.bin/openclaw"
 NODE_BIN="$(command -v node || echo /usr/bin/node)"
+
+# Fall back to user-local install if system install not found
+if [ ! -x "${OPENCLAW_BIN}" ] && [ -x "${USER_OPENCLAW}/node_modules/.bin/openclaw" ]; then
+    OPENCLAW_BIN="${USER_OPENCLAW}/node_modules/.bin/openclaw"
+fi
+
+if [ ! -x "${OPENCLAW_BIN}" ]; then
+    echo "ERROR: OpenClaw not found at ${SYSTEM_OPENCLAW} or ${USER_OPENCLAW}" >&2
+    exit 1
+fi
 
 # Ensure Node.js 22+
 NODE_VERSION=$("${NODE_BIN}" -v 2>/dev/null | sed 's/v//' | cut -d. -f1)
 if [ "${NODE_VERSION:-0}" -lt 22 ]; then
-    # Try nvm
     if [ -f "${HOME}/.config/nvm/nvm.sh" ]; then
         export NVM_DIR="${HOME}/.config/nvm"
         # shellcheck source=/dev/null
@@ -25,10 +36,11 @@ if [ ! -x "${NODE_BIN}" ]; then
     exit 1
 fi
 
-# Initialize config if missing
-if [ ! -f "${OPENCLAW_DIR}/openclaw.json" ]; then
-    mkdir -p "${OPENCLAW_DIR}"
-    cat > "${OPENCLAW_DIR}/openclaw.json" <<'CONF'
+# Initialize user config if missing
+CONFIG_DIR="${HOME}/.naia"
+if [ ! -f "${CONFIG_DIR}/openclaw.json" ]; then
+    mkdir -p "${CONFIG_DIR}"
+    cat > "${CONFIG_DIR}/openclaw.json" <<'CONF'
 {
   "gateway": {
     "mode": "local",
@@ -45,7 +57,7 @@ if [ ! -f "${OPENCLAW_DIR}/openclaw.json" ]; then
 CONF
 fi
 
-export OPENCLAW_CONFIG_PATH="${OPENCLAW_DIR}/openclaw.json"
+export OPENCLAW_CONFIG_PATH="${CONFIG_DIR}/openclaw.json"
 
 # Run gateway
 exec "${NODE_BIN}" "${OPENCLAW_BIN}" gateway run \

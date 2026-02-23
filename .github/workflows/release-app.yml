@@ -44,7 +44,9 @@ jobs:
         with:
           node-version: 22
           cache: 'pnpm'
-          cache-dependency-path: shell/pnpm-lock.yaml
+          cache-dependency-path: |
+            shell/pnpm-lock.yaml
+            agent/pnpm-lock.yaml
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -60,6 +62,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: shell
         run: pnpm install --frozen-lockfile
+
+      - name: Build agent
+        working-directory: agent
+        run: pnpm install --frozen-lockfile && pnpm run build
 
       - name: Build Tauri app
         working-directory: shell
