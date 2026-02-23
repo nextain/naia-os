@@ -586,7 +586,7 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
     let agent_path = std::env::var("NAIA_AGENT_PATH")
         .unwrap_or_else(|_| "node".to_string());
 
-    // In dev: tsx for TypeScript direct execution; in prod: compiled JS
+    // In dev: tsx for TypeScript direct execution; in prod: compiled JS from bundle
     let agent_script = std::env::var("NAIA_AGENT_SCRIPT")
         .unwrap_or_else(|_| {
             // Try paths relative to current dir (src-tauri/ in dev)
@@ -606,7 +606,15 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                         .to_string();
                 }
             }
-            // Production: compiled JS
+            // Production: bundled agent via Tauri resources
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let bundled = resource_dir.join("agent/dist/index.js");
+                if bundled.exists() {
+                    eprintln!("[Naia] Found bundled agent at: {}", bundled.display());
+                    return bundled.to_string_lossy().to_string();
+                }
+            }
+            // Fallback: relative path (legacy)
             "../agent/dist/index.js".to_string()
         });
 

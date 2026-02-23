@@ -15,7 +15,7 @@ Environment=NODE_ENV=production
 # Security hardening
 NoNewPrivileges=true
 ProtectHome=read-only
-ReadWritePaths=%h/.naia %h/.openclaw
+ReadWritePaths=%h/.naia
 PrivateTmp=true
 
 [Install]

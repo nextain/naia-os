@@ -33,6 +33,11 @@
 	"bundle": {
 		"active": true,
 		"targets": ["deb", "rpm", "appimage"],
+		"resources": {
+			"../../agent/dist": "agent/dist",
+			"../../agent/package.json": "agent/package.json",
+			"../../agent/node_modules": "agent/node_modules"
+		},
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",
