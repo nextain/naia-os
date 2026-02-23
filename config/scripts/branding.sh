@@ -9,7 +9,7 @@ BASE_VERSION_ID=$(grep -oP '(?<=^VERSION_ID=).*' /usr/lib/os-release | tr -d '"'
 cat > /usr/lib/os-release <<OSRELEASE
 NAME="Naia OS"
 PRETTY_NAME="Naia OS 0.1.0 (Bazzite)"
-ID=fedora
+ID=naia-os
 ID_LIKE="fedora"
 VERSION_ID="${BASE_VERSION_ID}"
 NAIA_VERSION="0.1.0"
@@ -119,17 +119,3 @@ background=/usr/share/backgrounds/naia-os/login-background.jpg
 SDDMCONF
 fi
 
-# ============================================================
-# GRUB: Set Naia boot background
-# ============================================================
-if [ -f /usr/share/backgrounds/naia-os/grub-background.jpg ]; then
-    mkdir -p /usr/etc/default
-    # Append GRUB background if not already set
-    if [ -f /usr/etc/default/grub ]; then
-        if ! grep -q 'GRUB_BACKGROUND' /usr/etc/default/grub; then
-            echo 'GRUB_BACKGROUND="/usr/share/backgrounds/naia-os/grub-background.jpg"' >> /usr/etc/default/grub
-        fi
-    else
-        echo 'GRUB_BACKGROUND="/usr/share/backgrounds/naia-os/grub-background.jpg"' > /usr/etc/default/grub
-    fi
-fi
