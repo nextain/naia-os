@@ -43,6 +43,7 @@ jobs:
           enable_cache_dnf: "false"
           enable_cache_skopeo: "false"
           enable_flatpak_dependencies: "false"
+          additional_templates: /github/workspace/config/lorax/naia-branding.tmpl
 
       - name: Upload ISO as Artifact
         uses: actions/upload-artifact@v4
