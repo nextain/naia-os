@@ -11,7 +11,7 @@ REPO_DIR="/tmp/naia-os-repo"
 # 0. Clone repo to access assets
 # ==============================================================================
 
-dnf install -y git anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm
+dnf install -y --allowerasing git anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm
 
 git clone --depth 1 --quiet "${REPO_URL}" "${REPO_DIR}"
 
