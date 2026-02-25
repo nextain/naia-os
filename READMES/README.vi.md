@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
-> "AI cua ban, quy tac cua ban. Chon AI, dinh hinh tri nho va tinh cach cua no, cho no giong noi — tat ca tren may tinh cua ban."
+> "Ma nguon mo. AI cua ban, quy tac cua ban. Chon AI, dinh hinh tri nho va tinh cach cua no, cho no giong noi — tat ca tren may tinh cua ban, tat ca co the xac minh trong ma nguon."
 
 ## Naia la gi?
 
@@ -20,6 +20,7 @@ Day khong chi la mot cong cu AI khac. Day la he dieu hanh noi AI cua ban sinh so
 - **Kiem soat hoan toan** — Tri nho, tinh cach, cai dat — tat ca luu tru cuc bo. Khong phu thuoc dam may.
 - **AI cua rieng ban** — Tuy chinh avatar, giong noi, ten, tinh cach. Bien no thanh cua ban.
 - **Luon hoat dong** — AI chay 24/7 trong nen, nhan tin nhan va lam viec ngay ca khi ban vang mat.
+- **Ma nguon mo** — Apache 2.0. Kiem tra cach AI xu ly du lieu cua ban. Tu do chinh sua, tuy bien, dong gop.
 - **Tam nhin tuong lai** — Avatar VRM 3D → avatar video thoi gian thuc → hat va choi game cung nhau → Physical AI
 
 ### Tinh nang

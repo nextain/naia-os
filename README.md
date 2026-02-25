@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-> "Your AI, your rules. Choose your AI, shape its memory and personality, give it your voice — all on your own machine."
+> "Open source. Your AI, your rules. Choose your AI, shape its memory and personality, give it your voice — all on your own machine, all verifiable in code."
 
 ## What is Naia?
 
@@ -20,6 +20,7 @@ This isn't just another AI tool. It's an operating system where your AI lives, g
 - **Complete Control** — Memory, personality, settings — all stored locally. No cloud dependency.
 - **Your Own AI** — Customize avatar, voice, name, personality. Make it truly yours.
 - **Always Alive** — AI runs 24/7 in the background, receiving messages and doing work even when you're away.
+- **Open Source** — Apache 2.0. Inspect how AI handles your data. Modify, customize, contribute.
 - **Future Vision** — VRM 3D avatars → real-time video avatars → singing & gaming together → Physical AI
 
 ### Features

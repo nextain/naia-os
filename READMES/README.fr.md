@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
-> "Votre IA, vos regles. Choisissez votre IA, faconnez sa memoire et sa personnalite, donnez-lui votre voix — le tout sur votre propre machine."
+> "Open source. Votre IA, vos regles. Choisissez votre IA, faconnez sa memoire et sa personnalite, donnez-lui votre voix — le tout sur votre propre machine, le tout verifiable dans le code."
 
 ## Qu'est-ce que Naia ?
 
@@ -20,6 +20,7 @@ Ce n'est pas qu'un simple outil IA. C'est un systeme d'exploitation ou votre IA 
 - **Controle total** — Memoire, personnalite, parametres — tout est stocke localement. Aucune dependance au cloud.
 - **Votre propre IA** — Personnalisez l'avatar, la voix, le nom, la personnalite. Rendez-la vraiment votre.
 - **Toujours en vie** — L'IA fonctionne 24h/24 et 7j/7 en arriere-plan, recevant des messages et travaillant meme en votre absence.
+- **Open Source** — Apache 2.0. Inspectez comment l'IA traite vos donnees. Modifiez, personnalisez, contribuez.
 - **Vision future** — Avatars VRM 3D → avatars video en temps reel → chanter et jouer ensemble → Physical AI
 
 ### Fonctionnalites

@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
-> "Ihre KI, Ihre Regeln. Waehlen Sie Ihre KI, formen Sie ihr Gedaechtnis und ihre Persoenlichkeit, geben Sie ihr Ihre Stimme — alles auf Ihrem eigenen Rechner."
+> "Open Source. Ihre KI, Ihre Regeln. Waehlen Sie Ihre KI, formen Sie ihr Gedaechtnis und ihre Persoenlichkeit, geben Sie ihr Ihre Stimme — alles auf Ihrem eigenen Rechner, alles im Code nachpruefbar."
 
 ## Was ist Naia?
 
@@ -20,6 +20,7 @@ Dies ist nicht nur ein weiteres KI-Werkzeug. Es ist ein Betriebssystem, in dem I
 - **Volle Kontrolle** — Gedaechtnis, Persoenlichkeit, Einstellungen — alles lokal gespeichert. Keine Cloud-Abhaengigkeit.
 - **Ihre eigene KI** — Avatar, Stimme, Name, Persoenlichkeit anpassen. Machen Sie sie wirklich zu Ihrer.
 - **Immer lebendig** — KI laeuft rund um die Uhr im Hintergrund, empfaengt Nachrichten und arbeitet auch in Ihrer Abwesenheit.
+- **Open Source** — Apache 2.0. Pruefen Sie, wie die KI mit Ihren Daten umgeht. Aendern, anpassen, beitragen.
 - **Zukunftsvision** — VRM 3D-Avatare → Echtzeit-Video-Avatare → zusammen singen und spielen → Physical AI
 
 ### Funktionen
