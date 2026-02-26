@@ -283,4 +283,4 @@ export function getUserName(): string | undefined {
 
 /** any-llm Gateway URL (shared with agent/src/providers/lab-proxy.ts) */
 export const LAB_GATEWAY_URL =
-	"https://cafelua-gateway-789741003661.asia-northeast3.run.app";
+	"https://naia-gateway-181404717065.asia-northeast3.run.app";

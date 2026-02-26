@@ -135,9 +135,8 @@ fn open_log_file(component: &str) -> Option<std::fs::File> {
         .ok()
 }
 
-/// Write a line to a log file and stderr
-fn log_both(msg: &str) {
-    eprintln!("{}", msg);
+/// Write to log file with timestamp
+fn log_to_file(msg: &str) {
     if let Some(mut f) = open_log_file("naia") {
         use std::io::Write as _;
         let secs = std::time::SystemTime::now()
@@ -146,6 +145,21 @@ fn log_both(msg: &str) {
             .unwrap_or(0);
         let _ = writeln!(f, "[{}] {}", secs, msg);
     }
+}
+
+/// Important messages — always stderr + file (visible to users in release)
+fn log_both(msg: &str) {
+    eprintln!("{}", msg);
+    log_to_file(msg);
+}
+
+/// Verbose/debug messages — file always, stderr only in debug builds
+/// Use for progress updates, retries, and diagnostics that users don't need to see
+fn log_verbose(msg: &str) {
+    if cfg!(debug_assertions) {
+        eprintln!("{}", msg);
+    }
+    log_to_file(msg);
 }
 
 fn debug_e2e_enabled() -> bool {
@@ -164,7 +178,7 @@ fn run_dir() -> std::path::PathBuf {
 fn write_pid_file(component: &str, pid: u32) {
     let path = run_dir().join(format!("{}.pid", component));
     let _ = std::fs::write(&path, pid.to_string());
-    log_both(&format!("[Naia] PID file written: {} (PID {})", path.display(), pid));
+    log_verbose(&format!("[Naia] PID file written: {} (PID {})", path.display(), pid));
 }
 
 /// Read PID from a PID file (returns None if file doesn't exist or is invalid)
@@ -195,7 +209,7 @@ fn cleanup_orphan_processes() {
             let signed_pid = match i32::try_from(pid) {
                 Ok(p) if p > 0 => p,
                 _ => {
-                    log_both(&format!(
+                    log_verbose(&format!(
                         "[Naia] Invalid PID {} for {} — skipping",
                         pid, component
                     ));
@@ -204,7 +218,7 @@ fn cleanup_orphan_processes() {
                 }
             };
             if is_pid_alive(pid) {
-                log_both(&format!(
+                log_verbose(&format!(
                     "[Naia] Orphan {} found (PID {}) — sending SIGTERM",
                     component, pid
                 ));
@@ -214,7 +228,7 @@ fn cleanup_orphan_processes() {
                 // Give it a moment to terminate gracefully
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 if is_pid_alive(pid) {
-                    log_both(&format!(
+                    log_verbose(&format!(
                         "[Naia] Orphan {} still alive (PID {}) — sending SIGKILL",
                         component, pid
                     ));
@@ -257,7 +271,7 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
                 );
             } else {
                 consecutive_failures += 1;
-                log_both(&format!(
+                log_verbose(&format!(
                     "[Naia] Gateway health check failed (consecutive: {})",
                     consecutive_failures
                 ));
@@ -329,6 +343,12 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
 
 /// Find Node.js binary (system path first, then nvm fallback)
 fn find_node_binary() -> Result<std::path::PathBuf, String> {
+    // Flatpak bundled node
+    let flatpak_node = std::path::PathBuf::from("/app/bin/node");
+    if flatpak_node.exists() {
+        return Ok(flatpak_node);
+    }
+
     // Check system node first
     if let Ok(output) = Command::new("node").arg("-v").output() {
         if output.status.success() {
@@ -398,17 +418,19 @@ fn check_gateway_health_sync() -> bool {
 fn find_openclaw_paths() -> Result<(std::path::PathBuf, String, String), String> {
     let node_bin = find_node_binary()?;
     let home = std::env::var("HOME").unwrap_or_default();
-    // Search order: system install → user install
+    // Search order: Flatpak bundle → system install → user install
+    // Use openclaw.mjs directly (not .bin/openclaw) to avoid broken ESM imports from cp -rL
     let candidates = [
-        "/usr/share/naia/openclaw/node_modules/.bin/openclaw".to_string(),
-        format!("{}/.naia/openclaw/node_modules/.bin/openclaw", home),
+        "/app/lib/naia-os/openclaw/node_modules/openclaw/openclaw.mjs".to_string(),
+        "/usr/share/naia/openclaw/node_modules/openclaw/openclaw.mjs".to_string(),
+        format!("{}/.naia/openclaw/node_modules/openclaw/openclaw.mjs", home),
     ];
     let openclaw_bin = candidates
         .iter()
         .find(|p| std::path::Path::new(p).exists())
         .cloned()
         .ok_or_else(|| {
-            "OpenClaw not installed. Expected at /usr/share/naia/openclaw/ or ~/.naia/openclaw/"
+            "OpenClaw not installed. Expected at /app/lib/naia-os/openclaw/, /usr/share/naia/openclaw/, or ~/.naia/openclaw/"
                 .to_string()
         })?;
     // Prefer ~/.openclaw/openclaw.json (standard path), fallback to legacy ~/.naia/openclaw/
@@ -428,7 +450,7 @@ fn spawn_node_host(
     openclaw_bin: &str,
     config_path: &str,
 ) -> Result<Child, String> {
-    log_both("[Naia] Spawning Node Host: node run --host 127.0.0.1 --port 18789");
+    log_verbose("[Naia] Spawning Node Host: node run --host 127.0.0.1 --port 18789");
 
     let gateway_log = open_log_file("node-host");
     let stdout_cfg = match &gateway_log {
@@ -456,7 +478,7 @@ fn spawn_node_host(
         .spawn()
         .map_err(|e| format!("Failed to spawn Node Host: {}", e))?;
 
-    log_both(&format!(
+    log_verbose(&format!(
         "[Naia] Node Host spawned (PID: {})",
         child.id()
     ));
@@ -496,7 +518,7 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
     // 2. Find paths
     let (node_bin, openclaw_bin, config_path) = find_openclaw_paths()?;
 
-    log_both(&format!(
+    log_verbose(&format!(
         "[Naia] Spawning Gateway: {} {} gateway run --bind loopback --port 18789",
         node_bin.display(),
         openclaw_bin
@@ -534,7 +556,7 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
                     for (key, val) in &env_obj {
                         if let Some(s) = val.as_str() {
                             cmd.env(key, s);
-                            log_both(&format!("[Naia] Gateway env: {}={}", key, s));
+                            log_verbose(&format!("[Naia] Gateway env: {}=***", key));
                         }
                     }
                 }
@@ -544,40 +566,52 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
     let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Gateway: {}", e))?;
 
-    log_both(&format!(
+    log_verbose(&format!(
         "[Naia] Gateway process spawned (PID: {})",
         child.id()
     ));
 
-    // 4. Wait for health check (max 5s, 500ms intervals)
+    // 4. Wait for health check (max 60s, 1s intervals)
+    //    Gateway startup includes doctor checks, Discord connect, etc. — can take 30s+
     let mut gateway_healthy = false;
-    for i in 0..10 {
-        std::thread::sleep(std::time::Duration::from_millis(500));
+    log_verbose("[Naia] Waiting for Gateway health check (max 60s)...");
+    for i in 0..60 {
+        std::thread::sleep(std::time::Duration::from_millis(1000));
         if check_gateway_health_sync() {
             log_both(&format!(
-                "[Naia] Gateway healthy after {}ms",
-                (i + 1) * 500
+                "[Naia] Gateway healthy after {}s",
+                i + 1
             ));
             gateway_healthy = true;
             break;
         }
+        // Log progress every 10s — verbose only (file always, stderr in debug)
+        if (i + 1) % 10 == 0 {
+            log_verbose(&format!(
+                "[Naia] Still waiting for Gateway... ({}s elapsed)",
+                i + 1
+            ));
+        }
     }
 
-    if !gateway_healthy {
-        log_both("[Naia] Gateway spawned but not yet healthy — continuing anyway");
-    }
-
-    // 5. Spawn Node Host (after Gateway is ready)
-    let node_host = match spawn_node_host(&node_bin, &openclaw_bin, &config_path) {
-        Ok(nh) => {
-            // Give Node Host a moment to connect
-            std::thread::sleep(std::time::Duration::from_millis(1000));
-            Some(nh)
+    // 5. Spawn Node Host only if Gateway is healthy
+    //    Node Host exits immediately on ECONNREFUSED, so spawning it before Gateway is ready is pointless
+    let node_host = if gateway_healthy {
+        log_verbose("[Naia] Spawning Node Host...");
+        match spawn_node_host(&node_bin, &openclaw_bin, &config_path) {
+            Ok(nh) => {
+                // Give Node Host a moment to connect
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                Some(nh)
+            }
+            Err(e) => {
+                log_both(&format!("[Naia] Node Host spawn failed: {}", e));
+                None
+            }
         }
-        Err(e) => {
-            log_both(&format!("[Naia] Node Host spawn failed: {}", e));
-            None
-        }
+    } else {
+        log_both("[Naia] Gateway not healthy after 60s — skipping Node Host spawn");
+        None
     };
 
     Ok(GatewayProcess {
@@ -605,7 +639,7 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                     .map(|d| d.join(rel))
                     .unwrap_or_default();
                 if dev_path.exists() {
-                    eprintln!("[Naia] Found agent at: {}", dev_path.display());
+                    log_verbose(&format!("[Naia] Found agent at: {}", dev_path.display()));
                     return dev_path.canonicalize()
                         .unwrap_or(dev_path)
                         .to_string_lossy()
@@ -616,14 +650,14 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
             if let Ok(resource_dir) = app_handle.path().resource_dir() {
                 let bundled = resource_dir.join("agent/dist/index.js");
                 if bundled.exists() {
-                    eprintln!("[Naia] Found bundled agent at: {}", bundled.display());
+                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
                     return bundled.to_string_lossy().to_string();
                 }
             }
             // Flatpak: agent installed at /app/lib/naia-os/agent/
             let flatpak_path = std::path::PathBuf::from("/app/lib/naia-os/agent/dist/index.js");
             if flatpak_path.exists() {
-                eprintln!("[Naia] Found Flatpak agent at: {}", flatpak_path.display());
+                log_verbose(&format!("[Naia] Found Flatpak agent at: {}", flatpak_path.display()));
                 return flatpak_path.to_string_lossy().to_string();
             }
             // Fallback: relative path (legacy)
@@ -638,7 +672,7 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
         agent_path.clone()
     };
 
-    eprintln!("[Naia] Starting agent-core: {} {}", runner, agent_script);
+    log_verbose(&format!("[Naia] Starting agent-core: {} {}", runner, agent_script));
 
     let mut child = if use_tsx {
         Command::new(&runner)
@@ -717,16 +751,16 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                     }
                     // Forward raw JSON to frontend
                     if let Err(e) = handle.emit("agent_response", trimmed) {
-                        eprintln!("[Naia] Failed to emit agent_response: {}", e);
+                        log_verbose(&format!("[Naia] Failed to emit agent_response: {}", e));
                     }
                 }
                 Err(e) => {
-                    eprintln!("[Naia] Error reading agent stdout: {}", e);
+                    log_verbose(&format!("[Naia] Error reading agent stdout: {}", e));
                     break;
                 }
             }
         }
-        eprintln!("[Naia] agent-core stdout reader ended");
+        log_verbose("[Naia] agent-core stdout reader ended");
     });
 
     Ok(AgentProcess { child, stdin })
@@ -807,7 +841,7 @@ fn send_to_agent(
         // Check if process is still alive
         match process.child.try_wait() {
             Ok(Some(status)) => {
-                eprintln!("[Naia] agent-core exited: {:?}", status);
+                log_both(&format!("[Naia] agent-core exited: {:?}", status));
                 *guard = None;
                 drop(guard);
                 if let Some(handle) = app_handle {
@@ -816,7 +850,7 @@ fn send_to_agent(
                 return Err("agent-core died".to_string());
             }
             Ok(None) => {} // still running
-            Err(e) => eprintln!("[Naia] Failed to check agent status: {}", e),
+            Err(e) => log_verbose(&format!("[Naia] Failed to check agent status: {}", e)),
         }
 
         // Write to stdin
@@ -829,7 +863,7 @@ fn send_to_agent(
                 Ok(())
             }
             Err(e) => {
-                eprintln!("[Naia] Write to agent failed: {}", e);
+                log_both(&format!("[Naia] Write to agent failed: {}", e));
                 *guard = None;
                 drop(guard);
                 if let Some(handle) = app_handle {
@@ -855,7 +889,7 @@ fn restart_agent(
     message: &str,
     audit_db: Option<&audit::AuditDb>,
 ) -> Result<(), String> {
-    eprintln!("[Naia] Restarting agent-core...");
+    log_both("[Naia] Restarting agent-core...");
     // Use a temporary empty db if none provided (shouldn't happen in practice)
     let empty_db;
     let db = match audit_db {
@@ -871,7 +905,7 @@ fn restart_agent(
         Ok(process) => {
             let mut guard = lock_or_recover(&state.agent, "state.agent(restart_agent)");
             *guard = Some(process);
-            eprintln!("[Naia] agent-core restarted");
+            log_both("[Naia] agent-core restarted");
             drop(guard);
             std::thread::sleep(std::time::Duration::from_millis(300));
             send_to_agent(state, message, None, audit_db)
@@ -921,14 +955,14 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
                 let data = match std::fs::read_to_string(&manifest_path) {
                     Ok(d) => d,
                     Err(e) => {
-                        eprintln!("[list_skills] Failed to read {}: {}", manifest_path.display(), e);
+                        log_verbose(&format!("[list_skills] Failed to read {}: {}", manifest_path.display(), e));
                         continue;
                     }
                 };
                 let parsed: serde_json::Value = match serde_json::from_str(&data) {
                     Ok(v) => v,
                     Err(e) => {
-                        eprintln!("[list_skills] Failed to parse {}: {}", manifest_path.display(), e);
+                        log_verbose(&format!("[list_skills] Failed to parse {}: {}", manifest_path.display(), e));
                         continue;
                     }
                 };
@@ -1158,7 +1192,7 @@ async fn gateway_health() -> Result<bool, String> {
 /// Call this after writing openclaw.json to ensure the gateway reads fresh config.
 #[tauri::command]
 async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, String> {
-    log_both("[Naia] restart_gateway requested");
+    log_verbose("[Naia] restart_gateway requested");
     let guard_result = state.gateway.lock();
     if let Ok(mut guard) = guard_result {
         // Kill existing processes
@@ -1209,7 +1243,7 @@ async fn generate_oauth_state(state: tauri::State<'_, AppState>) -> Result<Strin
 async fn reset_window_state(app: AppHandle) -> Result<(), String> {
     if let Some(path) = window_state_path(&app) {
         let _ = std::fs::remove_file(&path);
-        eprintln!("[Naia] Window state reset");
+        log_verbose("[Naia] Window state reset");
     }
     Ok(())
 }
@@ -1241,7 +1275,7 @@ fn reset_openclaw_data() -> Result<String, String> {
         }
     }
 
-    eprintln!("[Naia] OpenClaw data reset: {:?}", removed);
+    log_verbose(&format!("[Naia] OpenClaw data reset: {:?}", removed));
     Ok(serde_json::json!({ "removed": removed }).to_string())
 }
 
@@ -1586,7 +1620,7 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         };
         if use_nextain_via_lab {
             env_obj.insert("OPENAI_TTS_BASE_URL".to_string(),
-                serde_json::Value::String("https://cafelua-gateway-789741003661.asia-northeast3.run.app/v1".to_string()));
+                serde_json::Value::String("https://naia-gateway-181404717065.asia-northeast3.run.app/v1".to_string()));
         } else {
             env_obj.remove("OPENAI_TTS_BASE_URL");
         }
@@ -1879,7 +1913,7 @@ pub fn run() {
             let audit_db = audit::init_db(&audit_db_path)
                 .map_err(|e| -> Box<dyn std::error::Error> { format!("Failed to init audit DB: {}", e).into() })?;
             app.manage(AuditState { db: audit_db.clone() });
-            eprintln!("[Naia] Audit DB initialized at: {}", audit_db_path.display());
+            log_verbose(&format!("[Naia] Audit DB initialized at: {}", audit_db_path.display()));
 
             // Initialize memory DB
             let memory_db_path = app_handle
@@ -1890,7 +1924,7 @@ pub fn run() {
             let memory_db = memory::init_db(&memory_db_path)
                 .map_err(|e| -> Box<dyn std::error::Error> { format!("Failed to init memory DB: {}", e).into() })?;
             app.manage(MemoryState { db: memory_db });
-            eprintln!("[Naia] Memory DB initialized at: {}", memory_db_path.display());
+            log_verbose(&format!("[Naia] Memory DB initialized at: {}", memory_db_path.display()));
 
             // Register deep-link handler for naia:// URI scheme
             #[cfg(desktop)]
@@ -2062,7 +2096,7 @@ pub fn run() {
                 if let Some(saved) = load_window_state(&app_handle) {
                     let _ = window.set_size(PhysicalSize::new(saved.width, saved.height));
                     let _ = window.set_position(PhysicalPosition::new(saved.x, saved.y));
-                    eprintln!("[Naia] Window restored: {}x{} at ({},{})", saved.width, saved.height, saved.x, saved.y);
+                    log_verbose(&format!("[Naia] Window restored: {}x{} at ({},{})", saved.width, saved.height, saved.x, saved.y));
                 } else if let Some(monitor) = window.current_monitor().ok().flatten() {
                     let monitor_size = monitor.size();
                     let monitor_pos = monitor.position();
@@ -2073,7 +2107,7 @@ pub fn run() {
                     let y = monitor_pos.y;
                     let _ = window.set_size(PhysicalSize::new(width, height));
                     let _ = window.set_position(PhysicalPosition::new(x, y));
-                    eprintln!("[Naia] Window docked: {}x{} at ({},{})", width, height, x, y);
+                    log_verbose(&format!("[Naia] Window docked: {}x{} at ({},{})", width, height, x, y));
                 }
                 let _ = window.show();
             }
@@ -2102,7 +2136,7 @@ pub fn run() {
 
             // Log session start
             log_both("[Naia] === Session started ===");
-            log_both(&format!("[Naia] Log files at: {}", log_dir().display()));
+            log_verbose(&format!("[Naia] Log files at: {}", log_dir().display()));
 
             // Clean up orphan processes from previous sessions
             cleanup_orphan_processes();
@@ -2199,7 +2233,7 @@ pub fn run() {
                     let agent_lock = state.agent.lock();
                     if let Ok(mut guard) = agent_lock {
                         if let Some(mut process) = guard.take() {
-                            eprintln!("[Naia] Terminating agent-core...");
+                            log_verbose("[Naia] Terminating agent-core...");
                             let _ = process.child.kill();
                         }
                     }
@@ -2210,17 +2244,17 @@ pub fn run() {
                         if let Some(mut process) = guard.take() {
                             // Kill Node Host first
                             if let Some(ref mut nh) = process.node_host {
-                                log_both("[Naia] Terminating Node Host...");
+                                log_verbose("[Naia] Terminating Node Host...");
                                 let _ = nh.kill();
                             }
                             remove_pid_file("node-host");
                             // Kill Gateway
                             if process.we_spawned {
-                                log_both("[Naia] Terminating Gateway (we spawned it)...");
+                                log_verbose("[Naia] Terminating Gateway (we spawned it)...");
                                 let _ = process.child.kill();
                                 remove_pid_file("gateway");
                             } else {
-                                log_both("[Naia] Gateway not managed by us — leaving it running");
+                                log_verbose("[Naia] Gateway not managed by us — leaving it running");
                             }
                         }
                     }
