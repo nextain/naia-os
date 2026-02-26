@@ -10,7 +10,7 @@ export const GATEWAY_URL =
 
 /** Map local model names to gateway format (provider:model) */
 function toGatewayModel(model: string): string {
-	if (model.startsWith("gemini")) return `gemini:${model}`;
+	if (model.startsWith("gemini")) return `vertexai:${model}`;
 	if (model.startsWith("grok")) return `xai:${model}`;
 	if (model.startsWith("claude")) return `anthropic:${model}`;
 	return model;
