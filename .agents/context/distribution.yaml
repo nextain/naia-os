@@ -8,11 +8,21 @@ formats:
     metainfo: flatpak/io.nextain.naia.metainfo.xml
     desktop: flatpak/io.nextain.naia.desktop
     shared_modules: flatpak/shared-modules/ (git submodule from flathub/shared-modules)
-    runtime: org.gnome.Platform//47
+    runtime: org.gnome.Platform//49
     sdk_extensions:
-      - org.freedesktop.Sdk.Extension.rust-stable//24.08
-      - org.freedesktop.Sdk.Extension.node22//24.08
+      - org.freedesktop.Sdk.Extension.rust-stable
+      - org.freedesktop.Sdk.Extension.node22
     status: working
+    critical_notes:
+      - "MUST use 'npx tauri build --no-bundle' (NOT cargo build --release)"
+      - "cargo build --release causes white screen — WebKitGTK asset protocol not configured"
+      - "tauri.conf.flatpak.json overrides beforeBuildCommand to empty (frontend built separately)"
+      - "deep-link scheme: x-scheme-handler/naia (NOT nanos)"
+      - "@node-llama-cpp excluded from bundle (rm -rf after npm install) — saves ~650MB"
+      - "OpenClaw bundled at /app/lib/naia-os/openclaw/"
+      - "Node bundled at /app/bin/node"
+      - "pnpm not in PATH — use npx pnpm, npx tauri"
+      - "Claude Code terminal cannot flatpak install — use desktop terminal"
 
   appimage:
     built_by: tauri build
@@ -80,18 +90,21 @@ local_build:
   flatpak:
     prerequisites:
       - flatpak-builder installed
-      - "org.gnome.Platform//47 + Sdk//47"
-      - "org.freedesktop.Sdk.Extension.rust-stable//24.08"
-      - "org.freedesktop.Sdk.Extension.node22//24.08"
+      - "org.gnome.Platform//49 + Sdk//49"
+      - org.freedesktop.Sdk.Extension.rust-stable
+      - org.freedesktop.Sdk.Extension.node22
     commands:
       clean: "rm -rf flatpak-repo build-dir .flatpak-builder"
       build: "flatpak-builder --force-clean --disable-rofiles-fuse --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml"
       bundle: "flatpak build-bundle flatpak-repo Naia-Shell-x86_64.flatpak io.nextain.naia"
       upload: "gh release upload v0.1.0 Naia-Shell-x86_64.flatpak --clobber"
+    script: "bash scripts/local-reinstall-run-naia-flatpak.sh (bundle + uninstall + install + run)"
     important_notes:
       - MUST clean flatpak-repo before build to avoid 'invalid rdev' corruption
       - Old app-id artifacts (com.naia.shell) can corrupt the ostree repo
       - CI workflow includes rm -rf cleanup step before flatpak-builder
+      - "NEVER use cargo build --release for Flatpak — causes white screen"
+      - "ALWAYS use npx tauri build --no-bundle --config src-tauri/tauri.conf.flatpak.json"
 
 flathub_submission:
   guide: docs/flathub-submission-guide.md

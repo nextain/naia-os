@@ -110,9 +110,15 @@ gh workflow run iso.yml
 
 ### 필수 SDK (Flatpak 로컬 빌드)
 - `flatpak-builder`
-- `org.gnome.Platform//47` + `org.gnome.Sdk//47`
-- `org.freedesktop.Sdk.Extension.rust-stable//24.08`
-- `org.freedesktop.Sdk.Extension.node22//24.08`
+- `org.gnome.Platform//49` + `org.gnome.Sdk//49`
+- `org.freedesktop.Sdk.Extension.rust-stable`
+- `org.freedesktop.Sdk.Extension.node22`
+
+### Flatpak 주의사항
+- **NEVER use `cargo build --release`** — 흰 화면 발생 (WebKitGTK asset protocol 미설정)
+- **ALWAYS use `npx tauri build --no-bundle --config src-tauri/tauri.conf.flatpak.json`**
+- 로컬 테스트: `bash scripts/local-reinstall-run-naia-flatpak.sh`
+- 상세: `.agents/context/distribution.yaml`
 
 ## 개발 사이클
 
