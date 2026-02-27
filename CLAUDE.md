@@ -18,19 +18,19 @@ Bazzite 기반 배포형 AI OS. Naia(AI 아바타)가 상주하는 개인 운영
 ├── context/
 │   ├── agents-rules.json   # SoT ← 필수 읽기
 │   ├── project-index.yaml  # 인덱스 + 미러링 ← 필수 읽기
-│   ├── vision.yaml         # 비전 (요약)
-│   ├── plan.yaml           # 구현 계획 (요약)
-│   └── careti-reuse.yaml   # 재사용 전략 (요약)
+│   ├── architecture.yaml   # 아키텍처 (agent/gateway/Rust)
+│   ├── distribution.yaml   # 배포 (Flatpak/ISO/AppImage)
+│   ├── testing.yaml        # 테스트 전략
+│   ├── openclaw-sync.yaml  # OpenClaw 동기화
+│   ├── vision.yaml         # 비전
+│   ├── plan.yaml           # 구현 계획
+│   └── ...                 # 전체 목록은 project-index.yaml 참조
 ├── workflows/              # 작업 워크플로우 (온디맨드)
 └── skills/                 # 스킬 정의
 
 .users/                     # 사람용 (한국어, Markdown, 상세)
-├── context/
-│   ├── agents-rules.md     # 규칙 상세 (미러)
-│   ├── vision.md           # 비전 상세
-│   ├── plan.md             # 구현 계획 상세
-│   └── careti-reuse.md     # 재사용 전략 상세
-└── workflows/
+├── context/                # .agents/context/ 미러 (1:1)
+└── workflows/              # .agents/workflows/ 미러
 ```
 
 ## 핵심 원칙

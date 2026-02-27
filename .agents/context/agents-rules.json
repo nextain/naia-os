@@ -151,7 +151,7 @@
 		"typescript": {
 			"forbidden": ["console.log", "console.warn", "console.error"],
 			"logger": {
-				"import": "import { Logger } from '@naia/shared/logger'",
+				"import": "import { Logger } from './logger' (relative path from shell/src/lib/)",
 				"levels": {
 					"debug": "Development debugging, detailed execution flow",
 					"info": "Important operations completed, state changes",

@@ -48,6 +48,10 @@ mirror_pairs:
     users: null
     description: Distribution pipeline (Flatpak, AppImage, DEB, RPM, ISO), local build commands, Flathub submission status
 
+  - agents: .agents/context/phase3-plan.yaml
+    users: .users/context/phase3-openclaw-hybrid-plan.md
+    description: Phase 3 detailed plan — hybrid OpenClaw + Agent architecture
+
   - agents: .agents/workflows/development-cycle.yaml
     users: .users/workflows/development-cycle.md
     description: PLAN→CHECK→BUILD→VERIFY→CLEAN→COMMIT cycle, review gates, AI rules

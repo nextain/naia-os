@@ -154,7 +154,7 @@ pnpm test:coverage     # 커버리지 포함
 **금지**: `console.log`, `console.warn`, `console.error`
 
 ```typescript
-import { Logger } from "@naia/shared/logger";
+import { Logger } from "./logger"; // shell/src/lib/logger.ts
 
 Logger.debug("[AgentCore] Processing message", { id });
 Logger.info("[AgentCore] LLM response received", { model, tokens });
