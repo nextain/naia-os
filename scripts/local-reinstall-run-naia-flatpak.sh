@@ -36,14 +36,27 @@ if [[ ! -d "flatpak-repo" ]]; then
     exit 1
 fi
 
-echo "[1/4] Bundling..."
+echo "[1/5] Cleaning old MIME handlers..."
+rm -f ~/.local/share/applications/naia-os-handler.desktop \
+      ~/.local/share/applications/naia-shell-handler.desktop \
+      ~/.local/share/applications/naia-shell.desktop 2>/dev/null || true
+sed -i '/naia-shell-handler/d; /naia-os-handler/d; /naia-shell\.desktop/d' \
+    ~/.local/share/applications/mimeinfo.cache \
+    ~/.local/share/applications/mimeapps.list \
+    ~/.config/mimeapps.list 2>/dev/null || true
+update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
+
+echo "[2/5] Bundling..."
 flatpak build-bundle flatpak-repo "$FLATPAK_FILE" "$APP_ID"
 
-echo "[2/4] Uninstalling old version..."
+echo "[3/5] Uninstalling old version..."
 flatpak uninstall --delete-data "$APP_ID" -y 2>/dev/null || true
 
-echo "[3/4] Installing from local bundle..."
+echo "[4/5] Installing from local bundle..."
 flatpak install --user "./$FLATPAK_FILE" -y
 
-echo "[4/4] Running..."
+echo "[5/5] Setting Flatpak as default naia:// handler..."
+xdg-mime default io.nextain.naia.desktop x-scheme-handler/naia 2>/dev/null || true
+
+echo "Running..."
 flatpak run "$APP_ID"

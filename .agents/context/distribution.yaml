@@ -23,6 +23,8 @@ formats:
       - "Node bundled at /app/bin/node"
       - "pnpm not in PATH — use npx pnpm, npx tauri"
       - "Claude Code terminal cannot flatpak install — use desktop terminal"
+      - "--own-name=com.naia.shell.* required for single-instance D-Bus in Flatpak sandbox"
+      - "tauri dev registers competing MIME handlers — local-reinstall script cleans them automatically"
 
   appimage:
     built_by: tauri build
