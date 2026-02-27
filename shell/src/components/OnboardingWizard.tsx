@@ -376,7 +376,7 @@ export function OnboardingWizard({
 		setLabWaiting(true);
 		setLabTimeout(false);
 		try {
-			await openUrl("https://naia.nextain.io/ko/login?redirect=desktop");
+			await openUrl(`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`);
 		} catch {
 			setLabWaiting(false);
 			return;

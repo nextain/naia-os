@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Naia
 Comment=Personal AI avatar shell
-Exec=flatpak run io.nextain.naia
+Exec=sh -c 'flatpak info io.nextain.naia >/dev/null 2>&1 && flatpak run io.nextain.naia || true'
 Icon=io.nextain.naia
 Type=Application
 X-GNOME-Autostart-enabled=true

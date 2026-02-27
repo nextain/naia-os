@@ -70,18 +70,51 @@ fi
 # Branding: Replace Fedora/Bazzite logos with Naia OS
 # ============================================================
 
-# System pixmaps — symlink Fedora logos to Naia OS
+# System pixmaps — symlink Fedora/Bazzite logos to Naia OS
 ln -sf naia-os-logo.png /usr/share/pixmaps/fedora-logo.png
 ln -sf naia-os-logo.png /usr/share/pixmaps/fedora-logo-sprite.png
 ln -sf naia-os-logo.png /usr/share/pixmaps/system-logo-white.png
 ln -sf naia-os-logo-small.png /usr/share/pixmaps/fedora-logo-small.png
+# Replace Bazzite's own icon so KDE Kickoff won't show the "B" logo
+ln -sf naia-os-logo.png /usr/share/pixmaps/bazzite.png
 
 # ============================================================
 # KDE Plasma: Replace app launcher (start-here) icon with Naia
 # ============================================================
 # config/files/ copies start-here.png (all sizes) + start-here.svg
+# Also symlink bazzite icon entries so KDE Kickoff doesn't show the "B"
+for size in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256; do
+    src="/usr/share/icons/hicolor/${size}/places/start-here.png"
+    dst="/usr/share/icons/hicolor/${size}/apps/bazzite.png"
+    if [ -f "$src" ]; then
+        mkdir -p "$(dirname "$dst")"
+        ln -sf "$src" "$dst"
+    fi
+done
 # Refresh icon cache so KDE picks up the new start-here icon
 gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+
+# ============================================================
+# KDE Plasma: Override Kickoff icon from bazzite → start-here
+# ============================================================
+# Bazzite's look-and-feel sets Kickoff icon to "bazzite". Override via Plasma
+# update script so it runs once per user session (same mechanism as wallpaper).
+mkdir -p /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates
+cat > /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/naia-kickoff.js <<'JSEOF'
+var allPanels = panels();
+for (var i = 0; i < allPanels.length; ++i) {
+    var panel = allPanels[i];
+    var widgets = panel.widgets();
+    for (var j = 0; j < widgets.length; ++j) {
+        var widget = widgets[j];
+        if (widget.type === "org.kde.plasma.kickoff") {
+            widget.currentConfigGroup = ["General"];
+            widget.writeConfig("icon", "start-here");
+            widget.reloadConfig();
+        }
+    }
+}
+JSEOF
 
 # ============================================================
 # KDE Plasma: Set NaiaOS as default wallpaper
@@ -93,11 +126,16 @@ Image=/usr/share/wallpapers/NaiaOS/
 PLASMA
 
 # ============================================================
-# Plymouth: Set Naia as default boot theme
+# Plymouth: Set Naia as default boot theme + rebuild initrd
 # ============================================================
 if [ -d /usr/share/plymouth/themes/naia ]; then
     plymouth-set-default-theme naia 2>/dev/null || \
         ln -sf /usr/share/plymouth/themes/naia/naia.plymouth /usr/share/plymouth/default.plymouth
+    # Rebuild initrd so the new Plymouth theme is included in the boot image.
+    # Without this, the Bazzite "B" logo persists during boot.
+    if command -v dracut &>/dev/null; then
+        dracut -f --regenerate-all 2>/dev/null || true
+    fi
 fi
 
 # ============================================================

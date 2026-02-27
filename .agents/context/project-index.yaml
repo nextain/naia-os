@@ -48,6 +48,10 @@ mirror_pairs:
     users: null
     description: Distribution pipeline (Flatpak, AppImage, DEB, RPM, ISO), local build commands, Flathub submission status
 
+  - agents: .agents/context/bazzite-rebranding.yaml
+    users: .users/context/bazzite-rebranding.md
+    description: Bazzite OS rebranding guide — all assets, layers, and scripts needed to replace Bazzite/Fedora logos
+
   - agents: .agents/context/phase3-plan.yaml
     users: .users/context/phase3-openclaw-hybrid-plan.md
     description: Phase 3 detailed plan — hybrid OpenClaw + Agent architecture
@@ -81,5 +85,6 @@ on_demand_loading:
     - .agents/context/skill-naia-discord.yaml (when working on Discord skill or messaging)
     - .agents/context/channels-discord.yaml (when working on Discord integration, OAuth, or Shell conversation sync)
     - .agents/context/distribution.yaml (when building, releasing, or deploying — Flatpak, ISO, Flathub)
+    - .agents/context/bazzite-rebranding.yaml (when modifying OS branding, logos, boot splash, or installer assets)
     - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
     - .agents/workflows/* (when executing specific workflows)

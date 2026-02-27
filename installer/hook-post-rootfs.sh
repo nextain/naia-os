@@ -28,9 +28,22 @@ cp "${SRC}/assets/installer/topbar-bg.png" /usr/share/anaconda/pixmaps/
 cp "${SRC}/assets/installer/anaconda_header.png" /usr/share/anaconda/pixmaps/
 cp "${SRC}/assets/installer/fedora.css" /usr/share/anaconda/pixmaps/
 
-# "Install to Hard Drive" icon
+# "Install to Hard Drive" icon — SVG + PNG sizes (KDE prefers PNG over SVG)
 cp "${SRC}/assets/installer/anaconda-installer.svg" \
    /usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg
+if [ -f "${SRC}/assets/installer/anaconda-installer-symbolic.svg" ]; then
+    cp "${SRC}/assets/installer/anaconda-installer-symbolic.svg" \
+       /usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller-symbolic.svg
+fi
+# Render PNG from SVG for sizes KDE actually uses
+for size in 32 48 64 256; do
+    dst="/usr/share/icons/hicolor/${size}x${size}/apps/org.fedoraproject.AnacondaInstaller.png"
+    mkdir -p "$(dirname "$dst")"
+    if command -v rsvg-convert &>/dev/null; then
+        rsvg-convert -w "$size" -h "$size" \
+            "${SRC}/assets/installer/anaconda-installer.svg" -o "$dst" 2>/dev/null || true
+    fi
+done
 
 # ==============================================================================
 # 2. Anaconda profile
@@ -76,6 +89,12 @@ for (var i = 0; i < allPanels.length; ++i) {
                 "preferred://browser",
                 "preferred://filemanager"
             ]);
+            widget.reloadConfig();
+        }
+        // Replace Bazzite "B" icon on Kickoff (app launcher) with Naia start-here
+        if (widget.type === "org.kde.plasma.kickoff") {
+            widget.currentConfigGroup = ["General"];
+            widget.writeConfig("icon", "start-here");
             widget.reloadConfig();
         }
     }
@@ -180,7 +199,18 @@ else
 fi
 
 # ==============================================================================
-# 9. Cleanup
+# 9. Live session — DNS fallback
+#    Some networks don't push DNS via DHCP; ensure a fallback is present.
+# ==============================================================================
+
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/99-naia-dns-fallback.conf <<'EOF'
+[global-dns-domain-*]
+servers=8.8.8.8,1.1.1.1
+EOF
+
+# ==============================================================================
+# 10. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"

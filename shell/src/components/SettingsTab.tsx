@@ -859,7 +859,7 @@ export function SettingsTab() {
 
 	const startLabLogin = () => {
 		setLabWaiting(true);
-		openUrl("https://naia.nextain.io/ko/login?redirect=desktop").catch(() =>
+		openUrl(`https://naia.nextain.io/${locale}/login?redirect=desktop`).catch(() =>
 			setLabWaiting(false),
 		);
 		setTimeout(() => setLabWaiting(false), 60_000);
@@ -1904,7 +1904,7 @@ export function SettingsTab() {
 								type="button"
 								className="voice-preview-btn"
 								onClick={() =>
-									openUrl("https://naia.nextain.io/ko/dashboard").catch(
+									openUrl(`https://naia.nextain.io/${locale}/dashboard`).catch(
 										() => {},
 									)
 								}
@@ -1915,7 +1915,7 @@ export function SettingsTab() {
 								type="button"
 								className="voice-preview-btn"
 								onClick={() =>
-									openUrl("https://naia.nextain.io/ko/billing").catch(() => {})
+									openUrl(`https://naia.nextain.io/${locale}/billing`).catch(() => {})
 								}
 							>
 								{t("cost.labCharge")}
@@ -2061,7 +2061,7 @@ export function SettingsTab() {
 									type="button"
 									className="voice-preview-btn"
 									onClick={() =>
-										openUrl("https://naia.nextain.io/ko/dashboard").catch(() => {})
+										openUrl(`https://naia.nextain.io/${locale}/dashboard`).catch(() => {})
 									}
 								>
 									{t("settings.labDashboard")}
@@ -2070,7 +2070,7 @@ export function SettingsTab() {
 									type="button"
 									className="voice-preview-btn"
 									onClick={() =>
-										openUrl("https://naia.nextain.io/ko/billing").catch(() => {})
+										openUrl(`https://naia.nextain.io/${locale}/billing`).catch(() => {})
 									}
 								>
 									{t("cost.labCharge")}

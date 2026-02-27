@@ -6,7 +6,7 @@ import {
 	getLabKeySecure,
 	hasLabKeySecure,
 } from "../lib/config";
-import { t } from "../lib/i18n";
+import { getLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import type { ChatMessage } from "../lib/types";
 import { parseLabCredits } from "../lib/lab-balance";
@@ -142,7 +142,7 @@ function LabBalanceSection() {
 				type="button"
 				className="lab-charge-btn"
 				onClick={() =>
-					openUrl("https://naia.nextain.io/ko/billing").catch(() => {})
+					openUrl(`https://naia.nextain.io/${getLocale()}/billing`).catch(() => {})
 				}
 			>
 				{t("cost.labCharge")}

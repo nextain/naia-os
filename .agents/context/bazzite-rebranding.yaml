@@ -1,0 +1,150 @@
+description: >
+  Bazzite-based OS rebranding guide. Lists every Bazzite/Fedora asset that needs
+  replacement when building a custom OS on top of Bazzite via BlueBuild.
+
+overview: >
+  Bazzite (Fedora Atomic + KDE Plasma) ships its own branding at multiple layers.
+  Each layer must be overridden separately. Missing any layer leaves Bazzite logos
+  visible to users during boot, login, or desktop use.
+
+layers:
+  - name: GRUB Bootloader
+    when: BIOS/UEFI → GRUB menu
+    files:
+      - /usr/share/backgrounds/naia-os/grub-background.jpg
+    config:
+      - /usr/etc/default/grub → GRUB_BACKGROUND
+    script: config/scripts/branding.sh
+    notes: >
+      Only background image is customizable. GRUB menu text/theme requires
+      a custom grub2-theme package.
+
+  - name: Plymouth Boot Splash
+    when: After GRUB, before login screen
+    files:
+      - /usr/share/plymouth/themes/naia/naia.plymouth
+      - /usr/share/plymouth/themes/naia/naia.script
+      - /usr/share/plymouth/themes/naia/naia-splash.png (300x300 RGBA)
+    config:
+      - plymouth-set-default-theme naia
+    script: config/scripts/branding.sh
+    critical: >
+      MUST run "dracut -f --regenerate-all" after setting the theme.
+      Without initrd rebuild, the Bazzite "B" logo persists in the boot image
+      because ostree-based systems bake Plymouth into initramfs.
+
+  - name: SDDM Login Screen
+    when: Login prompt
+    files:
+      - /usr/share/backgrounds/naia-os/login-background.jpg
+    config:
+      - theme.conf.user in active SDDM theme dir
+    script: config/scripts/branding.sh
+    notes: >
+      Bazzite uses breeze or 01-breeze-fedora theme. Override via theme.conf.user
+      rather than replacing theme files directly.
+
+  - name: KDE Plasma - Start Menu (Kickoff)
+    when: Desktop taskbar, bottom-left button
+    bazzite_default: icon=bazzite (set by Bazzite look-and-feel)
+    override_method: Plasma update script (JS)
+    files:
+      - /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/naia-kickoff.js
+    script: config/scripts/branding.sh
+    critical: >
+      Bazzite's look-and-feel package sets Kickoff icon to "bazzite" explicitly.
+      Simply providing start-here.png is NOT enough — must use a Plasma update
+      script to write icon=start-here to the widget config.
+
+  - name: KDE Plasma - App Launcher Icon (start-here)
+    when: Desktop, file manager, system info
+    files:
+      - /usr/share/icons/hicolor/{16..256}/places/start-here.png
+      - /usr/share/icons/hicolor/scalable/places/start-here.svg
+    deploy: config/files/usr/share/icons/hicolor/
+    script: config/scripts/branding.sh (gtk-update-icon-cache)
+    notes: Deployed via BlueBuild "files" module. All sizes required.
+
+  - name: System Pixmaps
+    when: About dialogs, system info, Anaconda installer
+    files:
+      - /usr/share/pixmaps/naia-os-logo.png (256x256)
+      - /usr/share/pixmaps/naia-os-logo-small.png (48x48)
+    symlinks:
+      - fedora-logo.png → naia-os-logo.png
+      - fedora-logo-sprite.png → naia-os-logo.png
+      - system-logo-white.png → naia-os-logo.png
+      - fedora-logo-small.png → naia-os-logo-small.png
+      - bazzite.png → naia-os-logo.png
+    script: config/scripts/branding.sh
+    critical: >
+      bazzite.png MUST be symlinked/replaced. KDE Kickoff references this file
+      directly when the icon name is "bazzite".
+
+  - name: Bazzite Icon Files (hicolor)
+    when: KDE icon resolution fallback
+    override: Symlink bazzite.png → start-here.png in each hicolor size
+    script: config/scripts/branding.sh
+    notes: >
+      KDE icon lookup checks /apps/bazzite.png before /places/start-here.png.
+      Symlinking ensures both paths resolve to Naia icon.
+
+  - name: Anaconda Installer
+    when: "Install to Hard Drive" UI
+    files:
+      - /usr/share/anaconda/pixmaps/sidebar-logo.png
+      - /usr/share/anaconda/pixmaps/sidebar-bg.png
+      - /usr/share/anaconda/pixmaps/topbar-bg.png
+      - /usr/share/anaconda/pixmaps/anaconda_header.png
+      - /usr/share/anaconda/pixmaps/fedora.css
+      - /usr/share/icons/hicolor/scalable/apps/org.fedoraproject.AnacondaInstaller.svg
+      - /usr/share/icons/hicolor/{32,48,64,256}/apps/org.fedoraproject.AnacondaInstaller.png
+    script: installer/hook-post-rootfs.sh
+    notes: >
+      SVG alone is not enough — KDE prefers PNG. Render PNGs via rsvg-convert.
+      Also keep config/files/ and assets/installer/ copies in sync.
+
+  - name: os-release
+    when: System info, neofetch, etc.
+    file: /usr/lib/os-release
+    script: config/scripts/branding.sh
+    fields: [NAME, PRETTY_NAME, ID, VARIANT, HOME_URL, BUG_REPORT_URL]
+
+  - name: Desktop Wallpapers
+    when: Default desktop background
+    files:
+      - /usr/share/wallpapers/NaiaOS/contents/images/{1920x1080,2560x1440,3840x2160}.jpg
+      - /usr/share/wallpapers/NaiaOS/metadata.json
+    deploy: config/files/usr/share/wallpapers/
+    script: config/scripts/branding.sh (skel config)
+
+not_customizable:
+  - name: UEFI/BIOS Manufacturer Logo
+    reason: Stored in hardware firmware (Samsung, Dell, etc.), not OS-level
+  - name: Secure Boot Shim Logo
+    reason: Signed by Fedora/Red Hat, replacing requires custom Secure Boot keys
+
+file_structure:
+  assets:
+    installer/: Source branding assets (used by hook-post-rootfs.sh for ISO)
+    logos/: Design source files (not deployed)
+    wallpaper/: Wallpaper source files
+  config:
+    files/: BlueBuild "files" module → copied to / during image build
+    scripts/branding.sh: Runs during BlueBuild image build (symlinks, config)
+  installer:
+    hook-post-rootfs.sh: Runs during ISO generation (Titanoboa post-rootfs)
+
+checklist:
+  - "[ ] os-release updated (NAME, ID, VARIANT)"
+  - "[ ] System pixmaps + bazzite.png symlinked"
+  - "[ ] start-here icons (all sizes) provided"
+  - "[ ] bazzite.png in hicolor/apps/ symlinked to start-here"
+  - "[ ] Kickoff icon overridden via Plasma update script"
+  - "[ ] Plymouth theme + dracut rebuild"
+  - "[ ] SDDM background overridden"
+  - "[ ] GRUB background set"
+  - "[ ] Anaconda assets (sidebar, topbar, CSS, SVG+PNG icons)"
+  - "[ ] Desktop wallpapers with metadata.json"
+  - "[ ] gtk-update-icon-cache run after icon changes"
+  - "[ ] sidebar-logo.png synced between config/files/ and assets/installer/"
