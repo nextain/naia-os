@@ -6,14 +6,8 @@ image-version: latest
 modules:
   - type: rpm-ostree
     install:
-      - nodejs
-      - npm
-      # Tauri 2 runtime dependencies
-      - webkit2gtk4.1
-      - openssl-libs
-      - libappindicator-gtk3
-      - librsvg2
-      - libxdo
+      # Flatpak runtime (needed for flatpak install in first-boot service)
+      - flatpak
       # Korean input
       - fcitx5
       - fcitx5-hangul
@@ -28,9 +22,7 @@ modules:
 
   - type: script
     scripts:
-      - install-pnpm.sh
       - install-naia-shell.sh
-      - setup-openclaw.sh
       - branding.sh
 
   - type: files

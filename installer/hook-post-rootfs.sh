@@ -161,7 +161,26 @@ OnlyShowIn=KDE;
 EOF
 
 # ==============================================================================
-# 8. Cleanup
+# 8. Install Naia Shell Flatpak for live session
+#    The bundle was baked into the image by install-naia-shell.sh (BlueBuild).
+#    On installed OS, naia-flatpak-install.service handles this on first boot.
+# ==============================================================================
+
+NAIA_BUNDLE="/usr/share/naia/naia-shell.flatpak"
+
+if [ -f "${NAIA_BUNDLE}" ]; then
+    echo "[naia] Installing Naia Shell Flatpak for live session..."
+    # GNOME Platform runtime (Naia Shell dependency)
+    flatpak install --system --noninteractive flathub org.gnome.Platform//49 || true
+    # Install from local bundle
+    flatpak install --system --noninteractive --bundle "${NAIA_BUNDLE}" || true
+    echo "[naia] Naia Shell Flatpak installed."
+else
+    echo "[naia] WARNING: Naia Shell Flatpak bundle not found at ${NAIA_BUNDLE}"
+fi
+
+# ==============================================================================
+# 9. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"
