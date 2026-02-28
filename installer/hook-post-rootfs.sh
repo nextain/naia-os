@@ -318,9 +318,13 @@ flatpak override --system com.google.Chrome --env=CHROMIUM_FLAGS="--password-sto
 # ==============================================================================
 
 mkdir -p /etc/environment.d
+# On Wayland, GTK_IM_MODULE and QT_IM_MODULE must NOT be set globally.
+# Setting them overrides fcitx5's Wayland-native frontend, breaking Korean
+# character composition (moasseugi) in terminals and some apps.
+# Only XMODIFIERS is needed (for legacy X11 forwarding compatibility).
+# See: https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland#KDE_Plasma
 cat > /etc/environment.d/input-method.conf <<'EOF'
-GTK_IM_MODULE=fcitx
-QT_IM_MODULE=fcitx
+INPUT_METHOD=fcitx
 XMODIFIERS=@im=fcitx
 EOF
 
