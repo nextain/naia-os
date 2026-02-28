@@ -100,7 +100,7 @@ pull_requests:
 language:
   code_and_context: "English"
   ai_responses: "Contributor's preferred language"
-  work_logs: "Korean preferred, English accepted"
+  work_logs: "Korean (private repo)"
   commit_messages: "English"
 
 mirrors:
