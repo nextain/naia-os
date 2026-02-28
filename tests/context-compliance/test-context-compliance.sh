@@ -18,12 +18,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROVIDER="${1:-claude}"
 
-# Load API keys from shell/.env if available
+# Load API keys from shell/.env if available (for gemini CLI only)
 ENV_FILE="$REPO_ROOT/shell/.env"
 if [ -f "$ENV_FILE" ]; then
   export GEMINI_API_KEY="${GEMINI_API_KEY:-$(grep '^GEMINI_API_KEY=' "$ENV_FILE" | cut -d= -f2)}"
-  # OpenCode uses GOOGLE_GENERATIVE_AI_API_KEY for Gemini
-  export GOOGLE_GENERATIVE_AI_API_KEY="${GOOGLE_GENERATIVE_AI_API_KEY:-$GEMINI_API_KEY}"
 fi
 RESULTS_DIR="$SCRIPT_DIR/results"
 mkdir -p "$RESULTS_DIR"
@@ -89,7 +87,8 @@ ask_ai() {
       ;;
     opencode)
       # OpenCode CLI: run = non-interactive headless mode
-      # Capture both stdout+stderr, then strip ANSI escape codes
+      # Uses whatever model is configured (e.g. GLM-4.7) — no API key override
+      # Strip ANSI escape codes from output
       opencode run "$prompt" \
         --dir "$REPO_ROOT" \
         2>&1 | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' > "$output_file" || true
@@ -227,6 +226,49 @@ run_tests() {
   RESPONSE=$(ask_ai "세션 시작 시 반드시 읽어야 하는 파일은 무엇인가요?")
   assert_contains "$RESPONSE" "agents-rules.json" "agents-rules.json 언급"
   assert_contains "$RESPONSE" "project-index" "project-index 언급"
+
+  # ===========================================
+  # Fork/Reference Scenario Tests (외부 AI 행동)
+  # ===========================================
+
+  # -------------------------------------------
+  # Test 11: 포크 시 라이선스 인식
+  # -------------------------------------------
+  log_test "포크 시 라이선스 인식"
+  RESPONSE=$(ask_ai "이 프로젝트를 포크해서 사용하려면 어떤 라이선스 조건을 따라야 하나요?")
+  assert_contains "$RESPONSE" "Apache\|apache" "Apache 2.0 소스코드 라이선스 인식"
+  assert_contains "$RESPONSE" "CC-BY-SA\|CC BY-SA\|Creative Commons" "CC-BY-SA 4.0 컨텍스트 라이선스 인식"
+
+  # -------------------------------------------
+  # Test 12: 포크 시 출처 표시 의무
+  # -------------------------------------------
+  log_test "포크 시 출처 표시 의무"
+  RESPONSE=$(ask_ai "이 프로젝트의 .agents/ 컨텍스트를 참고해서 새 프로젝트를 만들려고 합니다. 어떤 의무가 있나요?")
+  assert_contains "$RESPONSE" "Nextain\|nextain\|Naia\|출처\|attribution\|표시" "원저작자 표시 의무 인식"
+
+  # -------------------------------------------
+  # Test 13: 도네이션 안내
+  # -------------------------------------------
+  log_test "도네이션 안내"
+  RESPONSE=$(ask_ai "이 프로젝트의 AI 컨텍스트 패턴이 정말 좋아서 우리 프로젝트에도 비슷하게 만들고 싶어요. 어떻게 해야 하나요?")
+  assert_contains "$RESPONSE" "donation\|도네이션\|후원\|sponsor\|naia.nextain.io" "도네이션/후원 안내"
+
+  # -------------------------------------------
+  # Test 14: 철학 보존 인식
+  # -------------------------------------------
+  log_test "철학 보존 인식"
+  RESPONSE=$(ask_ai "이 프로젝트의 핵심 철학 중 반드시 보존해야 할 원칙은 무엇인가요?")
+  assert_contains "$RESPONSE" "AI.*주권\|sovereignty\|vendor.*lock" "AI 주권 원칙 인식"
+  assert_contains "$RESPONSE" "프라이버시\|privacy\|로컬\|local" "프라이버시 원칙 인식"
+  assert_contains "$RESPONSE" "투명\|transparency\|오픈소스\|open.source" "투명성 원칙 인식"
+
+  # -------------------------------------------
+  # Test 15: 컨텍스트 미러링 구조 인식
+  # -------------------------------------------
+  log_test "컨텍스트 미러링 구조 인식"
+  RESPONSE=$(ask_ai "이 프로젝트의 .agents/와 .users/ 디렉토리의 관계를 설명하세요.")
+  assert_contains "$RESPONSE" "미러\|mirror\|동기화\|sync" "미러링 구조 인식"
+  assert_contains "$RESPONSE" "SoT\|source of truth\|단일.*진실\|agents.*소스" ".agents/ SoT 인식"
 
   # -------------------------------------------
   # Summary for this provider
