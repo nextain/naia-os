@@ -137,6 +137,8 @@ A dual documentation structure for AI agents and human developers. `.agents/` co
 | `context/architecture.yaml` | `context/architecture.md` | Hybrid architecture, security layers |
 | `context/openclaw-sync.yaml` | `context/openclaw-sync.md` | OpenClaw Gateway synchronization |
 | `context/channels-discord.yaml` | `context/channels-discord.md` | Discord integration architecture |
+| `context/philosophy.yaml` | `context/philosophy.md` | Core philosophy (AI sovereignty, privacy) |
+| `context/contributing.yaml` | `context/contributing.md` | Contribution guide for AI agents and humans |
 | `workflows/development-cycle.yaml` | `workflows/development-cycle.md` | Development cycle (PLAN->BUILD->VERIFY) |
 
 **Mirroring rule:** When one side is modified, the other must always be synchronized.
@@ -271,9 +273,15 @@ Key documents:
 | [OpenCode](https://github.com/anomalyco/opencode) | Client/server separation, provider abstraction |
 | Careti | LLM connection, tool set, sub-agent, context management |
 
+## Contributing
+
+See [Contributing Guide](.users/context/en/contributing.md) for how to contribute.
+AI agents: read [AGENTS.md](AGENTS.md) and `.agents/context/contributing.yaml`.
+
 ## License
 
-[Apache License 2.0](LICENSE) — Copyright 2026 Nextain
+- **Source Code**: [Apache License 2.0](LICENSE) — Copyright 2026 Nextain
+- **AI Context** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Links
 

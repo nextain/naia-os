@@ -53,6 +53,21 @@ mirror_pairs:
     users_en: .users/context/en/bazzite-rebranding.md
     description: Bazzite OS rebranding guide — all assets, layers, and scripts needed to replace Bazzite/Fedora logos
 
+  - agents: .agents/context/demo-video.yaml
+    users: .users/context/demo-video.md
+    users_en: .users/context/en/demo-video.md
+    description: Demo video pipeline — Playwright recording, Google Cloud TTS narration, ffmpeg merge
+
+  - agents: .agents/context/philosophy.yaml
+    users: .users/context/philosophy.md
+    users_en: .users/context/en/philosophy.md
+    description: Core philosophy — why this project exists (AI sovereignty, privacy, transparency)
+
+  - agents: .agents/context/contributing.yaml
+    users: .users/context/contributing.md
+    users_en: .users/context/en/contributing.md
+    description: Contribution guide — how AI agents and humans should contribute
+
   - agents: .agents/context/phase3-plan.yaml
     users: .users/context/phase3-openclaw-hybrid-plan.md
     description: Phase 3 detailed plan — hybrid OpenClaw + Agent architecture
@@ -92,6 +107,8 @@ on_demand_loading:
   always_read:
     - .agents/context/agents-rules.json
   read_when_needed:
+    - .agents/context/philosophy.yaml (when discussing project values, principles, or licensing)
+    - .agents/context/contributing.yaml (when contributing code, context, or skills)
     - .agents/context/vision.yaml (when discussing direction/purpose)
     - .agents/context/plan.yaml (when planning or implementing phases)
     - .agents/context/architecture.yaml (when working on agent/gateway integration or Rust backend — ALWAYS read before gateway/Rust work)
@@ -102,5 +119,6 @@ on_demand_loading:
     - .agents/context/channels-discord.yaml (when working on Discord integration, OAuth, or Shell conversation sync)
     - .agents/context/distribution.yaml (when building, releasing, or deploying — Flatpak, ISO, Flathub)
     - .agents/context/bazzite-rebranding.yaml (when modifying OS branding, logos, boot splash, or installer assets)
+    - .agents/context/demo-video.yaml (when creating, updating, or re-recording demo videos)
     - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
     - .agents/workflows/* (when executing specific workflows)
