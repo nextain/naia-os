@@ -323,7 +323,16 @@ If you're contributing from outside Korea:
 ## License
 
 - **Source Code**: [Apache License 2.0](LICENSE) — Copyright 2026 Nextain
-- **AI Context** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+- **AI Context** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](CONTEXT-LICENSE)
+
+**Why dual license?** The source code is freely modifiable under Apache 2.0. But the AI context files — the project philosophy, contribution structure, and AI agent collaboration principles — are licensed under CC-BY-SA 4.0. This means if you fork this project:
+
+- You **must** keep the same CC-BY-SA 4.0 license on context files
+- You **must** credit the original authors (Nextain)
+- You **may** modify the context, but your changes must remain CC-BY-SA 4.0
+- The open source contribution model and AI agent collaboration structure are preserved across forks
+
+This protects the upstream ecosystem. See [CONTEXT-LICENSE](CONTEXT-LICENSE) for details.
 
 ## Links
 
