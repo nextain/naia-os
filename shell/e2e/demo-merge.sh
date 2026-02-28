@@ -186,7 +186,7 @@ echo "[demo-merge] Merging $MATCHED narration tracks..."
 
 FINAL_OUTPUT="$FINAL_DIR/naia-demo.mp4"
 
-FILTER="${FILTER_PARTS}${OVERLAY_PARTS}amix=inputs=${MATCHED}:duration=longest:dropout_transition=0[narration]"
+FILTER="${FILTER_PARTS}${OVERLAY_PARTS}amix=inputs=${MATCHED}:duration=longest:dropout_transition=0:normalize=0[narration]"
 
 eval ffmpeg -y $INPUTS \
     -filter_complex "\"$FILTER\"" \
