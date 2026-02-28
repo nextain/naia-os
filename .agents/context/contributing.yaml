@@ -99,7 +99,8 @@ pull_requests:
 # Communication
 language:
   code_and_context: "English"
-  responses_and_logs: "Korean (한국어)"
+  ai_responses: "Contributor's preferred language"
+  work_logs: "Korean preferred, English accepted"
   commit_messages: "English"
 
 mirrors:

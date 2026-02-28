@@ -157,7 +157,8 @@ type(scope): description
 | Target | Language |
 |--------|----------|
 | Code and context | English |
-| AI responses and logs | Korean |
+| AI responses | Contributor's preferred language |
+| Work logs | Korean preferred, English accepted |
 | Commit messages | English |
 
 ---

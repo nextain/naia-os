@@ -340,7 +340,7 @@
 		}
 	},
 	"ai_workflow": {
-		"response_language": "Korean",
+		"response_language": "Contributor's preferred language (Korean default for maintainer)",
 		"mandatory_pre_checks": [
 			"Read agents-rules.json before any work",
 			"Identify work nature (shell/agent/gateway/os)",
