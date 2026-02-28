@@ -263,13 +263,13 @@ Context documents are maintained in a triple-mirror structure:
 | Layer | Path | Language | Purpose |
 |-------|------|----------|---------|
 | AI context | `.agents/context/` | English (YAML/JSON) | Token-optimized for AI agents |
-| Human docs | `.users/context/` | Korean (Markdown) | Primary human documentation |
-| English docs | `.users/context/en/` | English (Markdown) | Open-source community |
+| Human docs (KO) | `.users/context/` | Korean (Markdown) | Korean documentation |
+| Human docs (EN) | `.users/context/en/` | English (Markdown) | English documentation |
 
 Key documents:
 - [Bazzite Rebranding Guide](.users/context/en/bazzite-rebranding.md) — How to replace all Bazzite/Fedora branding
-- [Architecture](.users/context/architecture.md) — Hybrid architecture design (KO)
-- [OpenClaw Sync](.users/context/openclaw-sync.md) — Shell ↔ Gateway config sync (KO)
+- [Architecture](.users/context/en/architecture.md) — Hybrid architecture design
+- [OpenClaw Sync](.users/context/en/openclaw-sync.md) — Shell ↔ Gateway config sync
 
 ## Reference Projects
 
@@ -285,6 +285,16 @@ Key documents:
 
 See [Contributing Guide](.users/context/en/contributing.md) for how to contribute.
 AI agents: read [AGENTS.md](AGENTS.md) and `.agents/context/contributing.yaml`.
+
+### For International Contributors
+
+The project's primary documentation is maintained in Korean and English. If you're contributing from outside Korea:
+
+1. **Read the English docs** at `.users/context/en/` — all context documents are mirrored in English
+2. **Code comments and commit messages** should be in English
+3. **AI context files** (`.agents/`) are already in English — these are the source of truth
+4. **PRs and issues** can be written in English
+5. **Translations welcome** — if you'd like to improve documentation in your language, PRs to `READMES/` are appreciated
 
 ## License
 
