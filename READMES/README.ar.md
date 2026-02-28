@@ -3,18 +3,6 @@
 # Naia
 
 <p align="center">
-  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
-</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
-    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
-    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
-  </picture>
-</p>
-
-<p align="center">
   <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
 </p>
 
