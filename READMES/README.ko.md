@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia 로고" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — 나만의 AI가 살아있는 개인 AI 운영체제
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "오픈소스. 나만의 AI, 나만의 규칙. 어떤 AI를 쓸지, 어떤 기억과 성격을 가질지 — 모두 내가 결정하고, 코드로 직접 확인한다."
+
+> **참고:** 표시된 VRM 아바타 샘플은 [VRoid Hub](https://hub.vroid.com/)에서 가져온 것입니다. Naia 공식 마스코트 VRM은 현재 작업 중입니다.
+
+## Naia를 만나보세요
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia 기본" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia 머리카락 버전" width="180" />
+</p>
+
+<p align="center">
+  <em>기본 (무성) &nbsp;·&nbsp; 머리카락 있는 여성형</em>
+</p>
+
+<details>
+<summary>더 많은 캐릭터 변형 보기</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Naia 변형들" width="600" />
+</p>
+</details>
 
 ## Naia란?
 

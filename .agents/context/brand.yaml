@@ -8,14 +8,15 @@ origin:
   slogan: "Next AI Networks"
   relation: "Nextain is the company, Naia is the AI character who lives inside the OS. The shell is the OS, Naia is the soul."
   brand_principle: "Use 'Naia' without 'OS' suffix — like Windows, macOS, Bazzite"
-  nhn_homage: "NHN (Next Human Networks) — homage to the company that grew Luke"
+  nextain_meaning: "Not just a homage to NHN (Next Human Networks). Nextain means the next-generation internet where humans and AI, and AI with AI, build together"
+  initial_committer: "Luke (https://github.com/luke-n-alpha)"
   korean_persona: "Official name is '나이아', but the avatar greets with '나야(Na-ya)!' as a pun"
 
 history:
   original_name: "NaN"
   renamed_reason: "existing OS brand conflict"
   current_name: "Naia"
-  legacy_retired: "Caretive, Careti — all terminated and deprecated"
+
 
 name_meanings:
   - language: "Greek (Naiad)"
@@ -34,9 +35,9 @@ avatar:
 reference_assets:
   character_dir: "assets/character/"
   character_images:
-    - "assets/character/naia-character.png"           # main character design
-    - "assets/character/naia-default-character.png"    # default pose
-    - "assets/character/naia-varaiations.png"          # variations sheet
+    - "assets/character/naia-character.png"           # female with hair
+    - "assets/character/naia-default-character.png"    # default (genderless, no hair)
+    - "assets/character/naia-varaiations.png"          # various variations possible
     - "assets/character/background-space.png"          # space background
   logos_dir: "assets/logos/"
   logo_images:

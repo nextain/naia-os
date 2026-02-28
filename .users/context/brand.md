@@ -11,7 +11,8 @@
 - **Naia**: OS 안에 사는 AI 캐릭터 이름. 셸이 OS이고, Naia가 영혼
 - **슬로건**: Next AI Networks
 - **브랜드 원칙**: "Naia"로 표기 (OS 접미사 사용하지 않음 — Windows, macOS, Bazzite와 동일)
-- **NHN 오마주**: NHN(Next Human Networks) — 네이버의 예전 회사명, 루크가 2차 공채로 성장했던 회사의 오마주
+- **Nextain의 의미**: NHN(Next Human Networks)의 단순 오마주가 아닌, 사람과 AI가, AI끼리 함께 만드는 차세대 인터넷 개발 환경을 의미
+- **초기 커밋터**: [Luke](https://github.com/luke-n-alpha)
 - **한국어 페르소나**: 공식 명칭은 '나이아', 아바타가 친근하게 인사할 때는 "나야(Na-ya)!"라는 중의적 표현 활용
 
 ## 히스토리
@@ -19,7 +20,7 @@
 - 원래 이름: **NaN** (Next AI Networks)
 - 변경 사유: 기존 OS 브랜드와 충돌
 - 현재 이름: **Naia**
-- 폐기된 브랜드: Caretive, Careti — 모두 종료 및 폐기
+
 
 ## 이름의 의미
 
@@ -82,9 +83,9 @@ OpenClaw AI 에이전트와 VRM 아바타가 결합된 차세대 AI 운영체제
 
 | 파일 | 설명 |
 |---|---|
-| `assets/character/naia-character.png` | 메인 캐릭터 디자인 |
-| `assets/character/naia-default-character.png` | 기본 포즈 |
-| `assets/character/naia-varaiations.png` | 변형 시트 |
+| `assets/character/naia-character.png` | 머리카락 있는 여성형 |
+| `assets/character/naia-default-character.png` | 기본 (무성, 머리카락 없음) |
+| `assets/character/naia-varaiations.png` | 다양한 베리에이션 가능 |
 | `assets/character/background-space.png` | 우주 배경 |
 
 ### 로고

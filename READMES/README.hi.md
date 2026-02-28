@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — एक व्यक्तिगत AI ऑपरेटिंग सिस्टम जहाँ आपका अपना AI रहता है
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "आपका AI, आपके नियम। अपना AI चुनें, उसकी मेमोरी और व्यक्तित्व को आकार दें, उसे अपनी आवाज़ दें — सब कुछ आपकी अपनी मशीन पर।"
+
+> **नोट:** दिखाए गए VRM अवतार नमूने [VRoid Hub](https://hub.vroid.com/) से हैं। Naia का आधिकारिक शुभंकर VRM विकास में है।
+
+## Naia से मिलें
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia डिफ़ॉल्ट" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia बालों के साथ" width="180" />
+</p>
+
+<p align="center">
+  <em>डिफ़ॉल्ट (लिंग-रहित) &nbsp;·&nbsp; बालों के साथ (स्त्री संस्करण)</em>
+</p>
+
+<details>
+<summary>और चरित्र विविधताएँ</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Naia विविधताएँ" width="600" />
+</p>
+</details>
 
 ## Naia क्या है?
 

@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — نظام تشغيل ذكاء اصطناعي شخصي يعيش فيه ذكاؤك الاصطناعي
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "ذكاؤك الاصطناعي، قواعدك أنت. اختر ذكاءك الاصطناعي، شكّل ذاكرته وشخصيته، امنحه صوتك — كل شيء على جهازك أنت."
+
+> **ملاحظة:** عينات صور VRM المعروضة من [VRoid Hub](https://hub.vroid.com/). VRM التميمة الرسمية لـ Naia قيد التطوير حالياً.
+
+## تعرّف على Naia
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia الافتراضي" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia بشعر" width="180" />
+</p>
+
+<p align="center">
+  <em>الافتراضي (بدون جنس) &nbsp;·&nbsp; بشعر (نسخة أنثوية)</em>
+</p>
+
+<details>
+<summary>المزيد من تنويعات الشخصية</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="تنويعات Naia" width="600" />
+</p>
+</details>
 
 ## ما هو Naia؟
 

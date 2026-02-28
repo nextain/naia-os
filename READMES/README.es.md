@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — Un sistema operativo de IA personal donde vive tu propia IA
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Codigo abierto. Tu IA, tus reglas. Elige tu IA, moldea su memoria y personalidad, dale tu voz — todo en tu propia maquina, todo verificable en el codigo."
+
+> **Nota:** Las muestras de avatares VRM mostradas son de [VRoid Hub](https://hub.vroid.com/). El VRM oficial de la mascota Naia esta en desarrollo.
+
+## Conoce a Naia
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia predeterminado" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia con cabello" width="180" />
+</p>
+
+<p align="center">
+  <em>Predeterminado (sin genero) &nbsp;·&nbsp; Con cabello (variante femenina)</em>
+</p>
+
+<details>
+<summary>Mas variaciones del personaje</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Variaciones de Naia" width="600" />
+</p>
+</details>
 
 ## Que es Naia?
 

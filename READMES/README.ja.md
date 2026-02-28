@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — あなた自身のAIが住むパーソナルAIオペレーティングシステム
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > 「オープンソース。あなたのAI、あなたのルール。AIを選び、記憶と性格を形作り、声を与える — すべてあなた自身のマシンで、すべてコードで検証可能。」
+
+> **注:** 表示されているVRMアバターサンプルは[VRoid Hub](https://hub.vroid.com/)からのものです。Naiaの公式マスコットVRMは現在制作中です。
+
+## Naiaに会う
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia Default" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia with Hair" width="180" />
+</p>
+
+<p align="center">
+  <em>デフォルト（無性） &nbsp;·&nbsp; ヘアスタイル付き（女性型）</em>
+</p>
+
+<details>
+<summary>その他のキャラクターバリエーション</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Naia Variations" width="600" />
+</p>
+</details>
 
 ## Naiaとは？
 

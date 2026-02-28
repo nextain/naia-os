@@ -11,7 +11,8 @@ Both **Naia** and **Nextain** are born from the same words: **N**ext **AI** Netw
 - **Naia**: The AI character who lives inside the OS. The shell is the OS, Naia is the soul
 - **Slogan**: Next AI Networks
 - **Brand Principle**: Use "Naia" without OS suffix — like Windows, macOS, Bazzite
-- **NHN Homage**: NHN (Next Human Networks) — homage to the company that grew Luke
+- **Nextain Meaning**: Not just a homage to NHN (Next Human Networks). Nextain means the next-generation internet where humans and AI, and AI with AI, build together
+- **Initial Committer**: [Luke](https://github.com/luke-n-alpha)
 - **Korean Persona**: Official name is '나이아(Naia)', but the avatar greets with '나야(Na-ya)!' as a pun
 
 ## History
@@ -19,7 +20,7 @@ Both **Naia** and **Nextain** are born from the same words: **N**ext **AI** Netw
 - Original name: **NaN** (Next AI Networks)
 - Renamed reason: existing OS brand conflict
 - Current name: **Naia**
-- Legacy retired: Caretive, Careti — all terminated and deprecated
+
 
 ## Name Meanings
 
@@ -82,9 +83,9 @@ OpenClaw AI agent + VRM avatar combined next-generation AI OS
 
 | File | Description |
 |---|---|
-| `assets/character/naia-character.png` | Main character design |
-| `assets/character/naia-default-character.png` | Default pose |
-| `assets/character/naia-varaiations.png` | Variations sheet |
+| `assets/character/naia-character.png` | Female with hair |
+| `assets/character/naia-default-character.png` | Default (genderless, no hair) |
+| `assets/character/naia-varaiations.png` | Various variations possible |
 | `assets/character/background-space.png` | Space background |
 
 ### Logos

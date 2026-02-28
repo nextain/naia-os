@@ -3,6 +3,18 @@
 # Naia
 
 <p align="center">
+  <img src="assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/logos/naia-light-text-logo.png" />
+    <img src="assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
   <img src="assets/readme-hero.jpg" alt="Naia OS" width="800" />
 </p>
 
@@ -13,6 +25,25 @@
 > "Open source. Your AI, your rules. Choose your AI, shape its memory and personality, give it your voice — all on your own machine, all verifiable in code."
 
 > **Note:** The VRM avatar samples shown are from [VRoid Hub](https://hub.vroid.com/). Naia's official mascot VRM is currently in progress.
+
+## Meet Naia
+
+<p align="center">
+  <img src="assets/character/naia-default-character.png" alt="Naia Default" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="assets/character/naia-character.png" alt="Naia with Hair" width="180" />
+</p>
+
+<p align="center">
+  <em>Default (genderless) &nbsp;·&nbsp; With hair (female variant)</em>
+</p>
+
+<details>
+<summary>More character variations</summary>
+<p align="center">
+  <img src="assets/character/naia-varaiations.png" alt="Naia Variations" width="600" />
+</p>
+</details>
 
 ## What is Naia?
 
@@ -277,9 +308,12 @@ Key documents:
 |---------|-------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | Immutable Linux OS, GPU, gaming optimization |
 | [OpenClaw](https://github.com/steipete/openclaw) | Gateway daemon, channel integration, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, plugin protocol |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, plugin protocol (also Neuro-sama inspired) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Client/server separation, provider abstraction |
-| Careti | LLM connection, tool set, sub-agent, context management |
+| [Careti](https://github.com/caretive-ai/careti) | LLM connection, tool set, sub-agent, context management |
+| [Neuro-sama](https://vedal.ai/) | AI VTuber inspiration — AI character with personality, streaming, audience interaction |
+
+Naia exists because these projects exist. We are deeply grateful to all the open source maintainers and communities who built the foundations we stand on.
 
 ## Contributing
 

@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — Sistem operasi AI pribadi tempat AI Anda sendiri tinggal
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "AI Anda, aturan Anda. Pilih AI Anda, bentuk memori dan kepribadiannya, berikan suara Anda — semuanya di mesin Anda sendiri."
+
+> **Catatan:** Sampel avatar VRM yang ditampilkan berasal dari [VRoid Hub](https://hub.vroid.com/). VRM maskot resmi Naia sedang dalam pengembangan.
+
+## Kenali Naia
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia default" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia dengan rambut" width="180" />
+</p>
+
+<p align="center">
+  <em>Default (tanpa gender) &nbsp;·&nbsp; Dengan rambut (varian perempuan)</em>
+</p>
+
+<details>
+<summary>Variasi karakter lainnya</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Variasi Naia" width="600" />
+</p>
+</details>
 
 ## Apa itu Naia?
 

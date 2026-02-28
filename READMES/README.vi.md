@@ -2,11 +2,48 @@
 
 # Naia
 
+<p align="center">
+  <img src="../assets/logos/app-logo.png" alt="Naia Logo" width="120" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/logos/naia-dark-text-logo.png" />
+    <source media="(prefers-color-scheme: light)" srcset="../assets/logos/naia-light-text-logo.png" />
+    <img src="../assets/logos/naia-light-text-logo.png" alt="Naia" width="200" />
+  </picture>
+</p>
+
+<p align="center">
+  <img src="../assets/readme-hero.jpg" alt="Naia OS" width="800" />
+</p>
+
 **The Next Generation AI OS** — He dieu hanh AI ca nhan noi AI cua ban sinh song
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Ma nguon mo. AI cua ban, quy tac cua ban. Chon AI, dinh hinh tri nho va tinh cach cua no, cho no giong noi — tat ca tren may tinh cua ban, tat ca co the xac minh trong ma nguon."
+
+> **Luu y:** Cac mau avatar VRM duoc hien thi la tu [VRoid Hub](https://hub.vroid.com/). VRM linh vat chinh thuc cua Naia dang duoc phat trien.
+
+## Gap go Naia
+
+<p align="center">
+  <img src="../assets/character/naia-default-character.png" alt="Naia mac dinh" width="180" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../assets/character/naia-character.png" alt="Naia co toc" width="180" />
+</p>
+
+<p align="center">
+  <em>Mac dinh (khong gioi tinh) &nbsp;·&nbsp; Co toc (phien ban nu)</em>
+</p>
+
+<details>
+<summary>Them cac bien the nhan vat</summary>
+<p align="center">
+  <img src="../assets/character/naia-varaiations.png" alt="Cac bien the Naia" width="600" />
+</p>
+</details>
 
 ## Naia la gi?
 
