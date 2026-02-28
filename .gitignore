@@ -7,6 +7,7 @@ target/
 .DS_Store
 test-results/
 playwright-report/
+shell/e2e/demo-output/
 shell/e2e-tauri/.artifacts/ui-message-trace.ndjson
 
 # Flatpak build artifacts
