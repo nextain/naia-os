@@ -281,13 +281,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |---------|------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | 불변 Linux OS, GPU, 게이밍 최적화 |
 | [OpenClaw](https://github.com/steipete/openclaw) | Gateway 데몬, 채널 통합, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, 플러그인 프로토콜 |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, 플러그인 프로토콜 (Neuro-sama에서 영감) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Client/Server 분리, Provider 추상화 |
-| Careti | LLM 연결, 도구 세트, 서브에이전트, 컨텍스트 관리 |
+| [Careti](https://github.com/caretive-ai/careti) | LLM 연결, 도구 세트, 서브에이전트, 컨텍스트 관리 |
+| [Neuro-sama](https://vedal.ai/) | AI VTuber 영감 — 성격을 가진 AI 캐릭터, 스트리밍, 관객 인터랙션 |
+
+Naia는 이 프로젝트들이 있기에 존재합니다. 기반을 쌓아주신 모든 오픈소스 메인테이너와 커뮤니티에 깊은 감사를 드립니다.
 
 ## 라이선스
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **소스코드**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **AI 컨텍스트** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## 링크
 

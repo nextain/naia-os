@@ -281,13 +281,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |------|---------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | 不可变Linux OS、GPU、游戏优化 |
 | [OpenClaw](https://github.com/steipete/openclaw) | Gateway守护进程、频道集成、Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar、插件协议 |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar、插件协议 (受Neuro-sama启发) |
 | [OpenCode](https://github.com/anomalyco/opencode) | 客户端/服务器分离、Provider抽象 |
-| Careti | LLM连接、工具集、子代理、上下文管理 |
+| [Careti](https://github.com/caretive-ai/careti) | LLM连接、工具集、子代理、上下文管理 |
+| [Neuro-sama](https://vedal.ai/) | AI VTuber灵感 — 有个性的AI角色、直播、观众互动 |
+
+Naia的存在离不开这些项目。我们衷心感谢所有为我们奠定基础的开源维护者和社区。
 
 ## 许可证
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **源代码**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **AI上下文** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## 链接
 

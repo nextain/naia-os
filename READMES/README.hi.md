@@ -280,13 +280,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |---------|-----------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | अपरिवर्तनीय Linux OS, GPU, गेमिंग अनुकूलन |
 | [OpenClaw](https://github.com/steipete/openclaw) | Gateway डेमन, चैनल एकीकरण, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, प्लगइन प्रोटोकॉल |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, प्लगइन प्रोटोकॉल (Neuro-sama से प्रेरित) |
 | [OpenCode](https://github.com/anomalyco/opencode) | क्लाइंट/सर्वर पृथक्करण, प्रदाता अमूर्तन |
-| Careti | LLM कनेक्शन, उपकरण सेट, सब-एजेंट, संदर्भ प्रबंधन |
+| [Careti](https://github.com/caretive-ai/careti) | LLM कनेक्शन, उपकरण सेट, सब-एजेंट, संदर्भ प्रबंधन |
+| [Neuro-sama](https://vedal.ai/) | AI VTuber प्रेरणा — व्यक्तित्व वाला AI चरित्र, स्ट्रीमिंग, दर्शक इंटरैक्शन |
+
+Naia इन प्रोजेक्ट्स की वजह से मौजूद है। हम उन सभी ओपन सोर्स मेंटेनर्स और समुदायों के गहरे आभारी हैं जिन्होंने वह नींव बनाई जिस पर हम खड़े हैं।
 
 ## लाइसेंस
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **स्रोत कोड**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **AI संदर्भ** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## लिंक
 

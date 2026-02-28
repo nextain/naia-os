@@ -281,13 +281,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |-------|----------------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | He dieu hanh Linux bat bien, GPU, toi uu hoa choi game |
 | [OpenClaw](https://github.com/steipete/openclaw) | Daemon Gateway, tich hop kenh, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, giao thuc plugin |
+| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, giao thuc plugin (lay cam hung tu Neuro-sama) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Tach biet client/server, truu tuong hoa provider |
-| Careti | Ket noi LLM, bo cong cu, sub-agent, quan ly ngu canh |
+| [Careti](https://github.com/caretive-ai/careti) | Ket noi LLM, bo cong cu, sub-agent, quan ly ngu canh |
+| [Neuro-sama](https://vedal.ai/) | Cam hung AI VTuber — nhan vat AI co tinh cach, phat truc tiep, tuong tac voi khan gia |
+
+Naia ton tai nho co nhung du an nay. Chung toi chan thanh cam on tat ca cac nha bao tri va cong dong ma nguon mo da xay dung nen tang ma chung toi dang dung.
 
 ## Giay phep
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Ma nguon**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Ngu canh AI** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Lien ket
 

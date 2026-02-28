@@ -281,13 +281,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |----------|---------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | SO Linux inmutable, GPU, optimizacion para gaming |
 | [OpenClaw](https://github.com/steipete/openclaw) | Demonio Gateway, integracion de canales, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, protocolo de plugins |
+| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, protocolo de plugins (inspirado en Neuro-sama) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Separacion cliente/servidor, abstraccion de proveedores |
-| Careti | Conexion LLM, conjunto de herramientas, sub-agente, gestion de contexto |
+| [Careti](https://github.com/caretive-ai/careti) | Conexion LLM, conjunto de herramientas, sub-agente, gestion de contexto |
+| [Neuro-sama](https://vedal.ai/) | Inspiracion AI VTuber — personaje IA con personalidad, streaming, interaccion con la audiencia |
+
+Naia existe porque estos proyectos existen. Estamos profundamente agradecidos a todos los mantenedores y comunidades de codigo abierto que construyeron los cimientos sobre los que nos apoyamos.
 
 ## Licencia
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Codigo fuente**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Contexto IA** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Enlaces
 

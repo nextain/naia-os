@@ -280,13 +280,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |---------|---------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | نظام تشغيل Linux غير قابل للتغيير، GPU، تحسين الألعاب |
 | [OpenClaw](https://github.com/steipete/openclaw) | خفي Gateway، تكامل القنوات، Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | صورة رمزية VRM، بروتوكول الإضافات |
+| [Project AIRI](https://github.com/moeru-ai/airi) | صورة رمزية VRM، بروتوكول الإضافات (مستوحى من Neuro-sama) |
 | [OpenCode](https://github.com/anomalyco/opencode) | فصل العميل/الخادم، تجريد المزودين |
-| Careti | اتصال LLM، مجموعة أدوات، وكيل فرعي، إدارة السياق |
+| [Careti](https://github.com/caretive-ai/careti) | اتصال LLM، مجموعة أدوات، وكيل فرعي، إدارة السياق |
+| [Neuro-sama](https://vedal.ai/) | إلهام AI VTuber — شخصية ذكاء اصطناعي بشخصية مميزة، بث مباشر، تفاعل مع الجمهور |
+
+Naia موجود بفضل هذه المشاريع. نحن ممتنون للغاية لجميع مشرفي ومجتمعات المصادر المفتوحة الذين بنوا الأسس التي نقف عليها.
 
 ## الرخصة
 
-[Apache License 2.0](../LICENSE) — حقوق النشر 2026 Nextain
+- **الكود المصدري**: [Apache License 2.0](../LICENSE) — حقوق النشر 2026 Nextain
+- **سياق الذكاء الاصطناعي** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## الروابط
 

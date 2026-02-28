@@ -280,13 +280,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |---------|------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | অপরিবর্তনীয় Linux OS, GPU, গেমিং অপ্টিমাইজেশন |
 | [OpenClaw](https://github.com/steipete/openclaw) | Gateway ডেমন, চ্যানেল ইন্টিগ্রেশন, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, প্লাগইন প্রোটোকল |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, প্লাগইন প্রোটোকল (Neuro-sama দ্বারা অনুপ্রাণিত) |
 | [OpenCode](https://github.com/anomalyco/opencode) | ক্লায়েন্ট/সার্ভার পৃথকীকরণ, প্রদানকারী বিমূর্তকরণ |
-| Careti | LLM সংযোগ, টুল সেট, সাব-এজেন্ট, প্রসঙ্গ ব্যবস্থাপনা |
+| [Careti](https://github.com/caretive-ai/careti) | LLM সংযোগ, টুল সেট, সাব-এজেন্ট, প্রসঙ্গ ব্যবস্থাপনা |
+| [Neuro-sama](https://vedal.ai/) | AI VTuber অনুপ্রেরণা — ব্যক্তিত্বসম্পন্ন AI চরিত্র, স্ট্রিমিং, দর্শক ইন্টারঅ্যাকশন |
+
+Naia এই প্রকল্পগুলোর কারণে বিদ্যমান। যেসব ওপেন সোর্স রক্ষণাবেক্ষণকারী ও সম্প্রদায় এই ভিত্তি তৈরি করেছেন, তাদের প্রতি আমরা গভীরভাবে কৃতজ্ঞ।
 
 ## লাইসেন্স
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **সোর্স কোড**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **AI প্রসঙ্গ** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## লিংক
 

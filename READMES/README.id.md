@@ -280,13 +280,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |--------|-------------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | OS Linux immutable, GPU, optimasi gaming |
 | [OpenClaw](https://github.com/steipete/openclaw) | Daemon Gateway, integrasi kanal, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, protokol plugin |
+| [Project AIRI](https://github.com/moeru-ai/airi) | Avatar VRM, protokol plugin (terinspirasi Neuro-sama) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Pemisahan client/server, abstraksi penyedia |
-| Careti | Koneksi LLM, set alat, sub-agen, manajemen konteks |
+| [Careti](https://github.com/caretive-ai/careti) | Koneksi LLM, set alat, sub-agen, manajemen konteks |
+| [Neuro-sama](https://vedal.ai/) | Inspirasi AI VTuber — karakter AI dengan kepribadian, streaming, interaksi penonton |
+
+Naia ada karena proyek-proyek ini ada. Kami sangat berterima kasih kepada semua pengelola dan komunitas open source yang membangun fondasi tempat kami berdiri.
 
 ## Lisensi
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Kode sumber**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Konteks AI** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Tautan
 

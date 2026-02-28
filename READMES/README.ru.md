@@ -281,13 +281,17 @@ PLAN → CHECK → BUILD (TDD) → VERIFY → CLEAN → COMMIT
 |--------|-------------|
 | [Bazzite](https://github.com/ublue-os/bazzite) | Неизменяемая ОС Linux, GPU, оптимизация для игр |
 | [OpenClaw](https://github.com/steipete/openclaw) | Демон Gateway, интеграция каналов, Skills |
-| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, протокол плагинов |
+| [Project AIRI](https://github.com/moeru-ai/airi) | VRM Avatar, протокол плагинов (вдохновлён Neuro-sama) |
 | [OpenCode](https://github.com/anomalyco/opencode) | Разделение клиент/сервер, абстракция провайдеров |
-| Careti | Подключение LLM, набор инструментов, суб-агент, управление контекстом |
+| [Careti](https://github.com/caretive-ai/careti) | Подключение LLM, набор инструментов, суб-агент, управление контекстом |
+| [Neuro-sama](https://vedal.ai/) | Вдохновение AI VTuber — ИИ-персонаж с личностью, стриминг, взаимодействие с аудиторией |
+
+Naia существует благодаря этим проектам. Мы глубоко благодарны всем мейнтейнерам и сообществам открытого исходного кода, которые создали фундамент, на котором мы стоим.
 
 ## Лицензия
 
-[Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **Исходный код**: [Apache License 2.0](../LICENSE) — Copyright 2026 Nextain
+- **ИИ-контекст** (`.agents/`, `.users/`, `AGENTS.md`): [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
 ## Ссылки
 
