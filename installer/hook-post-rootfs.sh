@@ -169,12 +169,34 @@ JSEOF
 # 7. Live session — warning notification (data is ephemeral)
 # ==============================================================================
 
-mkdir -p /etc/xdg/autostart
+mkdir -p /etc/xdg/autostart /usr/libexec
+cat > /usr/libexec/naia-live-warning.sh <<'SCRIPT'
+#!/usr/bin/env bash
+case "${LANG:-en_US.UTF-8}" in
+    ko*|ko_KR*)
+        TITLE="Naia OS 라이브"
+        MSG="라이브 세션입니다.\n재부팅하면 모든 변경사항이 사라집니다.\n바탕화면의 'Install to Hard Drive'로 설치할 수 있습니다.\n\n[ Naia 사용법 ]\n1. Wi-Fi 연결\n2. Chrome 설정\n3. Naia Shell 실행"
+        ;;
+    ja*|ja_JP*)
+        TITLE="Naia OS ライブ"
+        MSG="ライブセッションです。\n再起動するとすべての変更が失われます。\nデスクトップの「Install to Hard Drive」からインストールできます。\n\n[ Naiaの使い方 ]\n1. Wi-Fi接続\n2. Chrome設定\n3. Naia Shell起動"
+        ;;
+    *)
+        TITLE="Naia OS Live"
+        MSG="This is a live session.\nAll changes will be lost on reboot.\nUse 'Install to Hard Drive' on the desktop to install.\n\n[ Using Naia ]\n1. Connect to Wi-Fi\n2. Set up Chrome\n3. Launch Naia Shell"
+        ;;
+esac
+kdialog --msgbox "$MSG" --title "$TITLE"
+SCRIPT
+chmod +x /usr/libexec/naia-live-warning.sh
+
 cat > /etc/xdg/autostart/naia-live-warning.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Naia Live Session Warning
-Exec=kdialog --msgbox "라이브 세션입니다.\n재부팅하면 모든 변경사항이 사라집니다.\n바탕화면의 'Install to Hard Drive'로 설치할 수 있습니다." --title "Naia OS 라이브"
+Name[ko]=Naia OS 라이브 세션 경고
+Name[ja]=Naia OS ライブセッション警告
+Exec=/usr/libexec/naia-live-warning.sh
 X-KDE-autostart-phase=2
 OnlyShowIn=KDE;
 EOF
@@ -204,13 +226,51 @@ fi
 # ==============================================================================
 
 mkdir -p /etc/NetworkManager/conf.d
-cat > /etc/NetworkManager/conf.d/99-naia-dns-fallback.conf <<'EOF'
+
+# Method 1: NetworkManager global DNS override
+cat > /etc/NetworkManager/conf.d/99-naia-dns.conf <<'EOF'
+[global-dns]
+searches=
+
 [global-dns-domain-*]
 servers=8.8.8.8,1.1.1.1
 EOF
 
+# Method 2: Direct resolv.conf fallback (in case NM doesn't apply global-dns)
+cat > /etc/NetworkManager/dispatcher.d/99-naia-dns-fallback <<'DISPATCH'
+#!/usr/bin/env bash
+# If resolv.conf has no working nameserver, inject Google/Cloudflare DNS
+if ! grep -q '^nameserver' /etc/resolv.conf 2>/dev/null || \
+   ! timeout 2 getent hosts google.com &>/dev/null; then
+    echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" >> /etc/resolv.conf
+fi
+DISPATCH
+chmod +x /etc/NetworkManager/dispatcher.d/99-naia-dns-fallback
+
+# Method 3: Replace resolv.conf (may be a systemd-resolved symlink that breaks DNS)
+rm -f /etc/resolv.conf
+printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /etc/resolv.conf
+
 # ==============================================================================
-# 10. Cleanup
+# 10. Wi-Fi power save off (Intel iwlwifi bug workaround)
+#     Intel 8265 etc. connect but drop all packets with power_save on.
+# ==============================================================================
+
+# NM dispatcher: disable power save on every Wi-Fi connect
+cat > /etc/NetworkManager/dispatcher.d/99-naia-wifi-powersave <<'DISPATCH'
+#!/usr/bin/env bash
+if [ "$2" = "up" ] && [ "$(nmcli -t -f DEVICE,TYPE dev | grep "^${DEVICE_IFACE}:wifi$")" ]; then
+    iw dev "$DEVICE_IFACE" set power_save off 2>/dev/null || true
+fi
+DISPATCH
+chmod +x /etc/NetworkManager/dispatcher.d/99-naia-wifi-powersave
+
+# Also set via iwlwifi module param (persistent)
+mkdir -p /etc/modprobe.d
+echo "options iwlwifi power_save=0" > /etc/modprobe.d/naia-iwlwifi.conf
+
+# ==============================================================================
+# 11. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"

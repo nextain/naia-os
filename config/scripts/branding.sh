@@ -158,17 +158,26 @@ SDDMCONF
 fi
 
 # ============================================================
-# GRUB: Set Naia boot background
+# GRUB: Set Naia theme with graphical boot menu
 # ============================================================
-if [ -f /usr/share/backgrounds/naia-os/grub-background.jpg ]; then
+GRUB_THEME_DIR="/usr/share/grub/themes/naia"
+if [ -d "$GRUB_THEME_DIR" ]; then
     mkdir -p /usr/etc/default
-    # Append GRUB background if not already set
+    # Build GRUB config — replace or create
+    # Remove old GRUB_BACKGROUND/GRUB_THEME/GRUB_TERMINAL_OUTPUT/GRUB_GFXMODE lines
     if [ -f /usr/etc/default/grub ]; then
-        if ! grep -q 'GRUB_BACKGROUND' /usr/etc/default/grub; then
-            echo 'GRUB_BACKGROUND="/usr/share/backgrounds/naia-os/grub-background.jpg"' >> /usr/etc/default/grub
-        fi
-    else
-        echo 'GRUB_BACKGROUND="/usr/share/backgrounds/naia-os/grub-background.jpg"' > /usr/etc/default/grub
+        sed -i '/^GRUB_BACKGROUND=/d; /^GRUB_THEME=/d; /^GRUB_TERMINAL_OUTPUT=/d; /^GRUB_GFXMODE=/d' \
+            /usr/etc/default/grub
     fi
+    cat >> /usr/etc/default/grub <<'GRUBCFG'
+GRUB_TERMINAL_OUTPUT="gfxterm"
+GRUB_GFXMODE="auto"
+GRUB_THEME="/usr/share/grub/themes/naia/theme.txt"
+GRUBCFG
 fi
 
+# ============================================================
+# Wi-Fi: Disable iwlwifi power save (Intel bug workaround)
+# ============================================================
+mkdir -p /usr/lib/modprobe.d
+echo "options iwlwifi power_save=0" > /usr/lib/modprobe.d/naia-iwlwifi.conf
