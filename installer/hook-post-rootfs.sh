@@ -270,7 +270,62 @@ mkdir -p /etc/modprobe.d
 echo "options iwlwifi power_save=0" > /etc/modprobe.d/naia-iwlwifi.conf
 
 # ==============================================================================
-# 11. Cleanup
+# 11. Chrome policy — disable Secure DNS / async DNS (breaks on live session)
+# ==============================================================================
+
+mkdir -p /etc/opt/chrome/policies/managed
+cat > /etc/opt/chrome/policies/managed/naia-dns.json <<'EOF'
+{
+  "DnsOverHttpsMode": "off",
+  "BuiltInDnsClientEnabled": false
+}
+EOF
+
+# Flatpak Chrome also reads from /etc/chromium
+mkdir -p /etc/chromium/policies/managed
+cp /etc/opt/chrome/policies/managed/naia-dns.json /etc/chromium/policies/managed/
+
+# ==============================================================================
+# 12. Live session — KWallet disable + Chrome password store fallback
+#     KWallet is uninitialized on live session → Chrome hangs waiting for cookie
+#     encryption key. Disable KWallet UI and use basic password store.
+#     Installed OS is unaffected (PAM auto-initializes KWallet at login).
+# ==============================================================================
+
+# Disable KWallet daemon autostart in live session
+mkdir -p /etc/xdg/autostart
+cat > /etc/xdg/autostart/kwalletd6-disable.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=KWallet Disable (Live Session)
+Hidden=true
+EOF
+
+# Disable KWallet in KDE settings (live session skel)
+mkdir -p /etc/xdg
+cat >> /etc/xdg/kwalletrc <<'EOF'
+[Wallet]
+Enabled=false
+First Use=false
+EOF
+
+# Chrome: use basic password store (bypass KWallet)
+flatpak override --system com.google.Chrome --env=CHROMIUM_FLAGS="--password-store=basic" 2>/dev/null || true
+
+# ==============================================================================
+# 13. Live session — fcitx5 input method environment variables
+#     System defaults to ibus; override to fcitx5 for Korean input.
+# ==============================================================================
+
+mkdir -p /etc/environment.d
+cat > /etc/environment.d/input-method.conf <<'EOF'
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+
+# ==============================================================================
+# 14. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"

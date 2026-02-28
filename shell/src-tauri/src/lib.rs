@@ -503,12 +503,17 @@ fn ensure_openclaw_config(config_path: &str) {
 
     if !path.exists() {
         if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                log_both(&format!("[Naia] ERROR: Failed to create config dir {:?}: {}", parent, e));
+                return;
+            }
         }
         let bootstrap = load_bootstrap_config();
         if let Ok(pretty) = serde_json::to_string_pretty(&bootstrap) {
-            let _ = std::fs::write(path, pretty.as_bytes());
-            log_both(&format!("[Naia] Bootstrap config created: {}", config_path));
+            match std::fs::write(path, pretty.as_bytes()) {
+                Ok(_) => log_both(&format!("[Naia] Bootstrap config created: {}", config_path)),
+                Err(e) => log_both(&format!("[Naia] ERROR: Failed to write bootstrap config to {}: {}", config_path, e)),
+            }
         }
         let home = std::env::var("HOME").unwrap_or_default();
         let _ = std::fs::create_dir_all(format!("{}/.openclaw/workspace", home));
@@ -533,8 +538,10 @@ fn ensure_openclaw_config(config_path: &str) {
                             .or_insert_with(|| serde_json::Value::String("local".to_string()));
                     }
                     if let Ok(pretty) = serde_json::to_string_pretty(&root) {
-                        let _ = std::fs::write(path, pretty.as_bytes());
-                        log_both("[Naia] Patched gateway.mode=local into existing config");
+                        match std::fs::write(path, pretty.as_bytes()) {
+                            Ok(_) => log_both("[Naia] Patched gateway.mode=local into existing config"),
+                            Err(e) => log_both(&format!("[Naia] ERROR: Failed to patch config {}: {}", config_path, e)),
+                        }
                     }
                 }
             }
@@ -646,6 +653,7 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
         .arg("loopback")
         .arg("--port")
         .arg("18789")
+        .arg("--allow-unconfigured")
         .env("OPENCLAW_CONFIG_PATH", &config_path)
         .stdout(gw_stdout)
         .stderr(gw_stderr);
@@ -1551,13 +1559,16 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         serde_json::Value::String(model_value.clone()),
     );
 
-    // gateway.mode=local is already ensured by ensure_openclaw_config above.
-    // Here we only set reload.mode=off to prevent file-watcher race conditions.
+    // Always ensure gateway.mode=local (defense-in-depth: ensure_openclaw_config may
+    // have failed silently, or config was overwritten by another code path).
     let gw = obj
         .entry("gateway")
         .or_insert_with(|| serde_json::json!({}))
         .as_object_mut()
         .ok_or("gateway is not an object")?;
+    gw.entry("mode")
+        .or_insert_with(|| serde_json::Value::String("local".to_string()));
+    // reload.mode=off prevents file-watcher race conditions.
     let reload = gw
         .entry("reload")
         .or_insert_with(|| serde_json::json!({}))
