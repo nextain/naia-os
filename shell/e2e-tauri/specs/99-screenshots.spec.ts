@@ -11,12 +11,12 @@ import { safeRefresh } from "../helpers/settings.js";
  *
  * Run: pnpm run test:e2e:tauri --spec e2e-tauri/specs/99-screenshots.spec.ts
  *
- * Screenshots are saved to: project-naia.nextain.io/public/manual/ko/
+ * Screenshots are saved to: naia.nextain.io/public/manual/ko/
  */
 
 const MANUAL_DIR = path.resolve(
 	import.meta.dirname,
-	"../../../../project-naia.nextain.io/public/manual/ko",
+	"../../../../naia.nextain.io/public/manual/ko",
 );
 
 async function screenshot(name: string): Promise<void> {

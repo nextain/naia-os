@@ -12,13 +12,13 @@ import { type Page, expect, test } from "@playwright/test";
  *   cd shell && pnpm test:e2e -- screenshots.spec.ts
  *
  * Screenshots saved to:
- *   project-naia.nextain.io/public/manual/ko/
- *   project-naia.nextain.io/public/manual/en/
+ *   naia.nextain.io/public/manual/ko/
+ *   naia.nextain.io/public/manual/en/
  */
 
 const MANUAL_BASE = path.resolve(
 	import.meta.dirname,
-	"../../../project-naia.nextain.io/public/manual",
+	"../../../naia.nextain.io/public/manual",
 );
 const CAPTURE_VIEWPORT = { width: 400, height: 768 };
 
