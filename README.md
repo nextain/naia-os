@@ -322,7 +322,9 @@ AI agents: read [AGENTS.md](AGENTS.md) and `.agents/context/contributing.yaml`.
 
 ### For International Contributors
 
-The project's primary documentation is maintained in Korean and English. If you're contributing from outside Korea:
+The project's primary documentation is maintained in Korean and English. Korean is the primary language because the initial developer, [Luke](https://github.com/luke-n-alpha), is Korean. All documents are mirrored in English so everyone can participate equally.
+
+If you're contributing from outside Korea:
 
 1. **Read the English docs** at `.users/context/en/` — all context documents are mirrored in English
 2. **Code comments and commit messages** should be in English
