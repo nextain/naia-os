@@ -225,17 +225,16 @@ JSEOF
 mkdir -p /etc/xdg/autostart /usr/libexec
 cat > /usr/libexec/naia-live-warning.sh <<'SCRIPT'
 #!/usr/bin/env bash
-kdialog --msgbox "Welcome to Naia OS!\n\nRun 'Install to Hard Drive' on the desktop\nto install to your computer.\n\n[ Live USB Usage ]\n1. Connect to Wi-Fi\n2. Sign in to Google in browser\n3. Launch Naia Shell\n\n[ Input Method ]\nKorean input is configured by default (Ctrl+Space to toggle).\nTo use another language (Japanese, Chinese, etc.),\nchange the locale during installation. It will apply automatically.\n\n* Live session resets on reboot.\n* You can view this guide again from the desktop." \
+# Only show in live session (liveuser account)
+[ "$(whoami)" = "liveuser" ] || exit 0
+
+kdialog --msgbox "Welcome to Naia OS!\n\nRun 'Install to Hard Drive' on the desktop\nto install to your computer.\n\n[ Live USB Usage ]\n1. Connect to Wi-Fi\n2. Sign in to Google in browser\n3. Launch Naia Shell\n\n[ Input Method ]\nKorean input is configured by default (Ctrl+Space to toggle).\nTo use another language (Japanese, Chinese, etc.),\nchange the locale during installation. It will apply automatically.\n\n* Live session resets on reboot." \
     --title "Naia OS Live"
 SCRIPT
 chmod +x /usr/libexec/naia-live-warning.sh
 
-# Autostart + desktop shortcut — liveuser only (not carried to installed OS)
-LIVEUSER_AUTOSTART="/var/home/liveuser/.config/autostart"
-DESKTOP_DIR="/var/home/liveuser/Desktop"
-mkdir -p "${LIVEUSER_AUTOSTART}" "${DESKTOP_DIR}"
-
-cat > "${LIVEUSER_AUTOSTART}/naia-live-warning.desktop" <<'EOF'
+# Autostart via system-wide /etc/xdg/autostart/ (script checks for liveuser)
+cat > /etc/xdg/autostart/naia-live-warning.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=Naia Live Session Warning
@@ -243,17 +242,6 @@ Exec=/usr/libexec/naia-live-warning.sh
 X-KDE-autostart-phase=2
 OnlyShowIn=KDE;
 EOF
-
-cat > "${DESKTOP_DIR}/Naia-Guide.desktop" <<'DESKEOF'
-[Desktop Entry]
-Type=Application
-Name=Naia Guide
-Icon=help-contents
-Exec=/usr/libexec/naia-live-warning.sh
-Terminal=false
-DESKEOF
-chmod +x "${DESKTOP_DIR}/Naia-Guide.desktop"
-chown -R liveuser:liveuser /var/home/liveuser 2>/dev/null || true
 
 # ==============================================================================
 # 9. Install Naia Shell Flatpak for live session
@@ -343,65 +331,7 @@ EOF
 
 
 # ==============================================================================
-# 13. OpenClaw gateway — ensure gateway.mode=local in config
-#     Without this field, the gateway refuses to start (requires explicit mode
-#     or --allow-unconfigured flag). Naia's ensure_openclaw_config() handles
-#     this at runtime, but for the systemd user service and first-boot, the
-#     config must be pre-seeded.
-# ==============================================================================
-
-OPENCLAW_DIR="/var/home/liveuser/.openclaw"
-OPENCLAW_CFG="${OPENCLAW_DIR}/openclaw.json"
-mkdir -p "${OPENCLAW_DIR}"
-if [ -f "${OPENCLAW_CFG}" ]; then
-    # Patch existing config: add gateway.mode if missing
-    python3 -c "
-import json, sys
-with open('${OPENCLAW_CFG}') as f:
-    cfg = json.load(f)
-gw = cfg.setdefault('gateway', {})
-if 'mode' not in gw:
-    gw['mode'] = 'local'
-    gw.setdefault('port', 18789)
-    gw.setdefault('bind', 'loopback')
-    with open('${OPENCLAW_CFG}', 'w') as f:
-        json.dump(cfg, f, indent=2)
-    print('[naia] Patched gateway.mode=local into openclaw.json')
-else:
-    print('[naia] gateway.mode already set: ' + gw['mode'])
-" 2>/dev/null || true
-else
-    cat > "${OPENCLAW_CFG}" <<'GWEOF'
-{
-  "gateway": {
-    "mode": "local",
-    "port": 18789,
-    "bind": "loopback",
-    "reload": {
-      "mode": "off"
-    }
-  }
-}
-GWEOF
-    echo "[naia] Created bootstrap openclaw.json with gateway.mode=local"
-fi
-chown -R liveuser:liveuser "${OPENCLAW_DIR}" 2>/dev/null || true
-
-# ==============================================================================
-# 14. Ensure liveuser home has skeleton files
-#     We pre-create /var/home/liveuser/ for Desktop, .config, .openclaw above.
-#     When useradd sees the home dir already exists, it skips /etc/skel/ copy,
-#     leaving no .bashrc → broken prompt (bash-5.3$), no brew, no MOTD.
-#     Copy skel files without overwriting our pre-created files.
-# ==============================================================================
-
-if [ -d /etc/skel ]; then
-    cp -rn /etc/skel/. /var/home/liveuser/ 2>/dev/null || true
-fi
-chown -R liveuser:liveuser /var/home/liveuser 2>/dev/null || true
-
-# ==============================================================================
-# 15. Cleanup
+# 13. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"
