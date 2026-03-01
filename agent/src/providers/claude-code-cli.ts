@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
+import { writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type {
@@ -158,6 +158,9 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 		async *stream(messages, systemPrompt, tools, signal): AgentStream {
 			const cliPath = process.env.CLAUDE_CODE_PATH || "claude";
 
+			// Flatpak detection: use flatpak-spawn --host to access host CLI
+			const isFlatpak = existsSync("/run/flatpak-info") || process.env.FLATPAK === "1";
+
 			// System prompt: use temp file for large prompts or Windows
 			let systemPromptFile: string | undefined;
 			const args: string[] = [];
@@ -204,7 +207,11 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 				env.MAX_THINKING_TOKENS = process.env.MAX_THINKING_TOKENS;
 			}
 
-			const child = spawn(cliPath, args, {
+			// In Flatpak: wrap with flatpak-spawn --host to access host's claude CLI
+			const spawnCmd = isFlatpak ? "flatpak-spawn" : cliPath;
+			const spawnArgs = isFlatpak ? ["--host", cliPath, ...args] : args;
+
+			const child = spawn(spawnCmd, spawnArgs, {
 				stdio: ["pipe", "pipe", "pipe"],
 				env,
 			});
