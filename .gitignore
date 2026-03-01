@@ -14,3 +14,14 @@ shell/e2e-tauri/.artifacts/ui-message-trace.ndjson
 flatpak-repo/
 build-dir/
 .flatpak-builder/
+*.flatpak
+
+# Claude Code
+.claude/
+
+# Temporary / local-only
+errors/
+iso-download/
+work-logs/
+*~
+*.pid
