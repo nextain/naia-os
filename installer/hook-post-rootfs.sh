@@ -254,41 +254,16 @@ X-KDE-autostart-phase=2
 OnlyShowIn=KDE;
 EOF
 
-# Desktop guide file + shortcut to re-open the welcome dialog
+# Desktop shortcut to re-open the welcome dialog
 DESKTOP_DIR="/var/home/liveuser/Desktop"
 mkdir -p "${DESKTOP_DIR}"
-
-cat > "${DESKTOP_DIR}/Naia-Guide.txt" <<'GUIDE'
-=== Naia OS 사용 가이드 / Usage Guide ===
-
-[ 데스크톱 설치 / Install to Desktop ]
-바탕화면의 "Install to Hard Drive"를 실행하세요.
-Run "Install to Hard Drive" on the desktop.
-
-[ 라이브 USB 사용법 / Live USB Usage ]
-1. Wi-Fi 연결 / Connect to Wi-Fi
-2. 브라우저에서 Google 로그인 / Sign in to Google in browser
-3. Naia Shell 실행 / Launch Naia Shell
-
-[ 주의사항 / Notes ]
-- 라이브 세션은 재부팅 시 모든 데이터가 초기화됩니다.
-  Live session resets all data on reboot.
-- 데스크톱 설치 후에는 데이터가 유지됩니다.
-  Data persists after desktop installation.
-
-[ 문제 해결 / Troubleshooting ]
-- Wi-Fi 연결 안 됨: 설정 > 네트워크에서 수동 연결
-- 브라우저 로딩 안 됨: 브라우저 재시작 후 다시 시도
-- Naia Shell 실행 안 됨: 터미널에서 flatpak run io.nextain.naia
-
-https://naia.nextain.io
-GUIDE
 
 cat > "${DESKTOP_DIR}/Naia-Guide.desktop" <<'DESKEOF'
 [Desktop Entry]
 Type=Application
-Name=Naia 사용 가이드
-Name[en]=Naia Guide
+Name=Naia Guide
+Name[ko]=Naia 사용 가이드
+Name[ja]=Naia ガイド
 Icon=help-contents
 Exec=/usr/libexec/naia-live-warning.sh
 Terminal=false
