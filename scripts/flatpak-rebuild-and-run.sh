@@ -24,8 +24,8 @@ if [[ -f /run/.containerenv ]] || [[ -f /.dockerenv ]]; then
 fi
 
 # ── Step 1: Build ────────────────────────────────────────────────────────
-echo "[1/4] Cleaning previous build..."
-rm -rf flatpak-repo build-dir .flatpak-builder
+echo "[1/4] Cleaning previous build (keeping cache)..."
+rm -rf flatpak-repo build-dir
 
 BUILD_CMD="cd '$SCRIPT_DIR' && flatpak-builder --force-clean --disable-rofiles-fuse --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml"
 
@@ -46,7 +46,7 @@ else
     echo ""
     echo "  distrobox에서 실행하세요:"
     echo "    distrobox enter $DISTROBOX_NAME"
-    echo "    cd $SCRIPT_DIR && bash scripts/rebuild-flatpak.sh"
+    echo "    cd $SCRIPT_DIR && bash scripts/flatpak-rebuild-and-run.sh"
     echo ""
     exit 1
 fi
@@ -60,7 +60,7 @@ if $IN_CONTAINER; then
     echo "  Distrobox 안에서는 flatpak install이 불가합니다."
     echo "  호스트 Konsole에서 아래를 실행하세요:"
     echo ""
-    echo "    cd $SCRIPT_DIR && bash scripts/reinstall-and-flatpak-run.sh"
+    echo "    cd $SCRIPT_DIR && bash scripts/flatpak-reinstall-and-run.sh"
     echo ""
     exit 0
 fi
