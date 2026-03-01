@@ -388,7 +388,20 @@ fi
 chown -R liveuser:liveuser "${OPENCLAW_DIR}" 2>/dev/null || true
 
 # ==============================================================================
-# 14. Cleanup
+# 14. Ensure liveuser home has skeleton files
+#     We pre-create /var/home/liveuser/ for Desktop, .config, .openclaw above.
+#     When useradd sees the home dir already exists, it skips /etc/skel/ copy,
+#     leaving no .bashrc → broken prompt (bash-5.3$), no brew, no MOTD.
+#     Copy skel files without overwriting our pre-created files.
+# ==============================================================================
+
+if [ -d /etc/skel ]; then
+    cp -rn /etc/skel/. /var/home/liveuser/ 2>/dev/null || true
+fi
+chown -R liveuser:liveuser /var/home/liveuser 2>/dev/null || true
+
+# ==============================================================================
+# 15. Cleanup
 # ==============================================================================
 
 rm -rf "${SRC}"
