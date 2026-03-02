@@ -132,21 +132,57 @@ if [ -f "$INSTALL_PY" ]; then
     cp "$INSTALL_PY" "${INSTALL_PY}.orig"
 
     cat > /tmp/naia-patch-installation.py <<'PATCHEOF'
-import sys, re
+import sys
 
 filepath = sys.argv[1]
 with open(filepath, 'r') as f:
     content = f.read()
 
-# Find the InstallFromImageTask.run() method and add ostree symlink fixup
-# after the main rsync block (after the try/except for rsync)
-old_block = '''        except (OSError, RuntimeError) as e:
+# ---------------------------------------------------------------------------
+# Patch 1: Replace the rsync invocation block to tolerate exit code 23.
+#
+# execReadlines() defaults to raise_on_nozero=True, so rsync exit 23
+# ("some files/attrs were not transferred") raises OSError before
+# _fixup_ostree_symlinks() can run.
+#
+# Fix: call execReadlines with raise_on_nozero=False, then inspect the
+# return code ourselves. Exit 23 is expected on ostree images (mounted
+# subvolume prevents symlink replacement) — we handle it in fixup.
+# Any other non-zero exit code still raises PayloadInstallationError.
+# ---------------------------------------------------------------------------
+
+old_rsync_block = '''        try:
+            self.report_progress(_("Installing software..."))
+            for line in execReadlines(cmd, args):
+                self._parse_rsync_update(line)
+
+        except (OSError, RuntimeError) as e:
             msg = "Failed to install image: {}".format(e)
             raise PayloadInstallationError(msg) from None
 
         if os.path.exists(os.path.join(self._mount_point, "boot/efi")):'''
 
-new_block = '''        except (OSError, RuntimeError) as e:
+new_rsync_block = '''        try:
+            self.report_progress(_("Installing software..."))
+            reader = execReadlines(cmd, args, raise_on_nozero=False)
+            for line in reader:
+                self._parse_rsync_update(line)
+
+            rc = reader.rc
+            if rc not in (0, 23):
+                # Any exit code other than 0 (success) or 23 (partial
+                # transfer — expected for ostree symlink conflicts) is fatal.
+                msg = "Failed to install image: process %s exited with status %s" % (args, rc)
+                raise PayloadInstallationError(msg)
+
+            if rc == 23:
+                log.warning(
+                    "rsync exited with code 23 (partial transfer). "
+                    "This is expected on ostree images where mounted "
+                    "subvolumes prevent symlink replacement."
+                )
+
+        except (OSError, RuntimeError) as e:
             msg = "Failed to install image: {}".format(e)
             raise PayloadInstallationError(msg) from None
 
@@ -158,13 +194,16 @@ new_block = '''        except (OSError, RuntimeError) as e:
 
         if os.path.exists(os.path.join(self._mount_point, "boot/efi")):'''
 
-if old_block in content:
-    content = content.replace(old_block, new_block)
+if old_rsync_block in content:
+    content = content.replace(old_rsync_block, new_rsync_block)
 else:
-    print("WARNING: Could not find rsync error handler block to patch", file=sys.stderr)
+    print("WARNING: Could not find rsync block to patch", file=sys.stderr)
     sys.exit(1)
 
-# Add the _fixup_ostree_symlinks method before _parse_rsync_update
+# ---------------------------------------------------------------------------
+# Patch 2: Add _fixup_ostree_symlinks method before _parse_rsync_update.
+# ---------------------------------------------------------------------------
+
 old_parse = '''    def _parse_rsync_update(self, line):'''
 
 new_method = '''    def _fixup_ostree_symlinks(self):
@@ -179,6 +218,7 @@ new_method = '''    def _fixup_ostree_symlinks(self):
         """
         import subprocess
 
+        fixed = 0
         for entry in os.listdir(self._mount_point):
             src_path = os.path.join(self._mount_point, entry)
             dst_path = os.path.join(self._sysroot, entry)
@@ -200,7 +240,7 @@ new_method = '''    def _fixup_ostree_symlinks(self):
             ret = subprocess.run(["mountpoint", "-q", dst_path], capture_output=True)
             if ret.returncode == 0:
                 log.info("Unmounting %s before replacing with symlink", dst_path)
-                subprocess.run(["umount", "-l", dst_path], capture_output=True)
+                subprocess.run(["umount", "-l", dst_path], check=False, capture_output=True)
 
             # Remove the directory (should be empty after unmount)
             try:
@@ -212,6 +252,10 @@ new_method = '''    def _fixup_ostree_symlinks(self):
             # Create the symlink
             os.symlink(link_target, dst_path)
             log.info("Created symlink: %s -> %s", dst_path, link_target)
+            fixed += 1
+
+        if fixed:
+            log.info("Fixed %d ostree symlink conflict(s)", fixed)
 
     def _parse_rsync_update(self, line):'''
 
