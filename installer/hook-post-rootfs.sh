@@ -276,6 +276,89 @@ PATCHEOF
 fi
 
 # ==============================================================================
+# 3c. Patch gen_grub_cfgstub to handle ostree/bootc live image installs
+#     Problem: On ostree-based images (Bazzite, Silverblue), /boot/grub2 and
+#     /boot/efi/EFI/{dir} don't exist after rsync because these directories
+#     live on separate partitions not part of the rootfs. gen_grub_cfgstub
+#     expects them to exist for grub2-probe and grub2-mkrelpath.
+#     Additionally, EFI binaries (shimx64.efi, grubx64.efi) are not copied
+#     to the EFI System Partition — they only exist under /usr/lib/efi/.
+#     Fix: Patch the script to create directories and copy EFI binaries.
+#     See also: docs/2026-03-03-gen-grub-cfgstub-bootloader-fix.md
+# ==============================================================================
+
+GEN_GRUB="/usr/bin/gen_grub_cfgstub"
+if [ -f "$GEN_GRUB" ]; then
+    cp "$GEN_GRUB" "${GEN_GRUB}.orig"
+    cat > "$GEN_GRUB" <<'GRUBSTUB'
+#!/usr/bin/sh
+set -eu
+
+if [ $# -ne 2 ]
+  then
+    echo "Missing argument"
+    echo "Usage: script.sh GRUB_HOME EFI_HOME"
+    exit 1
+fi
+
+GRUB_HOME=$1
+EFI_HOME=$2
+
+# --- [naia] Ensure directories exist (ostree/bootc images lack /boot/grub2) ---
+mkdir -p "${GRUB_HOME}"
+mkdir -p "${EFI_HOME}"
+
+# --- [naia] Copy EFI binaries from ostree locations if missing ---
+# On ostree/bootc images, EFI binaries are stored under /usr/lib/efi/
+# but never installed to the EFI System Partition by the live image installer.
+if [ ! -f "${EFI_HOME}/shimx64.efi" ]; then
+    shim=$(find /usr/lib/efi/shim -name "shimx64.efi" 2>/dev/null | head -1)
+    if [ -n "$shim" ]; then
+        cp "$shim" "${EFI_HOME}/shimx64.efi"
+        echo "[naia] Copied shimx64.efi to ${EFI_HOME}"
+    fi
+fi
+if [ ! -f "${EFI_HOME}/grubx64.efi" ]; then
+    grub=$(find /usr/lib/efi/grub2 -name "grubx64.efi" 2>/dev/null | head -1)
+    if [ -n "$grub" ]; then
+        cp "$grub" "${EFI_HOME}/grubx64.efi"
+        echo "[naia] Copied grubx64.efi to ${EFI_HOME}"
+    fi
+fi
+# EFI fallback boot entry (UEFI spec: \EFI\BOOT\BOOTX64.EFI)
+BOOT_DIR="$(dirname "${EFI_HOME}")/BOOT"
+if [ ! -f "${BOOT_DIR}/BOOTX64.EFI" ]; then
+    mkdir -p "${BOOT_DIR}"
+    fallback=$(find /usr/lib/efi/shim -name "BOOTX64.EFI" 2>/dev/null | head -1)
+    if [ -n "$fallback" ]; then
+        cp "$fallback" "${BOOT_DIR}/BOOTX64.EFI"
+        echo "[naia] Copied BOOTX64.EFI to ${BOOT_DIR}"
+    fi
+fi
+
+# --- Original gen_grub_cfgstub logic ---
+# create a stub grub2 config in EFI
+BOOT_UUID=$(grub2-probe --target=fs_uuid "${GRUB_HOME}")
+GRUB_DIR=$(grub2-mkrelpath "${GRUB_HOME}")
+
+echo "Generating grub stub config for drive " "${BOOT_UUID}"
+echo "GRUB_DIR=" "${GRUB_DIR}"
+echo "EFI_HOME=" "${EFI_HOME}"
+
+cat << EOF > "${EFI_HOME}"/grub.cfg.stb
+search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
+set prefix=(\$dev)${GRUB_DIR}
+export \$prefix
+configfile \$prefix/grub.cfg
+EOF
+
+mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg
+GRUBSTUB
+    chmod +x "$GEN_GRUB"
+    echo "[naia] Patched gen_grub_cfgstub with directory creation and EFI binary copy"
+fi
+
+# ==============================================================================
 # 4. Live session — KDE taskbar pins (Plasma update script)
 #    Bazzite uses this approach: runs once per user when plasmashell detects it.
 # ==============================================================================
