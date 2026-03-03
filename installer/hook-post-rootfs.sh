@@ -18,7 +18,27 @@ rm -f /etc/dnf/repos.override.d/99-config_manager.repo 2>/dev/null || true
 
 dnf install -y --allowerasing \
     git anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm \
-    libblockdev-mpath firefox
+    libblockdev-mpath firefox || true
+
+# Fallback: if Firefox RPM is unavailable (Bazzite excludes it in favor of
+# Flatpak), create a wrapper at /usr/bin/firefox that delegates to the Flatpak.
+# Anaconda WebUI hardcodes /usr/bin/firefox in webui-desktop; without this shim
+# the installer silently fails with "No such file or directory".
+if [ ! -x /usr/bin/firefox ]; then
+    echo "[naia] Firefox RPM not available — creating Flatpak wrapper at /usr/bin/firefox"
+    cat > /usr/bin/firefox <<'FIREFOXWRAP'
+#!/bin/bash
+# Bridge /usr/bin/firefox → Flatpak Firefox for Anaconda WebUI compatibility.
+# --filesystem grants access to Anaconda's custom Firefox profile directory
+# and the cockpit web server socket.
+exec flatpak run \
+    --filesystem=/run/user \
+    --filesystem=/tmp \
+    --filesystem=/run/anaconda \
+    org.mozilla.firefox "$@"
+FIREFOXWRAP
+    chmod +x /usr/bin/firefox
+fi
 
 git clone --depth 1 --quiet "${REPO_URL}" "${SRC}"
 
@@ -536,6 +556,38 @@ for svc in greenboot-healthcheck greenboot-task-runner greenboot-set-rollback-tr
     systemctl mask "${svc}.service" 2>/dev/null || true
 done
 echo "[naia] Disabled ostree-only services (greenboot, bootloader-update)"
+
+# ==============================================================================
+# 3g. Plymouth: Set naia theme and rebuild initrd for live USB boot
+#     Problem: branding.sh (BlueBuild phase) runs plymouth-set-default-theme
+#     and dracut inside a container build, but dracut cannot generate a real
+#     initramfs without a kernel — it fails silently (2>/dev/null || true).
+#     The Titanoboa ISO hook runs with a real rootfs, so dracut works here.
+#     Without this, the live USB boots with the Bazzite bgrt/spinner theme
+#     (horizontal "Bazzite" watermark logo + Bazzite spinner animation).
+# ==============================================================================
+
+echo "[naia] Setting Plymouth theme to 'naia' and rebuilding initrd..."
+
+# Set default theme via plymouthd.conf (more reliable than plymouth-set-default-theme
+# which may not persist in all build contexts)
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf <<'PLYMOUTHCONF'
+[Daemon]
+Theme=naia
+ShowDelay=0
+PLYMOUTHCONF
+
+# Also run the official command as belt-and-suspenders
+plymouth-set-default-theme naia 2>/dev/null || true
+
+# Rebuild initrd so the naia Plymouth theme is baked into the live boot image.
+# This is the step that actually makes the theme change visible during boot.
+if command -v dracut &>/dev/null; then
+    dracut -f --regenerate-all 2>&1 || echo "[naia] WARNING: dracut failed"
+fi
+
+echo "[naia] Plymouth theme set to 'naia'"
 
 # ==============================================================================
 # 4. Live session — KDE taskbar pins (Plasma update script)

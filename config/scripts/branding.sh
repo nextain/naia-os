@@ -126,16 +126,23 @@ Image=/usr/share/wallpapers/NaiaOS/
 PLASMA
 
 # ============================================================
-# Plymouth: Set Naia as default boot theme + rebuild initrd
+# Plymouth: Set Naia as default boot theme
 # ============================================================
+# NOTE: dracut -f cannot run in a BlueBuild container build (no real kernel).
+# The actual initrd rebuild happens in hook-post-rootfs.sh (Titanoboa phase)
+# where a real rootfs with kernel is available. Here we only set the config.
 if [ -d /usr/share/plymouth/themes/naia ]; then
+    # Set via plymouthd.conf (reliable in container builds where
+    # plymouth-set-default-theme may not persist correctly)
+    mkdir -p /etc/plymouth
+    cat > /etc/plymouth/plymouthd.conf <<PLYCFG
+[Daemon]
+Theme=naia
+ShowDelay=0
+PLYCFG
+    # Also run the official command as fallback
     plymouth-set-default-theme naia 2>/dev/null || \
         ln -sf /usr/share/plymouth/themes/naia/naia.plymouth /usr/share/plymouth/default.plymouth
-    # Rebuild initrd so the new Plymouth theme is included in the boot image.
-    # Without this, the Bazzite "B" logo persists during boot.
-    if command -v dracut &>/dev/null; then
-        dracut -f --regenerate-all 2>/dev/null || true
-    fi
 fi
 
 # ============================================================
