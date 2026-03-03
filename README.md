@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## Plug in USB, Run AI Instantly
+
+<p align="center">
+  <img src="assets/plug-usb-and-run-ai.webp" alt="Plug in USB and run Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>No installation, no configuration.</strong><br/>
+  Just plug the Naia OS USB into any laptop and power on — your own AI comes alive instantly.<br/>
+  Try it out, and install to your hard drive if you like it.
+</p>
+
 ## What is Naia?
 
 Naia is a personal AI OS that gives individuals full sovereignty over their AI. Choose which AI to use (including local models), configure its memory and personality locally, customize its 3D avatar and voice — everything stays on your machine, under your control.

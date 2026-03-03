@@ -18,27 +18,7 @@ rm -f /etc/dnf/repos.override.d/99-config_manager.repo 2>/dev/null || true
 
 dnf install -y --allowerasing \
     git anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm \
-    libblockdev-mpath firefox || true
-
-# Fallback: if Firefox RPM is unavailable (Bazzite excludes it in favor of
-# Flatpak), create a wrapper at /usr/bin/firefox that delegates to the Flatpak.
-# Anaconda WebUI hardcodes /usr/bin/firefox in webui-desktop; without this shim
-# the installer silently fails with "No such file or directory".
-if [ ! -x /usr/bin/firefox ]; then
-    echo "[naia] Firefox RPM not available — creating Flatpak wrapper at /usr/bin/firefox"
-    cat > /usr/bin/firefox <<'FIREFOXWRAP'
-#!/bin/bash
-# Bridge /usr/bin/firefox → Flatpak Firefox for Anaconda WebUI compatibility.
-# --filesystem grants access to Anaconda's custom Firefox profile directory
-# and the cockpit web server socket.
-exec flatpak run \
-    --filesystem=/run/user \
-    --filesystem=/tmp \
-    --filesystem=/run/anaconda \
-    org.mozilla.firefox "$@"
-FIREFOXWRAP
-    chmod +x /usr/bin/firefox
-fi
+    libblockdev-mpath
 
 git clone --depth 1 --quiet "${REPO_URL}" "${SRC}"
 
@@ -137,457 +117,155 @@ if [ -f "$ANACONDA_DESKTOP2" ]; then
 fi
 
 # ==============================================================================
-# 3b. Patch Anaconda's InstallFromImageTask to handle ostree symlink conflicts
-#     Problem: The source image uses ostree-style symlinks (e.g. /home -> var/home)
-#     but Anaconda creates BTRFS subvolumes and mounts /home as a real directory.
-#     rsync cannot replace a mounted directory with a symlink, causing exit code 23
-#     ("Device or resource busy").
-#     Fix: After rsync, unmount conflicting paths, replace dirs with symlinks,
-#     then remount. This is done by patching installation.py in-place.
+# 3-ost. Anaconda ostreecontainer kickstart (Bazzite upstream 방식)
+#        Generates interactive-defaults.ks with ostreecontainer directive and
+#        post-scripts for bootc switch, flatpak install, and Fedora flatpak disable.
+#        Reference: titanoboa/.github/workflows/ci_dummy_hook_postrootfs.sh
 # ==============================================================================
 
-INSTALL_PY="$(python3 -c 'import pyanaconda.modules.payloads.payload.live_image.installation as m; print(m.__file__)')"
+# Image reference for ostreecontainer
+NAIA_IMAGE_REF="ghcr.io/nextain/naia-os"
+NAIA_IMAGE_TAG="latest"
 
-if [ -f "$INSTALL_PY" ]; then
-    cp "$INSTALL_PY" "${INSTALL_PY}.orig"
-
-    cat > /tmp/naia-patch-installation.py <<'PATCHEOF'
-import sys
-
-filepath = sys.argv[1]
-with open(filepath, 'r') as f:
-    content = f.read()
-
-# ---------------------------------------------------------------------------
-# Patch 1: Replace the rsync invocation block to tolerate exit code 23.
-#
-# execReadlines() defaults to raise_on_nozero=True, so rsync exit 23
-# ("some files/attrs were not transferred") raises OSError before
-# _fixup_ostree_symlinks() can run.
-#
-# Fix: call execReadlines with raise_on_nozero=False, then inspect the
-# return code ourselves. Exit 23 is expected on ostree images (mounted
-# subvolume prevents symlink replacement) — we handle it in fixup.
-# Any other non-zero exit code still raises PayloadInstallationError.
-# ---------------------------------------------------------------------------
-
-old_rsync_block = '''        try:
-            self.report_progress(_("Installing software..."))
-            for line in execReadlines(cmd, args):
-                self._parse_rsync_update(line)
-
-        except (OSError, RuntimeError) as e:
-            msg = "Failed to install image: {}".format(e)
-            raise PayloadInstallationError(msg) from None
-
-        if os.path.exists(os.path.join(self._mount_point, "boot/efi")):'''
-
-new_rsync_block = '''        try:
-            self.report_progress(_("Installing software..."))
-            reader = execReadlines(cmd, args, raise_on_nozero=False)
-            for line in reader:
-                self._parse_rsync_update(line)
-
-            rc = reader.rc
-            if rc not in (0, 23):
-                # Any exit code other than 0 (success) or 23 (partial
-                # transfer — expected for ostree symlink conflicts) is fatal.
-                msg = "Failed to install image: process %s exited with status %s" % (args, rc)
-                raise PayloadInstallationError(msg)
-
-            if rc == 23:
-                log.warning(
-                    "rsync exited with code 23 (partial transfer). "
-                    "This is expected on ostree images where mounted "
-                    "subvolumes prevent symlink replacement."
-                )
-
-        except (OSError, RuntimeError) as e:
-            msg = "Failed to install image: {}".format(e)
-            raise PayloadInstallationError(msg) from None
-
-        # Fix ostree-style root symlinks that conflict with mounted subvolumes.
-        # The source image may have /home -> var/home (symlink), but the target
-        # has /home as a mounted BTRFS subvolume. rsync cannot replace a mounted
-        # directory with a symlink, so we fix them up after rsync completes.
-        self._fixup_ostree_symlinks()
-
-        if os.path.exists(os.path.join(self._mount_point, "boot/efi")):'''
-
-if old_rsync_block in content:
-    content = content.replace(old_rsync_block, new_rsync_block)
-else:
-    print("WARNING: Could not find rsync block to patch", file=sys.stderr)
-    sys.exit(1)
-
-# ---------------------------------------------------------------------------
-# Patch 2: Add _fixup_ostree_symlinks method before _parse_rsync_update.
-# ---------------------------------------------------------------------------
-
-old_parse = '''    def _parse_rsync_update(self, line):'''
-
-new_method = '''    def _fixup_ostree_symlinks(self):
-        """Fix ostree-style symlinks that rsync could not create.
-
-        On ostree/bootc-based images, several top-level directories are symlinks
-        into /var (e.g. /home -> var/home). When Anaconda sets up BTRFS with a
-        /home subvolume, that path becomes a mounted directory. rsync with -l
-        copies symlinks as symlinks, but cannot replace a mounted directory with
-        a symlink (EBUSY). This method detects such conflicts and resolves them
-        by unmounting, removing the directory, and creating the correct symlink.
-        """
-        import subprocess
-
-        fixed = 0
-        for entry in os.listdir(self._mount_point):
-            src_path = os.path.join(self._mount_point, entry)
-            dst_path = os.path.join(self._sysroot, entry)
-
-            if not os.path.islink(src_path):
-                continue
-
-            link_target = os.readlink(src_path)
-
-            # Only fix if destination is a directory (not already a symlink)
-            if os.path.islink(dst_path):
-                continue
-            if not os.path.isdir(dst_path):
-                continue
-
-            log.info("Fixing ostree symlink conflict: %s -> %s", entry, link_target)
-
-            # Unmount if it is a mount point
-            ret = subprocess.run(["mountpoint", "-q", dst_path], capture_output=True)
-            if ret.returncode == 0:
-                log.info("Unmounting %s before replacing with symlink", dst_path)
-                subprocess.run(["umount", "-l", dst_path], check=False, capture_output=True)
-
-            # Remove the directory (should be empty after unmount)
-            try:
-                os.rmdir(dst_path)
-            except OSError:
-                import shutil
-                shutil.rmtree(dst_path, ignore_errors=True)
-
-            # Create the symlink
-            os.symlink(link_target, dst_path)
-            log.info("Created symlink: %s -> %s", dst_path, link_target)
-            fixed += 1
-
-        if fixed:
-            log.info("Fixed %d ostree symlink conflict(s)", fixed)
-
-    def _parse_rsync_update(self, line):'''
-
-if old_parse in content:
-    content = content.replace(old_parse, new_method, 1)
-else:
-    print("WARNING: Could not find _parse_rsync_update to insert method", file=sys.stderr)
-    sys.exit(1)
-
-with open(filepath, 'w') as f:
-    f.write(content)
-
-print("Successfully patched", filepath)
-PATCHEOF
-
-    python3 /tmp/naia-patch-installation.py "$INSTALL_PY"
-    rm -f /tmp/naia-patch-installation.py
-fi
-
-# ==============================================================================
-# 3c. Patch gen_grub_cfgstub to handle ostree/bootc live image installs
-#     Problem: On ostree-based images (Bazzite, Silverblue), /boot/grub2 and
-#     /boot/efi/EFI/{dir} don't exist after rsync because these directories
-#     live on separate partitions not part of the rootfs. gen_grub_cfgstub
-#     expects them to exist for grub2-probe and grub2-mkrelpath.
-#     Additionally, EFI binaries (shimx64.efi, grubx64.efi) are not copied
-#     to the EFI System Partition — they only exist under /usr/lib/efi/.
-#     Fix: Patch the script to create directories and copy EFI binaries.
-#     See also: docs/2026-03-03-gen-grub-cfgstub-bootloader-fix.md
-# ==============================================================================
-
-GEN_GRUB="/usr/bin/gen_grub_cfgstub"
-if [ -f "$GEN_GRUB" ]; then
-    cp "$GEN_GRUB" "${GEN_GRUB}.orig"
-    cat > "$GEN_GRUB" <<'GRUBSTUB'
-#!/usr/bin/sh
-set -eu
-
-if [ $# -ne 2 ]
-  then
-    echo "Missing argument"
-    echo "Usage: script.sh GRUB_HOME EFI_HOME"
-    exit 1
-fi
-
-GRUB_HOME=$1
-EFI_HOME=$2
-
-# --- [naia] Ensure directories exist (ostree/bootc images lack /boot/grub2) ---
-mkdir -p "${GRUB_HOME}"
-mkdir -p "${EFI_HOME}"
-
-# --- [naia] Copy EFI binaries from ostree locations if missing ---
-# On ostree/bootc images, EFI binaries are stored under /usr/lib/efi/
-# but never installed to the EFI System Partition by the live image installer.
-if [ ! -f "${EFI_HOME}/shimx64.efi" ]; then
-    shim=$(find /usr/lib/efi/shim -name "shimx64.efi" 2>/dev/null | head -1)
-    if [ -n "$shim" ]; then
-        cp "$shim" "${EFI_HOME}/shimx64.efi"
-        echo "[naia] Copied shimx64.efi to ${EFI_HOME}"
-    fi
-fi
-if [ ! -f "${EFI_HOME}/grubx64.efi" ]; then
-    grub=$(find /usr/lib/efi/grub2 -name "grubx64.efi" 2>/dev/null | head -1)
-    if [ -n "$grub" ]; then
-        cp "$grub" "${EFI_HOME}/grubx64.efi"
-        echo "[naia] Copied grubx64.efi to ${EFI_HOME}"
-    fi
-fi
-# EFI fallback boot entry (UEFI spec: \EFI\BOOT\BOOTX64.EFI)
-BOOT_DIR="$(dirname "${EFI_HOME}")/BOOT"
-if [ ! -f "${BOOT_DIR}/BOOTX64.EFI" ]; then
-    mkdir -p "${BOOT_DIR}"
-    fallback=$(find /usr/lib/efi/shim -name "BOOTX64.EFI" 2>/dev/null | head -1)
-    if [ -n "$fallback" ]; then
-        cp "$fallback" "${BOOT_DIR}/BOOTX64.EFI"
-        echo "[naia] Copied BOOTX64.EFI to ${BOOT_DIR}"
+# Try to read from image-info.json (only if it's a Naia image, not Bazzite base)
+if [ -f /usr/share/ublue-os/image-info.json ]; then
+    _name="$(jq -r '."image-name" // empty' /usr/share/ublue-os/image-info.json)"
+    if [[ "$_name" == *naia* ]]; then
+        _ref="$(jq -r '."image-ref" // empty' /usr/share/ublue-os/image-info.json)"
+        _tag="$(jq -r 'if ."image-branch" then ."image-branch" else ."image-tag" end // empty' /usr/share/ublue-os/image-info.json)"
+        if [ -n "$_ref" ]; then
+            NAIA_IMAGE_REF="${_ref##*://}"
+        fi
+        if [ -n "$_tag" ]; then
+            NAIA_IMAGE_TAG="$_tag"
+        fi
+    else
+        echo "[naia] image-info.json has non-Naia image ('$_name'), using default ref"
     fi
 fi
 
-# --- Original gen_grub_cfgstub logic ---
-# create a stub grub2 config in EFI
-BOOT_UUID=$(grub2-probe --target=fs_uuid "${GRUB_HOME}")
-GRUB_DIR=$(grub2-mkrelpath "${GRUB_HOME}")
+echo "[naia] Image ref: ${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG}"
 
-echo "Generating grub stub config for drive " "${BOOT_UUID}"
-echo "GRUB_DIR=" "${GRUB_DIR}"
-echo "EFI_HOME=" "${EFI_HOME}"
-
-cat << EOF > "${EFI_HOME}"/grub.cfg.stb
-search --no-floppy --root-dev-only --fs-uuid --set=dev ${BOOT_UUID}
-set prefix=(\$dev)${GRUB_DIR}
-export \$prefix
-configfile \$prefix/grub.cfg
+# interactive-defaults.ks — Anaconda uses this for default installation settings
+mkdir -p /usr/share/anaconda/post-scripts
+cat <<EOF >>/usr/share/anaconda/interactive-defaults.ks
+ostreecontainer --url=${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG} --transport=containers-storage --no-signature-verification
+%include /usr/share/anaconda/post-scripts/install-configure-upgrade.ks
+%include /usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
+%include /usr/share/anaconda/post-scripts/install-flatpaks.ks
+%include /usr/share/anaconda/post-scripts/install-naia-customizations.ks
 EOF
 
-mv ${EFI_HOME}/grub.cfg.stb ${EFI_HOME}/grub.cfg
-GRUBSTUB
-    chmod +x "$GEN_GRUB"
-    echo "[naia] Patched gen_grub_cfgstub with directory creation and EFI binary copy"
+# Post-install: bootc switch to registry-based updates
+cat <<EOF >/usr/share/anaconda/post-scripts/install-configure-upgrade.ks
+%post --erroronfail
+bootc switch --mutate-in-place --transport registry ${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG}
+%end
+EOF
+
+# Install flatpaks to ostree deployment path
+cat <<'EOF' >/usr/share/anaconda/post-scripts/install-flatpaks.ks
+%post --erroronfail --nochroot
+deployment="$(ostree rev-parse --repo=/mnt/sysimage/ostree/repo ostree/0/1/0)"
+target="/mnt/sysimage/ostree/deploy/default/deploy/$deployment.0/var/lib/"
+mkdir -p "$target"
+rsync -aAXUHKP /var/lib/flatpak "$target"
+%end
+EOF
+
+# Disable Fedora flatpak repo
+cat <<EOF >/usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
+%post --erroronfail
+systemctl disable flatpak-add-fedora-repos.service
+%end
+EOF
+
+# Copy Naia customizations (Plasma scripts, wallpaper, configs) to installed system
+# --nochroot: live rootfs = /, installed system = /mnt/sysimage
+cat <<'CUSTEOF' >/usr/share/anaconda/post-scripts/install-naia-customizations.ks
+%post --nochroot --log=/mnt/sysimage/var/log/naia-customizations.log
+set -x
+SYSROOT="/mnt/sysimage"
+
+# Find the ostree deployment root
+DEPLOY_ROOT=""
+if [ -d "$SYSROOT/ostree/deploy" ]; then
+    DEPLOY_ROOT="$(ls -d "$SYSROOT"/ostree/deploy/*/deploy/*.0 2>/dev/null | head -1)"
+fi
+# Fallback to sysroot itself (non-ostree or flat layout)
+TARGET="${DEPLOY_ROOT:-$SYSROOT}"
+
+echo "[naia] Customization target: $TARGET"
+
+# 1. Plasma update scripts (taskbar pins, wallpaper)
+PLASMA_UPDATES="$TARGET/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates"
+mkdir -p "$PLASMA_UPDATES"
+for f in naia-pins.js naia-wallpaper.js; do
+    src="/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/$f"
+    if [ -f "$src" ]; then
+        cp "$src" "$PLASMA_UPDATES/$f"
+        echo "[naia] Copied $f"
+    fi
+done
+
+# 2. Wallpaper image
+mkdir -p "$TARGET/usr/share/wallpapers"
+if [ -f /usr/share/wallpapers/naia-live.jpg ]; then
+    cp /usr/share/wallpapers/naia-live.jpg "$TARGET/usr/share/wallpapers/naia-live.jpg"
+    echo "[naia] Copied wallpaper"
 fi
 
-# ==============================================================================
-# 3d. Patch efi.py to handle grub2-mkconfig failure on ostree live installs
-#     Problem: After gen_grub_cfgstub succeeds, GRUB2.write_config() runs
-#     grub2-mkconfig which fails because grub2-probe cannot find /sysroot
-#     (ostree systems expect /sysroot as real root mount point).
-#     Fix 1: Create /sysroot -> / symlink in target before grub2-mkconfig
-#     Fix 2: Wrap super().write_config() in try/except as safety net
-#     See also: docs/2026-03-03-gen-grub-cfgstub-bootloader-fix.md
-# ==============================================================================
-
-EFI_PY=$(python3 -c "import pyanaconda.modules.storage.bootloader.efi as m; print(m.__file__)" 2>/dev/null || true)
-if [ -n "$EFI_PY" ] && [ -f "$EFI_PY" ]; then
-    python3 << 'EFIPATCH'
-import os, sys
-
-efi_py = os.environ.get("EFI_PY_PATH") or sys.argv[1] if len(sys.argv) > 1 else None
-if not efi_py:
-    import pyanaconda.modules.storage.bootloader.efi as m
-    efi_py = m.__file__
-
-with open(efi_py, "r") as f:
-    content = f.read()
-
-old = """    def write_config(self):
-        rc = util.execWithRedirect(
-            "gen_grub_cfgstub",
-            [self.config_dir, self.efi_config_dir],
-            root=conf.target.system_root,
-        )
-
-        if rc != 0:
-            raise BootLoaderError("gen_grub_cfgstub script failed")
-
-        super().write_config()"""
-
-new = """    def write_config(self):
-        # [naia] Create boot dirs and copy EFI binaries for ostree live installs
-        import glob as _glob
-        import shutil as _shutil
-        _sysroot = conf.target.system_root
-        for _d in [self.config_dir, self.efi_config_dir]:
-            _fp = os.path.join(_sysroot, _d.lstrip("/"))
-            os.makedirs(_fp, exist_ok=True)
-            log.info("[naia] Created directory: %s", _fp)
-        _efi_dir = os.path.join(_sysroot, self.efi_config_dir.lstrip("/"))
-        for _pat, _name in [
-            ("usr/lib/efi/shim/*/EFI/fedora/shimx64.efi", "shimx64.efi"),
-            ("usr/lib/efi/grub2/*/EFI/fedora/grubx64.efi", "grubx64.efi"),
-        ]:
-            _dst = os.path.join(_efi_dir, _name)
-            if not os.path.exists(_dst):
-                for _src in _glob.glob(os.path.join(_sysroot, _pat)):
-                    _shutil.copy2(_src, _dst)
-                    log.info("[naia] Copied EFI binary: %s -> %s", _src, _dst)
-                    break
-        _boot_dir = os.path.join(os.path.dirname(_efi_dir), "BOOT")
-        os.makedirs(_boot_dir, exist_ok=True)
-        _bootx64 = os.path.join(_boot_dir, "BOOTX64.EFI")
-        if not os.path.exists(_bootx64):
-            for _src in _glob.glob(os.path.join(_sysroot, "usr/lib/efi/shim/*/EFI/BOOT/BOOTX64.EFI")):
-                _shutil.copy2(_src, _bootx64)
-                log.info("[naia] Copied EFI fallback: %s -> %s", _src, _bootx64)
-                break
-        # [naia] Create /sysroot symlink for grub2-probe compatibility
-        _sysroot_link = os.path.join(_sysroot, "sysroot")
-        if not os.path.exists(_sysroot_link):
-            try:
-                os.symlink("/", _sysroot_link)
-                log.info("[naia] Created /sysroot -> / symlink for grub2-probe")
-            except OSError as e:
-                log.warning("[naia] Could not create /sysroot symlink: %s", e)
-        rc = util.execWithRedirect(
-            "gen_grub_cfgstub",
-            [self.config_dir, self.efi_config_dir],
-            root=conf.target.system_root,
-        )
-        if rc != 0:
-            raise BootLoaderError("gen_grub_cfgstub script failed")
-        # [naia] Wrap grub2-mkconfig — may fail on ostree due to /sysroot probe
-        try:
-            super().write_config()
-        except BootLoaderError as _e:
-            log.warning("[naia] grub2-mkconfig failed (expected on ostree): %s", _e)
-            log.warning("[naia] Continuing — kickstart %%post will regenerate grub config")"""
-
-if old in content:
-    content = content.replace(old, new)
-    with open(efi_py, "w") as f:
-        f.write(content)
-    import py_compile
-    py_compile.compile(efi_py, doraise=True)
-    print("[naia] Successfully patched efi.py for ostree bootloader compatibility")
-else:
-    print("[naia] WARNING: Could not find write_config pattern in efi.py")
-    print("[naia]   efi.py may already be patched or have different formatting")
-EFIPATCH
-else
-    echo "[naia] WARNING: efi.py not found (anaconda-live not installed?)"
+# 3. Kickoff favorites
+if [ -f /etc/xdg/kicker-extra-favoritesrc ]; then
+    mkdir -p "$TARGET/etc/xdg"
+    cp /etc/xdg/kicker-extra-favoritesrc "$TARGET/etc/xdg/kicker-extra-favoritesrc"
+    echo "[naia] Copied kickoff favorites"
 fi
 
-# ==============================================================================
-# 3e. Add kernel-install to Anaconda kickstart %post hook
-#     Problem: ostree live image rsync doesn't populate /boot/ with kernel,
-#     initramfs, or BLS entries. Anaconda's CreateBLSEntriesTask finds no
-#     kernels and skips. After installation, /boot/ is empty → no OS to boot.
-#     Fix: Add a script that runs kernel-install during %post.
-#     This is embedded in the squashfs and sourced by our kickstart template.
-# ==============================================================================
-
-mkdir -p /usr/share/naia-os/installer
-cat > /usr/share/naia-os/installer/post-install-kernel.sh <<'KERNELFIX'
-#!/bin/bash
-# Install kernel + initramfs + BLS entry into /boot/
-# Called from kickstart %post (runs in chroot of installed system)
-set -euo pipefail
-
-# Find kernel version with vmlinuz (not all module dirs have it)
-KVER=""
-for k in $(ls /usr/lib/modules/ | sort -rV); do
-    if [ -f "/usr/lib/modules/${k}/vmlinuz" ]; then
-        KVER="$k"
+# 4. Fcitx5 Korean input setup
+for f in /etc/xdg/autostart/naia-fcitx5-setup.desktop \
+         /usr/etc/xdg/autostart/naia-fcitx5-setup.desktop; do
+    if [ -f "$f" ]; then
+        mkdir -p "$TARGET/etc/xdg/autostart"
+        cp "$f" "$TARGET/etc/xdg/autostart/naia-fcitx5-setup.desktop"
+        echo "[naia] Copied fcitx5 setup"
         break
     fi
 done
-if [ -z "$KVER" ]; then
-    echo "[naia] WARNING: No kernel with vmlinuz found in /usr/lib/modules/"
-    ls -la /usr/lib/modules/*/vmlinuz 2>/dev/null || echo "  (no vmlinuz files)"
-    exit 0
+
+# 5. Fcitx5 environment variables
+if [ -f /etc/environment.d/50-naia-fcitx5.conf ]; then
+    mkdir -p "$TARGET/etc/environment.d"
+    cp /etc/environment.d/50-naia-fcitx5.conf "$TARGET/etc/environment.d/50-naia-fcitx5.conf"
+    echo "[naia] Copied fcitx5 env vars"
 fi
 
-echo "[naia] Installing kernel ${KVER} into /boot..."
-
-# Try kernel-install first (standard BLS workflow)
-if kernel-install add "$KVER" "/usr/lib/modules/${KVER}/vmlinuz" 2>&1; then
-    echo "[naia] kernel-install succeeded"
-else
-    echo "[naia] kernel-install failed, falling back to manual copy..."
-    cp "/usr/lib/modules/${KVER}/vmlinuz" "/boot/vmlinuz-${KVER}"
-    dracut --force "/boot/initramfs-${KVER}.img" "$KVER" 2>&1
-
-    mkdir -p /boot/loader/entries
-    MACHINE_ID=$(cat /etc/machine-id)
-    ROOT_UUID=$(findmnt -n -o UUID /)
-    cat > "/boot/loader/entries/${MACHINE_ID}-${KVER}.conf" <<BLSEOF
-title Naia OS (${KVER})
-version ${KVER}
-linux /vmlinuz-${KVER}
-initrd /initramfs-${KVER}.img
-options root=UUID=${ROOT_UUID} rootflags=subvol=root ro
-BLSEOF
+# 6. Login/lock screen background + SDDM config
+if [ -f /usr/share/wallpapers/naia-login.jpg ]; then
+    mkdir -p "$TARGET/usr/share/wallpapers"
+    cp /usr/share/wallpapers/naia-login.jpg "$TARGET/usr/share/wallpapers/naia-login.jpg"
+    echo "[naia] Copied login background"
+fi
+if [ -f /etc/sddm.conf.d/naia-background.conf ]; then
+    mkdir -p "$TARGET/etc/sddm.conf.d"
+    cp /etc/sddm.conf.d/naia-background.conf "$TARGET/etc/sddm.conf.d/naia-background.conf"
+    echo "[naia] Copied SDDM config"
+fi
+if [ -f /etc/xdg/kscreenlockerrc ]; then
+    mkdir -p "$TARGET/etc/xdg"
+    cp /etc/xdg/kscreenlockerrc "$TARGET/etc/xdg/kscreenlockerrc"
+    echo "[naia] Copied lock screen config"
 fi
 
-# Regenerate grub config with new kernel entries
-grub2-mkconfig -o /boot/grub2/grub.cfg 2>&1 || true
+echo "[naia] Customizations installed successfully"
+%end
+CUSTEOF
 
-echo "[naia] Kernel installation complete"
-ls -la /boot/vmlinuz-* /boot/initramfs-* 2>/dev/null || true
-ls -la /boot/loader/entries/ 2>/dev/null || true
-KERNELFIX
-chmod +x /usr/share/naia-os/installer/post-install-kernel.sh
-echo "[naia] Created post-install kernel script"
-
-# ==============================================================================
-# 3f. Disable ostree-only services in the squashfs rootfs
-#     Problem: After rsync installs rootfs to disk, greenboot and other ostree
-#     services fail on non-ostree systems, causing "degraded" systemd state or
-#     even reboot loops (greenboot triggers auto-rollback on failure).
-#     Fix: Disable/mask these services in the squashfs so they're disabled after
-#     rsync. This is safe: ostree deployments re-enable them via deployment config.
-# ==============================================================================
-
-for svc in greenboot-healthcheck greenboot-task-runner greenboot-set-rollback-trigger \
-           greenboot-grub2-set-counter greenboot-grub2-set-success \
-           greenboot-rpm-ostree-grub2-check-fallback bootloader-update; do
-    systemctl disable "${svc}.service" 2>/dev/null || true
-    systemctl mask "${svc}.service" 2>/dev/null || true
-done
-echo "[naia] Disabled ostree-only services (greenboot, bootloader-update)"
-
-# ==============================================================================
-# 3g. Plymouth: Set naia theme and rebuild initrd for live USB boot
-#     Problem: branding.sh (BlueBuild phase) runs plymouth-set-default-theme
-#     and dracut inside a container build, but dracut cannot generate a real
-#     initramfs without a kernel — it fails silently (2>/dev/null || true).
-#     The Titanoboa ISO hook runs with a real rootfs, so dracut works here.
-#     Without this, the live USB boots with the Bazzite bgrt/spinner theme
-#     (horizontal "Bazzite" watermark logo + Bazzite spinner animation).
-# ==============================================================================
-
-echo "[naia] Setting Plymouth theme to 'naia' and rebuilding initrd..."
-
-# Set default theme via plymouthd.conf (more reliable than plymouth-set-default-theme
-# which may not persist in all build contexts)
-mkdir -p /etc/plymouth
-cat > /etc/plymouth/plymouthd.conf <<'PLYMOUTHCONF'
-[Daemon]
-Theme=naia
-ShowDelay=0
-PLYMOUTHCONF
-
-# Also run the official command as belt-and-suspenders
-plymouth-set-default-theme naia 2>/dev/null || true
-
-# Rebuild initrd so the naia Plymouth theme is baked into the live boot image.
-# This is the step that actually makes the theme change visible during boot.
-if command -v dracut &>/dev/null; then
-    dracut -f --regenerate-all 2>&1 || echo "[naia] WARNING: dracut failed"
-fi
-
-echo "[naia] Plymouth theme set to 'naia'"
+# Anaconda payload config
+cat <<EOF >>/etc/anaconda/conf.d/anaconda.conf
+[Payload]
+flatpak_remote = flathub https://dl.flathub.org/repo/
+EOF
 
 # ==============================================================================
 # 4. Live session — KDE taskbar pins (Plasma update script)
@@ -604,11 +282,31 @@ for (var i = 0; i < allPanels.length; ++i) {
         var widget = widgets[j];
         if (widget.type === "org.kde.plasma.icontasks") {
             widget.currentConfigGroup = ["General"];
-            widget.writeConfig("launchers", [
-                "applications:io.nextain.naia.desktop",
-                "preferred://browser",
-                "preferred://filemanager"
-            ]);
+            var existing = widget.readConfig("launchers", []);
+            // Bazzite defaults (from main.xml) — used if no config written yet
+            if (!existing || existing.length === 0) {
+                existing = [
+                    "preferred://browser",
+                    "applications:steam.desktop",
+                    "applications:net.lutris.Lutris.desktop",
+                    "applications:org.gnome.Ptyxis.desktop",
+                    "applications:io.github.kolunmi.Bazaar.desktop",
+                    "preferred://filemanager"
+                ];
+            }
+            var prepend = [
+                "applications:io.nextain.naia.desktop"
+            ];
+            // Deduplicate: remove prepend items from existing if already there
+            var filtered = [];
+            for (var k = 0; k < existing.length; k++) {
+                var dominated = false;
+                for (var m = 0; m < prepend.length; m++) {
+                    if (existing[k] === prepend[m]) { dominated = true; break; }
+                }
+                if (!dominated) filtered.push(existing[k]);
+            }
+            widget.writeConfig("launchers", prepend.concat(filtered));
             widget.reloadConfig();
         }
         // Replace Bazzite "B" icon on Kickoff (app launcher) with Naia start-here
@@ -628,7 +326,7 @@ JSEOF
 mkdir -p /etc/xdg
 cat > /etc/xdg/kicker-extra-favoritesrc <<'EOF'
 [General]
-Prepend=io.nextain.naia.desktop;firefox.desktop;com.discordapp.Discord.desktop;
+Prepend=io.nextain.naia.desktop;
 IgnoreDefaults=false
 EOF
 
@@ -687,6 +385,86 @@ for (var i = 0; i < allDesktops.length; ++i) {
 JSEOF
 
 # ==============================================================================
+# 7b. Plymouth watermark + system icons — replace Bazzite with Naia
+# ==============================================================================
+
+# Plymouth watermark (horizontal logo below UEFI logo during boot)
+cp "${SRC}/assets/logos/text-mix-naia-logo.png" /usr/share/plymouth/themes/spinner/watermark.png
+
+# Install ImageMagick for icon resizing
+dnf install -y --setopt=install_weak_deps=False ImageMagick >/dev/null 2>&1 || true
+
+NAIA_LOGO="${SRC}/assets/logos/start-launcher-icon.png"
+
+# Replace all Bazzite/Fedora round logos in hicolor with Naia logo
+for size in 16 22 24 32 36 48 64 96 128 256; do
+    dir="/usr/share/icons/hicolor/${size}x${size}"
+    if [ -d "$dir" ]; then
+        magick "$NAIA_LOGO" -resize "${size}x${size}" /tmp/naia-icon-${size}.png 2>/dev/null || \
+            convert "$NAIA_LOGO" -resize "${size}x${size}" /tmp/naia-icon-${size}.png 2>/dev/null || continue
+        # Replace all logo variants
+        for target in \
+            "$dir/places/start-here.png" \
+            "$dir/apps/bazzite.png" \
+            "$dir/apps/fedora-logo-icon.png" \
+            "$dir/bazzite-logo-icon.png"; do
+            [ -f "$target" ] && cp /tmp/naia-icon-${size}.png "$target"
+        done
+        rm -f /tmp/naia-icon-${size}.png
+    fi
+done
+
+# Replace SVG logos
+for svg in \
+    /usr/share/icons/hicolor/scalable/places/start-here.svg \
+    /usr/share/icons/hicolor/scalable/places/distributor-logo.svg \
+    /usr/share/icons/hicolor/scalable/places/bazzite-logo.svg \
+    /usr/share/icons/hicolor/scalable/apps/start-here.svg; do
+    if [ -f "$svg" ]; then
+        magick "$NAIA_LOGO" /tmp/naia-logo.svg 2>/dev/null || \
+            convert "$NAIA_LOGO" /tmp/naia-logo.svg 2>/dev/null || continue
+        cp /tmp/naia-logo.svg "$svg"
+    fi
+done
+rm -f /tmp/naia-logo.svg
+
+# Rebuild icon cache — KDE uses cached icons, without this Bazzite icons persist
+if command -v gtk-update-icon-cache &>/dev/null; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+    echo "[naia] Icon cache rebuilt"
+fi
+
+# Rebuild initramfs with updated watermark
+KERNEL_VER="$(ls /lib/modules/ | sort -V | tail -1)"
+if [ -n "$KERNEL_VER" ]; then
+    dracut --force --kver "$KERNEL_VER" 2>/dev/null || echo "[naia] dracut skipped (will apply on installed system)"
+fi
+
+# ==============================================================================
+# 7c. Login/lock screen background (SDDM + kscreenlocker)
+# ==============================================================================
+
+cp "${SRC}/assets/installer/login-background.jpg" /usr/share/wallpapers/naia-login.jpg
+
+# SDDM login screen background
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/naia-background.conf <<'EOF'
+[Theme]
+Current=breeze
+[General]
+[theme]
+background=/usr/share/wallpapers/naia-login.jpg
+EOF
+
+# KDE lock screen background (system-wide default)
+mkdir -p /etc/xdg
+cat >> /etc/xdg/kscreenlockerrc <<'EOF'
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/wallpapers/naia-login.jpg
+PreviewImage=file:///usr/share/wallpapers/naia-login.jpg
+EOF
+
+# ==============================================================================
 # 8. Live session — warning notification (data is ephemeral)
 # ==============================================================================
 
@@ -718,6 +496,13 @@ EOF
 # ==============================================================================
 
 NAIA_BUNDLE="/usr/share/naia/naia-shell.flatpak"
+
+# Override bundle from titanoboa /app mount (for local ISO builds with updated Flatpak)
+if [ -f /app/naia-shell-override.flatpak ]; then
+    echo "[naia] Flatpak bundle override found at /app/naia-shell-override.flatpak"
+    mkdir -p "$(dirname "${NAIA_BUNDLE}")"
+    cp /app/naia-shell-override.flatpak "${NAIA_BUNDLE}"
+fi
 
 if [ -f "${NAIA_BUNDLE}" ]; then
     echo "[naia] Installing Naia Shell Flatpak for live session..."
@@ -797,6 +582,33 @@ SDL_IM_MODULE=fcitx
 GLFW_IM_MODULE=fcitx
 EOF
 
+
+# ==============================================================================
+# 12b. Ensure Anaconda can create PID file + expand /run for live session
+#      Default /run tmpfs (20% RAM) can be too small for Anaconda's PID file
+#      when Bazzite services consume /run space. Only activates on live boot.
+# ==============================================================================
+
+mkdir -p /etc/tmpfiles.d
+echo 'd /run/anaconda 0755 root root -' > /etc/tmpfiles.d/anaconda-run.conf
+
+cat > /etc/systemd/system/naia-expand-run.service <<'UNIT'
+[Unit]
+Description=Expand /run tmpfs for Naia live session
+DefaultDependencies=no
+Before=display-manager.service liveinst-setup.service
+ConditionPathExists=/home/liveuser
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mount -o remount,size=4G /run
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+UNIT
+systemctl enable naia-expand-run.service 2>/dev/null || true
+echo "[naia] /run expansion service installed"
 
 # ==============================================================================
 # 13. Cleanup
