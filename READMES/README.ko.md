@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## USB만 꽂으면, AI가 바로 실행됩니다
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="USB를 꽂고 Naia OS를 실행하세요" width="600" />
+</p>
+
+<p align="center">
+  <strong>설치도, 설정도 필요 없습니다.</strong><br/>
+  Naia OS USB를 아무 노트북에 꽂고 전원만 켜면 — 나만의 AI가 바로 살아납니다.<br/>
+  체험 후 마음에 들면 하드에 설치하세요.
+</p>
+
 ## Naia란?
 
 Naia는 개인에게 AI에 대한 완전한 주권을 돌려주는 개인 AI OS입니다. 어떤 AI를 쓸지(로컬 모델 포함) 선택하고, 기억과 성격을 로컬에서 구성하고, 3D 아바타와 목소리를 커스터마이징하세요 — 모든 것이 내 컴퓨터에, 내 통제 하에 있습니다.

@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## Colokkan USB, Jalankan AI Langsung
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="Colokkan USB dan jalankan Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>Tanpa instalasi, tanpa konfigurasi.</strong><br/>
+  Cukup colokkan USB Naia OS ke laptop mana pun dan nyalakan — AI pribadi Anda langsung hidup.<br/>
+  Coba dulu, dan instal ke hard drive jika Anda menyukainya.
+</p>
+
 ## Apa itu Naia?
 
 Naia adalah OS AI pribadi yang memberikan kedaulatan penuh atas AI kepada individu. Pilih AI mana yang akan digunakan (termasuk model lokal), konfigurasikan memori dan kepribadiannya secara lokal, kustomisasi avatar 3D dan suaranya — semuanya tetap di mesin Anda, di bawah kendali Anda.

@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## Cắm USB, Chạy AI Ngay Lập Tức
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="Cắm USB và chạy Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>Không cần cài đặt, không cần cấu hình.</strong><br/>
+  Chỉ cần cắm USB Naia OS vào bất kỳ laptop nào và bật nguồn — AI của riêng bạn sẽ hoạt động ngay lập tức.<br/>
+  Hãy thử và cài đặt vào ổ cứng nếu bạn thích.
+</p>
+
 ## Naia la gi?
 
 Naia la mot he dieu hanh AI ca nhan mang lai quyen tu chu hoan toan ve AI cho moi ca nhan. Chon AI nao de su dung (bao gom ca mo hinh cuc bo), cau hinh tri nho va tinh cach cuc bo, tuy chinh avatar 3D va giong noi — moi thu deu o tren may tinh cua ban, duoi su kiem soat cua ban.

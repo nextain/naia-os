@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## Conecte o USB, Execute IA Instantaneamente
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="Conecte o USB e execute o Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>Sem instalação, sem configuração.</strong><br/>
+  Basta conectar o USB do Naia OS em qualquer notebook e ligar — sua própria IA ganha vida instantaneamente.<br/>
+  Experimente e instale no disco rígido se gostar.
+</p>
+
 ## O que e o Naia?
 
 Naia e um SO de IA pessoal que da aos individuos soberania total sobre sua IA. Escolha qual IA usar (incluindo modelos locais), configure sua memoria e personalidade localmente, personalize seu avatar 3D e voz — tudo permanece na sua maquina, sob seu controle.

@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## Branchez la clé USB, lancez l'IA instantanément
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="Branchez la clé USB et lancez Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>Pas d'installation, pas de configuration.</strong><br/>
+  Branchez simplement la clé USB Naia OS sur n'importe quel ordinateur portable et allumez-le — votre propre IA prend vie instantanément.<br/>
+  Essayez-la, et installez-la sur votre disque dur si elle vous plaît.
+</p>
+
 ## Qu'est-ce que Naia ?
 
 Naia est un OS IA personnel qui donne aux individus une souverainete totale sur leur IA. Choisissez quelle IA utiliser (y compris les modeles locaux), configurez sa memoire et sa personnalite localement, personnalisez son avatar 3D et sa voix — tout reste sur votre machine, sous votre controle.

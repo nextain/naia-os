@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## 插入USB，即刻运行AI
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="插入USB运行Naia OS" width="600" />
+</p>
+
+<p align="center">
+  <strong>无需安装，无需配置。</strong><br/>
+  只需将Naia OS USB插入任何笔记本电脑并开机——您专属的AI即刻苏醒。<br/>
+  先试用，喜欢的话再安装到硬盘。
+</p>
+
 ## 什么是Naia？
 
 Naia是一个让个人对AI拥有完全主权的个人AI操作系统。选择使用哪个AI（包括本地模型），在本地配置记忆和个性，自定义3D虚拟形象和声音 — 一切都保存在你的机器上，由你掌控。

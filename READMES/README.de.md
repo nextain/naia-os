@@ -33,6 +33,18 @@
 </p>
 </details>
 
+## USB einstecken, KI sofort starten
+
+<p align="center">
+  <img src="../assets/plug-usb-and-run-ai.webp" alt="USB einstecken und Naia OS starten" width="600" />
+</p>
+
+<p align="center">
+  <strong>Keine Installation, keine Konfiguration nötig.</strong><br/>
+  Stecken Sie den Naia OS USB in einen beliebigen Laptop und schalten Sie ihn ein — Ihre eigene KI erwacht sofort zum Leben.<br/>
+  Probieren Sie es aus und installieren Sie es auf Ihrer Festplatte, wenn es Ihnen gefällt.
+</p>
+
 ## Was ist Naia?
 
 Naia ist ein persoenliches KI-OS, das Einzelpersonen die volle Souveraenitaet ueber ihre KI gibt. Waehlen Sie, welche KI Sie nutzen moechten (einschliesslich lokaler Modelle), konfigurieren Sie Gedaechtnis und Persoenlichkeit lokal, passen Sie den 3D-Avatar und die Stimme an — alles bleibt auf Ihrem Rechner, unter Ihrer Kontrolle.
