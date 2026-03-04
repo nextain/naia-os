@@ -226,7 +226,7 @@ body,
 /* Side Panel (chat/tabs only — avatar is in main-area) */
 .side-panel {
 	flex: none;
-	width: var(--panel-size, 40%);
+	width: var(--panel-size, 70%);
 	min-width: 280px;
 	max-width: 80%;
 	height: 100%;
@@ -240,7 +240,7 @@ body,
 	width: 100%;
 	max-width: none;
 	min-width: 0;
-	height: var(--panel-size, 40%);
+	height: var(--panel-size, 70%);
 	min-height: 200px;
 	max-height: 80%;
 }

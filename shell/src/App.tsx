@@ -23,7 +23,7 @@ export function App() {
 	const [showOnboarding, setShowOnboarding] = useState(false);
 	const [panelPosition, setPanelPosition] = useState<PanelPosition>("bottom");
 	const [panelVisible, setPanelVisible] = useState(true);
-	const [panelSize, setPanelSize] = useState(40);
+	const [panelSize, setPanelSize] = useState(70);
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -102,7 +102,7 @@ export function App() {
 		const handler = (e: Event) => {
 			const pos = (e as CustomEvent<PanelPosition>).detail;
 			setPanelPosition(pos);
-			setPanelSize(loadConfig()?.panelSize ?? 40);
+			setPanelSize(loadConfig()?.panelSize ?? 70);
 		};
 		window.addEventListener("naia:panel-position", handler);
 		return () => window.removeEventListener("naia:panel-position", handler);
