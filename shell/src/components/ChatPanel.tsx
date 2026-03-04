@@ -406,7 +406,7 @@ export function ChatPanel() {
 		currentRequestId.current = requestId;
 		const store = useChatStore.getState();
 
-		const config = loadConfig();
+		const config = await loadConfigWithSecrets();
 			if (config?.provider === "nextain" && !config?.naiaKey) {
 			useChatStore
 				.getState()
