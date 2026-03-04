@@ -22,6 +22,7 @@ import {
 	saveConfig,
 	getNaiaKeySecure,
 } from "../lib/config";
+import { saveSecretKey, deleteSecretKey } from "../lib/secure-store";
 import {
 	type Fact,
 	deleteFact,
@@ -1092,7 +1093,8 @@ export function SettingsTab() {
 				setApiKey("");
 				setLabWaiting(false);
 
-				// Persist immediately so ChatPanel routes requests through Lab proxy
+				// Persist to both secure store and localStorage
+				await saveSecretKey("naiaKey", nextNaiaKey);
 				const current = loadConfig();
 				const nextModel = current?.model || getDefaultModel("nextain");
 				if (current) {
@@ -1645,6 +1647,7 @@ export function SettingsTab() {
 			ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
 		};
 		saveConfig(newConfig);
+		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
 		setLocale(locale);
 		setAvatarModelPath(vrmModel);
 		setAvatarBackgroundImage(backgroundImage);
@@ -2003,6 +2006,7 @@ export function SettingsTab() {
 												setDiscordDmChannelId("");
 												setDiscordDefaultTarget("");
 												setShowLabDisconnect(false);
+												await deleteSecretKey("naiaKey");
 												const current = loadConfig();
 												if (current) {
 													saveConfig({
@@ -2186,6 +2190,7 @@ export function SettingsTab() {
 													setDiscordDmChannelId("");
 													setDiscordDefaultTarget("");
 													setShowLabDisconnect(false);
+													await deleteSecretKey("naiaKey");
 													const current = loadConfig();
 													if (current) {
 														saveConfig({

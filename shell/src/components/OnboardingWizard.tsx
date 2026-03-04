@@ -11,6 +11,7 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
+import { saveSecretKey } from "../lib/secure-store";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
 import { getLocale, t } from "../lib/i18n";
@@ -259,6 +260,7 @@ export function OnboardingWizard({
 						naiaUserId: userId,
 					};
 					saveConfig(restored);
+					await saveSecretKey("naiaKey", key);
 
 					// Sync to OpenClaw gateway
 					const fullPrompt = buildSystemPrompt(restored.persona, {
@@ -448,6 +450,7 @@ export function OnboardingWizard({
 			ollamaHost: effectiveProvider === "ollama" ? ollamaHost : undefined,
 		};
 		saveConfig(config);
+		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
 
 		// Sync provider/model + full system prompt to OpenClaw gateway config
 		const fullPrompt = buildSystemPrompt(config.persona, {
