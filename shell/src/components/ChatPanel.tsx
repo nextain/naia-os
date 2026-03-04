@@ -2,15 +2,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioRecorder, startRecording } from "../lib/audio-recorder";
-import { cancelChat, sendChatMessage } from "../lib/chat-service";
+import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
+import { cancelChat, directToolCall, sendChatMessage } from "../lib/chat-service";
+import { resetDiscordPollState } from "../lib/discord-poll";
 import {
+	LAB_GATEWAY_URL,
 	addAllowedTool,
 	isToolAllowed,
 	loadConfig,
+	loadConfigWithSecrets,
+	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
 import { restartGateway } from "../lib/openclaw-sync";
 import { isApiKeyOptional, isReadyToChat } from "../lib/config";
+import { type MicStream, createMicStream } from "../lib/mic-stream";
 import {
 	getAllFacts,
 	upsertFact,
@@ -26,6 +32,7 @@ import { Logger } from "../lib/logger";
 import { extractFacts, summarizeSession } from "../lib/memory-processor";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import { transcribeAudio } from "../lib/stt";
+import { type VoiceSession, createVoiceSession } from "../lib/voice-session";
 import type {
 	AgentResponseChunk,
 	AuditEvent,
@@ -235,11 +242,15 @@ export function ChatPanel() {
 		isReadyToChat() ? "chat" : "settings",
 	);
 	const [showCostDashboard, setShowCostDashboard] = useState(false);
+	const [voiceMode, setVoiceMode] = useState<"off" | "connecting" | "active">("off");
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const recorderRef = useRef<AudioRecorder | null>(null);
 	const sessionLoaded = useRef(false);
 	const currentRequestId = useRef<string | null>(null);
+	const voiceSessionRef = useRef<VoiceSession | null>(null);
+	const micStreamRef = useRef<MicStream | null>(null);
+	const audioPlayerRef = useRef<AudioPlayer | null>(null);
 
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
@@ -377,6 +388,13 @@ export function ChatPanel() {
 	async function handleSend() {
 		const text = input.trim();
 		if (!text) return;
+
+		// Voice mode: send text via Live session
+		if (voiceMode === "active" && voiceSessionRef.current?.isConnected) {
+			setInput("");
+			voiceSessionRef.current.sendText(text);
+			return;
+		}
 
 		// If streaming, queue the message instead
 		if (isStreaming) {
@@ -659,6 +677,127 @@ export function ChatPanel() {
 		}
 	}
 
+	// Cleanup voice session on unmount
+	useEffect(() => {
+		return () => {
+			voiceSessionRef.current?.disconnect();
+			micStreamRef.current?.stop();
+			audioPlayerRef.current?.destroy();
+		};
+	}, []);
+
+	async function handleVoiceToggle() {
+		if (voiceMode !== "off") {
+			// Stop voice session
+			voiceSessionRef.current?.disconnect();
+			micStreamRef.current?.stop();
+			audioPlayerRef.current?.destroy();
+			voiceSessionRef.current = null;
+			micStreamRef.current = null;
+			audioPlayerRef.current = null;
+			setVoiceMode("off");
+			return;
+		}
+
+		setVoiceMode("connecting");
+
+		try {
+			const config = await loadConfigWithSecrets();
+			const naiaKey = config?.naiaKey;
+			if (!naiaKey) {
+				Logger.warn("ChatPanel", "Voice chat requires Naia key");
+				useChatStore.getState().addMessage({ role: "assistant", content: t("chat.voiceNeedLabKey") });
+				setVoiceMode("off");
+				return;
+			}
+
+			const gatewayUrl = LAB_GATEWAY_URL;
+			const memoryCtx = await buildMemoryContext();
+			const systemPrompt = buildSystemPrompt(config.persona, memoryCtx);
+
+			// Create voice session
+			const session = createVoiceSession();
+			voiceSessionRef.current = session;
+
+			// Create audio player
+			const player = createAudioPlayer({
+				sampleRate: 24000,
+				onPlaybackStart: () => useAvatarStore.getState().setSpeaking(true),
+				onPlaybackEnd: () => useAvatarStore.getState().setSpeaking(false),
+			});
+			audioPlayerRef.current = player;
+
+			// Wire session events
+			session.onAudio = (pcmBase64) => player.enqueue(pcmBase64);
+			session.onInputTranscript = (text) => {
+				useChatStore.getState().addMessage({ role: "user", content: text });
+			};
+			session.onOutputTranscript = (text) => {
+				useChatStore.getState().addMessage({ role: "assistant", content: text });
+			};
+			session.onInterrupted = () => player.clear();
+			session.onTurnEnd = () => {
+				// Avatar stops speaking when audio player finishes (via onPlaybackEnd)
+			};
+			session.onToolCall = async (callId, toolName, args) => {
+				try {
+					const result = await directToolCall({
+						toolName,
+						args,
+						requestId: generateRequestId(),
+						gatewayUrl: resolveGatewayUrl(config),
+						gatewayToken: config.gatewayToken,
+					});
+					session.sendToolResponse(callId, result.output);
+				} catch (err) {
+					session.sendToolResponse(callId, `Error: ${err}`);
+				}
+			};
+			session.onError = (err) => {
+				Logger.warn("ChatPanel", "Voice session error", { error: err.message });
+				useChatStore.getState().addMessage({ role: "assistant", content: `${t("chat.voiceError")}: ${err.message}` });
+				setVoiceMode("off");
+			};
+			session.onDisconnect = () => {
+				micStreamRef.current?.stop();
+				audioPlayerRef.current?.destroy();
+				micStreamRef.current = null;
+				audioPlayerRef.current = null;
+				setVoiceMode("off");
+			};
+
+			// Connect to gateway
+			await session.connect({
+				gatewayUrl: gatewayUrl,
+				naiaKey,
+				voice: config.liveVoice ?? "Puck",
+				systemInstruction: systemPrompt,
+				model: config.liveModel,
+			});
+
+			// Create mic stream
+			const mic = await createMicStream({
+				onChunk: (pcmBase64) => session.sendAudio(pcmBase64),
+				sampleRate: 16000,
+			});
+			micStreamRef.current = mic;
+			mic.start();
+
+			setVoiceMode("active");
+			Logger.info("ChatPanel", "Voice conversation started");
+		} catch (err) {
+			Logger.warn("ChatPanel", "Voice connection failed", { error: String(err) });
+			useChatStore.getState().addMessage({ role: "assistant", content: `${t("chat.voiceError")}: ${err}` });
+			voiceSessionRef.current?.disconnect();
+			micStreamRef.current?.stop();
+			audioPlayerRef.current?.destroy();
+			voiceSessionRef.current = null;
+			micStreamRef.current = null;
+			audioPlayerRef.current = null;
+			setVoiceMode("off");
+		}
+	}
+
 	function handleTabChange(tab: TabId) {
 		setActiveTab(tab);
 		if (tab === "progress") {
@@ -937,7 +1076,16 @@ export function ChatPanel() {
 				className="chat-input-bar"
 				style={{ display: activeTab === "chat" ? "flex" : "none" }}
 			>
-				{sttEnabled && (
+				<button
+					type="button"
+					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}`}
+					onClick={handleVoiceToggle}
+					disabled={isStreaming}
+					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : t("chat.voiceEnd")}
+				>
+					{voiceMode === "off" ? "📞" : voiceMode === "connecting" ? "⏳" : "🔊"}
+				</button>
+				{sttEnabled && voiceMode === "off" && (
 					<button
 						type="button"
 						className={`chat-mic-btn${isRecording ? " recording" : ""}`}

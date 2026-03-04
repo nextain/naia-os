@@ -2745,6 +2745,26 @@ export function SettingsTab() {
 					</div>
 
 					<div className="settings-section-divider">
+						<span>{t("settings.voiceConversation")}</span>
+					</div>
+					<div className="settings-field">
+						<label className="settings-label">{t("settings.liveVoice")}</label>
+						<select
+							className="settings-select"
+							value={existing?.liveVoice ?? "Puck"}
+							onChange={(e) => {
+								if (existing) saveConfig({ ...existing, liveVoice: e.target.value });
+							}}
+						>
+							<option value="Puck">Puck</option>
+							<option value="Charon">Charon</option>
+							<option value="Kore">Kore</option>
+							<option value="Fenrir">Fenrir</option>
+							<option value="Aoede">Aoede</option>
+						</select>
+					</div>
+
+					<div className="settings-section-divider">
 						<span>{t("settings.voiceWakeSection")}</span>
 					</div>
 					<div className="settings-field">

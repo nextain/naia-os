@@ -632,6 +632,43 @@ body.resizing-row {
 	}
 }
 
+.chat-voice-btn {
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	border: none;
+	background: transparent;
+	color: var(--espresso-light);
+	cursor: pointer;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	transition: background 0.15s, color 0.15s;
+}
+
+.chat-voice-btn:hover:not(:disabled) {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.chat-voice-btn.connecting {
+	color: #e9a820;
+	animation: mic-pulse 1s ease-in-out infinite;
+}
+
+.chat-voice-btn.active {
+	background: #2a9d2a;
+	color: var(--cream);
+	animation: mic-pulse 2s ease-in-out infinite;
+}
+
+.chat-voice-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 /* Settings Modal */
 .modal-overlay {
 	position: fixed;

@@ -64,6 +64,9 @@ export interface AppConfig {
 	panelSize?: number;
 	discordSessionMigrated?: boolean;
 	ollamaHost?: string;
+	voiceConversation?: boolean;
+	liveVoice?: string;
+	liveModel?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
