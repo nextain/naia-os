@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GatewayClient } from "../../gateway/client.js";
 import {
 	createMockGateway,
@@ -11,6 +11,16 @@ describe("skill_config", () => {
 	let mock: MockGateway;
 	let client: GatewayClient;
 	let skill: SkillDefinition;
+	const originalFetch = globalThis.fetch;
+
+	beforeEach(() => {
+		// Mock fetch to prevent dynamic Ollama model discovery in tests
+		globalThis.fetch = vi.fn().mockRejectedValue(new Error("mocked"));
+	});
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
 
 	beforeAll(async () => {
 		mock = createMockGateway(
@@ -123,8 +133,9 @@ describe("skill_config", () => {
 		);
 		expect(result.success).toBe(true);
 		const parsed = JSON.parse(result.output);
-		// Gateway returns 2 models + 23 local models (minus 1 overlap: grok-3-mini) = 24
-		expect(parsed.models).toHaveLength(24);
+		// Gateway returns 2 models + 20 local models (minus 1 overlap: grok-3-mini) = 21
+		// Ollama models are fetched dynamically (mocked to fail in tests)
+		expect(parsed.models).toHaveLength(21);
 	});
 
 	it("patches config", async () => {

@@ -5,11 +5,14 @@ import type { AgentStream, LLMProvider } from "./types.js";
 export function createOpenAIProvider(
 	apiKey: string,
 	model: string,
+	ollamaHost?: string,
 ): LLMProvider {
 	const isOllama = apiKey === "ollama";
 	const client = new OpenAI({
 		apiKey: isOllama ? "ollama" : apiKey,
-		baseURL: isOllama ? "http://127.0.0.1:11434/v1" : undefined,
+		baseURL: isOllama
+			? `${(ollamaHost || "http://localhost:11434").replace(/\/+$/, "")}/v1`
+			: undefined,
 	});
 
 	return {

@@ -92,13 +92,26 @@ export function createConfigSkill(): SkillDefinition {
 						{ id: "glm-4.7", name: "GLM 4.7", provider: "zai" },
 						{ id: "glm-4.6", name: "GLM 4.6", provider: "zai" },
 						{ id: "glm-4.5", name: "GLM 4.5", provider: "zai" },
-						{ id: "deepseek-r1:8b", name: "DeepSeek R1 (8B)", provider: "ollama" },
-						{ id: "gpt-oss:20b", name: "GPT-OSS (20B)", provider: "ollama" },
-						{ id: "llama3.2", name: "Llama 3.2", provider: "ollama" }
 					].map(m => {
 						const price = MODEL_PRICING[m.id];
 						return price ? { ...m, price } : m;
 					});
+
+					// Dynamically discover Ollama models
+					let ollamaModels: any[] = [];
+					try {
+						const res = await fetch("http://localhost:11434/api/tags");
+						if (res.ok) {
+							const data = await res.json();
+							ollamaModels = (data.models ?? []).map((m: any) => ({
+								id: m.name,
+								name: m.name,
+								provider: "ollama",
+							}));
+						}
+					} catch {
+						// Ollama not running — skip
+					}
 
 					let gatewayModels: any[] = [];
 					if (gateway?.isConnected()) {
@@ -112,7 +125,7 @@ export function createConfigSkill(): SkillDefinition {
 
 					// Merge, preferring gateway models if IDs conflict
 					const merged = [...gatewayModels];
-					for (const lm of localModels) {
+					for (const lm of [...localModels, ...ollamaModels]) {
 						if (!merged.find(m => m.id === lm.id)) {
 							merged.push(lm);
 						}
