@@ -26,6 +26,19 @@ formats:
       - "--own-name=com.naia.shell.* required for single-instance D-Bus in Flatpak sandbox"
       - "tauri dev registers competing MIME handlers — local-reinstall script cleans them automatically"
 
+  agent_build_pipeline:
+    description: |
+      Agent runs from shell/src-tauri/target/debug/agent/dist/index.js (pre-built).
+      Vite HMR does NOT apply to agent code. After modifying agent/src/:
+      1. cd agent && pnpm build (tsc → agent/dist/)
+      2. cp -r agent/dist/ shell/src-tauri/target/debug/agent/dist/
+      Or restart pnpm run tauri dev (auto-rebuild).
+    tauri_plugins:
+      - plugin-store: "Encrypted credential storage (naiaKey persistence across browser clears)"
+      - plugin-shell: "Spawn agent process, open URLs"
+      - plugin-deep-link: "OAuth callback (naia:// scheme)"
+      - plugin-single-instance: "Prevent multiple app instances"
+
   appimage:
     built_by: tauri build
     status: working

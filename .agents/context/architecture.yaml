@@ -113,14 +113,46 @@ runtime_architecture:
           └── .main-area (AvatarCanvas — always visible)
     panelPosition: "'left' | 'right' | 'bottom' — controls CSS flex-direction on .app-layout"
     panelVisible: "boolean — toggles .side-panel presence; avatar always stays"
+    panelSize: "number (0-100) — chat panel percentage of viewport. Default: 70"
     avatar_sizing: "ResizeObserver on container (not window resize)"
-    config_sync: "panelPosition + panelVisible synced to Lab via LAB_SYNC_FIELDS"
+    config_sync: "panelPosition + panelVisible + panelSize synced to Lab via LAB_SYNC_FIELDS"
 
   data_flow:
     chat: "User → Shell → Agent → LLM → Agent → Shell → User"
     tool_exec: "LLM → Agent (tool_use) → Gateway (exec.bash or node.invoke) → OS → result → LLM"
     approval: "Gateway → Agent (approval_request) → Shell (modal) → user decision → Agent → Gateway"
     external: "Discord msg → Gateway → Agent → LLM → Agent → Gateway → Discord reply"
+
+credential_storage:
+  description: "naiaKey dual-storage architecture (localStorage + Tauri secure store)"
+  updated: "2026-03-05"
+  overview: |
+    naiaKey (Naia Lab API key) is stored in two locations for reliability:
+    1. localStorage — sync, fast, used by all UI components via saveConfig/loadConfig
+    2. Tauri secure store (plugin-store) — async, encrypted, persists across browser storage clears
+  write_points:
+    login: "SettingsTab/OnboardingWizard: saveConfig({naiaKey}) + saveSecretKey('naiaKey', key)"
+    save: "SettingsTab handleSave: saveConfig() + void saveSecretKey()"
+    logout: "SettingsTab: saveConfig({naiaKey: undefined}) + deleteSecretKey('naiaKey')"
+  read_merge: |
+    loadConfigWithSecrets() merges both sources with localStorage priority:
+    1. Read localStorage value (sync)
+    2. Read secure store value (async)
+    3. If localStorage has value → use it; sync to secure store if different
+    4. If only secure store has value → use it (migration/recovery case)
+    This prevents stale secure store values from overriding fresh login tokens.
+  naiaKey_independence: |
+    naiaKey is passed as a top-level field in ChatRequest, separate from provider config.
+    This allows Naia Cloud TTS to work regardless of which LLM provider is selected.
+    - ChatPanel sends naiaKey in both provider.naiaKey (for LLM) and request-level naiaKey (for TTS)
+    - Agent uses effectiveNaiaKey = request.naiaKey || provider.naiaKey for TTS auth
+  files:
+    - "shell/src/lib/config.ts — loadConfigWithSecrets(), saveConfig()"
+    - "shell/src/lib/secure-store.ts — saveSecretKey(), getSecretKey(), deleteSecretKey()"
+    - "shell/src/components/SettingsTab.tsx — login/logout/save handlers"
+    - "shell/src/components/OnboardingWizard.tsx — lab auth handler"
+    - "agent/src/index.ts — effectiveNaiaKey resolution"
+    - "agent/src/protocol.ts — ChatRequest.naiaKey field"
 
 desktop_avatar_asset_pipeline:
   purpose: "Stable local-file loading for VRM model/background in Tauri WebView"
@@ -132,6 +164,12 @@ desktop_avatar_asset_pipeline:
   e2e_note:
     - "e2e-tauri uses prebuilt binary src-tauri/target/debug/naia-shell (not pnpm build output)."
     - "When Rust command/invoke_handler changes, run cargo build in src-tauri before wdio e2e."
+  agent_build_note: |
+    Agent runs from shell/src-tauri/target/debug/agent/dist/index.js (pre-built).
+    Vite HMR does NOT apply to agent code. After modifying agent/src/:
+    1. cd agent && pnpm build (tsc compiles to agent/dist/)
+    2. cp -r agent/dist/ shell/src-tauri/target/debug/agent/dist/
+    Or restart `pnpm run tauri dev` which rebuilds automatically.
 
 channel_onboarding_routing:
   description: "Discord bot add flow is routed through naia.nextain.io instead of direct webhook input"
@@ -280,6 +318,12 @@ voice_architecture:
 
   tts:
     description: "Text-to-speech for chat responses"
+    default_provider: "edge (free, no login required)"
+    naiaKey_routing: |
+      TTS auth (naiaKey) is independent of LLM provider selection.
+      ChatRequest carries naiaKey as top-level field, so Naia Cloud TTS works
+      even when LLM is set to gemini/openai/xai/anthropic.
+      Agent resolves: effectiveNaiaKey = request.naiaKey || provider.naiaKey
     providers:
       nextain:
         route: "ChatPanel → agent (IPC) → nextain-tts.ts → any-llm gateway /v1/audio/speech → Google Cloud TTS"
