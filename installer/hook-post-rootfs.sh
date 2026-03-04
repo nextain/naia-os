@@ -16,9 +16,35 @@ SRC="/tmp/naia-os-repo"
 dnf -qy versionlock clear 2>/dev/null || true
 rm -f /etc/dnf/repos.override.d/99-config_manager.repo 2>/dev/null || true
 
-dnf install -y --allowerasing \
-    git anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm \
-    libblockdev-mpath
+# Critical packages (must succeed)
+dnf install -y --allowerasing anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm
+
+# Anaconda WebUI (F42+)
+mkdir -p /var/lib/rpm-state
+dnf install -y anaconda-webui || true
+
+# Optional packages
+dnf install -y --allowerasing git firefox || true
+
+# Fallback: if Firefox RPM is unavailable (Bazzite excludes it in favor of
+# Flatpak), create a wrapper at /usr/bin/firefox that delegates to the Flatpak.
+# Anaconda WebUI hardcodes /usr/bin/firefox in webui-desktop; without this shim
+# the installer silently fails with "No such file or directory".
+if [ ! -x /usr/bin/firefox ]; then
+    echo "[naia] Firefox RPM not available — creating Flatpak wrapper at /usr/bin/firefox"
+    cat > /usr/bin/firefox <<'FIREFOXWRAP'
+#!/bin/bash
+# Bridge /usr/bin/firefox → Flatpak Firefox for Anaconda WebUI compatibility.
+# --filesystem grants access to Anaconda's custom Firefox profile directory
+# and the cockpit web server socket.
+exec flatpak run \
+    --filesystem=/run/user \
+    --filesystem=/tmp \
+    --filesystem=/run/anaconda \
+    org.mozilla.firefox "$@"
+FIREFOXWRAP
+    chmod +x /usr/bin/firefox
+fi
 
 git clone --depth 1 --quiet "${REPO_URL}" "${SRC}"
 
@@ -50,14 +76,10 @@ done
 # 2. Anaconda profile
 # ==============================================================================
 
-mkdir -p /etc/anaconda/profile.d
-cat > /etc/anaconda/profile.d/naia.conf <<'EOF'
-[Profile]
-profile_id = naia-os
-
-[Profile Detection]
-os_id = naia-os
-
+# Anaconda conf.d (always loaded, no profile detection needed)
+# fedora-kinoite profile is auto-detected via ID=fedora + VARIANT_ID=kinoite (section 2b)
+mkdir -p /etc/anaconda/conf.d
+cat > /etc/anaconda/conf.d/naia.conf <<'EOF'
 [Bootloader]
 efi_dir = fedora
 
@@ -68,14 +90,145 @@ btrfs_compression = zstd:1
 [User Interface]
 custom_stylesheet = /usr/share/anaconda/pixmaps/fedora.css
 hidden_spokes = NetworkSpoke
+# Override fedora.conf profile default (slitherer not installed in our image)
+webui_web_engine = firefox
 EOF
+
+# ==============================================================================
+# 2b. os-release override for Anaconda profile detection
+#     Anaconda needs ID=fedora + VARIANT_ID=kinoite to detect fedora-kinoite
+#     profile chain. branding.sh sets ID=naia-os, so we override here.
+#     The installed system gets ID=naia-os from the original container image.
+# ==============================================================================
+
+sed -i "s/^VARIANT_ID=.*/VARIANT_ID=kinoite/" /usr/lib/os-release
+sed -i "s/^ID=.*/ID=fedora/" /usr/lib/os-release
+echo "[naia] os-release: set ID=fedora, VARIANT_ID=kinoite for Anaconda"
+
+# ==============================================================================
+# 2c. image-info.json — fix image reference for ostreecontainer
+#     BlueBuild bakes Bazzite's values; we need our image URL.
+# ==============================================================================
+
+IMAGE_INFO="/usr/share/ublue-os/image-info.json"
+if [ -f "$IMAGE_INFO" ]; then
+    # Read current values and replace
+    tmpjson=$(mktemp)
+    jq '
+        .["image-name"] = "naia-os" |
+        .["image-ref"] = "ostree-image-signed:docker://ghcr.io/nextain/naia-os" |
+        .["image-tag"] = "latest" |
+        .["image-branch"] = "latest"
+    ' "$IMAGE_INFO" > "$tmpjson" && mv "$tmpjson" "$IMAGE_INFO"
+    echo "[naia] image-info.json updated: image-ref → ghcr.io/nextain/naia-os:latest"
+fi
+
+# ==============================================================================
+# 2d. ostreecontainer kickstart + post-scripts (原本 titanoboa 패턴)
+#     This is the CORE of the installation flow. Without this, Anaconda
+#     falls back to rsync (LiveImagePayload) which doesn't handle boot setup.
+# ==============================================================================
+
+# Variables from image-info.json (MUST exist — BlueBuild bakes this into the image)
+if [ ! -f "$IMAGE_INFO" ]; then
+    echo "[naia] FATAL: $IMAGE_INFO not found. Cannot configure ostreecontainer." >&2
+    exit 1
+fi
+imageref="$(jq -r '."image-ref"' < "$IMAGE_INFO")"
+imageref="${imageref##*://}"
+imagetag="$(jq -r 'if ."image-branch" then ."image-branch" else ."image-tag" end' < "$IMAGE_INFO")"
+
+# Secureboot key (store in persistent path, not /run/ which is tmpfs)
+sbkey='https://github.com/ublue-os/akmods/raw/main/certs/public_key.der'
+mkdir -p /usr/share/ublue-os
+curl -Lo /usr/share/ublue-os/sb_pubkey.der "$sbkey" || echo "[naia] WARNING: secureboot key download failed"
+
+# Default Kickstart — ostreecontainer transport
+cat <<EOF >>/usr/share/anaconda/interactive-defaults.ks
+ostreecontainer --url=$imageref:$imagetag --transport=containers-storage --no-signature-verification
+%include /usr/share/anaconda/post-scripts/install-configure-upgrade.ks
+%include /usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
+%include /usr/share/anaconda/post-scripts/install-flatpaks.ks
+%include /usr/share/anaconda/post-scripts/flatpak-restore-selinux-labels.ks
+%include /usr/share/anaconda/post-scripts/secureboot-enroll-key.ks
+EOF
+echo "[naia] interactive-defaults.ks: ostreecontainer + post-scripts"
+
+# Post-script: set signed image reference (no network needed)
+# bootc switch --transport registry requires network, which may not be available.
+# Instead, directly update the ostree origin file (same approach as Bazzite production).
+mkdir -p /usr/share/anaconda/post-scripts
+cat <<EOF >>/usr/share/anaconda/post-scripts/install-configure-upgrade.ks
+%post --erroronfail
+sed -i 's|container-image-reference=.*|container-image-reference=ostree-image-signed:docker://$imageref:$imagetag|' /ostree/deploy/default/deploy/*.origin
+%end
+EOF
+
+# Post-script: enroll secureboot key
+cat <<EOF >>/usr/share/anaconda/post-scripts/secureboot-enroll-key.ks
+%post --erroronfail --nochroot
+set -oue pipefail
+
+readonly ENROLLMENT_PASSWORD="universalblue"
+readonly SECUREBOOT_KEY="/usr/share/ublue-os/sb_pubkey.der"
+
+if [[ ! -d "/sys/firmware/efi" ]]; then
+	echo "EFI mode not detected. Skipping key enrollment."
+	exit 0
+fi
+
+if [[ ! -f "\$SECUREBOOT_KEY" ]]; then
+	echo "Secure boot key not provided: \$SECUREBOOT_KEY"
+	exit 0
+fi
+
+SYS_ID="\$(cat /sys/devices/virtual/dmi/id/product_name)"
+if [[ ":Jupiter:Galileo:" =~ ":\$SYS_ID:" ]]; then
+	echo "Steam Deck hardware detected. Skipping key enrollment."
+	exit 0
+fi
+
+mokutil --timeout -1 || :
+echo -e "\$ENROLLMENT_PASSWORD\n\$ENROLLMENT_PASSWORD" | mokutil --import "\$SECUREBOOT_KEY" || :
+%end
+EOF
+
+# Post-script: copy flatpaks to installed system (ostree deploy path)
+cat <<'EOF' >>/usr/share/anaconda/post-scripts/install-flatpaks.ks
+%post --erroronfail --nochroot
+deployment="$(ostree rev-parse --repo=/mnt/sysimage/ostree/repo ostree/0/1/0)"
+target="/mnt/sysimage/ostree/deploy/default/deploy/$deployment.0/var/lib/"
+mkdir -p "$target"
+rsync -aAXUHKP /var/lib/flatpak "$target"
+%end
+EOF
+
+# Post-script: restore SELinux labels on rsync'd flatpak data
+cat <<EOF >>/usr/share/anaconda/post-scripts/flatpak-restore-selinux-labels.ks
+%post --erroronfail
+chcon -R -t var_lib_t /var/lib/flatpak
+%end
+EOF
+
+# Post-script: disable fedora flatpak repo
+cat <<EOF >>/usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
+%post --erroronfail
+systemctl disable flatpak-add-fedora-repos.service
+%end
+EOF
+
+# Anaconda payload config: use flathub
+cat <<EOF >>/etc/anaconda/conf.d/anaconda.conf
+[Payload]
+flatpak_remote = flathub https://dl.flathub.org/repo/
+EOF
+
+echo "[naia] ostreecontainer flow configured (kickstart + 5 post-scripts + payload)"
 
 # ==============================================================================
 # 3. Anaconda pre-install cleanup wrapper
 #    Stop Naia Shell, OpenClaw Gateway, and other runtime processes before
-#    Anaconda's rsync copies the live filesystem. Running processes create
-#    transient files (sockets, PID files, locks) that vanish during rsync,
-#    causing exit code 23 (partial transfer).
+#    Anaconda starts. Cleans up transient files (sockets, PID files, locks).
 # ==============================================================================
 
 cat > /usr/libexec/naia-liveinst-wrapper.sh <<'WRAPPER'
@@ -116,156 +269,82 @@ if [ -f "$ANACONDA_DESKTOP2" ]; then
     sed -i 's|Exec=.*liveinst.*|Exec=/usr/libexec/naia-liveinst-wrapper.sh|' "$ANACONDA_DESKTOP2"
 fi
 
+# Polkit: auto-approve liveuser for pkexec (liveinst needs root elevation)
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/99-liveinst.rules <<'POLKIT'
+polkit.addRule(function(action, subject) {
+    if (subject.user == "liveuser") {
+        return polkit.Result.YES;
+    }
+});
+POLKIT
+
 # ==============================================================================
-# 3-ost. Anaconda ostreecontainer kickstart (Bazzite upstream 방식)
-#        Generates interactive-defaults.ks with ostreecontainer directive and
-#        post-scripts for bootc switch, flatpak install, and Fedora flatpak disable.
-#        Reference: titanoboa/.github/workflows/ci_dummy_hook_postrootfs.sh
+# 3g. Plymouth + start-here icon branding
+#     Replace Bazzite spinner watermark and set naia Plymouth theme.
+#     NOTE: dracut cannot run in podman --rootfs (xattr unsupported) and the
+#     live boot initramfs is built before this hook. Plymouth config files
+#     are set here; the installed system gets its own initramfs via bootc switch.
 # ==============================================================================
 
-# Image reference for ostreecontainer
-NAIA_IMAGE_REF="ghcr.io/nextain/naia-os"
-NAIA_IMAGE_TAG="latest"
+echo "[naia] Setting Plymouth theme to 'naia'..."
 
-# Try to read from image-info.json (only if it's a Naia image, not Bazzite base)
-if [ -f /usr/share/ublue-os/image-info.json ]; then
-    _name="$(jq -r '."image-name" // empty' /usr/share/ublue-os/image-info.json)"
-    if [[ "$_name" == *naia* ]]; then
-        _ref="$(jq -r '."image-ref" // empty' /usr/share/ublue-os/image-info.json)"
-        _tag="$(jq -r 'if ."image-branch" then ."image-branch" else ."image-tag" end // empty' /usr/share/ublue-os/image-info.json)"
-        if [ -n "$_ref" ]; then
-            NAIA_IMAGE_REF="${_ref##*://}"
-        fi
-        if [ -n "$_tag" ]; then
-            NAIA_IMAGE_TAG="$_tag"
-        fi
+# Replace Bazzite spinner watermark with Naia text logo
+if [ -f "${SRC}/assets/logos/text-mix-naia-logo.png" ]; then
+    # Resize to spinner watermark size (~149x43) for compatibility
+    if command -v rsvg-convert &>/dev/null || command -v convert &>/dev/null; then
+        convert "${SRC}/assets/logos/text-mix-naia-logo.png" \
+            -resize 149x43 -background none -gravity center -extent 149x43 \
+            /usr/share/plymouth/themes/spinner/watermark.png 2>/dev/null || \
+        cp "${SRC}/assets/logos/text-mix-naia-logo.png" \
+            /usr/share/plymouth/themes/spinner/watermark.png
     else
-        echo "[naia] image-info.json has non-Naia image ('$_name'), using default ref"
+        cp "${SRC}/assets/logos/text-mix-naia-logo.png" \
+            /usr/share/plymouth/themes/spinner/watermark.png
     fi
+    echo "[naia] Replaced spinner watermark with Naia logo"
 fi
 
-echo "[naia] Image ref: ${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG}"
-
-# interactive-defaults.ks — Anaconda uses this for default installation settings
-mkdir -p /usr/share/anaconda/post-scripts
-cat <<EOF >>/usr/share/anaconda/interactive-defaults.ks
-ostreecontainer --url=${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG} --transport=containers-storage --no-signature-verification
-%include /usr/share/anaconda/post-scripts/install-configure-upgrade.ks
-%include /usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
-%include /usr/share/anaconda/post-scripts/install-flatpaks.ks
-%include /usr/share/anaconda/post-scripts/install-naia-customizations.ks
-EOF
-
-# Post-install: bootc switch to registry-based updates
-cat <<EOF >/usr/share/anaconda/post-scripts/install-configure-upgrade.ks
-%post --erroronfail
-bootc switch --mutate-in-place --transport registry ${NAIA_IMAGE_REF}:${NAIA_IMAGE_TAG}
-%end
-EOF
-
-# Install flatpaks to ostree deployment path
-cat <<'EOF' >/usr/share/anaconda/post-scripts/install-flatpaks.ks
-%post --erroronfail --nochroot
-deployment="$(ostree rev-parse --repo=/mnt/sysimage/ostree/repo ostree/0/1/0)"
-target="/mnt/sysimage/ostree/deploy/default/deploy/$deployment.0/var/lib/"
-mkdir -p "$target"
-rsync -aAXUHKP /var/lib/flatpak "$target"
-%end
-EOF
-
-# Disable Fedora flatpak repo
-cat <<EOF >/usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
-%post --erroronfail
-systemctl disable flatpak-add-fedora-repos.service
-%end
-EOF
-
-# Copy Naia customizations (Plasma scripts, wallpaper, configs) to installed system
-# --nochroot: live rootfs = /, installed system = /mnt/sysimage
-cat <<'CUSTEOF' >/usr/share/anaconda/post-scripts/install-naia-customizations.ks
-%post --nochroot --log=/mnt/sysimage/var/log/naia-customizations.log
-set -x
-SYSROOT="/mnt/sysimage"
-
-# Find the ostree deployment root
-DEPLOY_ROOT=""
-if [ -d "$SYSROOT/ostree/deploy" ]; then
-    DEPLOY_ROOT="$(ls -d "$SYSROOT"/ostree/deploy/*/deploy/*.0 2>/dev/null | head -1)"
-fi
-# Fallback to sysroot itself (non-ostree or flat layout)
-TARGET="${DEPLOY_ROOT:-$SYSROOT}"
-
-echo "[naia] Customization target: $TARGET"
-
-# 1. Plasma update scripts (taskbar pins, wallpaper)
-PLASMA_UPDATES="$TARGET/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates"
-mkdir -p "$PLASMA_UPDATES"
-for f in naia-pins.js naia-wallpaper.js; do
-    src="/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/$f"
-    if [ -f "$src" ]; then
-        cp "$src" "$PLASMA_UPDATES/$f"
-        echo "[naia] Copied $f"
-    fi
-done
-
-# 2. Wallpaper image
-mkdir -p "$TARGET/usr/share/wallpapers"
-if [ -f /usr/share/wallpapers/naia-live.jpg ]; then
-    cp /usr/share/wallpapers/naia-live.jpg "$TARGET/usr/share/wallpapers/naia-live.jpg"
-    echo "[naia] Copied wallpaper"
+# Install start-here icon (Kickoff app launcher) to hicolor theme
+if [ -f "${SRC}/assets/installer/start-here.svg" ]; then
+    cp "${SRC}/assets/installer/start-here.svg" \
+        /usr/share/icons/hicolor/scalable/apps/start-here.svg
+    for size in 16 22 24 32 48 64 128 256; do
+        dst="/usr/share/icons/hicolor/${size}x${size}/apps/start-here.png"
+        mkdir -p "$(dirname "$dst")"
+        if command -v rsvg-convert &>/dev/null; then
+            rsvg-convert -w "$size" -h "$size" \
+                "${SRC}/assets/installer/start-here.svg" -o "$dst" 2>/dev/null || true
+        elif command -v convert &>/dev/null; then
+            convert "${SRC}/assets/installer/start-here.svg" \
+                -resize "${size}x${size}" "$dst" 2>/dev/null || true
+        fi
+    done
+    # Rebuild icon cache
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+    echo "[naia] Installed start-here icon to hicolor theme"
 fi
 
-# 3. Kickoff favorites
-if [ -f /etc/xdg/kicker-extra-favoritesrc ]; then
-    mkdir -p "$TARGET/etc/xdg"
-    cp /etc/xdg/kicker-extra-favoritesrc "$TARGET/etc/xdg/kicker-extra-favoritesrc"
-    echo "[naia] Copied kickoff favorites"
-fi
+# Set default theme via plymouthd.conf (more reliable than plymouth-set-default-theme
+# which may not persist in all build contexts)
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf <<'PLYMOUTHCONF'
+[Daemon]
+Theme=naia
+ShowDelay=0
+PLYMOUTHCONF
 
-# 4. Fcitx5 Korean input setup
-for f in /etc/xdg/autostart/naia-fcitx5-setup.desktop \
-         /usr/etc/xdg/autostart/naia-fcitx5-setup.desktop; do
-    if [ -f "$f" ]; then
-        mkdir -p "$TARGET/etc/xdg/autostart"
-        cp "$f" "$TARGET/etc/xdg/autostart/naia-fcitx5-setup.desktop"
-        echo "[naia] Copied fcitx5 setup"
-        break
-    fi
-done
+# Also run the official command as belt-and-suspenders
+plymouth-set-default-theme naia 2>/dev/null || true
 
-# 5. Fcitx5 environment variables
-if [ -f /etc/environment.d/50-naia-fcitx5.conf ]; then
-    mkdir -p "$TARGET/etc/environment.d"
-    cp /etc/environment.d/50-naia-fcitx5.conf "$TARGET/etc/environment.d/50-naia-fcitx5.conf"
-    echo "[naia] Copied fcitx5 env vars"
-fi
+echo "[naia] Plymouth theme set to 'naia'"
 
-# 6. Login/lock screen background + SDDM config
-if [ -f /usr/share/wallpapers/naia-login.jpg ]; then
-    mkdir -p "$TARGET/usr/share/wallpapers"
-    cp /usr/share/wallpapers/naia-login.jpg "$TARGET/usr/share/wallpapers/naia-login.jpg"
-    echo "[naia] Copied login background"
-fi
-if [ -f /etc/sddm.conf.d/naia-background.conf ]; then
-    mkdir -p "$TARGET/etc/sddm.conf.d"
-    cp /etc/sddm.conf.d/naia-background.conf "$TARGET/etc/sddm.conf.d/naia-background.conf"
-    echo "[naia] Copied SDDM config"
-fi
-if [ -f /etc/xdg/kscreenlockerrc ]; then
-    mkdir -p "$TARGET/etc/xdg"
-    cp /etc/xdg/kscreenlockerrc "$TARGET/etc/xdg/kscreenlockerrc"
-    echo "[naia] Copied lock screen config"
-fi
+# ==============================================================================
+# 3h. Remove Steam autostart (inherited from Bazzite gaming defaults)
+# ==============================================================================
 
-echo "[naia] Customizations installed successfully"
-%end
-CUSTEOF
-
-# Anaconda payload config
-cat <<EOF >>/etc/anaconda/conf.d/anaconda.conf
-[Payload]
-flatpak_remote = flathub https://dl.flathub.org/repo/
-EOF
+rm -f /etc/skel/.config/autostart/steam.desktop
+echo "[naia] Removed Steam autostart from skel"
 
 # ==============================================================================
 # 4. Live session — KDE taskbar pins (Plasma update script)
@@ -282,31 +361,11 @@ for (var i = 0; i < allPanels.length; ++i) {
         var widget = widgets[j];
         if (widget.type === "org.kde.plasma.icontasks") {
             widget.currentConfigGroup = ["General"];
-            var existing = widget.readConfig("launchers", []);
-            // Bazzite defaults (from main.xml) — used if no config written yet
-            if (!existing || existing.length === 0) {
-                existing = [
-                    "preferred://browser",
-                    "applications:steam.desktop",
-                    "applications:net.lutris.Lutris.desktop",
-                    "applications:org.gnome.Ptyxis.desktop",
-                    "applications:io.github.kolunmi.Bazaar.desktop",
-                    "preferred://filemanager"
-                ];
-            }
-            var prepend = [
-                "applications:io.nextain.naia.desktop"
-            ];
-            // Deduplicate: remove prepend items from existing if already there
-            var filtered = [];
-            for (var k = 0; k < existing.length; k++) {
-                var dominated = false;
-                for (var m = 0; m < prepend.length; m++) {
-                    if (existing[k] === prepend[m]) { dominated = true; break; }
-                }
-                if (!dominated) filtered.push(existing[k]);
-            }
-            widget.writeConfig("launchers", prepend.concat(filtered));
+            widget.writeConfig("launchers", [
+                "applications:io.nextain.naia.desktop",
+                "preferred://browser",
+                "preferred://filemanager"
+            ]);
             widget.reloadConfig();
         }
         // Replace Bazzite "B" icon on Kickoff (app launcher) with Naia start-here
@@ -326,7 +385,7 @@ JSEOF
 mkdir -p /etc/xdg
 cat > /etc/xdg/kicker-extra-favoritesrc <<'EOF'
 [General]
-Prepend=io.nextain.naia.desktop;
+Prepend=io.nextain.naia.desktop;firefox.desktop;com.discordapp.Discord.desktop;
 IgnoreDefaults=false
 EOF
 
@@ -358,11 +417,20 @@ Layout=
 EOF
 
 # KDE Wayland virtual keyboard → fcitx5 (system-wide)
-cat >> /etc/xdg/kwinrc <<'EOF'
+# Use kwriteconfig6 to avoid duplicate [Wayland] section
+if command -v kwriteconfig6 &>/dev/null; then
+    kwriteconfig6 --file /etc/xdg/kwinrc --group Wayland --key InputMethod \
+        /usr/share/applications/org.fcitx.Fcitx5.wayland.desktop
+else
+    # Fallback: append only if [Wayland] section doesn't exist
+    if ! grep -q '^\[Wayland\]' /etc/xdg/kwinrc 2>/dev/null; then
+        cat >> /etc/xdg/kwinrc <<'KWINEOF'
 
 [Wayland]
 InputMethod=/usr/share/applications/org.fcitx.Fcitx5.wayland.desktop
-EOF
+KWINEOF
+    fi
+fi
 
 # fcitx5 autostart for live session
 mkdir -p /etc/xdg/autostart
@@ -383,86 +451,6 @@ for (var i = 0; i < allDesktops.length; ++i) {
     d.writeConfig("Image", "file:///usr/share/wallpapers/naia-live.jpg");
 }
 JSEOF
-
-# ==============================================================================
-# 7b. Plymouth watermark + system icons — replace Bazzite with Naia
-# ==============================================================================
-
-# Plymouth watermark (horizontal logo below UEFI logo during boot)
-cp "${SRC}/assets/logos/text-mix-naia-logo.png" /usr/share/plymouth/themes/spinner/watermark.png
-
-# Install ImageMagick for icon resizing
-dnf install -y --setopt=install_weak_deps=False ImageMagick >/dev/null 2>&1 || true
-
-NAIA_LOGO="${SRC}/assets/logos/start-launcher-icon.png"
-
-# Replace all Bazzite/Fedora round logos in hicolor with Naia logo
-for size in 16 22 24 32 36 48 64 96 128 256; do
-    dir="/usr/share/icons/hicolor/${size}x${size}"
-    if [ -d "$dir" ]; then
-        magick "$NAIA_LOGO" -resize "${size}x${size}" /tmp/naia-icon-${size}.png 2>/dev/null || \
-            convert "$NAIA_LOGO" -resize "${size}x${size}" /tmp/naia-icon-${size}.png 2>/dev/null || continue
-        # Replace all logo variants
-        for target in \
-            "$dir/places/start-here.png" \
-            "$dir/apps/bazzite.png" \
-            "$dir/apps/fedora-logo-icon.png" \
-            "$dir/bazzite-logo-icon.png"; do
-            [ -f "$target" ] && cp /tmp/naia-icon-${size}.png "$target"
-        done
-        rm -f /tmp/naia-icon-${size}.png
-    fi
-done
-
-# Replace SVG logos
-for svg in \
-    /usr/share/icons/hicolor/scalable/places/start-here.svg \
-    /usr/share/icons/hicolor/scalable/places/distributor-logo.svg \
-    /usr/share/icons/hicolor/scalable/places/bazzite-logo.svg \
-    /usr/share/icons/hicolor/scalable/apps/start-here.svg; do
-    if [ -f "$svg" ]; then
-        magick "$NAIA_LOGO" /tmp/naia-logo.svg 2>/dev/null || \
-            convert "$NAIA_LOGO" /tmp/naia-logo.svg 2>/dev/null || continue
-        cp /tmp/naia-logo.svg "$svg"
-    fi
-done
-rm -f /tmp/naia-logo.svg
-
-# Rebuild icon cache — KDE uses cached icons, without this Bazzite icons persist
-if command -v gtk-update-icon-cache &>/dev/null; then
-    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-    echo "[naia] Icon cache rebuilt"
-fi
-
-# Rebuild initramfs with updated watermark
-KERNEL_VER="$(ls /lib/modules/ | sort -V | tail -1)"
-if [ -n "$KERNEL_VER" ]; then
-    dracut --force --kver "$KERNEL_VER" 2>/dev/null || echo "[naia] dracut skipped (will apply on installed system)"
-fi
-
-# ==============================================================================
-# 7c. Login/lock screen background (SDDM + kscreenlocker)
-# ==============================================================================
-
-cp "${SRC}/assets/installer/login-background.jpg" /usr/share/wallpapers/naia-login.jpg
-
-# SDDM login screen background
-mkdir -p /etc/sddm.conf.d
-cat > /etc/sddm.conf.d/naia-background.conf <<'EOF'
-[Theme]
-Current=breeze
-[General]
-[theme]
-background=/usr/share/wallpapers/naia-login.jpg
-EOF
-
-# KDE lock screen background (system-wide default)
-mkdir -p /etc/xdg
-cat >> /etc/xdg/kscreenlockerrc <<'EOF'
-[Greeter][Wallpaper][org.kde.image][General]
-Image=file:///usr/share/wallpapers/naia-login.jpg
-PreviewImage=file:///usr/share/wallpapers/naia-login.jpg
-EOF
 
 # ==============================================================================
 # 8. Live session — warning notification (data is ephemeral)
@@ -497,13 +485,6 @@ EOF
 
 NAIA_BUNDLE="/usr/share/naia/naia-shell.flatpak"
 
-# Override bundle from titanoboa /app mount (for local ISO builds with updated Flatpak)
-if [ -f /app/naia-shell-override.flatpak ]; then
-    echo "[naia] Flatpak bundle override found at /app/naia-shell-override.flatpak"
-    mkdir -p "$(dirname "${NAIA_BUNDLE}")"
-    cp /app/naia-shell-override.flatpak "${NAIA_BUNDLE}"
-fi
-
 if [ -f "${NAIA_BUNDLE}" ]; then
     echo "[naia] Installing Naia Shell Flatpak for live session..."
     # GNOME Platform runtime (Naia Shell dependency)
@@ -522,7 +503,7 @@ fi
 
 mkdir -p /etc/NetworkManager/conf.d
 
-# Method 1: NetworkManager global DNS override
+# NetworkManager global DNS fallback (single method — NM manages resolv.conf)
 cat > /etc/NetworkManager/conf.d/99-naia-dns.conf <<'EOF'
 [global-dns]
 searches=
@@ -530,21 +511,6 @@ searches=
 [global-dns-domain-*]
 servers=8.8.8.8,1.1.1.1
 EOF
-
-# Method 2: Direct resolv.conf fallback (in case NM doesn't apply global-dns)
-cat > /etc/NetworkManager/dispatcher.d/99-naia-dns-fallback <<'DISPATCH'
-#!/usr/bin/env bash
-# If resolv.conf has no working nameserver, inject Google/Cloudflare DNS
-if ! grep -q '^nameserver' /etc/resolv.conf 2>/dev/null || \
-   ! timeout 2 getent hosts google.com &>/dev/null; then
-    echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" >> /etc/resolv.conf
-fi
-DISPATCH
-chmod +x /etc/NetworkManager/dispatcher.d/99-naia-dns-fallback
-
-# Method 3: Replace resolv.conf (may be a systemd-resolved symlink that breaks DNS)
-rm -f /etc/resolv.conf
-printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /etc/resolv.conf
 
 # ==============================================================================
 # 11. Wi-Fi power save off (Intel iwlwifi bug workaround)
@@ -597,7 +563,7 @@ cat > /etc/systemd/system/naia-expand-run.service <<'UNIT'
 Description=Expand /run tmpfs for Naia live session
 DefaultDependencies=no
 Before=display-manager.service liveinst-setup.service
-ConditionPathExists=/home/liveuser
+ConditionKernelCommandLine=rd.live.image
 
 [Service]
 Type=oneshot
