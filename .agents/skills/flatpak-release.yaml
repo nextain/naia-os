@@ -1,0 +1,70 @@
+description: Build, bundle, and upload Flatpak to GitHub Release
+trigger: "flatpak release, flatpak deploy, flatpak rebuild and upload"
+
+prerequisites:
+  - flatpak-builder installed
+  - "org.gnome.Platform//49 + org.gnome.Sdk//49"
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+  - gh CLI authenticated
+
+context_files:
+  - .agents/context/distribution.yaml
+
+constants:
+  app_id: io.nextain.naia
+  manifest: flatpak/io.nextain.naia.yml
+  bundle_name: Naia-Shell-x86_64.flatpak
+  github_repo: nextain/naia-os
+
+steps:
+  1_clean:
+    description: Remove previous build artifacts (keep .flatpak-builder cache)
+    command: "rm -rf flatpak-repo build-dir"
+    notes:
+      - ".flatpak-builder cache speeds up rebuilds (~5min vs ~15min)"
+      - "Add .flatpak-builder to rm if full clean needed"
+
+  2_build:
+    description: Build Flatpak using flatpak-builder
+    command: >
+      flatpak-builder --force-clean --disable-rofiles-fuse
+      --repo=flatpak-repo build-dir flatpak/io.nextain.naia.yml
+    duration: "5-15 min (cached vs clean)"
+    critical:
+      - "NEVER use cargo build --release (white screen bug)"
+      - "Manifest uses npx tauri build --no-bundle --config src-tauri/tauri.conf.flatpak.json"
+
+  3_bundle:
+    description: Create distributable .flatpak bundle
+    command: "flatpak build-bundle flatpak-repo Naia-Shell-x86_64.flatpak io.nextain.naia"
+
+  4_upload:
+    description: Upload bundle to GitHub Release
+    command: "gh release upload <tag> Naia-Shell-x86_64.flatpak --clobber"
+    notes:
+      - "Use latest release tag (check with: gh release list --limit 3)"
+      - "--clobber replaces existing file with same name"
+      - "Download page (naia.nextain.io/download) uses /latest/download/ URL — auto-updates"
+
+  5_verify:
+    description: Verify upload succeeded
+    commands:
+      - "gh release view <tag> --json assets -q '.assets[].name'"
+      - "curl -sIL https://github.com/nextain/naia-os/releases/latest/download/Naia-Shell-x86_64.flatpak | grep -E 'HTTP|content-length'"
+
+optional:
+  local_install_test:
+    description: Test locally before uploading
+    command: "bash scripts/flatpak-reinstall-and-run.sh"
+    notes: "MUST run on HOST terminal (not container/Claude Code terminal)"
+
+  version_bump:
+    files:
+      - flatpak/io.nextain.naia.metainfo.xml (release version + date)
+      - .agents/context/distribution.yaml (current_version)
+    notes: "Only bump for stable releases, not dev builds"
+
+  checksum:
+    command: "sha256sum Naia-Shell-x86_64.flatpak >> SHA256SUMS"
+    notes: "Upload SHA256SUMS alongside the bundle"
