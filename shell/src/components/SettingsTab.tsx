@@ -1935,12 +1935,15 @@ export function SettingsTab() {
 										<button
 											type="button"
 											className="settings-reset-btn"
-											onClick={() => {
+											onClick={async () => {
 												setLabKeyState("");
 												setLabUserIdState("");
 												setLabBalance(null);
 													setProvider("gemini");
 													setModel(getDefaultModel("gemini"));
+												setDiscordDefaultUserId("");
+												setDiscordDmChannelId("");
+												setDiscordDefaultTarget("");
 												setShowLabDisconnect(false);
 												const current = loadConfig();
 												if (current) {
@@ -1956,7 +1959,32 @@ export function SettingsTab() {
 																: current.model,
 														labKey: undefined,
 														labUserId: undefined,
+														discordDefaultUserId: undefined,
+														discordDmChannelId: undefined,
+														discordDefaultTarget: undefined,
 													});
+												}
+												// Sync cleared Discord config to Gateway
+												const updated = loadConfig();
+												if (updated) {
+													await syncToOpenClaw(
+														updated.provider || "gemini",
+														updated.model || getDefaultModel("gemini"),
+														updated.apiKey,
+														updated.persona,
+														updated.agentName,
+														updated.userName,
+														undefined,
+														updated.locale,
+														undefined, // discordDmChannelId cleared
+														undefined, // discordDefaultUserId cleared
+														updated.ttsProvider,
+														updated.ttsVoice,
+														undefined,
+														undefined,
+														undefined, // labKey cleared
+													);
+													await restartGateway();
 												}
 											}}
 										>
@@ -2090,12 +2118,15 @@ export function SettingsTab() {
 											<button
 												type="button"
 												className="settings-reset-btn"
-												onClick={() => {
+												onClick={async () => {
 													setLabKeyState("");
 													setLabUserIdState("");
 													setLabBalance(null);
 													setProvider("gemini");
 													setModel(getDefaultModel("gemini"));
+													setDiscordDefaultUserId("");
+													setDiscordDmChannelId("");
+													setDiscordDefaultTarget("");
 													setShowLabDisconnect(false);
 													const current = loadConfig();
 													if (current) {
@@ -2111,7 +2142,32 @@ export function SettingsTab() {
 																	: current.model,
 															labKey: undefined,
 															labUserId: undefined,
+															discordDefaultUserId: undefined,
+															discordDmChannelId: undefined,
+															discordDefaultTarget: undefined,
 														});
+													}
+													// Sync cleared Discord config to Gateway
+													const updated = loadConfig();
+													if (updated) {
+														await syncToOpenClaw(
+															updated.provider || "gemini",
+															updated.model || getDefaultModel("gemini"),
+															updated.apiKey,
+															updated.persona,
+															updated.agentName,
+															updated.userName,
+															undefined,
+															updated.locale,
+															undefined, // discordDmChannelId cleared
+															undefined, // discordDefaultUserId cleared
+															updated.ttsProvider,
+															updated.ttsVoice,
+															undefined,
+															undefined,
+															undefined, // labKey cleared
+														);
+														await restartGateway();
 													}
 												}}
 											>
