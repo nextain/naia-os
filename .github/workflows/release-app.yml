@@ -166,6 +166,7 @@ jobs:
         with:
           sparse-checkout: shell/src-tauri/tauri.conf.json
           sparse-checkout-cone-mode: false
+          path: _src
 
       - name: Determine version
         id: version
@@ -181,7 +182,7 @@ jobs:
             fi
             echo "tag=${INPUT_VERSION}" >> "$GITHUB_OUTPUT"
           else
-            APP_VERSION=$(grep -o '"version": *"[^"]*"' shell/src-tauri/tauri.conf.json | head -1 | cut -d'"' -f4)
+            APP_VERSION=$(grep -o '"version": *"[^"]*"' _src/shell/src-tauri/tauri.conf.json | head -1 | cut -d'"' -f4)
             echo "tag=v${APP_VERSION}-dev.$(date +%Y%m%d)-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
