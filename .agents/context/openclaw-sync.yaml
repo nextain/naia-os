@@ -10,6 +10,10 @@ trigger_points:
   - Settings save (SettingsTab.handleSave)
   - Onboarding complete (OnboardingWizard.handleComplete)
   - Lab auth callback (lab_auth_complete event)
+  - App startup (session load useEffect in ChatPanel)
+  - After session summarization (summarizePreviousSession)
+  - After auto fact extraction (every 10 messages / visibilitychange)
+  - After reverse sync from OpenClaw memory files
 
 sync_items:
   - target: openclaw.json
@@ -33,7 +37,12 @@ sync_items:
       - Persona text (with name substitution)
       - Emotion tag instructions
       - User name context
-      - Recent memory summaries (when available at build time)
+      - Known facts about the user (from Shell facts DB)
+      - Language/locale instructions
+    note: >
+      syncToOpenClaw() is self-contained — always loads config + facts internally.
+      Caller's _systemPrompt parameter is ignored. This ensures ALL sync paths
+      (settings, startup, auto-extraction) include facts consistently.
 
   - target: IDENTITY.md
     content: "agentName value"
@@ -42,11 +51,15 @@ sync_items:
     content: "userName value"
 
 key_files:
-  - shell/src/lib/openclaw-sync.ts          # syncToOpenClaw()
+  - shell/src/lib/openclaw-sync.ts          # syncToOpenClaw() — self-contained
+  - shell/src/lib/memory-sync.ts            # reverse sync (OpenClaw → Shell facts)
+  - shell/src/lib/memory-processor.ts       # extractFacts(), summarizeSession()
   - shell/src/lib/persona.ts                # buildSystemPrompt()
+  - shell/src/lib/db.ts                     # getAllFacts(), upsertFact()
+  - shell/src/components/ChatPanel.tsx       # auto-extraction triggers
   - shell/src/components/SettingsTab.tsx     # handleSave trigger
   - shell/src/components/OnboardingWizard.tsx # handleComplete trigger
-  - shell/src-tauri/src/lib.rs              # sync_openclaw_config Tauri command
+  - shell/src-tauri/src/lib.rs              # sync_openclaw_config, read_openclaw_memory_files
 
 chat_routing:
   description: Chat messages can be routed through Gateway for unified sessions
@@ -80,6 +93,48 @@ session_sot:
     - shell/src/lib/db.ts                # Facts-only (shrunk from ~230 to ~35 lines)
     - shell/src-tauri/src/memory.rs      # Facts-only (shrunk from ~1230 to ~160 lines)
 
+memory_sync:
+  description: >
+    Dual-origin memory architecture: Shell owns facts (who the user is),
+    OpenClaw owns sessions (what happened). Memory sync bridges both.
+
+  shell_to_openclaw:
+    description: Facts are injected into SOUL.md via syncToOpenClaw()
+    flow: getAllFacts() → buildSystemPrompt(facts) → sync_openclaw_config(persona)
+    triggers:
+      - App startup
+      - Settings save
+      - After session summarization
+      - After auto fact extraction (every 10 messages)
+      - After visibilitychange (app background, 3+ unextracted messages)
+      - After reverse sync extracts new facts
+
+  auto_extraction:
+    description: >
+      Lightweight fact extraction during conversation without full summarization.
+      Uses extractFacts() only (no summarizeSession()).
+    triggers:
+      - Every 10 new messages (usage chunk handler)
+      - App goes to background (visibilitychange, threshold 3 messages)
+    tracking: lastExtractedIdx ref in ChatPanel (reset on remount)
+    file: shell/src/components/ChatPanel.tsx
+
+  openclaw_to_shell:
+    description: >
+      Reverse sync: reads OpenClaw workspace/memory/*.md files,
+      extracts facts via LLM, upserts into Shell facts DB.
+    flow: read_openclaw_memory_files(since_ms) → extractFacts() → upsertFact() → syncToOpenClaw()
+    schedule: 5s after app start, then every 30 minutes
+    file: shell/src/lib/memory-sync.ts
+    rust_command: read_openclaw_memory_files (reads ~/.openclaw/workspace/memory/*.md)
+
+  session_memory_hook:
+    description: >
+      OpenClaw internal hook that saves conversations to workspace/memory/*.md.
+      Enabled via bootstrap config and ensure_openclaw_config() patches.
+    config_path: hooks.internal.entries.session-memory.enabled = true
+    sot: config/defaults/openclaw-bootstrap.json
+
 bootstrap:
   description: >
     First-launch config creation for Flatpak/ISO installs where install-gateway.sh
@@ -99,6 +154,9 @@ bootstrap:
     - gateway.auth.mode: "token"
     - gateway.reload.mode: "off"  # Prevent file-watcher race conditions
     - agents.defaults.workspace: "~/.openclaw/workspace"
+    - session.dmScope: "per-channel-peer"
+    - hooks.internal.enabled: true
+    - hooks.internal.entries.session-memory.enabled: true
 
 constraints:
   - OpenClaw source code is NOT modifiable

@@ -12,7 +12,7 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
-import { restartGateway } from "../lib/openclaw-sync";
+import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { isApiKeyOptional, isReadyToChat } from "../lib/config";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import {
@@ -28,6 +28,7 @@ import {
 import { getLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import { extractFacts, summarizeSession } from "../lib/memory-processor";
+import { startMemorySync } from "../lib/memory-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import { type VoiceSession, createVoiceSession } from "../lib/voice-session";
 import type {
@@ -151,9 +152,55 @@ async function summarizePreviousSession(
 					updated_at: now,
 				});
 			}
+			// Sync updated facts to SOUL.md so OpenClaw channels see them
+			if (rawFacts.length > 0) {
+				const cfg = loadConfig();
+				if (cfg) {
+					syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
+				}
+			}
 		}
 	} catch (err) {
 		Logger.warn("ChatPanel", "Background summarization failed", {
+			error: String(err),
+		});
+	}
+}
+
+/** Extract facts from recent messages without full summarization (lightweight). */
+async function extractRecentFacts(
+	messages: ChatMessage[],
+	apiKey: string,
+	provider: ProviderId,
+) {
+	try {
+		const rows = messages.map((m) => ({
+			role: m.role,
+			content: m.content,
+		}));
+		const rawFacts = await extractFacts(rows, "", apiKey, provider);
+		for (const f of rawFacts) {
+			const now = Date.now();
+			await upsertFact({
+				id: `fact-${f.key}-${now}`,
+				key: f.key,
+				value: f.value,
+				source_session: null,
+				created_at: now,
+				updated_at: now,
+			});
+		}
+		if (rawFacts.length > 0) {
+			const cfg = loadConfig();
+			if (cfg) {
+				syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
+			}
+			Logger.info("ChatPanel", "Auto-extracted facts from conversation", {
+				count: rawFacts.length,
+			});
+		}
+	} catch (err) {
+		Logger.warn("ChatPanel", "Auto fact extraction failed", {
 			error: String(err),
 		});
 	}
@@ -261,6 +308,7 @@ export function ChatPanel() {
 	const voiceSessionRef = useRef<VoiceSession | null>(null);
 	const micStreamRef = useRef<MicStream | null>(null);
 	const audioPlayerRef = useRef<AudioPlayer | null>(null);
+	const lastExtractedIdx = useRef(0);
 
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
@@ -316,6 +364,15 @@ export function ChatPanel() {
 		if (loadConfig()?.discordSessionMigrated) {
 			discoverAndPersistDiscordDmChannel().catch(() => {});
 		}
+
+		// Startup sync: ensure SOUL.md has latest facts for OpenClaw channels
+		const cfg = loadConfig();
+		if (cfg) {
+			syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
+		}
+
+		// Start periodic reverse sync: OpenClaw memory → Shell facts
+		startMemorySync();
 	}, []);
 
 	useEffect(() => {
@@ -558,7 +615,7 @@ export function ChatPanel() {
 					});
 				}
 				break;
-			case "usage":
+			case "usage": {
 				store.finishStreaming();
 				setEmotion("neutral");
 				store.addCostEntry({
@@ -568,7 +625,22 @@ export function ChatPanel() {
 					provider: activeProvider,
 					model: chunk.model,
 				});
+				// Auto-extract facts every 10 new messages
+				const allMsgs = useChatStore.getState().messages;
+				const unextracted = allMsgs.length - lastExtractedIdx.current;
+				if (unextracted >= 10) {
+					lastExtractedIdx.current = allMsgs.length;
+					const config = loadConfig();
+					if (config?.apiKey) {
+						extractRecentFacts(
+							allMsgs.slice(-unextracted),
+							config.apiKey,
+							config.provider || "gemini",
+						);
+					}
+				}
 				break;
+			}
 			case "finish":
 				if (store.isStreaming) {
 					store.finishStreaming();
@@ -653,6 +725,23 @@ export function ChatPanel() {
 			micStreamRef.current?.stop();
 			audioPlayerRef.current?.destroy();
 		};
+	}, []);
+
+	// Extract facts when app goes to background or closes
+	useEffect(() => {
+		function onVisibilityChange() {
+			if (document.visibilityState !== "hidden") return;
+			const allMsgs = useChatStore.getState().messages;
+			const unextracted = allMsgs.length - lastExtractedIdx.current;
+			if (unextracted < 3) return;
+			lastExtractedIdx.current = allMsgs.length;
+			const config = loadConfig();
+			if (config?.apiKey) {
+				extractRecentFacts(allMsgs.slice(-unextracted), config.apiKey, config.provider || "gemini");
+			}
+		}
+		document.addEventListener("visibilitychange", onVisibilityChange);
+		return () => document.removeEventListener("visibilitychange", onVisibilityChange);
 	}, []);
 
 	async function handleVoiceToggle() {

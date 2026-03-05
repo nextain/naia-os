@@ -12,6 +12,10 @@ Shell(Tauri 앱) 사용자 설정을 OpenClaw Gateway 부트스트랩 파일에 
 | Settings 저장 | `SettingsTab.tsx` | `handleSave()` |
 | Onboarding 완료 | `OnboardingWizard.tsx` | `handleComplete()` |
 | Lab 인증 콜백 | `SettingsTab.tsx` | `lab_auth_complete` listener |
+| 앱 시작 | `ChatPanel.tsx` | session load useEffect |
+| 세션 요약 후 | `ChatPanel.tsx` | `summarizePreviousSession()` |
+| 자동 fact 추출 후 | `ChatPanel.tsx` | 10 메시지마다 / visibilitychange |
+| 역방향 동기화 후 | `memory-sync.ts` | `syncFromOpenClawMemory()` |
 
 ## 동기화 항목
 
@@ -36,16 +40,56 @@ Shell provider를 OpenClaw provider 이름으로 매핑합니다.
 - 페르소나 원문 (이름 치환 적용됨)
 - Emotion tag 지시문
 - 사용자 이름 컨텍스트
-- 최근 메모리 요약 (빌드 시점 가용 시)
+- **사용자에 대해 알려진 사실 (Shell facts DB)**
+- 언어/로케일 지시문
+
+> **핵심**: `syncToOpenClaw()`는 self-contained — 항상 내부에서 config + facts를 로드합니다.
+> 호출자가 `_systemPrompt`를 전달해도 무시됩니다. 모든 동기화 경로에서 facts가 일관되게 포함됩니다.
 
 ### 4. `IDENTITY.md` / `USER.md`
 - 에이전트 이름, 사용자 이름
 
+## 메모리 동기화
+
+### Dual-Origin 아키텍처
+
+| 구분 | Shell | OpenClaw |
+|------|-------|----------|
+| 역할 | "사용자가 누구인지" (facts) | "무슨 일이 있었는지" (세션 기록) |
+| 저장소 | `memory.db` (SQLite, facts 테이블) | `workspace/memory/*.md` + `memory/main.sqlite` |
+
+### Shell → OpenClaw (facts → SOUL.md)
+
+facts DB의 내용을 SOUL.md에 주입하여 Discord DM 등 OpenClaw-only 경로에서도 사용자 정보 접근 가능.
+
+### 대화 중 자동 추출
+
+별도의 "새 대화" 클릭 없이, 대화 중 자동으로 facts 추출:
+- **10 메시지마다**: `usage` 청크 핸들러에서 트리거
+- **앱 백그라운드 시**: `visibilitychange` 이벤트, 미추출 3개 이상일 때
+- `extractFacts()`만 사용 (경량, 요약 없음)
+
+### OpenClaw → Shell (역방향 동기화)
+
+OpenClaw의 `session-memory` hook이 저장한 `workspace/memory/*.md` 파일을 읽어 facts 추출:
+- `read_openclaw_memory_files(since_ms)` Rust 커맨드로 파일 읽기
+- LLM으로 facts 추출 → `upsertFact()` → `syncToOpenClaw()`
+- 앱 시작 5초 후 + 30분 주기 실행
+
+### session-memory hook
+
+OpenClaw 내부 hook으로 대화 종료 시 `workspace/memory/*.md`에 자동 기록.
+`config/defaults/openclaw-bootstrap.json`에서 활성화됨.
+
 ## 핵심 파일
 
-- `shell/src/lib/openclaw-sync.ts` — `syncToOpenClaw()`
+- `shell/src/lib/openclaw-sync.ts` — `syncToOpenClaw()` (self-contained)
+- `shell/src/lib/memory-sync.ts` — 역방향 동기화 (OpenClaw → Shell)
+- `shell/src/lib/memory-processor.ts` — `extractFacts()`, `summarizeSession()`
 - `shell/src/lib/persona.ts` — `buildSystemPrompt()`
-- `shell/src-tauri/src/lib.rs` — `sync_openclaw_config` Tauri 커맨드
+- `shell/src/lib/db.ts` — `getAllFacts()`, `upsertFact()`
+- `shell/src/components/ChatPanel.tsx` — 자동 추출 트리거
+- `shell/src-tauri/src/lib.rs` — `sync_openclaw_config`, `read_openclaw_memory_files`
 
 ## 채팅 라우팅 모드
 

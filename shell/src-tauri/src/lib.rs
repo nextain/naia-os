@@ -492,6 +492,17 @@ fn load_bootstrap_config() -> serde_json::Value {
             "defaults": {
                 "workspace": "~/.openclaw/workspace"
             }
+        },
+        "session": {
+            "dmScope": "per-channel-peer"
+        },
+        "hooks": {
+            "internal": {
+                "enabled": true,
+                "entries": {
+                    "session-memory": { "enabled": true }
+                }
+            }
         }
     })
 }
@@ -521,7 +532,7 @@ fn ensure_openclaw_config(config_path: &str) {
         return;
     }
 
-    // Existing file: ensure gateway.mode and session.dmScope are set
+    // Existing file: ensure gateway.mode, session.dmScope, and hooks are set
     if let Ok(raw) = std::fs::read_to_string(path) {
         if let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&raw) {
             let needs_gw_patch = root
@@ -532,7 +543,12 @@ fn ensure_openclaw_config(config_path: &str) {
                 .get("session")
                 .and_then(|s| s.get("dmScope"))
                 .is_none();
-            if needs_gw_patch || needs_session_patch {
+            let needs_hooks_patch = root
+                .get("hooks")
+                .and_then(|h| h.get("internal"))
+                .and_then(|i| i.get("enabled"))
+                .is_none();
+            if needs_gw_patch || needs_session_patch || needs_hooks_patch {
                 if let Some(obj) = root.as_object_mut() {
                     let gw = obj
                         .entry("gateway")
@@ -550,9 +566,34 @@ fn ensure_openclaw_config(config_path: &str) {
                         session_obj.entry("dmScope")
                             .or_insert_with(|| serde_json::Value::String("per-channel-peer".to_string()));
                     }
+                    // Enable session-memory hook so conversations are saved to workspace/memory/
+                    let hooks = obj
+                        .entry("hooks")
+                        .or_insert_with(|| serde_json::json!({}));
+                    if let Some(hooks_obj) = hooks.as_object_mut() {
+                        let internal = hooks_obj
+                            .entry("internal")
+                            .or_insert_with(|| serde_json::json!({}));
+                        if let Some(internal_obj) = internal.as_object_mut() {
+                            internal_obj.entry("enabled")
+                                .or_insert_with(|| serde_json::Value::Bool(true));
+                            let entries = internal_obj
+                                .entry("entries")
+                                .or_insert_with(|| serde_json::json!({}));
+                            if let Some(entries_obj) = entries.as_object_mut() {
+                                let sm = entries_obj
+                                    .entry("session-memory")
+                                    .or_insert_with(|| serde_json::json!({}));
+                                if let Some(sm_obj) = sm.as_object_mut() {
+                                    sm_obj.entry("enabled")
+                                        .or_insert_with(|| serde_json::Value::Bool(true));
+                                }
+                            }
+                        }
+                    }
                     if let Ok(pretty) = serde_json::to_string_pretty(&root) {
                         match std::fs::write(path, pretty.as_bytes()) {
-                            Ok(_) => log_both("[Naia] Patched config (gateway.mode + session.dmScope)"),
+                            Ok(_) => log_both("[Naia] Patched config (gateway.mode + session.dmScope + hooks)"),
                             Err(e) => log_both(&format!("[Naia] ERROR: Failed to patch config {}: {}", config_path, e)),
                         }
                     }
@@ -1251,6 +1292,45 @@ async fn memory_delete_fact(
     state: tauri::State<'_, MemoryState>,
 ) -> Result<(), String> {
     memory::delete_fact(&state.db, &fact_id)
+}
+
+/// Read OpenClaw workspace memory files modified after a given timestamp.
+/// Returns Vec<(filename, content, mtime_ms)> for fact extraction.
+#[tauri::command]
+async fn read_openclaw_memory_files(since_ms: u64) -> Result<Vec<(String, String, u64)>, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let memory_dir = format!("{}/.openclaw/workspace/memory", home);
+    let dir = std::path::Path::new(&memory_dir);
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut results = Vec::new();
+    let entries = std::fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read memory dir: {}", e))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+        let meta = std::fs::metadata(&path)
+            .map_err(|e| format!("Failed to stat {:?}: {}", path, e))?;
+        let mtime = meta.modified()
+            .map_err(|e| format!("Failed to get mtime {:?}: {}", path, e))?
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if mtime <= since_ms {
+            continue;
+        }
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {:?}: {}", path, e))?;
+        let filename = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+        results.push((filename, content, mtime));
+    }
+    Ok(results)
 }
 
 /// Validate an API key by making a test request to the provider
@@ -2137,6 +2217,7 @@ pub fn run() {
             memory_get_all_facts,
             memory_upsert_fact,
             memory_delete_fact,
+            read_openclaw_memory_files,
             validate_api_key,
             generate_oauth_state,
             read_local_binary,
