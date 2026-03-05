@@ -315,12 +315,11 @@ export function toggleSkill(skillName: string): void {
 	if (!config) return;
 	const disabled = config.disabledSkills ?? [];
 	const idx = disabled.indexOf(skillName);
-	if (idx >= 0) {
-		disabled.splice(idx, 1);
-	} else {
-		disabled.push(skillName);
-	}
-	saveConfig({ ...config, disabledSkills: disabled });
+	const next =
+		idx >= 0
+			? [...disabled.slice(0, idx), ...disabled.slice(idx + 1)]
+			: [...disabled, skillName];
+	saveConfig({ ...config, disabledSkills: next });
 }
 
 export function isToolAllowed(toolName: string): boolean {

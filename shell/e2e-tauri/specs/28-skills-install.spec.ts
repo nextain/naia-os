@@ -61,6 +61,55 @@ describe("28 — skills install", () => {
 		// No install buttons = all skills eligible — valid state
 	});
 
+	it("should show install result feedback after clicking install", async () => {
+		const installBtnCount = await browser.execute(
+			(sel: string) => document.querySelectorAll(sel).length,
+			S.skillsInstallBtn,
+		);
+
+		if (installBtnCount > 0) {
+			// Click the first install button
+			await browser.execute((sel: string) => {
+				const btn = document.querySelector(sel) as HTMLButtonElement;
+				btn?.click();
+			}, S.skillsInstallBtn);
+
+			// Wait for install result feedback (success or error)
+			await browser.waitUntil(
+				async () => {
+					const successCount = await browser.execute(
+						(sel: string) => document.querySelectorAll(sel).length,
+						S.skillInstallResultSuccess,
+					);
+					const errorCount = await browser.execute(
+						(sel: string) => document.querySelectorAll(sel).length,
+						S.skillInstallResultError,
+					);
+					return successCount > 0 || errorCount > 0;
+				},
+				{
+					timeout: 30_000,
+					interval: 1_000,
+					timeoutMsg:
+						"Install result feedback did not appear within 30s",
+				},
+			);
+
+			// Verify feedback element has text content
+			const feedbackText = await browser.execute(
+				(successSel: string, errorSel: string) => {
+					const el =
+						document.querySelector(successSel) ||
+						document.querySelector(errorSel);
+					return el?.textContent?.trim() ?? "";
+				},
+				S.skillInstallResultSuccess,
+				S.skillInstallResultError,
+			);
+			expect(feedbackText.length).toBeGreaterThan(0);
+		}
+	});
+
 	it("should navigate back to chat tab", async () => {
 		const chatTabBtn = await $(S.chatTab);
 		await chatTabBtn.click();

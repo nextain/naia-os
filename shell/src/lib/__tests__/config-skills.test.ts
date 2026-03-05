@@ -87,4 +87,33 @@ describe("config disabledSkills helpers", () => {
 		const config = loadConfig();
 		expect(config?.disabledSkills).toEqual(["skill_test"]);
 	});
+
+	it("toggleSkill does not mutate the original array", () => {
+		saveConfig({
+			provider: "gemini",
+			model: "gemini-2.5-flash",
+			apiKey: "test-key",
+			disabledSkills: ["skill_a", "skill_b"],
+		});
+		const before = loadConfig()?.disabledSkills;
+		toggleSkill("skill_a");
+		const after = loadConfig()?.disabledSkills;
+		// The original saved array should not have been mutated
+		expect(before).toEqual(["skill_a", "skill_b"]);
+		expect(after).toEqual(["skill_b"]);
+	});
+
+	it("toggleSkill add does not mutate the original array", () => {
+		saveConfig({
+			provider: "gemini",
+			model: "gemini-2.5-flash",
+			apiKey: "test-key",
+			disabledSkills: ["skill_a"],
+		});
+		const before = loadConfig()?.disabledSkills;
+		toggleSkill("skill_new");
+		const after = loadConfig()?.disabledSkills;
+		expect(before).toEqual(["skill_a"]);
+		expect(after).toEqual(["skill_a", "skill_new"]);
+	});
 });

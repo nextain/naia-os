@@ -45,6 +45,7 @@ export interface ToolRequest {
 	args: Record<string, unknown>;
 	gatewayUrl?: string;
 	gatewayToken?: string;
+	disabledSkills?: string[];
 	slackWebhookUrl?: string;
 	discordWebhookUrl?: string;
 	googleChatWebhookUrl?: string;

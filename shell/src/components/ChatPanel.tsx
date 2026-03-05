@@ -84,8 +84,20 @@ const BUILTIN_SKILLS = new Set([
 	"skill_weather",
 	"skill_notify_slack",
 	"skill_notify_discord",
+	"skill_notify_google_chat",
 	"skill_naia_discord",
 	"skill_skill_manager",
+	"skill_agents",
+	"skill_approvals",
+	"skill_botmadang",
+	"skill_channels",
+	"skill_config",
+	"skill_cron",
+	"skill_device",
+	"skill_diagnostics",
+	"skill_sessions",
+	"skill_tts",
+	"skill_voicewake",
 ]);
 
 function sanitizeDisabledSkills(disabled?: string[]): string[] | undefined {

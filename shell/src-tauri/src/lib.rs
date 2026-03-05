@@ -1072,6 +1072,7 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
     let mut skills: Vec<SkillManifestInfo> = Vec::new();
 
     // Built-in skills (always present, cannot be disabled)
+    // Must match agent/src/gateway/tool-bridge.ts built-in registrations
     let builtins = [
         ("skill_time", "Get current date and time"),
         ("skill_system_status", "Get system status information"),
@@ -1079,7 +1080,20 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
         ("skill_weather", "Get weather information for a location"),
         ("skill_notify_slack", "Send a notification message to Slack via webhook"),
         ("skill_notify_discord", "Send a notification message to Discord via webhook"),
+        ("skill_notify_google_chat", "Send a notification message to Google Chat via webhook"),
         ("skill_skill_manager", "Manage skills: list, search, enable, disable"),
+        ("skill_agents", "Manage Gateway agents"),
+        ("skill_approvals", "Manage Gateway approval rules"),
+        ("skill_botmadang", "Connect with the Botmadang AI Agent community"),
+        ("skill_channels", "Manage messaging channels"),
+        ("skill_config", "Manage Gateway configuration"),
+        ("skill_cron", "Manage scheduled tasks"),
+        ("skill_device", "Manage Gateway nodes and device pairings"),
+        ("skill_diagnostics", "Gateway diagnostics and health checks"),
+        ("skill_naia_discord", "Send and receive Discord messages"),
+        ("skill_sessions", "Manage Gateway sub-agent sessions"),
+        ("skill_tts", "Manage Gateway TTS (Text-to-Speech)"),
+        ("skill_voicewake", "Manage voice wake triggers"),
     ];
     let mut seen_names: std::collections::HashSet<String> = std::collections::HashSet::new();
     for (name, desc) in &builtins {

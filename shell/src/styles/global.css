@@ -2833,6 +2833,23 @@ body.resizing-row {
 	cursor: not-allowed;
 }
 
+.skill-install-result {
+	font-size: 11px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	margin-top: 4px;
+}
+
+.skill-install-result.success {
+	color: #4caf50;
+	background: rgba(76, 175, 80, 0.1);
+}
+
+.skill-install-result.error {
+	color: #f44336;
+	background: rgba(244, 67, 54, 0.1);
+}
+
 .skills-gateway-loading {
 	text-align: center;
 	font-size: 11px;

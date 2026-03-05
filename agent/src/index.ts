@@ -667,6 +667,7 @@ export async function handleToolRequest(req: ToolRequest): Promise<void> {
 		args,
 		gatewayUrl,
 		gatewayToken,
+		disabledSkills,
 		slackWebhookUrl,
 		discordWebhookUrl,
 		googleChatWebhookUrl,
@@ -698,6 +699,7 @@ export async function handleToolRequest(req: ToolRequest): Promise<void> {
 		const result = await executeTool(gateway, toolName, args, {
 			writeLine,
 			requestId,
+			disabledSkills,
 		});
 
 		writeLine({
