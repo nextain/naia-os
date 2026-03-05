@@ -37,7 +37,12 @@ export function SkillsTab({
 
 	const [gatewaySkills, setGatewaySkills] = useState<GatewaySkillStatus[]>([]);
 	const [gatewayLoading, setGatewayLoading] = useState(false);
-	const [installingSkill, setInstallingSkill] = useState<string | null>(null);
+	const [installingSkills, setInstallingSkills] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const [installResults, setInstallResults] = useState<
+		Map<string, { success: boolean; message: string }>
+	>(() => new Map());
 
 	const fetchGatewayStatus = useCallback(async () => {
 		const config = loadConfig();
@@ -72,22 +77,52 @@ export function SkillsTab({
 			const gatewayUrl = resolveGatewayUrl(config);
 			if (!gatewayUrl) return;
 
-			setInstallingSkill(name);
+			setInstallingSkills((prev) => new Set(prev).add(name));
+			setInstallResults((prev) => {
+				const next = new Map(prev);
+				next.delete(name);
+				return next;
+			});
 			try {
-				await directToolCall({
+				const res = await directToolCall({
 					toolName: "skill_skill_manager",
 					args: { action: "install", skillName: name },
 					requestId: `gw-install-${Date.now()}`,
 					gatewayUrl,
 					gatewayToken: config?.gatewayToken,
 				});
-				fetchGatewayStatus();
+				if (res.success) {
+					setInstallResults((prev) =>
+						new Map(prev).set(name, {
+							success: true,
+							message: t("skills.installSuccess"),
+						}),
+					);
+				} else {
+					setInstallResults((prev) =>
+						new Map(prev).set(name, {
+							success: false,
+							message: res.output || t("skills.installFailed"),
+						}),
+					);
+				}
+				await fetchGatewayStatus();
 			} catch (err) {
 				Logger.warn("SkillsTab", "Failed to install skill", {
 					error: String(err),
 				});
+				setInstallResults((prev) =>
+					new Map(prev).set(name, {
+						success: false,
+						message: String(err),
+					}),
+				);
 			} finally {
-				setInstallingSkill(null);
+				setInstallingSkills((prev) => {
+					const next = new Set(prev);
+					next.delete(name);
+					return next;
+				});
 			}
 		},
 		[fetchGatewayStatus],
@@ -148,9 +183,8 @@ export function SkillsTab({
 	const customSkills = filtered.filter((s) => s.type !== "built-in");
 
 	const disabledSkills = getDisabledSkills();
-	const enabledCount = skills.filter(
-		(s) => !disabledSkills.includes(s.name),
-	).length;
+	const disabledSet = new Set(disabledSkills);
+	const enabledCount = skills.filter((s) => !disabledSet.has(s.name)).length;
 
 	if (isLoading) {
 		return (
@@ -276,16 +310,23 @@ export function SkillsTab({
 													type="button"
 													className="skills-install-btn"
 													data-testid="skills-install-btn"
-													disabled={installingSkill === gs.name}
+													disabled={installingSkills.has(gs.name)}
 													onClick={() => handleInstallSkill(gs.name)}
 												>
-													{installingSkill === gs.name
+													{installingSkills.has(gs.name)
 														? t("skills.installing")
 														: t("skills.install")}
 												</button>
 											)}
 										</div>
 									</div>
+									{installResults.has(gs.name) && (
+										<div
+											className={`skill-install-result ${installResults.get(gs.name)!.success ? "success" : "error"}`}
+										>
+											{installResults.get(gs.name)!.message}
+										</div>
+									)}
 									{gs.missing.length > 0 && (
 										<div className="skill-card-missing">
 											{t("skills.missing")}: {gs.missing.join(", ")}

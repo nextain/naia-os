@@ -84,6 +84,8 @@ export const S = {
 	skillsDisableAllBtn: ".skills-action-btn:last-child",
 	gatewaySkillCard: '[data-testid="gateway-skill-card"]',
 	skillsInstallBtn: '[data-testid="skills-install-btn"]',
+	skillInstallResultSuccess: ".skill-install-result.success",
+	skillInstallResultError: ".skill-install-result.error",
 
 	// Channels tab (5th tab)
 	channelsTabBtn: ".chat-tab:nth-child(5)",

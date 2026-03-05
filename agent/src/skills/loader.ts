@@ -187,9 +187,18 @@ async function delegateStreaming(
 	return new Promise<SkillResult>((resolve) => {
 		let settled = false;
 
+		const settle = (success: boolean) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			client.offEvent(handler);
+			resolve({ success, output: chunks.join("") || "(no response)" });
+		};
+
 		const timer = setTimeout(() => {
 			if (!settled) {
 				settled = true;
+				client.offEvent(handler);
 				resolve({
 					success: chunks.length > 0,
 					output: chunks.join("") || "Gateway agent timeout",
@@ -198,14 +207,7 @@ async function delegateStreaming(
 			}
 		}, AGENT_TIMEOUT_MS);
 
-		const settle = (success: boolean) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			resolve({ success, output: chunks.join("") || "(no response)" });
-		};
-
-		client.onEvent((event: GatewayEvent) => {
+		const handler = (event: GatewayEvent) => {
 			if (settled) return;
 			const payload = (event.payload ?? {}) as Record<string, unknown>;
 			if (payload.runId && payload.runId !== runId) return;
@@ -231,7 +233,9 @@ async function delegateStreaming(
 					settle(true);
 				}
 			}
-		});
+		};
+
+		client.onEvent(handler);
 	});
 }
 

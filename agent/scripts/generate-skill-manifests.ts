@@ -21,7 +21,28 @@ const OPENCLAW_SKILLS_DIR = path.join(
 const OUTPUT_DIR = path.join(os.homedir(), ".naia", "skills");
 
 /** Skills already ported as built-in (skip to avoid duplicates) */
-const SKIP_BUILT_IN = new Set(["time", "memo", "system_status"]);
+const SKIP_BUILT_IN = new Set([
+	"time",
+	"memo",
+	"system_status",
+	"weather",
+	"notify_slack",
+	"notify_discord",
+	"notify_google_chat",
+	"naia_discord",
+	"skill_manager",
+	"agents",
+	"approvals",
+	"botmadang",
+	"channels",
+	"config",
+	"cron",
+	"device",
+	"diagnostics",
+	"sessions",
+	"tts",
+	"voicewake",
+]);
 
 interface SkillFrontmatter {
 	name: string;

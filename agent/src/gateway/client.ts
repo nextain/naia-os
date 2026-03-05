@@ -264,6 +264,13 @@ export class GatewayClient {
 		this.eventHandlers.push(handler);
 	}
 
+	offEvent(handler: EventHandler): void {
+		const idx = this.eventHandlers.indexOf(handler);
+		if (idx >= 0) {
+			this.eventHandlers.splice(idx, 1);
+		}
+	}
+
 	close(): void {
 		if (this.ws) {
 			this.ws.close();
