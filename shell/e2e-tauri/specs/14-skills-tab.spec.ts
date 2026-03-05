@@ -1,11 +1,12 @@
 import { S } from "../helpers/selectors.js";
+import { clickBySelector, setNativeValue } from "../helpers/settings.js";
 
 /**
  * 14 — Skills Tab E2E
  *
  * Verifies the Skills management UI:
  * - Tab navigation works
- * - Skills are listed (at least 4 built-in)
+ * - Skills are listed (at least 20 built-in)
  * - Search filters work
  * - Toggle disable/enable works for custom skills
  * - Built-in skills cannot be toggled
@@ -14,7 +15,7 @@ describe("14 — skills tab", () => {
 	it("should navigate to Skills tab and show skills list", async () => {
 		const skillsTabBtn = await $(S.skillsTab);
 		await skillsTabBtn.waitForDisplayed({ timeout: 10_000 });
-		await skillsTabBtn.click();
+		await clickBySelector(S.skillsTab);
 
 		const skillsPanel = await $(S.skillsTabPanel);
 		await skillsPanel.waitForDisplayed({ timeout: 5_000 });
@@ -58,8 +59,8 @@ describe("14 — skills tab", () => {
 		const cardsBefore = await $$(S.skillsCard);
 		const countBefore = cardsBefore.length;
 
-		// Search for "time" — should show fewer results
-		await searchInput.setValue("time");
+		// Search for "time" — use JS native setter (WebDriver setValue unreliable in WebKitGTK)
+		await setNativeValue(S.skillsSearch, "time");
 		await browser.pause(300);
 
 		const cardsAfter = await $$(S.skillsCard);
@@ -67,7 +68,7 @@ describe("14 — skills tab", () => {
 		expect(cardsAfter.length).toBeGreaterThanOrEqual(1);
 
 		// Clear search
-		await searchInput.clearValue();
+		await setNativeValue(S.skillsSearch, "");
 		await browser.pause(300);
 	});
 
@@ -83,8 +84,7 @@ describe("14 — skills tab", () => {
 	});
 
 	it("should navigate back to chat tab", async () => {
-		const chatTabBtn = await $(S.chatTab);
-		await chatTabBtn.click();
+		await clickBySelector(S.chatTab);
 
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForDisplayed({ timeout: 5_000 });

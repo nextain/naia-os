@@ -1,4 +1,5 @@
 import { S } from "../helpers/selectors.js";
+import { clickBySelector } from "../helpers/settings.js";
 
 /**
  * 28 — Skills Install E2E
@@ -14,7 +15,7 @@ describe("28 — skills install", () => {
 	it("should navigate to Skills tab", async () => {
 		const skillsBtn = await $(S.skillsTab);
 		await skillsBtn.waitForDisplayed({ timeout: 10_000 });
-		await skillsBtn.click();
+		await clickBySelector(S.skillsTab);
 
 		const skillsPanel = await $(S.skillsTabPanel);
 		await skillsPanel.waitForDisplayed({ timeout: 5_000 });
@@ -111,8 +112,7 @@ describe("28 — skills install", () => {
 	});
 
 	it("should navigate back to chat tab", async () => {
-		const chatTabBtn = await $(S.chatTab);
-		await chatTabBtn.click();
+		await clickBySelector(S.chatTab);
 
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForDisplayed({ timeout: 5_000 });
