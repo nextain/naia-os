@@ -21,17 +21,17 @@ layers:
 
   - name: Plymouth Boot Splash
     when: After GRUB, before login screen
+    module: two-step (NOT script — plymouth-plugin-script is not installed)
     files:
-      - /usr/share/plymouth/themes/naia/naia.plymouth
-      - /usr/share/plymouth/themes/naia/naia.script
-      - /usr/share/plymouth/themes/naia/naia-splash.png (300x300 RGBA)
+      - /usr/share/plymouth/themes/naia/naia.plymouth (two-step config)
+      - /usr/share/plymouth/themes/spinner/watermark.png (Naia text logo, 149x43)
     config:
       - plymouth-set-default-theme naia
     script: config/scripts/branding.sh
-    critical: >
-      MUST run "dracut -f --regenerate-all" after setting the theme.
-      Without initrd rebuild, the Bazzite "B" logo persists in the boot image
-      because ostree-based systems bake Plymouth into initramfs.
+    note: >
+      Uses two-step module with spinner's animation/throbber images (ImageDir
+      points to spinner theme). Watermark is overridden via config/files.
+      dracut picks up the theme during ostree deployment initrd generation.
 
   - name: SDDM Login Screen
     when: Login prompt
