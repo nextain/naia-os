@@ -91,6 +91,9 @@ design_tips:
   naia_interface: "Deep Node dark mode default, Flow Cyan glow on agent Naia appearance/notifications"
   gradient_direction: "bottom-left (#2563EB) to top-right (#10B981), diagonal linear"
 
+persona_sot: "docs-nextain/05. 디자인/naia-persona.md"
+persona_note: "Persona, unified taglines, platform guidelines, and tone rules are defined in the SoT above. This file covers visual design and brand assets only."
+
 links:
   company: "https://about.nextain.io"
   portal: "https://naia.nextain.io"

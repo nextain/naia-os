@@ -65,7 +65,7 @@ testing_strategy:
     implementation: |
       podman run --rm ghcr.io/nextain/naia-os:latest bash -c '
         set -e
-        rpm -q fcitx5 fcitx5-hangul google-noto-sans-cjk-kr-fonts
+        rpm -q fcitx5 fcitx5-hangul google-noto-sans-cjk-vf-fonts
         grep -q "Naia" /usr/lib/os-release
         test -f /usr/share/naia/Naia-Shell-x86_64.flatpak
         ls /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/naia-*.js

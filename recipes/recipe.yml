@@ -14,7 +14,7 @@ modules:
       - fcitx5-configtool
       - fcitx5-gtk
       - fcitx5-qt
-      - google-noto-sans-cjk-kr-fonts
+      - google-noto-sans-cjk-vf-fonts
       # Utilities
       - jq
       - sqlite
