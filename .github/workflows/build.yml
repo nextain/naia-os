@@ -52,10 +52,15 @@ jobs:
         run: |
           podman run --rm ${{ env.IMAGE_REGISTRY }}/naia-os:latest bash -c '
             set -e
+            echo "=== Check: Korean input packages ==="
             rpm -q fcitx5 fcitx5-hangul google-noto-sans-cjk-vf-fonts
-            grep -q "Naia" /usr/lib/os-release
-            test -f /usr/share/naia/Naia-Shell-x86_64.flatpak
+            echo "=== Check: os-release branding ==="
+            grep "Naia" /usr/lib/os-release
+            echo "=== Check: Naia Shell flatpak bundle ==="
+            test -f /usr/share/naia/Naia-Shell-x86_64.flatpak && echo "OK" || { echo "MISSING: /usr/share/naia/Naia-Shell-x86_64.flatpak"; exit 1; }
+            echo "=== Check: Plasma update scripts ==="
             ls /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/naia-*.js
-            test -f /usr/etc/xdg/autostart/naia-shell.desktop
-            echo "ALL SMOKE TESTS PASSED"
+            echo "=== Check: autostart desktop entry ==="
+            test -f /usr/etc/xdg/autostart/naia-shell.desktop && echo "OK" || { echo "MISSING: /usr/etc/xdg/autostart/naia-shell.desktop"; exit 1; }
+            echo "=== ALL SMOKE TESTS PASSED ==="
           '
