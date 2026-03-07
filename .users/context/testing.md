@@ -1,0 +1,151 @@
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
+
+# Testing Strategy
+
+> SoT: `.agents/context/testing.yaml`
+
+## Philosophy
+
+Integration-first TDD. Test real I/O, not mocked internals.
+- Agent core: tested via stdio (pipe JSON in, assert JSON out)
+- Shell: tested via Tauri WebDriver (tauri-driver)
+- Gateway: tested via WebSocket client
+- OS: tested by booting in a VM
+
+## Frameworks
+
+| Type | Tool |
+|------|------|
+| Unit/integration | Vitest |
+| E2E (Shell) | @tauri-apps/cli (tauri-driver) + WebDriver |
+| E2E (OS) | QEMU VM boot (libvirt in CI) |
+| Rust | cargo test |
+| Mocking | msw (Mock Service Worker) |
+
+---
+
+## Agent Testing
+
+Spawn agent as child process, pipe stdin, assert stdout.
+
+**Unit** (`agent/src/**/__tests__/*.test.ts`): Tool permission checks, JSON protocol parsing, audit log format.
+
+**Integration** (`agent/tests/integration/*.test.ts`): Spawn agent-core with `--stdio`, write JSON to stdin, assert stdout. Examples: basic chat round-trip, tool call (file_read), permission denied (Tier 3), sub-agent spawn, streaming cancellation.
+
+**E2E** (`agent/tests/e2e/*.test.ts`): Full flow with real LLM API. CI skip (requires API key, nightly only).
+
+## Shell Testing
+
+**Unit** (`shell/src/**/__tests__/*.test.ts`): Chat message formatting, emotion extraction, permission prompt logic.
+
+**Component** (`shell/src/**/__tests__/*.test.ts`): testing-library (no real Tauri). Chat panel, permission modal, settings panel. Avatar 3D rendering is NOT component-tested (covered by E2E).
+
+**E2E Mock** (`shell/e2e/*.spec.ts`): Playwright with mocked Tauri IPC. Fast but no real binary or Gateway.
+
+**E2E Tauri** (`shell/e2e-tauri/specs/*.spec.ts`): Real Tauri app via WebdriverIO v9 + tauri-driver. Real LLM calls (Gemini), real Gateway, real skill execution.
+
+### E2E Tauri Prerequisites
+- `webkit2gtk-driver` (apt/dnf)
+- `cargo install tauri-driver --locked`
+- `shell/.env` with `GEMINI_API_KEY`
+- Gateway running on `:18789`
+- Debug binary: `cargo build -p naia-shell`
+
+### E2E Tauri Scenarios
+
+| Spec | What it tests |
+|------|---------------|
+| 01 App launch | Clear state -> settings modal displayed |
+| 02 Configure | Provider, API key, gateway URL/token, pre-approve tools |
+| 03 Basic chat | Send message -> streaming -> non-empty response |
+| 04 skill_time | Tool success or time pattern in response |
+| 05 skill_system | Tool success or MB/GB/memory pattern |
+| 06-07 skill_memo | Save + read + delete memo |
+| 14 Skills tab | 20+ skill cards, search filter, built-in no toggle |
+| 28 Skills install | Gateway cards, install buttons, feedback |
+
+### E2E Tauri Gotchas
+
+- **WebKitGTK click**: `element.click()` returns "unsupported operation". Use `browser.execute(() => el.click())` via `clickBySelector` helper.
+- **Stale elements**: WebKitGTK invalidates refs on React re-renders. Always use `browser.execute()` with fresh `querySelector()`.
+- **React input**: Set value via native property setter + `dispatchEvent('input')`. Wait 100ms, then click send.
+- **LLM nondeterminism**: Gemini may not always use tools. Use flexible assertions: tool-success element OR text pattern.
+
+### E2E Methodology
+
+- E2E must fail when AI response says feature unavailable.
+- Don't mark PASS from single UI signal if final AI message contradicts it.
+- Use semantic validation for assistant messages with explicit FAIL phrases.
+- Always inspect message traces when a spec passes unexpectedly.
+- Primary trace: `shell/e2e-tauri/.artifacts/ui-message-trace.ndjson`
+
+## Gateway Testing
+
+**Unit** (`gateway/src/**/__tests__/*.test.ts`): Message routing, skill matching, memory storage, vector search.
+
+**Integration** (`gateway/tests/integration/*.test.ts`): Start gateway on random port, connect WebSocket, send protocol messages. Examples: handshake, chat via gateway, skill invocation, memory recall.
+
+**Channel tests**: Mock channel SDKs (discord.js, gramm Y). No real bot tokens in CI.
+
+## OS Testing
+
+**Smoke** (`os/tests/smoke.sh`): Boot ISO in headless QEMU, SSH in, check systemd services, Node.js, desktop entry, `~/.naia/`.
+
+**CI**: GitHub Actions + QEMU. 5 min timeout. GPU-dependent tests skipped (manual verification).
+
+## CI Pipeline
+
+| Trigger | Steps |
+|---------|-------|
+| push | Biome lint, tsc --noEmit, agent/shell/gateway unit + integration, cargo test |
+| PR | above + Shell E2E (agent mocked), Gateway E2E |
+| main | above + BlueBuild image, OS smoke test (QEMU), ISO generation |
+| nightly | Agent E2E with real LLM, full OS E2E (VM boot + app + chat) |
+
+## Test Commands
+
+```bash
+pnpm test                              # All
+pnpm --filter agent test:unit          # Agent unit
+pnpm --filter agent test:integration   # Agent integration
+pnpm --filter shell test:unit          # Shell unit
+pnpm --filter shell test:component     # Shell component
+pnpm --filter shell test:e2e           # Shell E2E (mock)
+cd shell && pnpm run test:e2e:tauri    # Shell E2E (real Tauri)
+pnpm --filter gateway test:unit        # Gateway unit
+pnpm --filter gateway test:integration # Gateway integration
+bash os/tests/smoke.sh                 # OS smoke
+pnpm test:coverage                     # Coverage
+```
+
+## Mocking Strategy
+
+- **LLM API**: msw (Mock Service Worker) with fixture files in `agent/tests/fixtures/llm-responses/*.json`
+- **Channels**: Mock discord.js Client, gramm Y Bot. No real tokens in CI.
+- **Filesystem**: Temp directories (`os.tmpdir()`), cleanup after each test.
+- **Agent core for Shell**: Mock agent with `shell/tests/fixtures/mock-agent.js` (stdin/stdout fixture responses)
+
+## E2E Full-Flow Scenarios
+
+Cross-module tests:
+
+| Scenario | Flow | Covers |
+|----------|------|--------|
+| Boot -> Chat | VM boot -> auto-login -> Shell launches -> avatar renders -> chat | os -> shell -> agent -> LLM |
+| Tool execution | "create file" -> agent plans -> permission modal -> file created -> confirmed | shell -> agent -> tools -> fs -> audit |
+| Permission block | "delete /etc/hosts" -> Tier 3 block -> blocked message | agent -> security -> audit |
+| Crash recovery | Chat -> kill agent -> auto-restart -> chat again | shell -> agent (lifecycle) |
+| External channel | Discord DM -> Gateway routes -> agent responds -> Discord reply | gateway -> agent -> discord |
+| Game session | "join minecraft" -> connect -> "mine wood" -> bot mines | shell -> agent -> game (Phase 8) |
+
+## Demo Video
+
+Not a pass/fail test -- produces video artifact.
+- Location: `shell/e2e/demo-video.spec.ts`
+- Tool: Playwright with mocked Tauri IPC
+- Pipeline: Playwright recording -> TTS narration -> ffmpeg merge
+- Config: `.agents/context/demo-video.yaml`
+
+---
+
+*AI context: [.agents/context/testing.yaml](../../.agents/context/testing.yaml)*

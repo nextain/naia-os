@@ -200,11 +200,11 @@ pull_requests:
     - "Context files updated if architecture changed"
     - "No console.log/warn/error left in code"
     - "License headers present on new files"
-    - "AI attribution included (Assisted-by trailer)"
+    - "AI attribution included (recommended)"
   ai_attribution:
     trailer: "Assisted-by: {tool name}"
     pr_disclosure: "Checkbox in PR template (AI-assisted / fully AI-generated / no AI)"
-    principle: "Enforced but not blocking — educational, not punitive"
+    principle: "Recommended but not required — appreciated, not enforced"
 
 # Onboarding
 # Target: developers who vibe-code with AI tools.

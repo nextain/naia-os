@@ -113,7 +113,7 @@ Most open source projects in 2025-2026 are defending against AI contributions (c
 
 - AI usage is **welcomed**; **transparency** is required
 - Responsibility for AI-generated code lies with the **contributor**
-- Attribution is enforced but **not blocking** (educational approach)
+- Attribution is **recommended but not required** — appreciated, not enforced
 
 ### Git Trailer
 

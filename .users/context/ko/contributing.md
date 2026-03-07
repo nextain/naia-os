@@ -185,11 +185,11 @@ type(scope): description
 
 **타입**: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`
 
-### AI 귀속 표기
+### AI 사용 표기
 
 - **Git 트레일러**: `Assisted-by: {도구명}` (예: `Assisted-by: Claude Code`)
 - **PR 공개**: PR 템플릿 체크박스 (AI 보조 / 완전 AI 생성 / AI 미사용)
-- **원칙**: 강제하되 차단하지 않음 — 교육적 접근
+- **원칙**: 추천사항 — 차단하지 않음
 
 ### PR 크기
 
@@ -203,7 +203,7 @@ PR당 20개 파일 이하 권장.
 - [ ] 아키텍처 변경 시 컨텍스트 파일 업데이트
 - [ ] console.log/warn/error 없음
 - [ ] 새 파일에 라이선스 헤더 포함
-- [ ] AI 귀속 표기 포함
+- [ ] AI 사용 표기 포함 (추천)
 
 ---
 

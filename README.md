@@ -312,14 +312,13 @@ Naia applies a **Defense in Depth** security model:
 
 ## Download
 
-| Format | Link | Description |
-|--------|------|-------------|
-| **Naia OS (ISO)** | [Download (~7.2 GB)](https://pub-affd0538517845d98ce44a5aec11dd98.r2.dev/naia-os-live-amd64.iso) | Full AI OS — boot from USB, install to hard drive |
-| Flatpak | [GitHub Release](https://github.com/nextain/naia-os/releases/latest/download/Naia-Shell-x86_64.flatpak) | Naia Shell app only (for existing Linux) |
-| AppImage | [GitHub Release](https://github.com/nextain/naia-os/releases/latest/download/Naia-Shell-x86_64.AppImage) | Portable app (no install needed) |
-| DEB / RPM | [All Releases](https://github.com/nextain/naia-os/releases) | For Debian/Ubuntu or Fedora/openSUSE |
+**[Download Naia](https://naia.nextain.io/en/download)** — ISO, Flatpak, AppImage, DEB, RPM
 
-See [naia.nextain.io/download](https://naia.nextain.io/en/download) for details and checksums.
+| Format | Description |
+|--------|-------------|
+| **Naia OS (ISO)** | Full AI OS — boot from USB, install to hard drive (~7.2 GB) |
+| Flatpak / AppImage | Naia Shell app only (for existing Linux) |
+| DEB / RPM | For Debian/Ubuntu or Fedora/openSUSE |
 
 ## OS Updates
 

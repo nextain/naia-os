@@ -207,7 +207,7 @@ type(scope): description
 
 - **Git trailer**: `Assisted-by: {tool name}` (e.g., `Assisted-by: Claude Code`)
 - **PR disclosure**: Checkbox in PR template (AI-assisted / fully AI-generated / no AI)
-- **Principle**: Enforced but not blocking — educational, not punitive
+- **Principle**: Recommended but not required — appreciated, not enforced
 
 ### PR Size
 
@@ -221,7 +221,7 @@ Under 20 files per PR recommended.
 - [ ] Context files updated if architecture changed
 - [ ] No console.log/warn/error left in code
 - [ ] License headers present on new files
-- [ ] AI attribution included
+- [ ] AI attribution included (recommended)
 
 ---
 
