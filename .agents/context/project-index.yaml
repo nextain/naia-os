@@ -5,7 +5,8 @@ sot: .agents/context/agents-rules.json
 mirror_pairs:
   # AI context (JSON/YAML) ↔ Human doc (Markdown)
   - agents: .agents/context/agents-rules.json
-    users: .users/context/ko/agents-rules.md
+    users: .users/context/agents-rules.md
+    users_ko: .users/context/ko/agents-rules.md
     description: Project rules, conventions, testing, logging, security, dev process
 
   - agents: .agents/context/project-index.yaml
@@ -13,35 +14,42 @@ mirror_pairs:
     description: This index file (AI-only)
 
   - agents: .agents/context/vision.yaml
-    users: .users/context/ko/vision.md
+    users: .users/context/vision.md
+    users_ko: .users/context/ko/vision.md
     description: Project vision, core concept, usage scenarios
 
   - agents: .agents/context/plan.yaml
-    users: .users/context/ko/plan.md
+    users: .users/context/plan.md
+    users_ko: .users/context/ko/plan.md
     description: Implementation plan, phases, deliverables, timeline
 
   - agents: .agents/context/architecture.yaml
-    users: .users/context/ko/architecture.md
+    users: .users/context/architecture.md
+    users_ko: .users/context/ko/architecture.md
     description: Hybrid architecture design (OpenClaw + Careti + OpenCode), security layers, Gateway protocol
 
   - agents: .agents/context/careti-reuse.yaml
-    users: .users/context/ko/careti-reuse.md
+    users: .users/context/careti-reuse.md
+    users_ko: .users/context/ko/careti-reuse.md
     description: Code/pattern reuse strategy from project-careti
 
   - agents: .agents/context/testing.yaml
-    users: null
+    users: .users/context/testing.md
     description: Concrete testing strategy per module, E2E scenarios, phase verification
 
   - agents: .agents/context/openclaw-sync.yaml
-    users: .users/context/ko/openclaw-sync.md
+    users: .users/context/openclaw-sync.md
+    users_ko: .users/context/ko/openclaw-sync.md
     description: Shell → OpenClaw gateway config sync architecture (provider, model, persona, SOUL.md, chat routing)
 
   - agents: .agents/context/skill-naia-discord.yaml
-    users: .users/context/ko/skill-naia-discord.md
+    users: .users/context/skill-naia-discord.md
+    users_ko: .users/context/ko/skill-naia-discord.md
     description: skill_naia_discord definition (send/status/history), target resolution, OAuth flow
 
   - agents: .agents/context/channels-discord.yaml
-    users: .users/context/ko/channels-discord.md
+    users: .users/context/channels-discord.md
+    users_ko: .users/context/ko/channels-discord.md
     description: E2E Discord integration architecture (Gateway ↔ Agent ↔ Shell), OAuth deep-link, conversation sync, chat routing via Gateway
 
   - agents: .agents/context/distribution.yaml
