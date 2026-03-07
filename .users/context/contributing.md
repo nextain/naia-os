@@ -19,7 +19,14 @@ This project targets developers who code with AI tools. The onboarding flow:
 3. AI reads `.agents/` context — understands the full project
 4. Ask in your language: "What is this project and how can I help?"
 
-Entry points for AI agents: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`
+### Supported AI Tools
+
+| Entry Point | Tools |
+|-------------|-------|
+| `CLAUDE.md` | Claude Code |
+| `AGENTS.md` | Cursor, Windsurf, Cline, Copilot, OpenCode |
+| `GEMINI.md` | Gemini Code Assist, Gemini CLI |
+
 Entry point for humans browsing GitHub: `CONTRIBUTING.md`
 
 ---

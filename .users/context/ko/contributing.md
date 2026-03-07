@@ -19,7 +19,14 @@ AI 에이전트(그리고 AI 도구를 사용하는 사람)가 Naia OS 프로젝
 3. AI가 `.agents/` 컨텍스트를 읽고 프로젝트 전체를 이해한다
 4. 자기 언어로 물어본다: "이 프로젝트가 뭐고, 내가 뭘 도울 수 있어?"
 
-AI 에이전트 진입점: `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`
+### 지원하는 AI 도구
+
+| 진입점 | 도구 |
+|--------|------|
+| `CLAUDE.md` | Claude Code |
+| `AGENTS.md` | Cursor, Windsurf, Cline, Copilot, OpenCode |
+| `GEMINI.md` | Gemini Code Assist, Gemini CLI |
+
 GitHub 브라우징 사용자 진입점: `CONTRIBUTING.md`
 
 ---

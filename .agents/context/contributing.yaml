@@ -101,7 +101,13 @@ pull_requests:
 # Clone → AI reads .agents/ → AI guides contributor in their language.
 ai_native_onboarding:
   principle: "Clone the repo, open with any AI coding tool, ask in your language."
-  context_entry_points: ["CLAUDE.md", "AGENTS.md", "GEMINI.md"]
+  supported_tools:
+    - file: "CLAUDE.md"
+      tools: ["Claude Code"]
+    - file: "AGENTS.md"
+      tools: ["Cursor", "Windsurf", "Cline", "Copilot", "OpenCode"]
+    - file: "GEMINI.md"
+      tools: ["Gemini Code Assist", "Gemini CLI"]
   human_entry_point: "CONTRIBUTING.md"
   note: "CONTRIBUTING.md is a minimal guide for people browsing GitHub without AI tools."
 
