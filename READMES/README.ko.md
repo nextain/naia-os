@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — 나만의 AI가 살아있는 개인 AI 운영체제
 
+**AI 네이티브 오픈소스** — 어떤 언어로든 기여하세요. AI가 모든 소통을 연결합니다. [→ 작동 방식](#ai-네이티브-오픈소스)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "오픈소스. 나만의 AI, 나만의 규칙. 어떤 AI를 쓸지, 어떤 기억과 성격을 가질지 — 모두 내가 결정하고, 코드로 직접 확인한다."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | AI VTuber 영감 — 성격을 가진 AI 캐릭터, 스트리밍, 관객 인터랙션 |
 
 Naia는 이 프로젝트들이 있기에 존재합니다. 기반을 쌓아주신 모든 오픈소스 메인테이너와 커뮤니티에 깊은 감사를 드립니다.
+
+## AI 네이티브 오픈소스
+
+2025~2026년 대부분의 오픈소스 프로젝트는 AI 기여를 방어하고 있습니다. **Naia는 정반대의 접근을 취합니다**: AI 지원 기여가 기본적으로 높은 품질이 되도록 프로젝트를 설계합니다.
+
+> **"AI를 막지 말고, AI와 함께 설계하라."**
+
+### 작동 방식
+
+```
+사람 (어떤 언어든) → AI → Git (영어) → AI → 사람 (어떤 언어든)
+```
+
+- **이슈와 PR을 모국어로 작성하세요** — AI가 모든 것을 번역합니다
+- **기여자와 메인테이너 모두 AI를 사용합니다** — 코딩, 리뷰, 분류
+- **풍부한 `.agents/` 컨텍스트**가 AI의 프로젝트 이해도를 높입니다 — AI의 이해도가 높을수록 기여 품질도 높아집니다
+- **10가지 기여 유형** — 번역, 스킬, 신기능, 버그, 코드, 문서, 테스팅, 디자인, 보안, 컨텍스트
+- **모국어로 작업 로그 작성** — 자신의 언어로 비공개 저장소를 유지하고, AI 번역을 통해 Git 이력을 검토하세요
+
+이것은 단순한 정책이 아닙니다. 아키텍처입니다. `.agents/` 디렉토리, 삼중 미러 문서, 라이선스 보호 규칙 모두 AI 협업을 우연이 아닌 구조로 만들기 위해 설계되었습니다.
+
+전체 모델 읽기: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [리포트 (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [리포트 (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## 라이선스
 

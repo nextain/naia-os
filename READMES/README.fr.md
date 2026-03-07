@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — Un systeme d'exploitation IA personnel ou vit votre propre IA
 
+**Open Source AI-Native** — Contribuez dans n'importe quelle langue. L'IA assure toute la communication. [→ Comment ca marche](#open-source-ai-native)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Open source. Votre IA, vos regles. Choisissez votre IA, faconnez sa memoire et sa personnalite, donnez-lui votre voix — le tout sur votre propre machine, le tout verifiable dans le code."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | Inspiration AI VTuber — personnage IA avec personnalite, streaming, interaction avec le public |
 
 Naia existe grace a ces projets. Nous sommes profondement reconnaissants envers tous les mainteneurs et communautes open source qui ont construit les fondations sur lesquelles nous nous appuyons.
+
+## Open Source AI-Native
+
+La plupart des projets open source en 2025-2026 se defendent contre les contributions IA. **Naia prend l'approche inverse** : concevoir le projet pour que les contributions assistees par IA soient de haute qualite par defaut.
+
+> **"Concevoir AVEC l'IA, pas se defendre CONTRE l'IA."**
+
+### Comment ca marche
+
+```
+Personne (n'importe quelle langue) → IA → Git (anglais) → IA → Personne (n'importe quelle langue)
+```
+
+- **Redigez vos issues et PR dans votre langue** — l'IA traduit tout
+- **Contributeurs et mainteneurs utilisent l'IA** — codage, revue, tri
+- **Un contexte `.agents/` riche** permet a l'IA de comprendre profondement le projet — meilleure comprehension = meilleure qualite de contribution
+- **10 types de contribution** — traduction, competences, fonctionnalites, bugs, code, docs, tests, design, securite, contexte
+- **Journaux de travail dans votre langue maternelle** — maintenez un depot prive dans votre langue ; consultez l'historique Git via la traduction IA
+
+Ce n'est pas qu'une politique. C'est de l'architecture. Le repertoire `.agents/`, la documentation triple-miroir et les regles de protection de licence sont tous concus pour que la collaboration IA soit structurelle, pas accidentelle.
+
+Modele complet : [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Rapport (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Rapport (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Licence
 

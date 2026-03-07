@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — Un sistema operativo de IA personal donde vive tu propia IA
 
+**Open Source AI-Nativo** — Contribuye en cualquier idioma. La IA conecta toda la comunicacion. [→ Como funciona](#open-source-ai-nativo)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Codigo abierto. Tu IA, tus reglas. Elige tu IA, moldea su memoria y personalidad, dale tu voz — todo en tu propia maquina, todo verificable en el codigo."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | Inspiracion AI VTuber — personaje IA con personalidad, streaming, interaccion con la audiencia |
 
 Naia existe porque estos proyectos existen. Estamos profundamente agradecidos a todos los mantenedores y comunidades de codigo abierto que construyeron los cimientos sobre los que nos apoyamos.
+
+## Open Source AI-Nativo
+
+La mayoria de los proyectos de codigo abierto en 2025–2026 se defienden contra las contribuciones con IA. **Naia toma el enfoque opuesto**: disenar el proyecto para que las contribuciones asistidas por IA sean de alta calidad por defecto.
+
+> **"Disenar CON la IA, no defenderse CONTRA la IA."**
+
+### Como funciona
+
+```
+Persona (cualquier idioma) → IA → Git (ingles) → IA → Persona (cualquier idioma)
+```
+
+- **Escribe issues y PRs en tu idioma** — la IA traduce todo
+- **Tanto contribuidores como mantenedores usan IA** — codificacion, revision, triaje
+- **El rico contexto `.agents/`** permite que la IA entienda el proyecto profundamente — mejor comprension de la IA significa mayor calidad de contribucion
+- **10 tipos de contribucion** — traduccion, habilidades, funcionalidades, bugs, codigo, documentacion, pruebas, diseno, seguridad, contexto
+- **Registros de trabajo en tu idioma nativo** — manten un repositorio privado en tu idioma; revisa el historial Git a traves de la traduccion de IA
+
+Esto no es solo una politica. Es arquitectura. El directorio `.agents/`, la documentacion de triple espejo y las reglas de proteccion de licencia estan disenados para que la colaboracion con IA sea estructural, no accidental.
+
+Modelo completo: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Informe (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Informe (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Licencia
 

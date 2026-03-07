@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — Ein persoenliches KI-Betriebssystem, in dem Ihre eigene KI lebt
 
+**AI-Native Open Source** — Tragen Sie in jeder Sprache bei. KI verbindet alle Kommunikation. [→ So funktioniert es](#ai-native-open-source)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Open Source. Ihre KI, Ihre Regeln. Waehlen Sie Ihre KI, formen Sie ihr Gedaechtnis und ihre Persoenlichkeit, geben Sie ihr Ihre Stimme — alles auf Ihrem eigenen Rechner, alles im Code nachpruefbar."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | AI VTuber Inspiration — KI-Charakter mit Persoenlichkeit, Streaming, Publikumsinteraktion |
 
 Naia existiert, weil diese Projekte existieren. Wir sind allen Open-Source-Maintainern und Communities zutiefst dankbar, die das Fundament gebaut haben, auf dem wir stehen.
+
+## AI-Native Open Source
+
+Die meisten Open-Source-Projekte in 2025–2026 verteidigen sich gegen KI-Beitraege. **Naia geht den entgegengesetzten Weg**: Das Projekt ist so gestaltet, dass KI-unterstuetzte Beitraege standardmaessig hohe Qualitaet haben.
+
+> **"MIT KI gestalten, nicht GEGEN KI verteidigen."**
+
+### So funktioniert es
+
+```
+Person (jede Sprache) → KI → Git (Englisch) → KI → Person (jede Sprache)
+```
+
+- **Schreiben Sie Issues und PRs in Ihrer Sprache** — KI uebersetzt alles
+- **Beitragende und Maintainer nutzen KI** — Coding, Review, Triage
+- **Reichhaltiger `.agents/` Kontext** laesst KI das Projekt tiefgreifend verstehen — besseres KI-Verstaendnis bedeutet hoehere Beitragsqualitaet
+- **10 Beitragsarten** — Uebersetzung, Skills, Features, Bugs, Code, Docs, Tests, Design, Sicherheit, Kontext
+- **Arbeitsprotokoll in Ihrer Muttersprache** — Pflegen Sie ein privates Repo in Ihrer Sprache; ueberpruefen Sie die Git-Historie per KI-Uebersetzung
+
+Das ist nicht nur eine Richtlinie. Es ist Architektur. Das `.agents/` Verzeichnis, die dreifach gespiegelte Dokumentation und die Lizenzschutzregeln sind alle dafuer konzipiert, dass KI-Zusammenarbeit strukturell und nicht zufaellig ist.
+
+Vollstaendiges Modell: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Bericht (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Bericht (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Lizenz
 

@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — He dieu hanh AI ca nhan noi AI cua ban sinh song
 
+**AI-Native Open Source** — Dong gop bang bat ky ngon ngu nao. AI ket noi moi giao tiep. [→ Cach hoat dong](#ai-native-open-source)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Ma nguon mo. AI cua ban, quy tac cua ban. Chon AI, dinh hinh tri nho va tinh cach cua no, cho no giong noi — tat ca tren may tinh cua ban, tat ca co the xac minh trong ma nguon."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | Cam hung AI VTuber — nhan vat AI co tinh cach, phat truc tiep, tuong tac voi khan gia |
 
 Naia ton tai nho co nhung du an nay. Chung toi chan thanh cam on tat ca cac nha bao tri va cong dong ma nguon mo da xay dung nen tang ma chung toi dang dung.
+
+## AI-Native Open Source
+
+Hau het cac du an ma nguon mo 2025–2026 dang phong thu truoc dong gop AI. **Naia chon huong nguoc lai**: thiet ke du an de dong gop co AI ho tro dat chat luong cao theo mac dinh.
+
+> **"Thiet ke VOI AI, khong phong thu CHONG LAI AI."**
+
+### Cach hoat dong
+
+```
+Nguoi (bat ky ngon ngu nao) → AI → Git (tieng Anh) → AI → Nguoi (bat ky ngon ngu nao)
+```
+
+- **Viet issue va PR bang ngon ngu cua ban** — AI dich tat ca
+- **Ca nguoi dong gop va nguoi bao tri deu dung AI** — lap trinh, review, phan loai
+- **Ngu canh `.agents/` phong phu** giup AI hieu sau du an — AI hieu tot hon thi chat luong dong gop cao hon
+- **10 loai dong gop** — dich thuat, ky nang, tinh nang, loi, ma nguon, tai lieu, kiem thu, thiet ke, bao mat, ngu canh
+- **Nhat ky lam viec bang tieng me de** — duy tri repo rieng bang ngon ngu cua ban; xem lai lich su Git qua ban dich AI
+
+Day khong chi la chinh sach. Day la kien truc. Thu muc `.agents/`, tai lieu ba guong va quy tac bao ve giay phep deu duoc thiet ke de su hop tac AI co cau truc, khong phai ngau nhien.
+
+Mo hinh day du: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Bao cao (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Bao cao (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Giay phep
 
