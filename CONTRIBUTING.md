@@ -111,7 +111,7 @@ When editing context:
 |-------|----------|
 | Issues, PR descriptions | Any language welcome |
 | Code, commits, context files | English |
-| Work-logs (personal notes) | Your preferred language |
+| Work-logs (personal notes) | Your preferred language (tip: keep in a separate private repo) |
 
 ## Development workflow
 
