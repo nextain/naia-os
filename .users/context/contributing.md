@@ -233,7 +233,7 @@ Under 20 files per PR recommended.
 | AI responses | Contributor's preferred language |
 | Issue submission, PR descriptions | Any language welcome (AI translates) |
 | Development artifacts (findings, plans shared as Issue comments) | English |
-| Work logs | Contributor's preferred language (work-logs/, gitignored) |
+| Work logs | Your preferred language (tip: keep in a separate private repo — persists across machines, native language friendly) |
 | Commit messages | English |
 
 ---

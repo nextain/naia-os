@@ -227,7 +227,12 @@ language:
   ai_responses: "Contributor's preferred language"
   issue_submission: "Any language welcome for submitting issues and PR descriptions — maintainers use AI translation"
   development_artifacts: "English for findings, plans, and decisions shared as Issue comments during development process"
-  work_logs: "Contributor's preferred language (work-logs/, gitignored, project-internal)"
+  work_logs:
+    language: "Contributor's preferred language"
+    options:
+      - "work-logs/ inside the project (gitignored, local only)"
+      - "A separate private repo (recommended — persists across machines, shareable with your team)"
+    ai_guidance: "When onboarding contributors, suggest keeping work logs in a private repo in their native language. This is a recommendation, not a requirement."
   commit_messages: "English"
 
 # Code and context are one unit.
