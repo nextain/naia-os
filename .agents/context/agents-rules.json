@@ -348,10 +348,14 @@
 			"Check security tier for new tools/commands"
 		],
 		"work_logs": {
-			"location": "work-logs/ (gitignored, project-internal)",
 			"format": "YYYYMMDD-{number}-{topic}.md",
 			"convention": "{username}/ subdirectory per contributor",
-			"language": "Contributor's preferred language"
+			"language": "Contributor's preferred language",
+			"options": [
+				"work-logs/ inside the project (gitignored, local only)",
+				"A separate private repo (recommended — persists across machines, native language friendly)"
+			],
+			"ai_guidance": "Suggest private repo approach to contributors unfamiliar with English — they can write logs in their native language and review Git history through AI translation"
 		}
 	}
 }
