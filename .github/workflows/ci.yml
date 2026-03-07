@@ -294,3 +294,36 @@ jobs:
 
           # Warning only — do not fail the workflow
           exit 0
+
+  ai-attribution-check:
+    name: AI Attribution
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check AI disclosure in PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PR_BODY=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER} --jq '.body // ""')
+
+          echo "=== Checking AI attribution in PR #${PR_NUMBER} ==="
+
+          # Check for AI disclosure checkbox (any of the three options checked)
+          if echo "$PR_BODY" | grep -qE '\[x\]\s*(AI-assisted|Fully AI-generated|No AI used)'; then
+            echo "AI disclosure found."
+          else
+            echo "::warning::No AI disclosure checkbox checked in PR description. Please check one of: AI-assisted, Fully AI-generated, or No AI used."
+          fi
+
+          # Check for Assisted-by trailer in commits
+          COMMITS=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER}/commits --jq '.[].commit.message')
+          if echo "$COMMITS" | grep -qi 'Assisted-by:\|Co-Authored-By:.*anthropic\|Co-Authored-By:.*openai\|Co-Authored-By:.*google'; then
+            echo "AI attribution found in commit messages."
+          else
+            echo "::notice::Consider adding 'Assisted-by: {tool}' trailer to commit messages if AI tools were used."
+          fi
+
+          # Warning only — do not fail the workflow
+          exit 0
