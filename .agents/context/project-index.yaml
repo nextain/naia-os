@@ -82,6 +82,14 @@ mirror_pairs:
     users: null
     description: License protection test scenarios — verify AI agents refuse CC-BY-SA 4.0 violations
 
+  - agents: .agents/tests/ai-native-onboarding-test.md
+    users: null
+    description: AI-native onboarding test scenarios — verify AI agents correctly guide contributors
+
+  - agents: .agents/tests/context-update-test-methodology.md
+    users: null
+    description: Context update test methodology — how to verify AI behavior after context changes
+
   - agents: .agents/context/phase3-plan.yaml
     users: .users/context/ko/phase3-openclaw-hybrid-plan.md
     description: Phase 3 detailed plan — hybrid OpenClaw + Agent architecture
@@ -164,5 +172,7 @@ on_demand_loading:
     - .agents/context/charter-draft.yaml (when discussing open source sustainability, AI collaboration, or community experiment)
     - .agents/context/open-source-operations.yaml (when reviewing contribution workflows, community operations, or maintainer processes)
     - .agents/tests/license-protection-test.md (when testing license compliance or onboarding new AI agents)
+    - .agents/tests/ai-native-onboarding-test.md (when testing AI agent onboarding behavior)
+    - .agents/tests/context-update-test-methodology.md (when planning or running context quality tests)
     - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
     - .agents/workflows/* (when executing specific workflows)

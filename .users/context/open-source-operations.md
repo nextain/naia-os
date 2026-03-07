@@ -163,7 +163,7 @@ Maintainer (Korean) → AI → Review comment (English) → AI → Contributor (
 
 | Phase | Condition | Infrastructure |
 |-------|-----------|----------------|
-| **1** (current) | 0-5 contributors | Issue/PR templates, CI pipeline, contributing.yaml expansion |
+| **1** (current) | 0-5 contributors | Issue/PR templates, CI pipeline, contributing.yaml expansion, AI behavior tests |
 | **2** | 5-20 contributors | GitHub Agentic Workflow, AI PR review, Discussions |
 | **3** | 20-100 contributors | Vouch, community reviewers, RFC process |
 | **4** | 100+ contributors | Structured governance, distributed decisions |
@@ -191,6 +191,16 @@ Maintainer (Korean) → AI → Review comment (English) → AI → Contributor (
 - [Mitchell Hashimoto Vouch](https://github.com/mitchellh/vouch)
 - [GitHub Agentic Workflows](https://github.blog/changelog/2026-02-13-github-agentic-workflows-are-now-in-technical-preview/)
 - [AGENTS.md standard](https://agents.md/)
+
+---
+
+## Testing Context Quality
+
+Context files are tested via **AI behavior tests**: scripted prompts run in fresh AI sessions to verify agents respond correctly.
+
+- **Onboarding tests**: [.agents/tests/ai-native-onboarding-test.md](../../.agents/tests/ai-native-onboarding-test.md) — 12 scenarios
+- **Protection tests**: [.agents/tests/license-protection-test.md](../../.agents/tests/license-protection-test.md) — 10 scenarios
+- **Methodology**: [.agents/tests/context-update-test-methodology.md](../../.agents/tests/context-update-test-methodology.md)
 
 ---
 

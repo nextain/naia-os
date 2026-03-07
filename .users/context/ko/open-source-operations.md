@@ -163,7 +163,7 @@ PR 템플릿의 체크박스: AI 보조 / 완전 AI 생성 / AI 미사용.
 
 | 단계 | 조건 | 인프라 |
 |------|------|--------|
-| **Phase 1** (현재) | 기여자 0~5명 | Issue/PR 템플릿, CI 파이프라인, contributing.yaml 확장 |
+| **Phase 1** (현재) | 기여자 0~5명 | Issue/PR 템플릿, CI 파이프라인, contributing.yaml 확장, AI 행동 테스트 |
 | **Phase 2** | 기여자 5~20명 | GitHub Agentic Workflow, AI PR 리뷰, Discussions |
 | **Phase 3** | 기여자 20~100명 | Vouch 시스템, 커뮤니티 리뷰어, RFC 프로세스 |
 | **Phase 4** | 기여자 100명+ | 거버넌스 구조화, 분산 의사결정 |
@@ -191,6 +191,16 @@ PR 템플릿의 체크박스: AI 보조 / 완전 AI 생성 / AI 미사용.
 - [Mitchell Hashimoto Vouch](https://github.com/mitchellh/vouch)
 - [GitHub Agentic Workflows](https://github.blog/changelog/2026-02-13-github-agentic-workflows-are-now-in-technical-preview/)
 - [AGENTS.md 표준](https://agents.md/)
+
+---
+
+## 컨텍스트 품질 테스트
+
+컨텍스트 파일은 **AI 행동 테스트**로 검증한다: 스크립트된 프롬프트를 새로운 AI 세션에서 실행하여, 에이전트가 올바르게 응답하는지 확인.
+
+- **온보딩 테스트**: [.agents/tests/ai-native-onboarding-test.md](../../../.agents/tests/ai-native-onboarding-test.md) — 12개 시나리오
+- **보호 테스트**: [.agents/tests/license-protection-test.md](../../../.agents/tests/license-protection-test.md) — 10개 시나리오
+- **방법론**: [.agents/tests/context-update-test-methodology.md](../../../.agents/tests/context-update-test-methodology.md)
 
 ---
 

@@ -231,6 +231,8 @@ phases:
       - "CI pipeline (build, test, lint, license)"
       - "Expand contributing.yaml (10 contribution types)"
       - "open-source-operations.yaml (this file)"
+      - "AI behavior test scenarios (onboarding, protection)"
+      - "Context update test methodology"
 
   - id: phase2
     condition: "5-20 contributors"
@@ -301,6 +303,10 @@ references:
     - ".agents/context/contributing.yaml"
     - ".agents/context/charter-draft.yaml"
     - ".agents/context/philosophy.yaml"
+  tests:
+    - ".agents/tests/ai-native-onboarding-test.md"
+    - ".agents/tests/license-protection-test.md"
+    - ".agents/tests/context-update-test-methodology.md"
 
 mirrors:
   english: ".users/context/open-source-operations.md"

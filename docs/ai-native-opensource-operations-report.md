@@ -518,10 +518,12 @@ Current: 1 maintainer (Luke). This is the highest risk.
 - [x] `.agents/context/open-source-operations.yaml`
 - [x] `.users/context/open-source-operations.md` (English mirror)
 - [x] `.users/context/ko/open-source-operations.md` (Korean mirror)
-- [ ] Expand `contributing.yaml` (10 contribution types)
-- [ ] Add GitHub Issue templates (feature_request, translation, skill, etc.)
-- [ ] Expand GitHub PR template (AI disclosure + checklist)
-- [ ] Build CI pipeline (build, test, lint, license)
+- [x] Expand `contributing.yaml` (10 contribution types + AI attribution)
+- [x] Add GitHub Issue templates (feature_request, translation, skill, docs, context)
+- [x] Expand GitHub PR template (AI disclosure + checklist)
+- [x] AI-native onboarding test scenarios (`.agents/tests/ai-native-onboarding-test.md`)
+- [x] Context update test methodology (`.agents/tests/context-update-test-methodology.md`)
+- [ ] Build CI pipeline (build, test, lint, license) — Issue #12
 
 ### Short-term (Phase 2)
 
