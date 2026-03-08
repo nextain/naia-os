@@ -59,3 +59,19 @@ key_files:
 testing:
   unit: shell/src/lib/__tests__/persona.test.ts  # locale-aware prompt tests
   e2e: shell/e2e-tauri/specs/54-settings-locale-prompt.spec.ts
+
+# Translation contribution scope
+translation_contribution:
+  guide: TRANSLATING.md  # on issue-12-ci-pipeline branch, pending merge
+  community_scope:
+    - "naia-os: context docs (.users/context/{lang}/)"
+    - "naia-os: Shell UI native review (i18n.ts)"
+    - "naia-os: README native review (READMES/)"
+    - "naia.nextain.io: manual text native review (src/content/manual/{lang}/)"
+    - "naia.nextain.io: manual screenshots (public/manual/{lang}/)"
+  team_managed:
+    - "naia.nextain.io: portal UI (src/i18n/dictionaries/) — service, not community"
+    - "naia.nextain.io: blog posts, FAQ, legal docs"
+    - "about.nextain.io: corporate site"
+  native_review_status:
+    pt: "context docs reviewed (2026-03-07, @leonardo-gonc)"

@@ -220,6 +220,17 @@ PR당 20개 파일 이하 권장.
 
 ---
 
+## 기여자 인정
+
+기여자는 두 곳에 표시됩니다:
+
+- **README.md** — 기여자 테이블 (이름, 기여 내용, 날짜)
+- **naia.nextain.io /contribute** — GitHub 아바타 포함 기여자 UI
+
+| 기여자 | 기여 내용 | 날짜 | PR |
+|--------|----------|------|----|
+| [@leonardo-gonc](https://github.com/leonardo-gonc) | 포르투갈어(PT) 네이티브 리뷰 — 컨텍스트 문서 | 2026-03-07 | #11 |
+
 ## 관련 파일
 
 - **SoT**: `.agents/context/contributing.yaml`

@@ -419,6 +419,14 @@ Write issues, PRs, and comments **in any language**. We use AI to understand eve
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
+## Contributors
+
+| Contributor | Contribution | Date |
+|-------------|-------------|------|
+| <img src="https://github.com/leonardo-gonc.png" width="20"> [@leonardo-gonc](https://github.com/leonardo-gonc) | Native Portuguese (PT) review — context docs | 2026-03-07 |
+
+Want to see your name here? Check out our [Contributing Guide](.users/context/contributing.md) and [TRANSLATING.md](TRANSLATING.md).
+
 ## License
 
 - **Source Code**: [Apache License 2.0](LICENSE) — Copyright 2026 Nextain
