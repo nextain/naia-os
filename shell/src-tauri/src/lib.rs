@@ -451,6 +451,29 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
     shutdown
 }
 
+/// Scan a directory of Node.js version folders, returning the highest v22+ binary.
+fn find_highest_node_version(versions_dir: &str, bin_subpath: &str) -> Option<std::path::PathBuf> {
+    let entries = std::fs::read_dir(versions_dir).ok()?;
+    let mut versions: Vec<_> = entries
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let name = name.trim_start_matches('v').to_string();
+            let major: u32 = name.split('.').next()?.parse().ok()?;
+            if major >= 22 {
+                Some((major, e.path()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    versions.sort_by(|a, b| b.0.cmp(&a.0)); // highest first
+    versions.first().and_then(|(_, path)| {
+        let node_bin = path.join(bin_subpath);
+        if node_bin.exists() { Some(node_bin) } else { None }
+    })
+}
+
 /// Find Node.js binary (system path first, then nvm fallback)
 fn find_node_binary() -> Result<std::path::PathBuf, String> {
     // Flatpak bundled node
@@ -476,38 +499,38 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
         }
     }
 
-    // Try nvm fallback (check both standard ~/.nvm and XDG ~/.config/nvm)
+    // Try version manager fallback
     let home = home_dir();
-    let nvm_dirs = [
-        format!("{}/.nvm/versions/node", home),
-        format!("{}/.config/nvm/versions/node", home),
-    ];
-    for nvm_dir in &nvm_dirs {
-        if let Ok(entries) = std::fs::read_dir(nvm_dir) {
-            let mut versions: Vec<_> = entries
-                .filter_map(|e| e.ok())
-                .filter_map(|e| {
-                    let name = e.file_name().to_string_lossy().to_string();
-                    let name = name.trim_start_matches('v').to_string();
-                    let major: u32 = name.split('.').next()?.parse().ok()?;
-                    if major >= 22 {
-                        Some((major, e.path()))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            versions.sort_by(|a, b| b.0.cmp(&a.0)); // highest first
-            if let Some((_, path)) = versions.first() {
-                let node_bin = path.join("bin/node");
-                if node_bin.exists() {
-                    return Ok(node_bin);
-                }
+
+    // Unix: nvm (~/.nvm, ~/.config/nvm)
+    #[cfg(unix)]
+    {
+        let nvm_dirs = [
+            format!("{}/.nvm/versions/node", home),
+            format!("{}/.config/nvm/versions/node", home),
+        ];
+        for nvm_dir in &nvm_dirs {
+            if let Some(path) = find_highest_node_version(nvm_dir, "bin/node") {
+                return Ok(path);
             }
         }
     }
 
-    Err("Node.js 22+ not found (checked system PATH and nvm)".to_string())
+    // Windows: NVM for Windows, fnm
+    #[cfg(windows)]
+    {
+        let appdata = std::env::var("APPDATA").unwrap_or_default();
+        let nvm_win_dir = format!("{}/nvm", appdata);
+        if let Some(path) = find_highest_node_version(&nvm_win_dir, "node.exe") {
+            return Ok(path);
+        }
+        let fnm_dir = format!("{}/fnm/node-versions", appdata);
+        if let Some(path) = find_highest_node_version(&fnm_dir, "installation/node.exe") {
+            return Ok(path);
+        }
+    }
+
+    Err("Node.js 22+ not found (checked system PATH and version managers)".to_string())
 }
 
 /// Check if OpenClaw Gateway is already running (blocking, for setup use)
@@ -928,6 +951,15 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
 fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result<AgentProcess, String> {
     let agent_path = std::env::var("NAIA_AGENT_PATH")
         .unwrap_or_else(|_| {
+            // Windows: check for bundled node.exe in Tauri resources first
+            #[cfg(windows)]
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let bundled_node = resource_dir.join("node.exe");
+                if bundled_node.exists() {
+                    log_verbose(&format!("[Naia] Found bundled node.exe at: {}", bundled_node.display()));
+                    return bundled_node.to_string_lossy().to_string();
+                }
+            }
             find_node_binary()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|_| "node".to_string())
