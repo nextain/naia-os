@@ -26,6 +26,7 @@ changes:
       ko: "Edge, Google, OpenAI, ElevenLabs TTS 음성 대화"
   - type: feat
     scope: shell
+    issue: 1
     description:
       en: "14-language UI localization"
       ko: "14개 언어 UI 다국어 지원"
