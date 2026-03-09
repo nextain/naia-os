@@ -37,12 +37,28 @@ pub(crate) fn is_distro_registered(name: &str) -> bool {
     super::hide_console(&mut cmd);
     cmd.output()
         .map(|o| {
-            let stdout = String::from_utf8_lossy(&o.stdout);
+            let stdout = decode_utf16_lossy(&o.stdout);
             stdout
                 .lines()
-                .any(|l| l.trim().trim_matches('\0') == name)
+                .any(|l| l.trim() == name)
         })
         .unwrap_or(false)
+}
+
+/// Decode potentially UTF-16LE output from wsl.exe.
+/// Falls back to UTF-8 if the byte length is odd or decoding fails.
+fn decode_utf16_lossy(bytes: &[u8]) -> String {
+    if bytes.len() >= 2 && bytes.len() % 2 == 0 {
+        let u16s: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        // Strip BOM if present
+        let start = if u16s.first() == Some(&0xFEFF) { 1 } else { 0 };
+        String::from_utf16_lossy(&u16s[start..])
+    } else {
+        String::from_utf8_lossy(bytes).to_string()
+    }
 }
 
 /// Import a custom WSL2 distro from a tar.gz rootfs.
@@ -95,6 +111,7 @@ pub(crate) fn spawn_gateway_in_wsl(
         "loopback",
         "--port",
         &port.to_string(),
+        "--allow-unconfigured",
     ])
     .stdin(std::process::Stdio::null())
     .stdout(std::process::Stdio::piped())
