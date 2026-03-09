@@ -20,60 +20,18 @@ import {
 import { calculateCost } from "./providers/cost.js";
 import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
-import { ALPHA_SYSTEM_PROMPT } from "./system-prompt.js";
+import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
 import { synthesizeEdgeSpeech } from "./tts/edge-tts.js";
 import { synthesizeElevenLabsSpeech } from "./tts/elevenlabs-tts.js";
 import { synthesizeSpeech } from "./tts/google-tts.js";
 import { synthesizeNextainSpeech } from "./tts/nextain-tts.js";
 import { synthesizeOpenAISpeech } from "./tts/openai-tts.js";
-import type { ToolDefinition } from "./providers/types.js";
 
 const activeStreams = new Map<string, AbortController>();
 
-const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/i;
+const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/;
 const MAX_TOOL_ITERATIONS = 10;
 const APPROVAL_TIMEOUT_MS = 120_000;
-
-/** Build system prompt with current tool/gateway status */
-function buildToolStatusPrompt(
-	base: string,
-	enableTools: boolean,
-	wantGateway: boolean,
-	gatewayConnected: boolean,
-	tools?: ToolDefinition[],
-): string {
-	if (!enableTools) {
-		return `${base}\n\n[System Status]\n도구 사용이 비활성화되어 있습니다. 사용자에게 "설정 > 도구 사용"을 켜도록 안내하세요.`;
-	}
-
-	const toolNames = tools?.map((t) => t.name) ?? [];
-	let status = `\n\n[System Status]\n사용 가능한 도구(${toolNames.length}개): ${toolNames.join(", ")}`;
-
-	if (wantGateway && !gatewayConnected) {
-		status += `\n⚠️ Gateway 연결 실패: 일부 도구(채널 관리, 디바이스 페어링 등 Gateway 필요 도구)를 사용할 수 없습니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.`;
-	} else if (gatewayConnected) {
-		status += "\nGateway 연결됨 ✓";
-	}
-
-	if (toolNames.includes("skill_naia_discord")) {
-		status +=
-			"\n\n[Tool Guide: skill_naia_discord]" +
-			"\n- 메시지 전송: action='send', message='내용' (to 생략 가능 — 자동 타깃)" +
-			"\n- 상태 확인: action='status'" +
-			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요.";
-	}
-
-	// Tool usage rules — always injected regardless of system prompt source
-	status +=
-		"\n\n[Tool Usage Rules (CRITICAL)]" +
-		"\n- When the user asks you to DO something (check, search, send, run, find, look up, etc.), you MUST call the appropriate tool. NEVER just say '할게요/확인해볼게요' without actually calling a tool." +
-		"\n- If you don't know the answer, use a tool to find out (web_search, skill_github, execute_command, etc.). Do NOT guess or make up information." +
-		"\n- When the user mentions an app or service name (옵시디안, スポティファイ, GitHub, Slack, Notion, etc.), search for it using skill_skill_manager action='search' query='{english name}'. Skill names are English: skill_obsidian, skill_github, skill_slack, etc." +
-		"\n- When asked about GitHub repos/PRs/issues, ALWAYS use skill_github. Never guess URLs." +
-		"\n- '확인해볼게' / '検索するね' / 'Let me check' without actually calling a tool is FORBIDDEN.";
-
-	return base + status;
-}
 
 /** Pending approval promises keyed by toolCallId */
 const pendingApprovals = new Map<

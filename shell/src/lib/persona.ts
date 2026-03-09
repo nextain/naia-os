@@ -81,7 +81,9 @@ function getEmotionExample(locale?: string): string {
 	return examples[locale ?? "en"] ?? examples.en;
 }
 
-/** Fixed emotion tag instructions — appended to all personas */
+/** Fixed emotion tag instructions — appended to all personas.
+ *  Discord/tool usage instructions are NOT here — they are injected by
+ *  agent's buildToolStatusPrompt() which is conditional on available tools. */
 function getEmotionInstructions(locale?: string): string {
 	const example = getEmotionExample(locale);
 	return `
@@ -92,14 +94,7 @@ Emotion tags (for Shell avatar only):
 - Use [THINK] when reasoning through complex questions
 - Use [NEUTRAL] for straightforward factual answers
 - Default to [HAPPY] for greetings and positive interactions
-- IMPORTANT: Emotion tags are for the Shell avatar's facial expression only. They are automatically stripped from Discord messages.
-
-Discord (IMPORTANT — use ONLY skill_naia_discord, NEVER the built-in "message" tool):
-- skill_naia_discord has EXACTLY 3 actions: "send", "status", "history". No other actions exist.
-- send: skill_naia_discord action="send" message="...". Recipient is auto-resolved — NEVER ask user for IDs.
-- status: skill_naia_discord action="status". Returns connection info, channel IDs, user IDs.
-- history: skill_naia_discord action="history". Returns recent DM messages.
-- Write messages naturally with emoji. Do NOT include emotion tags in Discord messages.`;
+- IMPORTANT: Emotion tags are for the Shell avatar's facial expression only. They are automatically stripped from Discord messages.`;
 }
 
 /** Memory context injected into system prompt (Phase 4.4b/c) */
