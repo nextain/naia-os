@@ -1,6 +1,7 @@
 import type { Locale } from "./i18n";
 import { SECRET_KEYS, deleteSecretKey, getSecretKey, saveSecretKey } from "./secure-store";
 import type { ProviderId } from "./types";
+import type { LiveProviderId } from "./voice/types";
 
 const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
@@ -66,6 +67,9 @@ export interface AppConfig {
 	voiceConversation?: boolean;
 	liveVoice?: string;
 	liveModel?: string;
+	liveProvider?: LiveProviderId;
+	openaiRealtimeApiKey?: string;
+	openaiRealtimeVoice?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {

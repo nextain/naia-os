@@ -30,7 +30,7 @@ import { Logger } from "../lib/logger";
 import { extractFacts, summarizeSession } from "../lib/memory-processor";
 import { startMemorySync } from "../lib/memory-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
-import { type VoiceSession, createVoiceSession } from "../lib/voice-session";
+import { type VoiceSession, createVoiceSession, LIVE_PROVIDER_COST_HINTS } from "../lib/voice/index";
 import type {
 	AgentResponseChunk,
 	AuditEvent,
@@ -309,6 +309,7 @@ export function ChatPanel() {
 	const voiceSessionRef = useRef<VoiceSession | null>(null);
 	const micStreamRef = useRef<MicStream | null>(null);
 	const audioPlayerRef = useRef<AudioPlayer | null>(null);
+	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
 	const lastExtractedIdx = useRef(0);
 
 	const messages = useChatStore((s) => s.messages);
@@ -745,9 +746,47 @@ export function ChatPanel() {
 		return () => document.removeEventListener("visibilitychange", onVisibilityChange);
 	}, []);
 
+	function showVoiceCostSummary() {
+		const info = voiceStartRef.current;
+		if (!info) return;
+		voiceStartRef.current = null;
+		const elapsed = (Date.now() - info.time) / 1000;
+		if (elapsed < 3) return; // ignore very short sessions
+		const minutes = elapsed / 60;
+		const hint = LIVE_PROVIDER_COST_HINTS[info.provider as keyof typeof LIVE_PROVIDER_COST_HINTS];
+		if (!hint || hint.cost === "Free") return;
+		const match = hint.cost.match(/\$([\d.]+)/);
+		if (!match) return;
+		const rate = Number.parseFloat(match[1]);
+		const totalCost = rate * minutes;
+		const durationStr = minutes < 1
+			? `${Math.round(elapsed)}s`
+			: `${Math.floor(minutes)}m ${Math.round(elapsed % 60)}s`;
+		// Estimate tokens: Gemini=32tok/s, OpenAI input=10tok/s output=20tok/s
+		const isOpenAI = info.provider === "openai-realtime";
+		const inputTokens = Math.round(elapsed * (isOpenAI ? 10 : 32));
+		const outputTokens = Math.round(elapsed * (isOpenAI ? 20 : 32));
+		// Map provider to ProviderId-compatible string
+		const providerMap: Record<string, string> = {
+			naia: "nextain", "gemini-live": "gemini", "openai-realtime": "openai",
+		};
+		useChatStore.getState().addMessage({
+			role: "assistant",
+			content: `🎙️ ${durationStr} · ~$${totalCost.toFixed(3)} (${hint.note})`,
+			cost: {
+				provider: (providerMap[info.provider] ?? info.provider) as any,
+				model: isOpenAI ? "gpt-realtime" : "gemini-live",
+				inputTokens,
+				outputTokens,
+				cost: totalCost,
+			},
+		});
+	}
+
 	async function handleVoiceToggle() {
 		if (voiceMode !== "off") {
-			// Stop voice session
+			// Stop voice session — show cost summary before cleanup
+			showVoiceCostSummary();
 			voiceSessionRef.current?.disconnect();
 			micStreamRef.current?.stop();
 			audioPlayerRef.current?.destroy();
@@ -762,20 +801,58 @@ export function ChatPanel() {
 
 		try {
 			const config = await loadConfigWithSecrets();
+			if (!config) {
+				setVoiceMode("off");
+				return;
+			}
 			const naiaKey = config?.naiaKey;
-			if (!naiaKey) {
-				Logger.warn("ChatPanel", "Voice chat requires Naia key");
-				useChatStore.getState().addMessage({ role: "assistant", content: t("chat.voiceNeedLabKey") });
+			const liveProvider = config.liveProvider ?? (naiaKey ? "naia" : "edge-tts");
+
+			// edge-tts is not a live provider
+			if (liveProvider === "edge-tts") {
+				useChatStore.getState().addMessage({ role: "assistant", content: "Edge는 TTS 전용입니다. 라이브 대화를 사용하려면 설정에서 Naia OS, Gemini, 또는 OpenAI를 선택하세요." });
 				setVoiceMode("off");
 				return;
 			}
 
-			const gatewayUrl = LAB_GATEWAY_URL;
+			Logger.info("ChatPanel", "Voice config", {
+				liveProvider,
+				hasNaiaKey: !!naiaKey,
+				hasGoogleApiKey: !!config.googleApiKey,
+				hasOpenaiKey: !!(config.openaiRealtimeApiKey ?? config.apiKey),
+				liveModel: config.liveModel ?? "(default)",
+			});
+
+			// Validate credentials per provider
+			if (liveProvider === "naia" && !naiaKey) {
+				Logger.warn("ChatPanel", "Naia OS voice requires Naia key");
+				useChatStore.getState().addMessage({ role: "assistant", content: t("chat.voiceNeedLabKey") });
+				setVoiceMode("off");
+				return;
+			}
+			if (liveProvider === "gemini-live" && !naiaKey && !config.googleApiKey) {
+				Logger.warn("ChatPanel", "Gemini Live requires Google API key");
+				useChatStore.getState().addMessage({ role: "assistant", content: "Gemini Live를 사용하려면 Google API Key를 입력하세요." });
+				setVoiceMode("off");
+				return;
+			}
+			if (liveProvider === "openai-realtime") {
+				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
+				if (!openaiKey) {
+					Logger.warn("ChatPanel", "OpenAI Realtime requires API key");
+					useChatStore.getState().addMessage({ role: "assistant", content: "OpenAI Realtime을 사용하려면 API Key를 입력하세요." });
+					setVoiceMode("off");
+					return;
+				}
+			}
+
 			const memoryCtx = await buildMemoryContext();
 			const systemPrompt = buildSystemPrompt(config.persona, memoryCtx);
 
-			// Create voice session
-			const session = createVoiceSession();
+			// Create voice session via provider factory
+			// Gemini Direct uses Rust proxy (WebKitGTK can't connect to Google's WS)
+			const useDirectMode = liveProvider === "gemini-live" && !!config.googleApiKey;
+			const session = createVoiceSession(liveProvider, { useProxy: useDirectMode });
 			voiceSessionRef.current = session;
 
 			// Create audio player
@@ -846,6 +923,7 @@ export function ChatPanel() {
 				setVoiceMode("off");
 			};
 			session.onDisconnect = () => {
+				showVoiceCostSummary();
 				micStreamRef.current?.stop();
 				audioPlayerRef.current?.destroy();
 				micStreamRef.current = null;
@@ -853,14 +931,30 @@ export function ChatPanel() {
 				setVoiceMode("off");
 			};
 
-			// Connect to gateway
-			await session.connect({
-				gatewayUrl: gatewayUrl,
-				naiaKey,
-				voice: config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel),
-				systemInstruction: systemPrompt,
-				model: config.liveModel ?? "gemini-live-2.5-flash-native-audio",
-			});
+			// Build provider-specific config and connect
+			if (liveProvider === "openai-realtime") {
+				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
+				const openaiVoice = config.openaiRealtimeVoice ?? "alloy";
+				await session.connect({
+					provider: "openai-realtime",
+					apiKey: openaiKey!,
+					voice: openaiVoice,
+					systemInstruction: systemPrompt,
+					model: config.liveModel,
+				});
+			} else {
+				// Gemini Live: naia (gateway) or gemini-live (direct via Rust proxy)
+				const geminiVoice = config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel);
+				await session.connect({
+					provider: "gemini-live",
+					gatewayUrl: useDirectMode ? undefined : LAB_GATEWAY_URL,
+					naiaKey: useDirectMode ? undefined : naiaKey,
+					googleApiKey: useDirectMode ? config.googleApiKey : undefined,
+					voice: geminiVoice,
+					systemInstruction: systemPrompt,
+					model: config.liveModel,
+				});
+			}
 
 			// Create mic stream
 			const mic = await createMicStream({
@@ -878,7 +972,8 @@ export function ChatPanel() {
 			mic.start();
 
 			setVoiceMode("active");
-			Logger.info("ChatPanel", "Voice conversation started");
+			voiceStartRef.current = { time: Date.now(), provider: liveProvider };
+			Logger.info("ChatPanel", "Voice conversation started", { provider: liveProvider });
 		} catch (err) {
 			Logger.warn("ChatPanel", "Voice connection failed", { error: String(err) });
 			useChatStore.getState().addMessage({ role: "assistant", content: `${t("chat.voiceError")}: ${err}` });

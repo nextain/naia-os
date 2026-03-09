@@ -30,7 +30,7 @@ interface ChatState {
 
 	setSessionId: (id: string) => void;
 	setMessages: (messages: ChatMessage[]) => void;
-	addMessage: (msg: Pick<ChatMessage, "role" | "content">) => void;
+	addMessage: (msg: Pick<ChatMessage, "role" | "content"> & Partial<Pick<ChatMessage, "cost">>) => void;
 	updateLastMessage: (role: ChatMessage["role"], content: string) => void;
 	startStreaming: () => void;
 	appendStreamChunk: (text: string) => void;
@@ -81,6 +81,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 				...s.messages,
 				{ ...msg, id: generateId(), timestamp: Date.now() },
 			],
+			totalSessionCost: s.totalSessionCost + (msg.cost?.cost ?? 0),
 		})),
 
 	updateLastMessage: (role, content) =>
