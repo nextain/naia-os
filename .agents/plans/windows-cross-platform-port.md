@@ -716,7 +716,7 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Create `tauri.conf.windows.json`
 
 **Checkpoint 1a**:
-- [ ] `cargo check --manifest-path shell/src-tauri/Cargo.toml` passes (no Rust toolchain on Windows dev)
+- [x] `cargo check --manifest-path shell/src-tauri/Cargo.toml` passes (zero warnings, 2026-03-10)
 - [ ] Linux build: not tested on this branch
 - [x] Config files verified consistent (source review 2026-03-09)
 
@@ -729,7 +729,7 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Flatpak paths → runtime check (existing behavior, falls through on Windows)
 
 **Checkpoint 1b**:
-- [ ] `cargo test` — not run (no Rust toolchain on Windows dev machine)
+- [ ] `cargo test` — not run (Rust toolchain exists but cargo test not executed)
 - [x] `pnpm run tauri dev` on Windows — app starts, chat works (manual test 2026-03-09)
 - [x] Deep link (naia://) works on Windows (manual test 2026-03-09)
 - [x] Console window suppression works (manual test 2026-03-09)
@@ -786,29 +786,40 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [ ] Windows: NVM for Windows / fnm fallback paths work
 - [x] Windows: system PATH node.js works (used in manual dev test)
 
-#### Phase 2b: WSL integration (items 18–19, 21, 24) — code written, NEVER TESTED
+#### Phase 2b: WSL integration (items 18–19, 21, 24) — code written, partially VERIFIED
 
 - [x] `wsl.rs` module — WSL availability check, NaiaEnv import, run_in_distro
 - [x] Gateway WSL bridge (`spawn_gateway()` Tier 2 path)
 - [x] `get_platform_tier()` Tauri command
-- [ ] `.wslconfig` template — FILE DOES NOT EXIST
+- [x] `.wslconfig` template — exists at `config/defaults/wslconfig-template`, deployed via `include_str!`
+- [x] `setup_wsl` Tauri command — spawn_blocking, UAC elevation, reboot detection
+- [x] Settings UI: "Setup WSL + NaiaEnv (Tier 2)" button with progress/error
+- [x] OnboardingWizard: auto-trigger WSL setup on Windows Tier 1 after onboarding
+- [x] `config/wsl/Dockerfile` + `wsl.conf` + `healthcheck.sh` for NaiaEnv distro build
+- [x] CI `build-wsl-distro` job activated in release-app.yml
 
-**Checkpoint 2b** (NOT VERIFIED — no NaiaEnv distro exists):
-- [ ] `wsl --status` detection works
-- [ ] Tier correctly reported (1 without WSL, 2 with NaiaEnv)
-- [ ] Gateway spawns in WSL via `wsl -d NaiaEnv`
-- [ ] WebSocket connects from Windows host to WSL Gateway
-- [ ] Chat + tools work end-to-end via WSL Gateway
+**Checkpoint 2b** (PARTIALLY VERIFIED — 2026-03-10):
+- [x] `wsl --status` detection works (manual test)
+- [x] Tier correctly reported: Tier 1 without NaiaEnv (manual test)
+- [x] WSL auto-install via setup_wsl button works (UAC → install → no reboot needed on Win11)
+- [x] `.wslconfig` auto-deployed to `%USERPROFILE%` (manual test)
+- [x] Reboot detection: re-click doesn't re-trigger install (manual test)
+- [x] NaiaEnv rootfs not found → clear error message (manual test)
+- [x] `cargo check` passes with zero warnings (2026-03-10)
+- [ ] Gateway spawns in WSL via `wsl -d NaiaEnv` — blocked (no rootfs built yet)
+- [ ] WebSocket connects from Windows host to WSL Gateway — blocked
+- [ ] Chat + tools work end-to-end via WSL Gateway — blocked
 
-#### Phase 2c: Store distribution (items 22–23, 25) — mostly NOT done
+#### Phase 2c: Store distribution (items 22–23, 25) — partially done
 
-- [ ] build-wsl-distro CI job — commented out, Dockerfile missing
+- [x] build-wsl-distro CI job — activated, Dockerfile created
 - [ ] MSIX packaging — deferred (Store registration needed)
 - [x] Settings UI: Tier 1/2 status display code exists (hardcoded English, not i18n'd)
 
-**Checkpoint 2c** (NOT VERIFIED):
-- [ ] Settings UI tier display actually renders on Windows
-- [ ] WSL rootfs tar.gz builds in CI
+**Checkpoint 2c** (PARTIALLY VERIFIED):
+- [x] Settings UI tier display renders on Windows (manual test 2026-03-10)
+- [ ] WSL rootfs tar.gz builds in CI — job activated, never executed
+- [ ] NSIS installer bundles NaiaEnv rootfs
 
 ---
 
@@ -851,6 +862,6 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 | D2 | ~~notify-config.ts:30~~ | ~~Low~~ | ~~String concat~~ → FIXED (path.join) |
 | D3 | ~~claude-code-cli.ts:228,325,370~~ | ~~Critical~~ | ~~SIGTERM~~ → FIXED (child.kill()) |
 | D4 | tool-bridge.ts:609 | Medium | Naive glob matching in fsSearchFiles — complex patterns fail |
-| D5 | .wslconfig | Medium | Template file missing (plan item, never created) |
+| D5 | ~~.wslconfig~~ | ~~Medium~~ | ~~Template file missing~~ → RESOLVED (exists at config/defaults/wslconfig-template) |
 | D6 | CI build-windows | High | First CI run triggered 2026-03-09 — awaiting result |
 | D7 | Settings tier UI | Low | Strings hardcoded English, not i18n'd |
