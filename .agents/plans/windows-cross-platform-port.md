@@ -785,8 +785,8 @@ Ollama setup in WSL distro:
 #### Phase 2c: Store distribution (items 22–23, 25) ⏳
 
 - [x] build-wsl-distro CI job (placeholder template)
-- [ ] MSIX packaging (requires signing certificate)
-- [ ] Settings UI: Tier 1 → Tier 2 upgrade flow (backend ready: get_platform_tier)
+- [ ] MSIX packaging (deferred — NSIS/MSI sufficient, Store registration needed)
+- [x] Settings UI: Tier 1/2 status display with upgrade hints
 
 **Checkpoint 2c**:
 - MSIX installs via sideload (unsigned/self-signed for testing)
