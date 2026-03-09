@@ -729,7 +729,7 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Flatpak paths → runtime check (existing behavior, falls through on Windows)
 
 **Checkpoint 1b**:
-- [ ] `cargo test` — not run (Rust toolchain exists but cargo test not executed)
+- [x] `cargo test` — 37 passed, 0 failed (2026-03-10)
 - [x] `pnpm run tauri dev` on Windows — app starts, chat works (manual test 2026-03-09)
 - [x] Deep link (naia://) works on Windows (manual test 2026-03-09)
 - [x] Console window suppression works (manual test 2026-03-09)
@@ -757,18 +757,21 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 **Checkpoint 1d**:
 - [x] Windows Tier 1: app runs, API key set, chat works (manual test 2026-03-09)
 - [x] Windows Tier 1: login via deep link works (manual test 2026-03-09)
-- [ ] Windows Tier 1: built-in skills (time, memo, weather) — not individually tested
-- [ ] Gateway skip log message — not verified
+- [x] Windows Tier 1: built-in skills (time, memo, weather) — confirmed working (manual test 2026-03-10)
+- [x] Gateway skip log message — verified in tauri dev logs (2026-03-10)
 
 #### Phase 1e: CI pipeline (items 14–15) — code written, NOT verified
 
 - [x] Add `--config src-tauri/tauri.conf.linux.json` to Linux build
 - [x] Add `build-windows` job (windows-latest, NSIS + MSI)
 
-**Checkpoint 1e** (NOT VERIFIED — Windows CI job NEVER EXECUTED):
-- [ ] CI `build-linux` still produces artifacts on this branch
-- [ ] CI `build-windows` produces NSIS installer — **job exists but has never run in any CI execution**
-- [ ] Download Windows installer → install → app opens
+**Checkpoint 1e** (VERIFIED — 2026-03-10, run 22860951825):
+- [x] CI `build-linux` produces artifacts (AppImage, DEB, RPM)
+- [x] CI `build-windows` produces NSIS installer + MSI
+- [x] CI `build-flatpak` produces Flatpak bundle
+- [x] CI `build-wsl-distro` produces NaiaEnv-rootfs.tar.gz (607MB)
+- [x] CI `release` creates GitHub Release with all artifacts + SHA256SUMS
+- [ ] Download Windows installer → install → app opens (not tested)
 
 **Known issue**: Release workflow runs build-linux + build-flatpak only; build-windows is silently skipped.
 
@@ -806,7 +809,9 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Reboot detection: re-click doesn't re-trigger install (manual test)
 - [x] NaiaEnv rootfs not found → clear error message (manual test)
 - [x] `cargo check` passes with zero warnings (2026-03-10)
-- [ ] Gateway spawns in WSL via `wsl -d NaiaEnv` — blocked (no rootfs built yet)
+- [x] CI build-wsl-distro success — rootfs 607MB (2026-03-10)
+- [ ] WSL distro import — blocked: HCS_E_SERVICE_NOT_AVAILABLE (needs reboot for Hyper-V)
+- [ ] Gateway spawns in WSL via `wsl -d NaiaEnv` — blocked (needs reboot)
 - [ ] WebSocket connects from Windows host to WSL Gateway — blocked
 - [ ] Chat + tools work end-to-end via WSL Gateway — blocked
 
@@ -816,10 +821,10 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [ ] MSIX packaging — deferred (Store registration needed)
 - [x] Settings UI: Tier 1/2 status display code exists (hardcoded English, not i18n'd)
 
-**Checkpoint 2c** (PARTIALLY VERIFIED):
+**Checkpoint 2c** (PARTIALLY VERIFIED — 2026-03-10):
 - [x] Settings UI tier display renders on Windows (manual test 2026-03-10)
-- [ ] WSL rootfs tar.gz builds in CI — job activated, never executed
-- [ ] NSIS installer bundles NaiaEnv rootfs
+- [x] WSL rootfs tar.gz builds in CI — 607MB, success (run 22860951825)
+- [ ] NSIS installer bundles NaiaEnv rootfs (rootfs is separate download for now)
 
 ---
 
