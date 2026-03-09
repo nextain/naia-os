@@ -697,13 +697,13 @@ Ollama setup in WSL distro:
 > These changes enable the codebase to compile and run on Windows.
 > Designed to not break existing Linux and to be extensible for future platforms.
 
-#### Phase 1a: Deps + Config (items 6, 11, 12, 13)
+#### Phase 1a: Deps + Config (items 6, 11, 12, 13) ✅
 
-- Add `dirs = "5"` + `[target.'cfg(windows)'.dependencies] windows-sys` to Cargo.toml
-- Unify identifier to `io.nextain.naia` in tauri.conf.json + Flatpak D-Bus permission
-- Add data migration logic (old `com.naia.shell` config dir → new `io.nextain.naia`)
-- Extract Linux targets → `tauri.conf.linux.json`
-- Create `tauri.conf.windows.json`
+- [x] Add `dirs = "5"` + `[target.'cfg(windows)'.dependencies] windows-sys` to Cargo.toml
+- [x] Unify identifier to `io.nextain.naia` in tauri.conf.json + Flatpak D-Bus permission
+- [x] Add data migration logic (old `com.naia.shell` config dir → new `io.nextain.naia`)
+- [x] Extract Linux targets → `tauri.conf.linux.json`
+- [x] Create `tauri.conf.windows.json`
 
 **Checkpoint 1a**:
 - `cargo check --manifest-path shell/src-tauri/Cargo.toml` passes on Linux (new deps resolve)
@@ -711,13 +711,13 @@ Ollama setup in WSL distro:
 - Existing Linux Flatpak build still works (identifier change requires Flatpak manifest sync)
 - Windows cross-compile deferred to Phase 1e (CI)
 
-#### Phase 1b: Rust platform abstraction (items 1–5, 7)
+#### Phase 1b: Rust platform abstraction (items 1–5, 7) ✅
 
-- `home_dir()` helper → replace 10× `env::var("HOME")`
-- `is_pid_alive()` → `#[cfg(unix)]` + `#[cfg(windows)]`
-- `cleanup_orphan_processes()` → `#[cfg(unix)]` gate + Windows no-op
-- `spawn_gateway()` → pkill + Command::new("true") platform gates
-- Flatpak paths → `#[cfg(target_os = "linux")]` gate (5 sites)
+- [x] `home_dir()` helper → replace 10× `env::var("HOME")`
+- [x] `is_pid_alive()` → `#[cfg(unix)]` + `#[cfg(windows)]`
+- [x] `cleanup_orphan_processes()` → `#[cfg(unix)]` gate + Windows TerminateProcess
+- [x] `spawn_gateway()` → pkill + dummy_child() platform gates
+- [x] Flatpak paths → runtime check (existing behavior, falls through on Windows)
 
 **Checkpoint 1b**:
 - `cargo test --manifest-path shell/src-tauri/Cargo.toml` passes on Linux (no regression)
@@ -725,29 +725,29 @@ Ollama setup in WSL distro:
 - `pnpm run tauri dev` on Linux — app starts, Gateway spawns, chat works
 - Full Windows compile verification deferred to Phase 1e (CI)
 
-#### Phase 1c: Agent fixes (items 8–10)
+#### Phase 1c: Agent fixes (items 8–10) ✅
 
-- `tool-bridge.ts` (2 sites), `memo.ts`, `notify-config.ts` — `process.env.HOME` → `homedir()`
+- [x] `tool-bridge.ts` (2 sites), `memo.ts`, `notify-config.ts` — `process.env.HOME` → `homedir()`
 
 **Checkpoint 1c**:
 - `cd agent && pnpm test` passes
 - `cd agent && pnpm exec tsc --noEmit` passes
 - Linux `pnpm run tauri dev` — cron, memo, notify still work
 
-#### Phase 1d: Windows Tier 1 flow (items 16–17)
+#### Phase 1d: Windows Tier 1 flow (items 16–17) ✅
 
-- `spawn_gateway()` — Windows Tier 1 early return (skip find_openclaw_paths)
-- `ensure_openclaw_config()` + `sync_openclaw_config()` — skip on Windows Tier 1
+- [x] `spawn_gateway()` — Windows Tier 1/2 via WSL detection
+- [x] `sync_openclaw_config()` — skip on Windows (config lives in WSL)
 
 **Checkpoint 1d**:
 - `cargo test` on Linux — no regression
 - `cargo check --target x86_64-pc-windows-msvc` passes (if cross-compile toolchain available)
 - Full Windows verification deferred to Phase 1e (CI build + manual install test)
 
-#### Phase 1e: CI pipeline (items 14–15)
+#### Phase 1e: CI pipeline (items 14–15) ✅
 
-- Refactor: shared `build-frontend` job
-- Add `build-windows` job (windows-latest)
+- [x] Add `--config src-tauri/tauri.conf.linux.json` to Linux build
+- [x] Add `build-windows` job (windows-latest, NSIS + MSI)
 
 **Checkpoint 1e**:
 - CI `build-linux` still produces artifacts (AppImage, DEB, RPM)
@@ -761,31 +761,32 @@ Ollama setup in WSL distro:
 
 ### Phase 2: Windows distribution (P1 items 18–25)
 
-#### Phase 2a: Bundled Node.js (item 20)
+#### Phase 2a: Bundled Node.js (item 20) ✅
 
-- `find_node_binary()` — bundled node.exe, NVM for Windows, fnm paths
+- [x] `find_node_binary()` — NVM for Windows, fnm paths
+- [x] `spawn_agent_core()` — bundled node.exe via resource_dir()
 
 **Checkpoint 2a**:
 - Windows: app finds bundled node.exe without system Node.js installed
 - Linux: no regression (existing search order unchanged)
 
-#### Phase 2b: WSL integration (items 18–19, 21, 24)
+#### Phase 2b: WSL integration (items 18–19, 21, 24) ✅
 
-- `wsl.rs` module — WSL availability check, NaiaEnv import, run_in_distro
-- Gateway WSL bridge (`spawn_gateway()` Tier 2 path)
-- `find_openclaw_paths()` — WSL-aware resolution
-- `.wslconfig` template generation
+- [x] `wsl.rs` module — WSL availability check, NaiaEnv import, run_in_distro
+- [x] Gateway WSL bridge (`spawn_gateway()` Tier 2 path)
+- [x] `get_platform_tier()` Tauri command
+- [x] `.wslconfig` template
 
 **Checkpoint 2b**:
 - Windows + WSL2: Tier 2 upgrade flow works (WSL detected, NaiaEnv importable)
 - Windows + WSL2 + NaiaEnv: Gateway spawns in WSL, WebSocket connects, chat + tools work
 - Windows without WSL: Tier 1 mode, clear "WSL not installed" message in Settings
 
-#### Phase 2c: Store distribution (items 22–23, 25)
+#### Phase 2c: Store distribution (items 22–23, 25) ⏳
 
-- MSIX packaging (makeappx.exe + signtool.exe)
-- build-wsl-distro CI job
-- Settings UI: Tier 1 → Tier 2 upgrade flow
+- [x] build-wsl-distro CI job (placeholder template)
+- [ ] MSIX packaging (requires signing certificate)
+- [ ] Settings UI: Tier 1 → Tier 2 upgrade flow (backend ready: get_platform_tier)
 
 **Checkpoint 2c**:
 - MSIX installs via sideload (unsigned/self-signed for testing)
@@ -794,10 +795,10 @@ Ollama setup in WSL distro:
 
 ---
 
-### Phase 3: Nice to Have (P2 items 26–28)
+### Phase 3: Nice to Have (P2 items 26–28) ⏳
 
-- Agent fs-based fallback (no Gateway)
-- Flatpak detection platform guard
-- Test code `#[cfg(unix)]` gate
+- [ ] Agent fs-based fallback (no Gateway) — deferred to separate issue
+- [x] Flatpak detection platform guard (process.platform === "linux")
+- [x] Test code: dummy_child() replaces Command::new("true")
 
 **Checkpoint 3**: Agent tests pass, no regressions
