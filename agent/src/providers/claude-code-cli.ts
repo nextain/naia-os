@@ -225,7 +225,7 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 			let partialData: string | null = null;
 
 			const onAbort = () => {
-				if (!child.killed) child.kill("SIGTERM");
+				if (!child.killed) child.kill();
 			};
 			signal?.addEventListener("abort", onAbort);
 
@@ -322,7 +322,7 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 				]);
 
 				if (exitCode === -999) {
-					if (!child.killed) child.kill("SIGTERM");
+					if (!child.killed) child.kill();
 					throw new Error("Claude Code CLI timed out.");
 				}
 
@@ -367,7 +367,7 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 			} finally {
 				signal?.removeEventListener("abort", onAbort);
 				if (!processExited && !child.killed) {
-					child.kill("SIGTERM");
+					child.kill();
 				}
 				// Cleanup temp system prompt file
 				if (systemPromptFile) {

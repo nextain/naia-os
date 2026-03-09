@@ -56,7 +56,7 @@ skillRegistry.register(createVoiceWakeSkill());
 skillRegistry.register(createWeatherSkill());
 
 // Cron skill — persistent store in ~/.naia/cron-jobs.json
-const cronStorePath = `${homedir()}/.naia/cron-jobs.json`;
+const cronStorePath = path.join(homedir(), ".naia", "cron-jobs.json");
 const cronStore = new CronStore(cronStorePath);
 skillRegistry.register(createCronSkill(cronStore));
 
@@ -76,7 +76,7 @@ export const cronScheduler = new CronScheduler((payload) => {
 cronScheduler.restoreFromStore(cronStore);
 
 // Bootstrap default skills from bundled assets (first-run only)
-const customSkillsDir = `${homedir()}/.naia/skills`;
+const customSkillsDir = path.join(homedir(), ".naia", "skills");
 const bundledSkillsDir = new URL(
 	"../../assets/default-skills",
 	import.meta.url,

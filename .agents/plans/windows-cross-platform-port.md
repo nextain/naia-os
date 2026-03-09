@@ -707,7 +707,7 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 > These changes enable the codebase to compile and run on Windows.
 > Designed to not break existing Linux and to be extensible for future platforms.
 
-#### Phase 1a: Deps + Config (items 6, 11, 12, 13) ✅
+#### Phase 1a: Deps + Config (items 6, 11, 12, 13) — code written, partial verify
 
 - [x] Add `dirs = "5"` + `[target.'cfg(windows)'.dependencies] windows-sys` to Cargo.toml
 - [x] Unify identifier to `io.nextain.naia` in tauri.conf.json + Flatpak D-Bus permission
@@ -716,104 +716,117 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Create `tauri.conf.windows.json`
 
 **Checkpoint 1a**:
-- `cargo check --manifest-path shell/src-tauri/Cargo.toml` passes on Linux (new deps resolve)
-- `pnpm run tauri build --config src-tauri/tauri.conf.linux.json` produces deb/rpm/appimage
-- Existing Linux Flatpak build still works (identifier change requires Flatpak manifest sync)
-- Windows cross-compile deferred to Phase 1e (CI)
+- [ ] `cargo check --manifest-path shell/src-tauri/Cargo.toml` passes (no Rust toolchain on Windows dev)
+- [ ] Linux build: not tested on this branch
+- [x] Config files verified consistent (source review 2026-03-09)
 
-#### Phase 1b: Rust platform abstraction (items 1–5, 7) ✅
+#### Phase 1b: Rust platform abstraction (items 1–5, 7) — code written, partial verify
 
 - [x] `home_dir()` helper → replace 10× `env::var("HOME")`
-- [x] `is_pid_alive()` → `#[cfg(unix)]` + `#[cfg(windows)]`
-- [x] `cleanup_orphan_processes()` → `#[cfg(unix)]` gate + Windows TerminateProcess
+- [x] `is_pid_alive()` → platform module (linux: libc::kill, windows: Win32 API)
+- [x] `cleanup_orphan_processes()` → platform module (linux: SIGTERM/SIGKILL, windows: TerminateProcess)
 - [x] `spawn_gateway()` → pkill + dummy_child() platform gates
 - [x] Flatpak paths → runtime check (existing behavior, falls through on Windows)
 
 **Checkpoint 1b**:
-- `cargo test --manifest-path shell/src-tauri/Cargo.toml` passes on Linux (no regression)
-- `cargo check --target x86_64-pc-windows-msvc` passes (if cross-compile toolchain available)
-- `pnpm run tauri dev` on Linux — app starts, Gateway spawns, chat works
-- Full Windows compile verification deferred to Phase 1e (CI)
+- [ ] `cargo test` — not run (no Rust toolchain on Windows dev machine)
+- [x] `pnpm run tauri dev` on Windows — app starts, chat works (manual test 2026-03-09)
+- [x] Deep link (naia://) works on Windows (manual test 2026-03-09)
+- [x] Console window suppression works (manual test 2026-03-09)
+- [ ] Linux regression check — not done on this branch
 
-#### Phase 1c: Agent fixes (items 8–10) ✅
+#### Phase 1c: Agent fixes (items 8–10) — code written, NOT verified
 
 - [x] `tool-bridge.ts` (2 sites), `memo.ts`, `notify-config.ts` — `process.env.HOME` → `homedir()`
 
 **Checkpoint 1c**:
-- `cd agent && pnpm test` passes
-- `cd agent && pnpm exec tsc --noEmit` passes
-- Linux `pnpm run tauri dev` — cron, memo, notify still work
+- [x] `cd agent && pnpm test` — 12 failures, all pre-existing (same on main branch). No regression from our changes.
+- [x] `cd agent && pnpm exec tsc --noEmit` — passes (0 errors)
 
-#### Phase 1d: Windows Tier 1 flow (items 16–17) ✅
+**Issues found in source review (2026-03-09) — ALL FIXED**:
+- ~~tool-bridge.ts:59 — cronStorePath string concat~~ → path.join() (fixed)
+- ~~tool-bridge.ts:79 — customSkillsDir same~~ → path.join() (fixed)
+- ~~notify-config.ts:30 — config path same~~ → path.join() (fixed)
+- ~~claude-code-cli.ts:228,325,370 — child.kill("SIGTERM")~~ → child.kill() (fixed)
+
+#### Phase 1d: Windows Tier 1 flow (items 16–17) — code written, partial verify
 
 - [x] `spawn_gateway()` — Windows Tier 1/2 via WSL detection
 - [x] `sync_openclaw_config()` — skip on Windows (config lives in WSL)
 
 **Checkpoint 1d**:
-- `cargo test` on Linux — no regression
-- `cargo check --target x86_64-pc-windows-msvc` passes (if cross-compile toolchain available)
-- Full Windows verification deferred to Phase 1e (CI build + manual install test)
+- [x] Windows Tier 1: app runs, API key set, chat works (manual test 2026-03-09)
+- [x] Windows Tier 1: login via deep link works (manual test 2026-03-09)
+- [ ] Windows Tier 1: built-in skills (time, memo, weather) — not individually tested
+- [ ] Gateway skip log message — not verified
 
-#### Phase 1e: CI pipeline (items 14–15) ✅
+#### Phase 1e: CI pipeline (items 14–15) — code written, NOT verified
 
 - [x] Add `--config src-tauri/tauri.conf.linux.json` to Linux build
 - [x] Add `build-windows` job (windows-latest, NSIS + MSI)
 
-**Checkpoint 1e**:
-- CI `build-linux` still produces artifacts (AppImage, DEB, RPM)
-- CI `build-flatpak` still produces Flatpak (independent job, unaffected)
-- CI `build-windows` produces NSIS installer (.exe)
-- Download Windows installer → install on Windows → app window opens
-- Tier 1 chat works IF user has Node.js 22+ in PATH
-  (bundled node.exe discovery is Phase 2a — without it, agent needs system Node.js)
+**Checkpoint 1e** (NOT VERIFIED — Windows CI job NEVER EXECUTED):
+- [ ] CI `build-linux` still produces artifacts on this branch
+- [ ] CI `build-windows` produces NSIS installer — **job exists but has never run in any CI execution**
+- [ ] Download Windows installer → install → app opens
+
+**Known issue**: Release workflow runs build-linux + build-flatpak only; build-windows is silently skipped.
 
 ---
 
 ### Phase 2: Windows distribution (P1 items 18–25)
 
-#### Phase 2a: Bundled Node.js (item 20) ✅
+#### Phase 2a: Bundled Node.js (item 20) — code written, NOT verified
 
 - [x] `find_node_binary()` — NVM for Windows, fnm paths
 - [x] `spawn_agent_core()` — bundled node.exe via resource_dir()
 
-**Checkpoint 2a**:
-- Windows: app finds bundled node.exe without system Node.js installed
-- Linux: no regression (existing search order unchanged)
+**Checkpoint 2a** (NOT VERIFIED):
+- [ ] Windows: bundled node.exe discovery works (requires CI-built installer)
+- [ ] Windows: NVM for Windows / fnm fallback paths work
+- [x] Windows: system PATH node.js works (used in manual dev test)
 
-#### Phase 2b: WSL integration (items 18–19, 21, 24) ✅
+#### Phase 2b: WSL integration (items 18–19, 21, 24) — code written, NEVER TESTED
 
 - [x] `wsl.rs` module — WSL availability check, NaiaEnv import, run_in_distro
 - [x] Gateway WSL bridge (`spawn_gateway()` Tier 2 path)
 - [x] `get_platform_tier()` Tauri command
-- [x] `.wslconfig` template
+- [ ] `.wslconfig` template — FILE DOES NOT EXIST
 
-**Checkpoint 2b**:
-- Windows + WSL2: Tier 2 upgrade flow works (WSL detected, NaiaEnv importable)
-- Windows + WSL2 + NaiaEnv: Gateway spawns in WSL, WebSocket connects, chat + tools work
-- Windows without WSL: Tier 1 mode, clear "WSL not installed" message in Settings
+**Checkpoint 2b** (NOT VERIFIED — no NaiaEnv distro exists):
+- [ ] `wsl --status` detection works
+- [ ] Tier correctly reported (1 without WSL, 2 with NaiaEnv)
+- [ ] Gateway spawns in WSL via `wsl -d NaiaEnv`
+- [ ] WebSocket connects from Windows host to WSL Gateway
+- [ ] Chat + tools work end-to-end via WSL Gateway
 
-#### Phase 2c: Store distribution (items 22–23, 25) ⏳
+#### Phase 2c: Store distribution (items 22–23, 25) — mostly NOT done
 
-- [x] build-wsl-distro CI job (placeholder template)
-- [ ] MSIX packaging (deferred — NSIS/MSI sufficient, Store registration needed)
-- [x] Settings UI: Tier 1/2 status display with upgrade hints
+- [ ] build-wsl-distro CI job — commented out, Dockerfile missing
+- [ ] MSIX packaging — deferred (Store registration needed)
+- [x] Settings UI: Tier 1/2 status display code exists (hardcoded English, not i18n'd)
 
-**Checkpoint 2c**:
-- MSIX installs via sideload (unsigned/self-signed for testing)
-- WSL rootfs tar.gz builds in CI
-- Settings UI shows upgrade button, guides user through WSL + NaiaEnv setup
+**Checkpoint 2c** (NOT VERIFIED):
+- [ ] Settings UI tier display actually renders on Windows
+- [ ] WSL rootfs tar.gz builds in CI
 
 ---
 
-### Phase 3: Nice to Have (P2 items 26–28) ✅
+### Phase 3: Nice to Have (P2 items 26–28) — code written, NOT verified
 
 - [x] Flatpak detection platform guard (process.platform === "linux")
 - [x] Test code: dummy_child() replaces Command::new("true")
 - [x] Agent fs-based fallback for file tools when Gateway unavailable (Tier 1 mode)
 
-**Checkpoint 3**: Agent tests pass, no regressions
+**Checkpoint 3**:
+- [x] `cd agent && pnpm test` — 12 failures, all pre-existing (no regression)
+- [ ] fs-based fallback: read_file works without Gateway on Windows
+- [ ] fs-based fallback: write_file works without Gateway on Windows
+- [ ] fs-based fallback: search_files works without Gateway on Windows
 
-### Phase 4: Platform code separation (cross-cutting) ✅
+**Known issue**: fsSearchFiles glob matching is naive (won't handle `**/*.ts` patterns correctly)
+
+### Phase 4: Platform code separation (cross-cutting) ✅ VERIFIED
 
 - [x] Create `platform/mod.rs` facade with `#[cfg]` re-exports + `GatewaySpawnResult` enum
 - [x] Create `platform/linux.rs` with all Unix-specific implementations
@@ -822,4 +835,22 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] Refactor `lib.rs` to call `platform::*` functions — zero platform `#[cfg]` remaining
 - [x] Make shared helpers `pub(crate)`: log_verbose, log_both, read_pid_file, remove_pid_file, find_highest_node_version, check_gateway_health_sync
 
-**Checkpoint 4**: lib.rs has zero `#[cfg(unix/windows/target_os)]`, TypeScript checks pass, agent tests pass (641/21 same as baseline)
+**Checkpoint 4** ✅ VERIFIED (2026-03-09):
+- lib.rs has zero `#[cfg(unix/windows/target_os)]` — 2 consecutive clean code review passes
+- 14 platform functions symmetric across Linux/Windows
+- Deep link (naia://) verified working on Windows (manual test)
+- Console window suppression verified on Windows (manual test)
+
+---
+
+### Discovered Issues (source review 2026-03-09)
+
+| # | File | Severity | Description |
+|---|------|----------|-------------|
+| D1 | ~~tool-bridge.ts:59,79~~ | ~~Low~~ | ~~String concat~~ → FIXED (path.join) |
+| D2 | ~~notify-config.ts:30~~ | ~~Low~~ | ~~String concat~~ → FIXED (path.join) |
+| D3 | ~~claude-code-cli.ts:228,325,370~~ | ~~Critical~~ | ~~SIGTERM~~ → FIXED (child.kill()) |
+| D4 | tool-bridge.ts:609 | Medium | Naive glob matching in fsSearchFiles — complex patterns fail |
+| D5 | .wslconfig | Medium | Template file missing (plan item, never created) |
+| D6 | CI build-windows | High | First CI run triggered 2026-03-09 — awaiting result |
+| D7 | Settings tier UI | Low | Strings hardcoded English, not i18n'd |

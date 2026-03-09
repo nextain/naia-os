@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 export type NotifyProvider = "slack" | "discord" | "google_chat";
 
@@ -27,7 +28,7 @@ export async function getNotifyWebhookUrl(
 	// 2. config.json fallback
 	try {
 		const home = homedir();
-		const raw = await readFile(`${home}/.naia/config.json`, "utf-8");
+		const raw = await readFile(join(home, ".naia", "config.json"), "utf-8");
 		const config = JSON.parse(raw) as {
 			notifications?: Record<string, { webhookUrl?: string }>;
 			slackWebhookUrl?: string;
