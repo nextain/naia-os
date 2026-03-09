@@ -465,7 +465,7 @@ async function runShellCommand(
 	let actualCommand = command;
 	// Automatically route command to host if running inside a flatpak sandbox
 	try {
-		if (fs.existsSync("/.flatpak-info")) {
+		if (process.platform === "linux" && fs.existsSync("/.flatpak-info")) {
 			const escaped = command.replace(/'/g, "'\\''");
 			actualCommand = `flatpak-spawn --host bash -c '${escaped}'`;
 		}

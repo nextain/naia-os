@@ -159,7 +159,7 @@ export function createClaudeCodeCliProvider(model: string): LLMProvider {
 			const cliPath = process.env.CLAUDE_CODE_PATH || "claude";
 
 			// Flatpak detection: use flatpak-spawn --host to access host CLI
-			const isFlatpak = existsSync("/run/flatpak-info") || process.env.FLATPAK === "1";
+			const isFlatpak = process.platform === "linux" && (existsSync("/run/flatpak-info") || process.env.FLATPAK === "1");
 
 			// System prompt: use temp file for large prompts or Windows
 			let systemPromptFile: string | undefined;

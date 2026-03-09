@@ -204,6 +204,24 @@ jobs:
           path: Naia-Shell-x86_64.flatpak
           if-no-files-found: error
 
+  # build-wsl-distro:
+  #   name: Build WSL Distro (NaiaEnv)
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Build NaiaEnv rootfs
+  #       run: |
+  #         docker build -t naia-wsl-distro -f config/wsl/Dockerfile .
+  #         docker export $(docker create naia-wsl-distro) | gzip > NaiaEnv-rootfs.tar.gz
+  #     - name: Upload artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: naia-wsl-distro
+  #         path: NaiaEnv-rootfs.tar.gz
+
   release:
     name: Create GitHub Release
     needs: [build-linux, build-windows, build-flatpak]
