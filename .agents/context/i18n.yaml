@@ -58,8 +58,13 @@ key_files:
   - shell/src/components/OnboardingWizard.tsx  # locale propagation on setup
 
 testing:
-  unit: shell/src/lib/__tests__/persona.test.ts  # locale-aware prompt tests
-  e2e: shell/e2e-tauri/specs/54-settings-locale-prompt.spec.ts
+  unit: shell/src/lib/__tests__/persona.test.ts  # locale-aware prompt tests (28 tests)
+  e2e: shell/e2e-tauri/specs/54-settings-locale-prompt.spec.ts  # 32 tests total
+  e2e_coverage:
+    - "Settings: speechStyle visibility for all 14 locales (hidden 3 + visible 11)"
+    - "Settings: normalized value storage + legacy migration"
+    - "Onboarding: speechStyle step skip for non-formality locales (3)"
+    - "Onboarding: speechStyle step shown for formality locales (11)"
 
 # Translation contribution scope
 translation_contribution:
