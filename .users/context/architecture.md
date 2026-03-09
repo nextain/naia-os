@@ -107,7 +107,7 @@ App
 - **panelVisible**: `boolean` — toggles chat panel; avatar always stays visible
 - **panelSize**: `number (0-100)` — chat panel percentage of viewport. Default: **70**
 - **Avatar sizing**: `ResizeObserver` on container (not window resize)
-- **Config sync**: panelPosition + panelVisible + panelSize synced to Lab via `LAB_SYNC_FIELDS`
+- **Config sync**: panelPosition + panelVisible + panelSize + liveVoice + liveModel + voiceConversation synced to Lab via `LAB_SYNC_FIELDS`
 
 ---
 
@@ -477,8 +477,15 @@ Non-Naia providers (google, edge, openai, elevenlabs) use a separate `ttsVoice` 
 
 ### STT Status
 
-Legacy STT (`stt.ts`, `audio-recorder.ts`) has been removed.
+Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
 Real-time speech input is handled entirely by Gemini Live API's built-in speech recognition (`inputTranscription` events).
+
+### Voice Gender Defaults
+
+Default voice is automatically set based on VRM avatar gender:
+- VRM models 1,3 (female) → liveVoice: "Kore", Edge TTS: "ko-KR-SunHiNeural", Google TTS: "ko-KR-Neural2-A"
+- VRM models 2,4 (male) → liveVoice: "Puck", Edge TTS: "ko-KR-InJoonNeural", Google TTS: "ko-KR-Neural2-C"
+- On Naia login: if Lab has saved liveVoice, use it; otherwise auto-set from VRM gender.
 
 ### Billing
 

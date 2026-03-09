@@ -115,7 +115,7 @@ runtime_architecture:
     panelVisible: "boolean — toggles .side-panel presence; avatar always stays"
     panelSize: "number (0-100) — chat panel percentage of viewport. Default: 70"
     avatar_sizing: "ResizeObserver on container (not window resize)"
-    config_sync: "panelPosition + panelVisible + panelSize synced to Lab via LAB_SYNC_FIELDS"
+    config_sync: "panelPosition + panelVisible + panelSize + liveVoice + liveModel + voiceConversation synced to Lab via LAB_SYNC_FIELDS"
 
   data_flow:
     chat: "User → Shell → Agent → LLM → Agent → Shell → User"
@@ -471,10 +471,16 @@ voice_architecture:
       - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
 
   stt_status: |
-    Legacy STT (stt.ts, audio-recorder.ts) has been removed.
-    Real-time speech input is now handled entirely by Gemini Live API's
+    Legacy STT (stt.ts, audio-recorder.ts) and the sttEnabled config toggle have been removed.
+    Real-time speech input is handled entirely by Gemini Live API's
     built-in speech recognition (inputTranscription events).
-    The sttEnabled config toggle remains for potential future standalone STT use.
+
+  voice_gender_defaults: |
+    Default voice is automatically set based on VRM avatar gender:
+    - VRM models 1,3 (female) → liveVoice: "Kore", Edge TTS: "ko-KR-SunHiNeural", Google TTS: "ko-KR-Neural2-A"
+    - VRM models 2,4 (male) → liveVoice: "Puck", Edge TTS: "ko-KR-InJoonNeural", Google TTS: "ko-KR-Neural2-C"
+    Logic: avatar-presets.ts → getDefaultVoiceForAvatar(), getDefaultTtsVoiceForAvatar()
+    On Naia login: if Lab has saved liveVoice, use it; otherwise auto-set from VRM gender.
 
   billing:
     live_conversation:
