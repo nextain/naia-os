@@ -34,7 +34,7 @@ import { Logger } from "../lib/logger";
 import { syncToOpenClaw, restartGateway } from "../lib/openclaw-sync";
 import { syncLinkedChannels } from "../lib/channel-sync";
 import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "../lib/lab-sync";
-import { DEFAULT_PERSONA, buildSystemPrompt } from "../lib/persona";
+import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
@@ -684,7 +684,7 @@ export function SettingsTab() {
 	const [userName, setUserName] = useState(existing?.userName ?? "");
 	const [agentName, setAgentName] = useState(existing?.agentName ?? "");
 	const [honorific, setHonorific] = useState(existing?.honorific ?? "");
-	const [speechStyle, setSpeechStyle] = useState(existing?.speechStyle ?? "반말");
+	const [speechStyle, setSpeechStyle] = useState(existing?.speechStyle ?? "casual");
 	const [enableTools, setEnableTools] = useState(
 		existing?.enableTools ?? true,
 	);
@@ -1907,7 +1907,7 @@ export function SettingsTab() {
 					onChange={(e) => setUserName(e.target.value)}
 				/>
 			</div>
-			{locale === "ko" && (
+			{FORMALITY_LOCALES.has(locale) && (
 				<>
 					<div className="settings-field">
 						<label>{t("settings.honorific")}</label>
@@ -1923,11 +1923,12 @@ export function SettingsTab() {
 						<label>{t("settings.speechStyle")}</label>
 						<select
 							className="settings-select"
+							data-testid="settings-speech-style"
 							value={speechStyle}
 							onChange={(e) => setSpeechStyle(e.target.value)}
 						>
-							<option value="반말">{t("onboard.speechStyle.casual")} (Casual)</option>
-							<option value="존댓말">{t("onboard.speechStyle.formal")} (Formal)</option>
+							<option value="casual">{t("onboard.speechStyle.casual")} (Casual)</option>
+							<option value="formal">{t("onboard.speechStyle.formal")} (Formal)</option>
 						</select>
 					</div>
 				</>

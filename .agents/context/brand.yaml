@@ -58,18 +58,18 @@ reference_assets:
     - "assets/character/naia-character-reference-prompt.md"  # 3D character prompt
 
 character_design:
-  material: "translucent frosted glass (glassmorphism), smooth glossy finish"
-  internal: "glowing Flow Cyan (#06B6D4) digital circuit patterns and micro-node networks"
+  material: "room-temperature liquid carbon — transparent fluid by default, crystallizes to diamond for physical interaction"
+  internal: "glowing Flow Cyan (#06B6D4) digital circuit patterns and micro-node networks visible through transparent liquid body"
   eyes: "large solid black glossy orbs"
   mouth: "minimalist 'w' shaped cat mouth"
   ears: "cute cat-like ears"
-  tail: "thin translucent cat tail (back view)"
-  hair: "bob-style, gradient Nextain Blue (#2563EB) to Evolution Green (#10B981), holographic sheen"
+  tail: "thin translucent liquid cat tail (back view)"
+  hair: "bob-style, gradient Nextain Blue (#2563EB) to Evolution Green (#10B981), fluid sheen"
   logo: "glowing cyan equilateral triangle with nodes at vertices, floats above head as halo (formerly NaN OS logo, now Naia logo)"
   chest_emblem: "triangle logo + 'Naia' text etched in glowing cyan"
   variants:
-    - "with hair (bob-style, gradient holographic)"
-    - "without hair (clean android style)"
+    - "with hair (bob-style, gradient fluid)"
+    - "without hair (pure liquid core)"
   colors:
     nextain_blue: { hex: "#2563EB", role: "trust, network base, gradient start" }
     flow_cyan: { hex: "#06B6D4", role: "data flow, AI connection, hover/progress" }
