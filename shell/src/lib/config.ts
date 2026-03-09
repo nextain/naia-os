@@ -6,6 +6,7 @@ import {
 	saveSecretKey,
 } from "./secure-store";
 import type { ProviderId } from "./types";
+import type { LiveProviderId } from "./voice/types";
 
 const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
@@ -40,7 +41,6 @@ export interface AppConfig {
 	customVrms?: string[];
 	customBgs?: string[];
 	ttsEnabled?: boolean;
-	sttEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;
 	ttsProvider?: TtsProviderId;
@@ -77,6 +77,9 @@ export interface AppConfig {
 	voiceConversation?: boolean;
 	liveVoice?: string;
 	liveModel?: string;
+	liveProvider?: LiveProviderId;
+	openaiRealtimeApiKey?: string;
+	openaiRealtimeVoice?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
@@ -304,6 +307,29 @@ export async function migrateLabKeyToNaiaKey(): Promise<void> {
 	}
 	if (changed) {
 		localStorage.setItem("naia-config", JSON.stringify(raw));
+	}
+}
+
+// ── Speech style migration ──
+
+/** Normalize legacy Korean speech style values to locale-neutral keys */
+export function normalizeSpeechStyle(val: string | undefined): string | undefined {
+	if (!val) return val;
+	if (val === "반말") return "casual";
+	if (val === "존댓말") return "formal";
+	return val;
+}
+
+/**
+ * Migrate speechStyle from Korean values ("반말"/"존댓말") to locale-neutral ("casual"/"formal").
+ * Call once on app startup. Idempotent.
+ */
+export function migrateSpeechStyleValues(): void {
+	const config = loadConfig();
+	if (!config?.speechStyle) return;
+	const normalized = normalizeSpeechStyle(config.speechStyle);
+	if (normalized !== config.speechStyle) {
+		saveConfig({ ...config, speechStyle: normalized });
 	}
 }
 

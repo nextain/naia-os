@@ -104,21 +104,15 @@ describe("SettingsTab", () => {
 		).toBeDefined();
 	});
 
-	it("shows unified TTS provider selector and Google key only when google selected", () => {
+	it("shows live provider selector with default edge-tts", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
 
-		// TTS provider selector is always visible
-		expect(screen.getByLabelText("TTS 프로바이더")).toBeDefined();
-
-		// Default is edge → no Google API key
-		expect(screen.queryByLabelText(/google api key/i)).toBeNull();
-
-		// switch to google → Google API key should appear
-		fireEvent.change(screen.getByLabelText("TTS 프로바이더"), {
-			target: { value: "google" },
-		});
-		expect(screen.getByLabelText(/google api key/i)).toBeDefined();
+		// Live provider selector is always visible
+		const liveSelect = document.getElementById("live-provider-select") as HTMLSelectElement;
+		expect(liveSelect).toBeDefined();
+		// Default is edge-tts for non-logged-in users
+		expect(liveSelect.value).toBe("edge-tts");
 	});
 
 	it("hides API key input for Claude Code CLI provider", () => {

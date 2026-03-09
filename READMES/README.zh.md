@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — 属于你自己的AI所居住的个人AI操作系统
 
+**AI原生开源** — 用任何语言贡献。AI连接一切沟通。[→ 运作方式](#ai原生开源)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "开源。你的AI，你的规则。选择你的AI，塑造它的记忆和个性，赋予它你的声音 — 一切都在你自己的机器上，一切可在代码中验证。"
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | AI VTuber灵感 — 有个性的AI角色、直播、观众互动 |
 
 Naia的存在离不开这些项目。我们衷心感谢所有为我们奠定基础的开源维护者和社区。
+
+## AI原生开源
+
+2025–2026年，大多数开源项目都在防御AI贡献。**Naia采取了截然相反的方式**：将项目设计为AI辅助贡献默认高质量。
+
+> **"不要防御AI，而是与AI共同设计。"**
+
+### 运作方式
+
+```
+人（任何语言） → AI → Git（英语） → AI → 人（任何语言）
+```
+
+- **用你的语言提交Issue和PR** — AI翻译一切
+- **贡献者和维护者都使用AI** — 编码、审查、分类
+- **丰富的 `.agents/` 上下文**让AI深入理解项目 — AI理解越深，贡献质量越高
+- **10种贡献方式** — 翻译、技能、新功能、Bug、代码、文档、测试、设计、安全、上下文
+- **用母语写工作日志** — 维护你自己语言的私有仓库，通过AI翻译审查Git历史
+
+这不仅仅是一个政策，而是架构。`.agents/` 目录、三重镜像文档和许可证保护规则都是为了让AI协作成为结构性的，而非偶然的。
+
+完整模型: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [报告 (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [报告 (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## 许可证
 

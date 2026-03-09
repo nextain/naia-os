@@ -72,17 +72,18 @@ describe("buildSystemPrompt", () => {
 			userName: "Luke",
 			honorific: "오빠",
 		});
-		expect(result).toContain('Call the user "Luke오빠"');
+		expect(result).toContain("오빠");
+		expect(result).toContain("Luke");
 	});
 
 	it("injects casual speechStyle into system prompt", () => {
-		const result = buildSystemPrompt(undefined, { speechStyle: "반말" });
+		const result = buildSystemPrompt(undefined, { speechStyle: "casual" });
 		expect(result).toContain("Speak casually in Korean (반말)");
 		expect(result).toContain("Do NOT use 존댓말");
 	});
 
 	it("injects formal speechStyle into system prompt", () => {
-		const result = buildSystemPrompt(undefined, { speechStyle: "존댓말" });
+		const result = buildSystemPrompt(undefined, { speechStyle: "formal" });
 		expect(result).toContain("Speak politely in Korean (존댓말)");
 		expect(result).toContain("Do NOT use 반말");
 	});
@@ -136,22 +137,28 @@ describe("buildSystemPrompt", () => {
 			expect(result).not.toContain("Respond in");
 		});
 
-		it("skips speechStyle when locale is not Korean", () => {
-			const result = buildSystemPrompt(undefined, {
-				locale: "en",
-				speechStyle: "반말",
-			});
-			expect(result).not.toContain("반말");
+		it("skips speechStyle when locale has no formality distinction", () => {
+			const result = buildSystemPrompt(undefined, { locale: "en", speechStyle: "casual" });
+			expect(result).not.toContain("Speak casually");
 			expect(result).toContain("Respond in English");
 		});
 
 		it("applies speechStyle when locale is Korean", () => {
-			const result = buildSystemPrompt(undefined, {
-				locale: "ko",
-				speechStyle: "반말",
-			});
+			const result = buildSystemPrompt(undefined, { locale: "ko", speechStyle: "casual" });
 			expect(result).toContain("반말");
 			expect(result).toContain("Respond in Korean");
+		});
+
+		it("applies speechStyle for Japanese locale", () => {
+			const result = buildSystemPrompt(undefined, { locale: "ja", speechStyle: "formal" });
+			expect(result).toContain("敬語");
+			expect(result).toContain("Respond in Japanese");
+		});
+
+		it("applies speechStyle for German locale", () => {
+			const result = buildSystemPrompt(undefined, { locale: "de", speechStyle: "casual" });
+			expect(result).toContain("'du'");
+			expect(result).toContain("Respond in German");
 		});
 
 		it("maps all supported locales to language names", () => {
@@ -177,22 +184,21 @@ describe("buildSystemPrompt", () => {
 			expect(result).toContain("おはようございます");
 		});
 
-		it("skips honorific when locale is not Korean", () => {
-			const result = buildSystemPrompt(undefined, {
-				locale: "en",
-				userName: "Luke",
-				honorific: "오빠",
-			});
+		it("skips honorific when locale has no formality distinction", () => {
+			const result = buildSystemPrompt(undefined, { locale: "en", userName: "Luke", honorific: "오빠" });
 			expect(result).not.toContain("오빠");
 		});
 
 		it("applies honorific when locale is Korean", () => {
-			const result = buildSystemPrompt(undefined, {
-				locale: "ko",
-				userName: "Luke",
-				honorific: "오빠",
-			});
-			expect(result).toContain("Luke오빠");
+			const result = buildSystemPrompt(undefined, { locale: "ko", userName: "Luke", honorific: "오빠" });
+			expect(result).toContain("오빠");
+			expect(result).toContain("Luke");
+		});
+
+		it("applies honorific for Japanese locale", () => {
+			const result = buildSystemPrompt(undefined, { locale: "ja", userName: "Luke", honorific: "先輩" });
+			expect(result).toContain("先輩");
+			expect(result).toContain("Luke");
 		});
 	});
 });

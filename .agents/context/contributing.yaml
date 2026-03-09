@@ -242,6 +242,20 @@ code_context_unity:
   principle: "Code + tests + context = one commit. Never separate."
   cascade_ref: "agents-rules.json cascadeRules"
 
+# Contributor recognition
+# Listed in: README.md (table), naia.nextain.io /contribute page (UI component)
+# naia.nextain.io contributors: src/app/[lang]/(public)/contribute/page.tsx CONTRIBUTORS array
+# naia.nextain.io dict keys: contribute.contributions.{key} in all 14 locale files
+contributor_recognition:
+  surfaces:
+    - "naia-os README.md — Contributors table (name, contribution, date)"
+    - "naia.nextain.io /contribute — Contributors UI (avatar, name, contribution, date)"
+  contributors:
+    - username: leonardo-gonc
+      contribution: "Native Portuguese (PT) review — context docs"
+      date: "2026-03-07"
+      pr: "#11"
+
 mirrors:
   korean: ".users/context/ko/contributing.md"
   english: ".users/context/contributing.md"

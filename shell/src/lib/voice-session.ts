@@ -75,7 +75,7 @@ export function createVoiceSession(): VoiceSession {
 						JSON.stringify({
 							setup: {
 								apiKey: `Bearer ${config.naiaKey}`,
-								voice: config.voice ?? "Puck",
+								voice: config.voice ?? "Kore",
 								systemInstruction: config.systemInstruction,
 								tools: config.tools,
 								model: config.model,

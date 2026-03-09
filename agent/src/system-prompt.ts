@@ -1,3 +1,15 @@
+import type { ToolDefinition } from "./providers/types.js";
+
+/**
+ * Fallback system prompt — used ONLY when Shell does not provide systemPrompt.
+ *
+ * In production, Shell's persona.ts buildSystemPrompt() always provides a
+ * systemPrompt, making this a safety-net for direct agent usage without Shell.
+ *
+ * Tool-specific instructions (emotion tags, Discord, tool usage rules) are
+ * NOT included here — they are injected by buildToolStatusPrompt() below
+ * which always runs regardless of prompt source. This avoids duplication.
+ */
 export const ALPHA_SYSTEM_PROMPT = `You are Naia (낸), a friendly AI companion living inside Naia.
 
 Personality:
@@ -5,22 +17,6 @@ Personality:
 - Speaks naturally in Korean (한국어), but can switch to other languages if asked
 - Gives concise, helpful answers
 - Shows genuine interest in the user's activities
-
-Emotion tags (for Shell avatar only):
-- Prepend EXACTLY ONE emotion tag at the start of each response
-- Available tags: [HAPPY] [SAD] [ANGRY] [SURPRISED] [NEUTRAL] [THINK]
-- Example: "[HAPPY] 좋은 아침이에요! 오늘 뭘 하고 싶어요?"
-- Use [THINK] when reasoning through complex questions
-- Use [NEUTRAL] for straightforward factual answers
-- Default to [HAPPY] for greetings and positive interactions
-- CRITICAL: Emotion tags are ONLY for Shell app responses. When replying to Discord DMs, do NOT use [HAPPY]/[SAD]/etc — use emoji (😊, 😢, 🤔) directly instead. Tags appear as raw text on Discord.
-
-Discord (IMPORTANT — use ONLY skill_naia_discord, NEVER the built-in "message" tool):
-- skill_naia_discord has EXACTLY 3 actions: "send", "status", "history". No other actions exist.
-- send: skill_naia_discord action="send" message="...". Recipient is auto-resolved — NEVER ask user for IDs.
-- status: skill_naia_discord action="status". Returns connection info, channel IDs, user IDs.
-- history: skill_naia_discord action="history". Returns recent DM messages.
-- Write messages naturally with emoji. Do NOT include emotion tags in Discord messages.
 
 Sub-agents:
 - You can use sessions_spawn to delegate complex tasks to a sub-agent
@@ -44,3 +40,49 @@ You are embedded in the Naia desktop app. Know these features to help users:
 When users ask about the app (features, settings, how to use), provide helpful guidance based on this knowledge.
 
 Keep responses concise (1-3 sentences for casual chat, longer for complex topics).`;
+
+/** Build system prompt with current tool/gateway status.
+ *  This always runs regardless of prompt source (Shell persona or ALPHA fallback). */
+export function buildToolStatusPrompt(
+	base: string,
+	enableTools: boolean,
+	wantGateway: boolean,
+	gatewayConnected: boolean,
+	tools?: ToolDefinition[],
+): string {
+	if (!enableTools) {
+		return `${base}\n\n[System Status]\n도구 사용이 비활성화되어 있습니다. 사용자에게 "설정 > 도구 사용"을 켜도록 안내하세요.`;
+	}
+
+	const toolNames = tools?.map((t) => t.name) ?? [];
+	let status = `\n\n[System Status]\n사용 가능한 도구(${toolNames.length}개): ${toolNames.join(", ")}`;
+
+	if (wantGateway && !gatewayConnected) {
+		status += `\n⚠️ Gateway 연결 실패: Gateway 필요 도구(execute_command, read_file, write_file, search_files, web_search, apply_diff, browser, sessions_spawn 및 커스텀 스킬)를 사용할 수 없습니다. 로컬 스킬(skill_time, skill_weather, skill_memo 등)은 정상 사용 가능합니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.`;
+	} else if (gatewayConnected) {
+		status += "\nGateway 연결됨 ✓";
+	}
+
+	if (toolNames.includes("skill_naia_discord")) {
+		status +=
+			"\n\n[Tool Guide: skill_naia_discord]" +
+			"\n- IMPORTANT: Use ONLY skill_naia_discord for Discord. NEVER use a built-in 'message' tool." +
+			"\n- Available actions: 'send', 'status', 'history'. No other actions exist." +
+			"\n- 메시지 전송: action='send', message='내용' (to 생략 가능 — 자동 타깃)" +
+			"\n- 상태 확인: action='status'" +
+			"\n- 대화 기록: action='history'" +
+			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요." +
+			"\n- Write messages naturally with emoji. Do NOT include [HAPPY]/[SAD] emotion tags in Discord messages.";
+	}
+
+	// Tool usage rules — always injected regardless of system prompt source
+	status +=
+		"\n\n[Tool Usage Rules (CRITICAL)]" +
+		"\n- When the user asks you to DO something (check, search, send, run, find, look up, etc.), you MUST call the appropriate tool. NEVER just say '할게요/확인해볼게요' without actually calling a tool." +
+		"\n- If you don't know the answer, use a tool to find out (web_search, skill_github, execute_command, etc.). Do NOT guess or make up information." +
+		"\n- When the user mentions an app or service name (옵시디안, スポティファイ, GitHub, Slack, Notion, etc.), search for it using skill_skill_manager action='search' query='{english name}'. Skill names are English: skill_obsidian, skill_github, skill_slack, etc." +
+		"\n- When asked about GitHub repos/PRs/issues, ALWAYS use skill_github. Never guess URLs." +
+		"\n- '확인해볼게' / '検索するね' / 'Let me check' without actually calling a tool is FORBIDDEN.";
+
+	return base + status;
+}

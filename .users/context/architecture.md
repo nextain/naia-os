@@ -107,7 +107,7 @@ App
 - **panelVisible**: `boolean` — toggles chat panel; avatar always stays visible
 - **panelSize**: `number (0-100)` — chat panel percentage of viewport. Default: **70**
 - **Avatar sizing**: `ResizeObserver` on container (not window resize)
-- **Config sync**: panelPosition + panelVisible + panelSize synced to Lab via `LAB_SYNC_FIELDS`
+- **Config sync**: panelPosition + panelVisible + panelSize + liveVoice + liveModel + voiceConversation synced to Lab via `LAB_SYNC_FIELDS`
 
 ---
 
@@ -407,13 +407,13 @@ How Naia Agent connects to OpenClaw Gateway:
 
 ## Voice Architecture
 
-> Last updated: 2026-03-05
+> Last updated: 2026-03-10
 
 ### Overview
 
 Naia supports two voice output modes that share a single voice setting:
 
-1. **Live Voice Conversation** — real-time bidirectional audio via Gemini Live API
+1. **Live Voice Conversation** — real-time bidirectional audio via provider pattern
 2. **TTS (Text-to-Speech)** — text chat responses read aloud
 
 Naia account users use the same Chirp 3 HD voice (e.g., "Kore") for both modes.
@@ -427,29 +427,46 @@ Naia account users use the same Chirp 3 HD voice (e.g., "Kore") for both modes.
 | Live API usage | Passed directly as voice parameter |
 | TTS usage | ChatPanel derives full name: `ko-KR-Chirp3-HD-{liveVoice}` |
 
-**Available voices:**
+**Available voices (Naia/Gemini):**
 Kore (female, calm), Puck (male, lively), Charon (male, deep), Aoede (female, bright), Fenrir (male, low), Leda (female, soft), Orus (male, firm), Zephyr (neutral), Achernar, Gacrux, Sulafat, Umbriel
 
 Non-Naia providers (google, edge, openai, elevenlabs) use a separate `ttsVoice` field.
 
-### Live Voice Conversation (Gemini Live API)
+### Live Voice Conversation (Provider Pattern)
 
-```
-┌──────────┐  mic PCM 16kHz   ┌──────────────┐  WebSocket   ┌──────────────┐  gRPC   ┌─────────────┐
-│  Shell   │ ────────────────→ │ voice-session │ ──────────→ │  any-llm GW  │ ──────→ │ Gemini Live │
-│(ChatPanel)│ ←──────────────── │  (browser WS) │ ←────────── │  (live.py)   │ ←────── │    API      │
-└──────────┘  PCM 24kHz audio  └──────────────┘  JSON+audio  └──────────────┘         └─────────────┘
-```
+Live voice uses a **provider-based architecture** mirroring text LLM providers.
 
-**Key components:**
+**Type:** `LiveProviderId = "naia" | "gemini-live" | "openai-realtime"`
+
+**Factory:** `createVoiceSession(provider, options?) → VoiceSession` (`shell/src/lib/voice/index.ts`)
+
+**Config:** `liveProvider` field in localStorage config, selectable in Settings UI
+
+#### Providers
+
+| Provider | Route | Auth | File |
+|----------|-------|------|------|
+| **naia** | Browser WS → any-llm gateway `/v1/live` → Gemini Live API | naiaKey | `voice/gemini-live.ts` |
+| **gemini-live** | Tauri cmd → Rust WS proxy (tokio-tungstenite) → Gemini Live API | Google API key | `voice/gemini-live-proxy.ts` + `src-tauri/src/gemini_live.rs` |
+| **openai-realtime** | Browser WS → `wss://api.openai.com/v1/realtime` | OpenAI API key | `voice/openai-realtime.ts` |
+
+**Gemini Direct (Rust proxy):** WebKitGTK cannot connect to `wss://generativelanguage.googleapis.com` (hangs silently). The Rust proxy (tokio-tungstenite) handles the WebSocket connection, relaying messages via Tauri events/commands. Google sends JSON as Binary WebSocket frames — `msg_to_text()` handles both Text and Binary.
+
+#### VoiceSession Interface
+
+All providers implement a unified `VoiceSession` interface:
+- **Methods:** `connect()`, `sendAudio(base64)`, `sendText(text)`, `sendToolResponse(id, result)`, `disconnect()`
+- **Events:** `onAudio`, `onInputTranscript`, `onOutputTranscript`, `onTurnEnd`, `onInterrupted`, `onToolCall`, `onError`, `onDisconnect`
+
+#### Shared Components
 
 | File | Role |
 |------|------|
 | `shell/src/components/ChatPanel.tsx` | UI state (off/connecting/active), event wiring, transcript accumulation |
-| `shell/src/lib/voice-session.ts` | WebSocket client to any-llm gateway `/v1/live` |
+| `shell/src/lib/voice/types.ts` | Provider types, config interfaces, voice option lists |
 | `shell/src/lib/audio-player.ts` | Continuous PCM playback (24kHz Int16 mono → AudioContext) |
 | `shell/src/lib/mic-stream.ts` | Mic capture, downsample to 16kHz PCM, emit base64 chunks |
-| `project-any-llm/.../routes/live.py` | WebSocket proxy: client ↔ Gemini Live SDK session |
+| `project-any-llm/.../routes/live.py` | WebSocket proxy for naia provider (client ↔ Gemini Live SDK session) |
 
 **Key technical details:**
 - `session.receive()` iterator breaks after `turnComplete` (SDK behavior) → wrapped in `while True` for multi-turn
@@ -457,9 +474,7 @@ Non-Naia providers (google, edge, openai, elevenlabs) use a separate `ttsVoice` 
 - AudioContext auto-suspends in webkit2gtk → requires `ctx.resume()` call
 - Transcripts arrive word-by-word → accumulated via `inputAccum`/`outputAccum` (not overwritten)
 
-**Auth:** Naia API key (`X-AnyLLM-Key: Bearer {naiaKey}`) → any-llm gateway verifies → creates Gemini session via Vertex AI
-
-**Model:** `gemini-live-2.5-flash-native-audio` (configurable via config.liveModel)
+**Model:** Configurable per provider via `config.liveModel` (each provider has its own default)
 
 ### TTS (Text-to-Speech)
 
@@ -470,17 +485,24 @@ Non-Naia providers (google, edge, openai, elevenlabs) use a separate `ttsVoice` 
 | Provider | Route | Voices |
 |----------|-------|--------|
 | nextain | ChatPanel → agent → nextain-tts.ts → any-llm gateway → Google Cloud TTS | Chirp 3 HD (derived from liveVoice) |
-| google | ChatPanel → agent → Rust preview_tts → Google Cloud TTS directly | Neural2 series |
+| google | ChatPanel → agent → OpenClaw gateway → Google Cloud TTS | Neural2 series |
 | edge | ChatPanel → agent → OpenClaw gateway → Edge TTS | Free |
 | openai | ChatPanel → agent → OpenClaw gateway → OpenAI TTS | OpenAI voices |
 | elevenlabs | ChatPanel → agent → OpenClaw gateway → ElevenLabs | ElevenLabs voices |
 
 ### STT Status
 
-Legacy STT (`stt.ts`, `audio-recorder.ts`) has been removed.
-Real-time speech input is handled entirely by Gemini Live API's built-in speech recognition (`inputTranscription` events).
+Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
+Real-time speech input is handled by each live provider's built-in speech recognition (Gemini: `inputTranscription`, OpenAI: `input_audio_transcription.completed`).
+
+### Voice Gender Defaults
+
+Default voice is automatically set based on VRM avatar gender:
+- VRM models 1,3 (female) → liveVoice: "Kore", Edge TTS: "ko-KR-SunHiNeural", Google TTS: "ko-KR-Neural2-A"
+- VRM models 2,4 (male) → liveVoice: "Puck", Edge TTS: "ko-KR-InJoonNeural", Google TTS: "ko-KR-Neural2-C"
+- On Naia login: if Lab has saved liveVoice, use it; otherwise auto-set from VRM gender.
 
 ### Billing
 
-- **Live conversation:** $0.10/M input tokens + $0.40/M output tokens (Gemini Live)
+- **Live conversation:** Varies by provider (Gemini: $0.10/M input + $0.40/M output, OpenAI: ~$0.10/min)
 - **TTS:** Varies by provider (Chirp 3 HD, Neural2, Edge free, OpenAI, ElevenLabs)

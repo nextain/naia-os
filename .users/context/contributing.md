@@ -238,6 +238,17 @@ Under 20 files per PR recommended.
 
 ---
 
+## Contributor Recognition
+
+Contributors are recognized in two places:
+
+- **README.md** — Contributors table (name, contribution, date)
+- **naia.nextain.io /contribute** — Contributors UI with GitHub avatar
+
+| Contributor | Contribution | Date | PR |
+|-------------|-------------|------|----|
+| [@leonardo-gonc](https://github.com/leonardo-gonc) | Native Portuguese (PT) review — context docs | 2026-03-07 | #11 |
+
 ## Related Files
 
 - **SoT**: `.agents/context/contributing.yaml`

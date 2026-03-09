@@ -11,6 +11,7 @@ import {
 	isOnboardingComplete,
 	loadConfig,
 	migrateLabKeyToNaiaKey,
+	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
 import { persistDiscordDefaults } from "./lib/discord-auth";
@@ -27,8 +28,9 @@ export function App() {
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		// One-time migration: labKey/labUserId → naiaKey/naiaUserId
+		// One-time migrations (idempotent)
 		void migrateLabKeyToNaiaKey();
+		migrateSpeechStyleValues();
 
 		const config = loadConfig();
 		applyTheme(config?.theme ?? "espresso");

@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — A personal AI operating system where your own AI lives
 
+**AI-Native Open Source** — Contribute in any language. AI bridges all communication. [→ How it works](#ai-native-open-source)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 > "Open source. Your AI, your rules. Choose your AI, shape its memory and personality, give it your voice — all on your own machine, all verifiable in code."
@@ -378,6 +380,28 @@ Key documents:
 
 Naia exists because these projects exist. We are deeply grateful to all the open source maintainers and communities who built the foundations we stand on.
 
+## AI-Native Open Source
+
+Most open source projects in 2025–2026 are defending against AI contributions. **Naia takes the opposite approach**: design the project so AI-assisted contributions are high quality by default.
+
+> **"Design WITH AI, not defend AGAINST AI."**
+
+### How It Works
+
+```
+Person (any language) → AI → Git (English) → AI → Person (any language)
+```
+
+- **Write issues and PRs in your language** — AI translates everything
+- **Both contributors and maintainers use AI** — coding, review, triage
+- **Rich `.agents/` context** makes AI understand the project deeply — better AI understanding means higher contribution quality
+- **10 contribution types** — translation, skills, features, bugs, code, docs, testing, design, security, context
+- **Work logs in your native language** — keep a private repo in your own language; review Git history through AI translation
+
+This isn't just a policy. It's architecture. The `.agents/` directory, triple-mirror docs, and license protection rules are all designed to make AI collaboration structural, not accidental.
+
+Read the full model: [`open-source-operations.yaml`](.agents/context/open-source-operations.yaml) | [Report (EN)](docs/reports/20260307-ai-native-opensource-operations.md) | [Report (KO)](docs/reports/20260307-ai-native-opensource-operations-ko.md)
+
 ## Contributing
 
 **You don't need to ask anyone. Clone this repo and ask AI.**
@@ -394,6 +418,14 @@ The `.agents/` directory contains full project context — vision, architecture,
 Write issues, PRs, and comments **in any language**. We use AI to understand everything.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Contributors
+
+| Contributor | Contribution | Date |
+|-------------|-------------|------|
+| <img src="https://github.com/leonardo-gonc.png" width="20"> [@leonardo-gonc](https://github.com/leonardo-gonc) | Native Portuguese (PT) review — context docs | 2026-03-07 |
+
+Want to see your name here? Check out our [Contributing Guide](.users/context/contributing.md) and [TRANSLATING.md](TRANSLATING.md).
 
 ## License
 

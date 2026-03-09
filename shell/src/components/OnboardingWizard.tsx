@@ -1,7 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
-import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { directToolCall } from "../lib/chat-service";
 import {
 	DEFAULT_GATEWAY_URL,
@@ -12,14 +11,15 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
+import { saveSecretKey } from "../lib/secure-store";
+import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
-import { persistDiscordDefaults } from "../lib/discord-auth";
 import { getLocale, t } from "../lib/i18n";
-import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
 import { Logger } from "../lib/logger";
 import { syncToOpenClaw } from "../lib/openclaw-sync";
-import { buildSystemPrompt } from "../lib/persona";
-import { saveSecretKey } from "../lib/secure-store";
+import { persistDiscordDefaults } from "../lib/discord-auth";
+import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
+import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
 import { VrmPreview } from "./VrmPreview";
@@ -77,7 +77,7 @@ const PERSONALITY_PRESETS: {
 		descKey: "personality.friendly.desc",
 		persona: `You are {name}, a warm and friendly AI companion.
 Personality:
-- Speaks casually in Korean (반말)
+- Speaks casually and warmly
 - Warm, caring, and supportive
 - Uses friendly expressions naturally
 - Gives concise, helpful answers`,
@@ -88,7 +88,7 @@ Personality:
 		descKey: "personality.polite.desc",
 		persona: `You are {name}, a reliable and professional AI assistant.
 Personality:
-- Speaks politely in Korean (존댓말)
+- Speaks politely and professionally
 - Professional, reliable, and thorough
 - Clear and organized communication
 - Gives structured, detailed answers when needed`,
@@ -99,7 +99,7 @@ Personality:
 		descKey: "personality.playful.desc",
 		persona: `You are {name}, a playful and humorous AI companion.
 Personality:
-- Speaks casually with humor in Korean
+- Speaks casually with humor
 - Playful, witty, and cheerful
 - Makes conversations fun and lighthearted
 - Sneaks in jokes and clever remarks`,
@@ -110,7 +110,7 @@ Personality:
 		descKey: "personality.calm.desc",
 		persona: `You are {name}, a calm and intellectual AI companion.
 Personality:
-- Speaks thoughtfully in Korean
+- Speaks thoughtfully and analytically
 - Calm, analytical, and knowledgeable
 - Explains things clearly and logically
 - Takes time to consider before answering`,
@@ -162,7 +162,8 @@ const PROVIDERS: {
 
 function getNaiaWebBaseUrl() {
 	return (
-		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() || "https://naia.nextain.io"
+		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() ||
+		"https://naia.nextain.io"
 	);
 }
 
@@ -187,14 +188,12 @@ export function OnboardingWizard({
 	const [naiaUserId, setNaiaUserId] = useState("");
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labTimeout, setLabTimeout] = useState(false);
-	const [selectedSpeechStyle, setSelectedSpeechStyle] = useState("반말");
+	const [selectedSpeechStyle, setSelectedSpeechStyle] = useState("casual");
 	const [honorificInput, setHonorificInput] = useState("");
 	const [discordConnectLoading, setDiscordConnectLoading] = useState(false);
 	const [discordConnected, setDiscordConnected] = useState(false);
 	const [ollamaHost, setOllamaHost] = useState(DEFAULT_OLLAMA_HOST);
-	const [ollamaModels, setOllamaModels] = useState<
-		{ id: string; label: string }[]
-	>([]);
+	const [ollamaModels, setOllamaModels] = useState<{ id: string; label: string }[]>([]);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [selectedOllamaModel, setSelectedOllamaModel] = useState("");
 
@@ -223,8 +222,7 @@ export function OnboardingWizard({
 				}
 				if (source?.userName) setUserName(source.userName as string);
 				if (onlineConfig?.honorific) setHonorificInput(onlineConfig.honorific);
-				if (onlineConfig?.speechStyle)
-					setSelectedSpeechStyle(onlineConfig.speechStyle);
+				if (onlineConfig?.speechStyle) setSelectedSpeechStyle(onlineConfig.speechStyle);
 
 				const vrmSource = existing?.vrmModel;
 				if (vrmSource) {
@@ -251,21 +249,11 @@ export function OnboardingWizard({
 						provider: "nextain" as ProviderId,
 						model: getDefaultModel("nextain"),
 						apiKey: "",
-						userName: (onlineConfig?.userName ??
-							existing?.userName ??
-							source.userName) as string,
-						agentName: (onlineConfig?.agentName ??
-							existing?.agentName ??
-							source.agentName) as string,
-						persona: (onlineConfig?.persona ?? existing?.persona) as
-							| string
-							| undefined,
-						honorific: (onlineConfig?.honorific ?? existing?.honorific) as
-							| string
-							| undefined,
-						speechStyle: (onlineConfig?.speechStyle ?? existing?.speechStyle) as
-							| string
-							| undefined,
+						userName: (onlineConfig?.userName ?? existing?.userName ?? source.userName) as string,
+						agentName: (onlineConfig?.agentName ?? existing?.agentName ?? source.agentName) as string,
+						persona: (onlineConfig?.persona ?? existing?.persona) as string | undefined,
+						honorific: (onlineConfig?.honorific ?? existing?.honorific) as string | undefined,
+						speechStyle: (onlineConfig?.speechStyle ?? existing?.speechStyle) as string | undefined,
 						enableTools: true,
 						onboardingComplete: true,
 						naiaKey: key,
@@ -284,23 +272,7 @@ export function OnboardingWizard({
 						discordDefaultUserId: restored.discordDefaultUserId,
 						discordDmChannelId: restored.discordDmChannelId,
 					});
-					syncToOpenClaw(
-						restored.provider,
-						restored.model,
-						restored.apiKey,
-						restored.persona,
-						restored.agentName,
-						restored.userName,
-						fullPrompt,
-						restored.locale || getLocale(),
-						restored.discordDmChannelId,
-						restored.discordDefaultUserId,
-						undefined,
-						undefined,
-						undefined,
-						undefined,
-						key,
-					);
+					syncToOpenClaw(restored.provider, restored.model, restored.apiKey, restored.persona, restored.agentName, restored.userName, fullPrompt, restored.locale || getLocale(), restored.discordDmChannelId, restored.discordDefaultUserId, undefined, undefined, undefined, undefined, key);
 
 					// Push to Lab if not yet saved online
 					if (!onlineConfig) {
@@ -388,23 +360,25 @@ export function OnboardingWizard({
 	}
 
 	function goNext() {
-		const skipApiKey =
-			naiaKey || provider === "claude-code-cli" || provider === "ollama";
+		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
+		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex < STEPS.length - 1) {
 			let next = stepIndex + 1;
 			if (STEPS[next] === "apiKey" && skipApiKey) next++;
 			if (STEPS[next] === "ollamaConfig" && skipOllamaConfig) next++;
+			if (STEPS[next] === "speechStyle" && skipSpeechStyle) next++;
 			setStep(STEPS[next]);
 		}
 	}
 
 	function goBack() {
-		const skipApiKey =
-			naiaKey || provider === "claude-code-cli" || provider === "ollama";
+		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
+		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex > 0) {
 			let prev = stepIndex - 1;
+			if (STEPS[prev] === "speechStyle" && skipSpeechStyle) prev--;
 			if (STEPS[prev] === "ollamaConfig" && skipOllamaConfig) prev--;
 			if (STEPS[prev] === "apiKey" && skipApiKey) prev--;
 			setStep(STEPS[prev]);
@@ -415,9 +389,7 @@ export function OnboardingWizard({
 		setLabWaiting(true);
 		setLabTimeout(false);
 		try {
-			await openUrl(
-				`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`,
-			);
+			await openUrl(`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`);
 		} catch {
 			setLabWaiting(false);
 			return;
@@ -465,10 +437,7 @@ export function OnboardingWizard({
 		const config = {
 			...existing,
 			provider: effectiveProvider,
-			model:
-				effectiveProvider === "ollama"
-					? selectedOllamaModel
-					: getDefaultModel(effectiveProvider),
+			model: effectiveProvider === "ollama" ? selectedOllamaModel : getDefaultModel(effectiveProvider),
 			apiKey:
 				naiaKey || provider === "claude-code-cli" || provider === "ollama"
 					? ""
@@ -498,24 +467,7 @@ export function OnboardingWizard({
 			discordDefaultUserId: config.discordDefaultUserId,
 			discordDmChannelId: config.discordDmChannelId,
 		});
-		syncToOpenClaw(
-			config.provider,
-			config.model,
-			config.apiKey,
-			config.persona,
-			config.agentName,
-			config.userName,
-			fullPrompt,
-			config.locale || getLocale(),
-			config.discordDmChannelId,
-			config.discordDefaultUserId,
-			undefined,
-			undefined,
-			undefined,
-			undefined,
-			naiaKey || undefined,
-			config.ollamaHost || undefined,
-		);
+		syncToOpenClaw(config.provider, config.model, config.apiKey, config.persona, config.agentName, config.userName, fullPrompt, config.locale || getLocale(), config.discordDmChannelId, config.discordDefaultUserId, undefined, undefined, undefined, undefined, naiaKey || undefined, config.ollamaHost || undefined);
 
 		// Sync to Lab if connected
 		if (naiaKey && naiaUserId) {
@@ -626,9 +578,7 @@ export function OnboardingWizard({
 									}}
 								>
 									<span className="provider-card-label">{p.label}</span>
-									<span className="provider-card-desc">
-										{t(p.descKey as any)}
-									</span>
+									<span className="provider-card-desc">{t(p.descKey as any)}</span>
 								</button>
 							))}
 						</div>
@@ -648,6 +598,7 @@ export function OnboardingWizard({
 								setValidationResult("idle");
 							}}
 							placeholder="API key..."
+							autoFocus
 						/>
 						<button
 							type="button"
@@ -684,6 +635,7 @@ export function OnboardingWizard({
 								value={ollamaHost}
 								onChange={(e) => setOllamaHost(e.target.value)}
 								placeholder={DEFAULT_OLLAMA_HOST}
+								autoFocus
 							/>
 						</div>
 						<button
@@ -736,6 +688,7 @@ export function OnboardingWizard({
 							value={agentName}
 							onChange={(e) => setAgentName(e.target.value)}
 							placeholder={t("onboard.name.placeholder")}
+							autoFocus
 						/>
 					</div>
 				)}
@@ -752,6 +705,7 @@ export function OnboardingWizard({
 							value={userName}
 							onChange={(e) => setUserName(e.target.value)}
 							placeholder={t("onboard.name.placeholder")}
+							autoFocus
 						/>
 					</div>
 				)}
@@ -833,18 +787,12 @@ export function OnboardingWizard({
 									type="button"
 									className={`onboarding-personality-card${selectedPersonality === p.id ? " selected" : ""}`}
 									onClick={() => {
-										setSelectedPersonality(p.id);
-										setSelectedSpeechStyle(
-											p.id === "polite" || p.id === "calm" ? "존댓말" : "반말",
-										);
-									}}
+									setSelectedPersonality(p.id);
+									setSelectedSpeechStyle(p.id === "polite" || p.id === "calm" ? "formal" : "casual");
+								}}
 								>
-									<span className="personality-card-label">
-										{t(p.labelKey as any)}
-									</span>
-									<span className="personality-card-desc">
-										{t(p.descKey as any)}
-									</span>
+									<span className="personality-card-label">{t(p.labelKey as any)}</span>
+									<span className="personality-card-desc">{t(p.descKey as any)}</span>
 								</button>
 							))}
 						</div>
@@ -863,27 +811,19 @@ export function OnboardingWizard({
 						<div className="onboarding-personality-cards">
 							<button
 								type="button"
-								className={`onboarding-personality-card${selectedSpeechStyle === "반말" ? " selected" : ""}`}
-								onClick={() => setSelectedSpeechStyle("반말")}
+								className={`onboarding-personality-card${selectedSpeechStyle === "casual" ? " selected" : ""}`}
+								onClick={() => setSelectedSpeechStyle("casual")}
 							>
-								<span className="personality-card-label">
-									{t("onboard.speechStyle.casual")}
-								</span>
-								<span className="personality-card-desc">
-									{t("onboard.speechStyle.casualDesc")}
-								</span>
+								<span className="personality-card-label">{t("onboard.speechStyle.casual")}</span>
+								<span className="personality-card-desc">{t("onboard.speechStyle.casualDesc")}</span>
 							</button>
 							<button
 								type="button"
-								className={`onboarding-personality-card${selectedSpeechStyle === "존댓말" ? " selected" : ""}`}
-								onClick={() => setSelectedSpeechStyle("존댓말")}
+								className={`onboarding-personality-card${selectedSpeechStyle === "formal" ? " selected" : ""}`}
+								onClick={() => setSelectedSpeechStyle("formal")}
 							>
-								<span className="personality-card-label">
-									{t("onboard.speechStyle.formal")}
-								</span>
-								<span className="personality-card-desc">
-									{t("onboard.speechStyle.formalDesc")}
-								</span>
+								<span className="personality-card-label">{t("onboard.speechStyle.formal")}</span>
+								<span className="personality-card-desc">{t("onboard.speechStyle.formalDesc")}</span>
 							</button>
 						</div>
 						<div className="settings-field" style={{ marginTop: 16 }}>
@@ -973,6 +913,7 @@ export function OnboardingWizard({
 							className="onboarding-next-btn"
 							onClick={goNext}
 							disabled={!canProceed()}
+							autoFocus={step === "character" || step === "personality"}
 						>
 							{t("onboard.next")}
 						</button>

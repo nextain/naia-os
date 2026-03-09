@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — Um sistema operacional de IA pessoal onde a sua propria IA vive
 
+**Open Source AI-Nativo** — Contribua em qualquer idioma. A IA conecta toda a comunicacao. [→ Como funciona](#open-source-ai-nativo)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "Codigo aberto. Sua IA, suas regras. Escolha sua IA, molde sua memoria e personalidade, de a ela sua voz — tudo na sua propria maquina, tudo verificavel no codigo."
@@ -327,6 +329,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | Inspiracao AI VTuber — personagem IA com personalidade, streaming, interacao com o publico |
 
 Naia existe porque esses projetos existem. Somos profundamente gratos a todos os mantenedores e comunidades de codigo aberto que construiram as fundacoes sobre as quais nos apoiamos.
+
+## Open Source AI-Nativo
+
+A maioria dos projetos de codigo aberto em 2025–2026 esta se defendendo contra contribuicoes de IA. **Naia adota a abordagem oposta**: projetar o projeto para que contribuicoes assistidas por IA tenham alta qualidade por padrao.
+
+> **"Projetar COM a IA, nao se defender CONTRA a IA."**
+
+### Como funciona
+
+```
+Pessoa (qualquer idioma) → IA → Git (ingles) → IA → Pessoa (qualquer idioma)
+```
+
+- **Escreva issues e PRs no seu idioma** — a IA traduz tudo
+- **Tanto contribuidores quanto mantenedores usam IA** — codificacao, revisao, triagem
+- **O rico contexto `.agents/`** permite que a IA entenda o projeto profundamente — melhor compreensao da IA significa maior qualidade de contribuicao
+- **10 tipos de contribuicao** — traducao, habilidades, funcionalidades, bugs, codigo, documentacao, testes, design, seguranca, contexto
+- **Registros de trabalho no seu idioma nativo** — mantenha um repositorio privado no seu idioma; revise o historico Git atraves da traducao de IA
+
+Isso nao e apenas uma politica. E arquitetura. O diretorio `.agents/`, a documentacao de espelho triplo e as regras de protecao de licenca foram projetados para que a colaboracao com IA seja estrutural, nao acidental.
+
+Modelo completo: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Relatorio (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Relatorio (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Licenca
 

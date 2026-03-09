@@ -8,6 +8,8 @@
 
 **The Next Generation AI OS** — Sistem operasi AI pribadi tempat AI Anda sendiri tinggal
 
+**AI-Native Open Source** — Berkontribusi dalam bahasa apa pun. AI menjembatani semua komunikasi. [→ Cara kerjanya](#ai-native-open-source)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 
 > "AI Anda, aturan Anda. Pilih AI Anda, bentuk memori dan kepribadiannya, berikan suara Anda — semuanya di mesin Anda sendiri."
@@ -326,6 +328,28 @@ ISSUE → UNDERSTAND → SCOPE → INVESTIGATE → PLAN → BUILD → REVIEW →
 | [Neuro-sama](https://vedal.ai/) | Inspirasi AI VTuber — karakter AI dengan kepribadian, streaming, interaksi penonton |
 
 Naia ada karena proyek-proyek ini ada. Kami sangat berterima kasih kepada semua pengelola dan komunitas open source yang membangun fondasi tempat kami berdiri.
+
+## AI-Native Open Source
+
+Sebagian besar proyek open source di 2025–2026 bertahan melawan kontribusi AI. **Naia mengambil pendekatan sebaliknya**: mendesain proyek agar kontribusi berbantuan AI berkualitas tinggi secara default.
+
+> **"Desain DENGAN AI, bukan bertahan MELAWAN AI."**
+
+### Cara kerjanya
+
+```
+Orang (bahasa apa pun) → AI → Git (Inggris) → AI → Orang (bahasa apa pun)
+```
+
+- **Tulis issue dan PR dalam bahasa Anda** — AI menerjemahkan semuanya
+- **Kontributor dan pengelola sama-sama menggunakan AI** — coding, review, triase
+- **Konteks `.agents/` yang kaya** membuat AI memahami proyek secara mendalam — pemahaman AI yang lebih baik berarti kualitas kontribusi lebih tinggi
+- **10 jenis kontribusi** — terjemahan, keterampilan, fitur, bug, kode, dokumentasi, pengujian, desain, keamanan, konteks
+- **Log kerja dalam bahasa ibu** — kelola repo pribadi dalam bahasa Anda; tinjau riwayat Git melalui terjemahan AI
+
+Ini bukan sekadar kebijakan. Ini adalah arsitektur. Direktori `.agents/`, dokumentasi triple-mirror, dan aturan perlindungan lisensi semuanya dirancang agar kolaborasi AI bersifat struktural, bukan kebetulan.
+
+Model lengkap: [`open-source-operations.yaml`](../.agents/context/open-source-operations.yaml) | [Laporan (EN)](../docs/reports/20260307-ai-native-opensource-operations.md) | [Laporan (KO)](../docs/reports/20260307-ai-native-opensource-operations-ko.md)
 
 ## Lisensi
 
