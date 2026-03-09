@@ -1,7 +1,6 @@
 mod audit;
 mod memory;
-#[cfg(target_os = "windows")]
-mod wsl;
+mod platform;
 
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
@@ -10,11 +9,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 use tauri_plugin_deep_link::DeepLinkExt;
-
-#[cfg(target_os = "linux")]
-use webkit2gtk::PermissionRequestExt;
-#[cfg(target_os = "linux")]
-use webkit2gtk::glib::object::ObjectExt;
 
 // agent-core process handle
 struct AgentProcess {
@@ -58,7 +52,7 @@ fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> 
     }
 }
 
-fn is_valid_discord_snowflake(value: &str) -> bool {
+pub(crate) fn is_valid_discord_snowflake(value: &str) -> bool {
     let trimmed = value.trim();
     (6..=32).contains(&trimmed.len()) && trimmed.chars().all(|c| c.is_ascii_digit())
 }
@@ -203,18 +197,166 @@ fn log_to_file(msg: &str) {
 }
 
 /// Important messages — always stderr + file (visible to users in release)
-fn log_both(msg: &str) {
+pub(crate) fn log_both(msg: &str) {
     eprintln!("{}", msg);
     log_to_file(msg);
 }
 
 /// Verbose/debug messages — file always, stderr only in debug builds
 /// Use for progress updates, retries, and diagnostics that users don't need to see
-fn log_verbose(msg: &str) {
+pub(crate) fn log_verbose(msg: &str) {
     if cfg!(debug_assertions) {
         eprintln!("{}", msg);
     }
     log_to_file(msg);
+}
+
+/// Process a deep link URL and emit appropriate events to the frontend.
+/// Shared by both `on_open_url` (Tauri deep link plugin) and the file-based
+/// deep link watcher (Windows Chromium workaround).
+pub(crate) fn process_deep_link_url(
+    url_str: &str,
+    app_handle: &AppHandle,
+    oauth_state: Option<&Arc<Mutex<Option<String>>>>,
+    source: &str,
+) {
+    let redacted = url_str.split('?').next().unwrap_or(url_str);
+    log_both(&format!(
+        "[Naia] Deep link received ({}): {}?[REDACTED]",
+        source, redacted
+    ));
+    let parsed = match url::Url::parse(url_str) {
+        Ok(u) => u,
+        Err(_) => return,
+    };
+    if parsed.host_str() != Some("auth")
+        && parsed.path() != "auth"
+        && parsed.path() != "/auth"
+    {
+        return;
+    }
+    let mut key = None;
+    let mut code = None;
+    let mut user_id = None;
+    let mut incoming_state = None;
+    let mut channel = None;
+    let mut discord_user_id = None;
+    let mut discord_channel_id = None;
+    let mut discord_target = None;
+    for (k, v) in parsed.query_pairs() {
+        match k.as_ref() {
+            "key" => key = Some(v.to_string()),
+            "code" => code = Some(v.to_string()),
+            "user_id" => user_id = Some(v.to_string()),
+            "state" => incoming_state = Some(v.to_string()),
+            "channel" => channel = Some(v.to_string()),
+            "discord_user_id" | "discordUserId" => discord_user_id = Some(v.to_string()),
+            "discord_channel_id" | "discordChannelId" => {
+                discord_channel_id = Some(v.to_string())
+            }
+            "discord_target" | "discordTarget" => discord_target = Some(v.to_string()),
+            _ => {}
+        }
+    }
+
+    // Verify OAuth state to prevent CSRF (when state was set)
+    if let Some(state_mutex) = oauth_state {
+        let expected = lock_or_recover(state_mutex, "oauth_state(deep_link)").clone();
+        if let Some(ref expected_val) = expected {
+            match &incoming_state {
+                Some(s) if s == expected_val => {
+                    *lock_or_recover(state_mutex, "oauth_state(clear)") = None;
+                }
+                Some(_) => {
+                    log_both("[Naia] Deep link rejected: state mismatch");
+                    return;
+                }
+                None => {
+                    log_both("[Naia] Deep link rejected: missing state parameter");
+                    return;
+                }
+            }
+        }
+    }
+
+    // Validate user_id
+    let validated_user_id = user_id.clone().filter(|uid| {
+        uid.len() <= 256
+            && uid
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
+    });
+
+    // Resolve key from ?key= or ?code=
+    let resolved_key = if key.is_some() {
+        key
+    } else if let Some(code_val) = code {
+        if code_val.starts_with("gw-") {
+            Some(code_val)
+        } else {
+            log_both("[Naia] Deep link rejected: code is not a gateway API key (expected gw-*)");
+            None
+        }
+    } else {
+        None
+    };
+
+    // Emit naia_auth_complete
+    if let Some(naia_key) = resolved_key {
+        let is_valid = naia_key.starts_with("gw-")
+            && naia_key.len() <= 256
+            && naia_key
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_');
+        if is_valid {
+            let payload = serde_json::json!({
+                "naiaKey": naia_key,
+                "naiaUserId": validated_user_id,
+            });
+            let _ = app_handle.emit("naia_auth_complete", payload);
+            log_both("[Naia] Naia auth complete — key received via deep link");
+        } else {
+            log_both("[Naia] Deep link rejected: invalid key format");
+        }
+    }
+
+    // Emit discord_auth_complete
+    let is_discord_flow = matches!(channel.as_deref(), Some("discord"))
+        || discord_user_id.is_some()
+        || discord_channel_id.is_some()
+        || discord_target.is_some();
+    if is_discord_flow {
+        let validated_discord_user_id =
+            discord_user_id.filter(|uid| is_valid_discord_snowflake(uid));
+        let validated_discord_channel_id =
+            discord_channel_id.filter(|cid| is_valid_discord_snowflake(cid));
+        let normalized_target = discord_target
+            .and_then(|target| {
+                let t = target.trim().to_string();
+                if t.starts_with("user:") || t.starts_with("channel:") {
+                    Some(t)
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                validated_discord_user_id
+                    .as_ref()
+                    .map(|uid| format!("user:{}", uid))
+            })
+            .or_else(|| {
+                validated_discord_channel_id
+                    .as_ref()
+                    .map(|cid| format!("channel:{}", cid))
+            });
+        let payload = serde_json::json!({
+            "discordUserId": validated_discord_user_id,
+            "discordChannelId": validated_discord_channel_id,
+            "discordTarget": normalized_target,
+        });
+        let _ = app_handle.emit("discord_auth_complete", payload);
+        log_both("[Naia] Discord auth complete — deep link payload received");
+    }
 }
 
 fn debug_e2e_enabled() -> bool {
@@ -237,7 +379,7 @@ fn write_pid_file(component: &str, pid: u32) {
 }
 
 /// Read PID from a PID file (returns None if file doesn't exist or is invalid)
-fn read_pid_file(component: &str) -> Option<u32> {
+pub(crate) fn read_pid_file(component: &str) -> Option<u32> {
     let path = run_dir().join(format!("{}.pid", component));
     std::fs::read_to_string(&path)
         .ok()
@@ -245,113 +387,9 @@ fn read_pid_file(component: &str) -> Option<u32> {
 }
 
 /// Remove a PID file
-fn remove_pid_file(component: &str) {
+pub(crate) fn remove_pid_file(component: &str) {
     let path = run_dir().join(format!("{}.pid", component));
     let _ = std::fs::remove_file(&path);
-}
-
-/// Spawn a no-op child process (used as a placeholder when gateway is externally managed)
-fn dummy_child() -> Result<Child, String> {
-    #[cfg(unix)]
-    {
-        Command::new("true")
-            .spawn()
-            .map_err(|e| format!("Failed to create dummy process: {}", e))
-    }
-    #[cfg(windows)]
-    {
-        Command::new("cmd")
-            .args(["/C", "echo."])
-            .spawn()
-            .map_err(|e| format!("Failed to create dummy process: {}", e))
-    }
-}
-
-/// Check if a process with the given PID is still running
-#[cfg(unix)]
-fn is_pid_alive(pid: u32) -> bool {
-    unsafe { libc::kill(pid as i32, 0) == 0 }
-}
-
-#[cfg(windows)]
-fn is_pid_alive(pid: u32) -> bool {
-    use windows_sys::Win32::Foundation::CloseHandle;
-    use windows_sys::Win32::System::Threading::{GetExitCodeProcess, OpenProcess};
-    let handle = unsafe { OpenProcess(0x0400, 0, pid) }; // PROCESS_QUERY_INFORMATION
-    if handle == 0 {
-        return false; // OpenProcess returns 0 (NULL HANDLE) on failure
-    }
-    let mut exit_code: u32 = 0;
-    let alive = unsafe {
-        GetExitCodeProcess(handle, &mut exit_code) != 0 && exit_code == 259 // STILL_ACTIVE
-    };
-    unsafe { CloseHandle(handle) };
-    alive
-}
-
-/// Clean up orphan processes from a previous session (Unix: SIGTERM/SIGKILL)
-#[cfg(unix)]
-fn cleanup_orphan_processes() {
-    for component in &["gateway", "node-host"] {
-        if let Some(pid) = read_pid_file(component) {
-            let signed_pid = match i32::try_from(pid) {
-                Ok(p) if p > 0 => p,
-                _ => {
-                    log_verbose(&format!(
-                        "[Naia] Invalid PID {} for {} — skipping",
-                        pid, component
-                    ));
-                    remove_pid_file(component);
-                    continue;
-                }
-            };
-            if is_pid_alive(pid) {
-                log_verbose(&format!(
-                    "[Naia] Orphan {} found (PID {}) — sending SIGTERM",
-                    component, pid
-                ));
-                unsafe {
-                    libc::kill(signed_pid, libc::SIGTERM);
-                }
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                if is_pid_alive(pid) {
-                    log_verbose(&format!(
-                        "[Naia] Orphan {} still alive (PID {}) — sending SIGKILL",
-                        component, pid
-                    ));
-                    unsafe {
-                        libc::kill(signed_pid, libc::SIGKILL);
-                    }
-                }
-            }
-            remove_pid_file(component);
-        }
-    }
-}
-
-/// Clean up orphan processes from a previous session (Windows: TerminateProcess)
-#[cfg(windows)]
-fn cleanup_orphan_processes() {
-    for component in &["gateway", "node-host"] {
-        if let Some(pid) = read_pid_file(component) {
-            if is_pid_alive(pid) {
-                log_verbose(&format!(
-                    "[Naia] Orphan {} found (PID {}) — terminating",
-                    component, pid
-                ));
-                let handle = unsafe {
-                    windows_sys::Win32::System::Threading::OpenProcess(0x0001, 0, pid) // PROCESS_TERMINATE
-                };
-                if handle != 0 {
-                    unsafe {
-                        windows_sys::Win32::System::Threading::TerminateProcess(handle, 1);
-                        windows_sys::Win32::Foundation::CloseHandle(handle);
-                    }
-                }
-            }
-            remove_pid_file(component);
-        }
-    }
 }
 
 /// Start periodic Gateway health monitoring in a background thread.
@@ -454,7 +492,7 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
 }
 
 /// Scan a directory of Node.js version folders, returning the highest v22+ binary.
-fn find_highest_node_version(versions_dir: &str, bin_subpath: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn find_highest_node_version(versions_dir: &str, bin_subpath: &str) -> Option<std::path::PathBuf> {
     let entries = std::fs::read_dir(versions_dir).ok()?;
     let mut versions: Vec<_> = entries
         .filter_map(|e| e.ok())
@@ -485,7 +523,10 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
     }
 
     // Check system node first
-    if let Ok(output) = Command::new("node").arg("-v").output() {
+    let mut node_check = Command::new("node");
+    node_check.arg("-v");
+    platform::hide_console(&mut node_check);
+    if let Ok(output) = node_check.output() {
         if output.status.success() {
             let version_str = String::from_utf8_lossy(&output.stdout);
             let major: u32 = version_str
@@ -501,42 +542,17 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
         }
     }
 
-    // Try version manager fallback
+    // Try platform-specific version manager fallback
     let home = home_dir();
-
-    // Unix: nvm (~/.nvm, ~/.config/nvm)
-    #[cfg(unix)]
-    {
-        let nvm_dirs = [
-            format!("{}/.nvm/versions/node", home),
-            format!("{}/.config/nvm/versions/node", home),
-        ];
-        for nvm_dir in &nvm_dirs {
-            if let Some(path) = find_highest_node_version(nvm_dir, "bin/node") {
-                return Ok(path);
-            }
-        }
-    }
-
-    // Windows: NVM for Windows, fnm
-    #[cfg(windows)]
-    {
-        let appdata = std::env::var("APPDATA").unwrap_or_default();
-        let nvm_win_dir = format!("{}/nvm", appdata);
-        if let Some(path) = find_highest_node_version(&nvm_win_dir, "node.exe") {
-            return Ok(path);
-        }
-        let fnm_dir = format!("{}/fnm/node-versions", appdata);
-        if let Some(path) = find_highest_node_version(&fnm_dir, "installation/node.exe") {
-            return Ok(path);
-        }
+    if let Some(path) = platform::find_node_version_manager(&home) {
+        return Ok(path);
     }
 
     Err("Node.js 22+ not found (checked system PATH and version managers)".to_string())
 }
 
 /// Check if OpenClaw Gateway is already running (blocking, for setup use)
-fn check_gateway_health_sync() -> bool {
+pub(crate) fn check_gateway_health_sync() -> bool {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
         .build();
@@ -755,8 +771,8 @@ fn spawn_node_host(
         None => Stdio::inherit(),
     };
 
-    let child = Command::new(node_bin.as_os_str())
-        .arg(openclaw_bin)
+    let mut cmd = Command::new(node_bin.as_os_str());
+    cmd.arg(openclaw_bin)
         .arg("node")
         .arg("run")
         .arg("--host")
@@ -767,8 +783,9 @@ fn spawn_node_host(
         .arg("NaiaLocal")
         .env("OPENCLAW_CONFIG_PATH", config_path)
         .stdout(stdout_cfg)
-        .stderr(stderr_cfg)
-        .spawn()
+        .stderr(stderr_cfg);
+    platform::hide_console(&mut cmd);
+    let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Node Host: {}", e))?;
 
     log_verbose(&format!(
@@ -780,39 +797,21 @@ fn spawn_node_host(
 
 /// Spawn or attach to OpenClaw Gateway + Node Host
 fn spawn_gateway() -> Result<GatewayProcess, String> {
-    // Windows: check WSL/NaiaEnv for Tier 2, otherwise fall back to Tier 1
-    #[cfg(windows)]
-    {
-        const DISTRO_NAME: &str = "NaiaEnv";
-        if !wsl::is_wsl_available() || !wsl::is_distro_registered(DISTRO_NAME) {
-            log_both("[Naia] Windows Tier 1 mode — Gateway skipped (WSL/NaiaEnv not found)");
-            let child = dummy_child()?;
-            return Ok(GatewayProcess {
-                child,
-                node_host: None,
-                we_spawned: false,
-            });
+    // Let platform handle special cases (e.g. Windows Tier 1 skip, Tier 2 WSL spawn)
+    match platform::try_platform_gateway_spawn() {
+        platform::GatewaySpawnResult::Skip { reason } => {
+            log_both(&format!("[Naia] {}", reason));
+            return Err(reason);
         }
-        // Tier 2: WSL + NaiaEnv available — spawn gateway inside WSL
-        if !check_gateway_health_sync() {
-            log_both("[Naia] Windows Tier 2 — spawning Gateway in WSL (NaiaEnv)");
-            let child = wsl::spawn_gateway_in_wsl(DISTRO_NAME, 18789)?;
-            // Wait briefly for startup
+        platform::GatewaySpawnResult::Spawned { child } => {
             std::thread::sleep(std::time::Duration::from_secs(2));
             return Ok(GatewayProcess {
                 child,
-                node_host: None, // Node Host runs inside WSL alongside Gateway
+                node_host: None,
                 we_spawned: true,
             });
         }
-        // Gateway already running (e.g. WSL systemd) — reuse
-        log_both("[Naia] Windows Tier 2 — Gateway already running, reusing");
-        let child = dummy_child()?;
-        return Ok(GatewayProcess {
-            child,
-            node_host: None,
-            we_spawned: false,
-        });
+        platform::GatewaySpawnResult::UseDefault => {}
     }
 
     // 1. Check if already running (e.g. systemd or manual start)
@@ -821,21 +820,12 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
         // Kill existing gateway to ensure clean state on app restart.
         // Previous app exit may have left gateway in a half-alive state
         // (HTTP responds but WebSocket/Node Host connections are broken).
-        #[cfg(unix)]
-        {
-            let _ = Command::new("pkill").arg("-f").arg("openclaw.*gateway").output();
-        }
-        #[cfg(windows)]
-        {
-            // On Windows, gateway runs in WSL (Tier 2) — cannot kill from host.
-            // If a native gateway process exists, it's externally managed.
-            log_verbose("[Naia] Windows: skipping pkill (gateway runs in WSL or is externally managed)");
-        }
+        platform::kill_stale_gateway();
         std::thread::sleep(std::time::Duration::from_millis(500));
         // If it's still alive (e.g. systemd auto-restart), reuse it
         if check_gateway_health_sync() {
             log_both("[Naia] Gateway still running after pkill (managed externally) — reusing");
-            let child = dummy_child()?;
+            let child = platform::dummy_child()?;
 
             let node_host = match find_openclaw_paths() {
                 Ok((node_bin, openclaw_bin, config_path)) => {
@@ -913,6 +903,7 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
             }
         }
     }
+    platform::hide_console(&mut cmd);
     let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Gateway: {}", e))?;
 
@@ -975,14 +966,9 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
 fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result<AgentProcess, String> {
     let agent_path = std::env::var("NAIA_AGENT_PATH")
         .unwrap_or_else(|_| {
-            // Windows: check for bundled node.exe in Tauri resources first
-            #[cfg(windows)]
-            if let Ok(resource_dir) = app_handle.path().resource_dir() {
-                let bundled_node = resource_dir.join("node.exe");
-                if bundled_node.exists() {
-                    log_verbose(&format!("[Naia] Found bundled node.exe at: {}", bundled_node.display()));
-                    return bundled_node.to_string_lossy().to_string();
-                }
+            // Check for platform-specific bundled node binary (e.g. node.exe on Windows)
+            if let Some(bundled) = platform::find_bundled_node(app_handle) {
+                return bundled.to_string_lossy().to_string();
             }
             find_node_binary()
                 .map(|p| p.to_string_lossy().to_string())
@@ -994,25 +980,9 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
         .unwrap_or_else(|_| {
             let is_flatpak = std::env::var("FLATPAK").map(|v| v == "1").unwrap_or(false);
 
-            // Flatpak: bundled agent FIRST (--filesystem=home can expose dev paths)
-            if is_flatpak {
-                let flatpak_path = std::path::PathBuf::from("/app/lib/naia-os/agent/dist/index.js");
-                if flatpak_path.exists() {
-                    log_verbose(&format!("[Naia] Found Flatpak agent at: {}", flatpak_path.display()));
-                    return flatpak_path.to_string_lossy().to_string();
-                }
-            }
-
-            // Production: bundled agent via Tauri resources
-            if let Ok(resource_dir) = app_handle.path().resource_dir() {
-                let bundled = resource_dir.join("agent/dist/index.js");
-                if bundled.exists() {
-                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
-                    return bundled.to_string_lossy().to_string();
-                }
-            }
-
             // Dev: tsx for TypeScript direct execution (NOT in Flatpak)
+            // Must come BEFORE bundled check — in dev, resource_dir() contains
+            // a copy of agent/dist but lacks node_modules, so it won't work.
             if !is_flatpak {
                 let candidates = [
                     "../../agent/src/index.ts",  // from src-tauri/
@@ -1024,20 +994,32 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                         .unwrap_or_default();
                     if dev_path.exists() {
                         log_verbose(&format!("[Naia] Found agent at: {}", dev_path.display()));
-                        return dev_path.canonicalize()
-                            .unwrap_or(dev_path)
+                        let resolved = dev_path.canonicalize().unwrap_or(dev_path);
+                        return platform::normalize_path(&resolved)
                             .to_string_lossy()
                             .to_string();
                     }
                 }
             }
 
-            // Flatpak fallback (resource_dir didn't work)
-            let flatpak_path = std::path::PathBuf::from("/app/lib/naia-os/agent/dist/index.js");
-            if flatpak_path.exists() {
-                log_verbose(&format!("[Naia] Found Flatpak agent at: {}", flatpak_path.display()));
-                return flatpak_path.to_string_lossy().to_string();
+            // Flatpak: bundled agent (--filesystem=home can expose dev paths)
+            if is_flatpak {
+                let flatpak_path = std::path::PathBuf::from("/app/lib/naia-os/agent/dist/index.js");
+                if flatpak_path.exists() {
+                    log_verbose(&format!("[Naia] Found Flatpak agent at: {}", flatpak_path.display()));
+                    return flatpak_path.to_string_lossy().to_string();
+                }
             }
+
+            // Production: bundled agent via Tauri resources
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let bundled = platform::normalize_path(&resource_dir.join("agent/dist/index.js"));
+                if bundled.exists() {
+                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
+                    return bundled.to_string_lossy().to_string();
+                }
+            }
+
             // Fallback: relative path (legacy)
             "../agent/dist/index.js".to_string()
         });
@@ -1045,31 +1027,42 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
     let use_tsx = agent_script.ends_with(".ts");
     let runner = if use_tsx {
         std::env::var("NAIA_AGENT_RUNNER")
-            .unwrap_or_else(|_| "npx".to_string())
+            .unwrap_or_else(|_| platform::resolve_npx())
     } else {
         agent_path.clone()
     };
 
     log_verbose(&format!("[Naia] Starting agent-core: {} {}", runner, agent_script));
 
+    // When using tsx, run from the agent's directory so npx finds tsx in node_modules
+    let agent_dir = std::path::Path::new(&agent_script)
+        .parent()
+        .and_then(|p| p.parent()) // src/index.ts → src → agent
+        .map(|p| p.to_path_buf());
+
     let mut child = if use_tsx {
-        Command::new(&runner)
-            .arg("tsx")
+        let mut cmd = Command::new(&runner);
+        cmd.arg("tsx")
             .arg(&agent_script)
             .arg("--stdio")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
+            .stderr(Stdio::inherit());
+        if let Some(ref dir) = agent_dir {
+            cmd.current_dir(dir);
+        }
+        platform::hide_console(&mut cmd);
+        cmd.spawn()
             .map_err(|e| format!("Failed to spawn agent-core: {}", e))?
     } else {
-        Command::new(&runner)
-            .arg(&agent_script)
+        let mut cmd = Command::new(&runner);
+        cmd.arg(&agent_script)
             .arg("--stdio")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
+            .stderr(Stdio::inherit());
+        platform::hide_console(&mut cmd);
+        cmd.spawn()
             .map_err(|e| format!("Failed to spawn agent-core: {}", e))?
     };
 
@@ -1802,27 +1795,7 @@ async fn read_local_binary(path: String) -> Result<Vec<u8>, String> {
 /// On non-Windows platforms, always returns Tier 2 equivalent (full feature set).
 #[tauri::command]
 fn get_platform_tier() -> serde_json::Value {
-    #[cfg(not(windows))]
-    {
-        serde_json::json!({
-            "platform": std::env::consts::OS,
-            "tier": 2,
-            "wsl": false,
-            "distro": false
-        })
-    }
-    #[cfg(windows)]
-    {
-        let wsl_available = wsl::is_wsl_available();
-        let distro_registered = wsl_available && wsl::is_distro_registered("NaiaEnv");
-        let tier = if distro_registered { 2 } else { 1 };
-        serde_json::json!({
-            "platform": "windows",
-            "tier": tier,
-            "wsl": wsl_available,
-            "distro": distro_registered
-        })
-    }
+    platform::get_platform_tier_info()
 }
 
 /// Fetch linked messaging channels for the current user from naia.nextain.io BFF.
@@ -1878,10 +1851,7 @@ struct OpenClawSyncParams {
 /// OpenClaw gateway agent uses the same settings (e.g. for Discord DM replies).
 #[tauri::command]
 async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> {
-    // Windows: OpenClaw config lives inside WSL (Tier 2) or doesn't exist (Tier 1).
-    // In both cases, sync from the host side is not applicable.
-    #[cfg(windows)]
-    {
+    if platform::should_skip_openclaw_sync() {
         return Ok(());
     }
 
@@ -2404,9 +2374,13 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // deep-link MUST be registered before single-instance so that
+        // single-instance can forward deep link URLs from a second instance.
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // When a second instance is launched (e.g. via deep link),
             // focus the existing window instead.
+            log_both(&format!("[Naia] Single-instance callback: {} args", args.len()));
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
@@ -2414,7 +2388,6 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState {
             agent: Mutex::new(None),
@@ -2480,153 +2453,29 @@ pub fn run() {
 
             // Register deep-link handler for naia:// URI scheme
             #[cfg(desktop)]
-            app.deep_link().register_all().unwrap_or_else(|e| {
-                log_both(&format!("[Naia] Deep link registration failed: {}", e));
-            });
+            {
+                log_both("[Naia] Registering deep link schemes...");
+                app.deep_link().register_all().unwrap_or_else(|e| {
+                    log_both(&format!("[Naia] Deep link registration failed: {}", e));
+                });
+                log_both("[Naia] Deep link schemes registered");
+            }
 
             let deep_link_handle = app_handle.clone();
             let deep_link_state: tauri::State<'_, AppState> = app.state();
             let oauth_state_ref = deep_link_state.oauth_state.clone();
             app.deep_link().on_open_url(move |event| {
-                let urls = event.urls();
-                for url in urls {
-                    let url_str = url.as_str();
-                    // Redact query params (may contain lab key)
-                    let redacted = url_str.split('?').next().unwrap_or(url_str);
-                    log_both(&format!("[Naia] Deep link received: {}?[REDACTED]", redacted));
-                    // Parse naia://auth?key=xxx or naia://auth?code=xxx
-                    if let Ok(parsed) = url::Url::parse(url_str) {
-                        if parsed.host_str() == Some("auth") || parsed.path() == "auth" || parsed.path() == "/auth" {
-                            let mut key = None;
-                            let mut code = None;
-                            let mut user_id = None;
-                            let mut incoming_state = None;
-                            let mut channel = None;
-                            let mut discord_user_id = None;
-                            let mut discord_channel_id = None;
-                            let mut discord_target = None;
-                            for (k, v) in parsed.query_pairs() {
-                                match k.as_ref() {
-                                    "key" => key = Some(v.to_string()),
-                                    "code" => code = Some(v.to_string()),
-                                    "user_id" => user_id = Some(v.to_string()),
-                                    "state" => incoming_state = Some(v.to_string()),
-                                    "channel" => channel = Some(v.to_string()),
-                                    "discord_user_id" | "discordUserId" => discord_user_id = Some(v.to_string()),
-                                    "discord_channel_id" | "discordChannelId" => {
-                                        discord_channel_id = Some(v.to_string())
-                                    }
-                                    "discord_target" | "discordTarget" => {
-                                        discord_target = Some(v.to_string())
-                                    }
-                                    _ => {}
-                                }
-                            }
-
-                            // Verify OAuth state to prevent CSRF
-                            let expected_state = lock_or_recover(
-                                &oauth_state_ref,
-                                "state.oauth_state(deep_link_expected)",
-                            )
-                            .clone();
-                            if let Some(ref expected) = expected_state {
-                                match &incoming_state {
-                                    Some(s) if s == expected => {
-                                        // State matches — clear it (single-use)
-                                        *lock_or_recover(
-                                            &oauth_state_ref,
-                                            "state.oauth_state(deep_link_clear)",
-                                        ) = None;
-                                    }
-                                    Some(_) => {
-                                        log_both("[Naia] Deep link rejected: state mismatch");
-                                        continue;
-                                    }
-                                    None => {
-                                        log_both("[Naia] Deep link rejected: missing state parameter");
-                                        continue;
-                                    }
-                                }
-                            }
-                            // If no expected state (e.g. manual key entry), allow without check
-
-                            // Validate user_id if present: alphanumeric, hyphens, underscores, dots, max 256 chars
-                            let validated_user_id = user_id.clone().filter(|uid| {
-                                uid.len() <= 256
-                                    && uid.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
-                            });
-                            let resolved_key = if key.is_some() {
-                                key
-                            } else if let Some(code_val) = code {
-                                // Some OAuth providers return ?code=. Only accept it when it is already a gateway API key.
-                                if code_val.starts_with("gw-") {
-                                    Some(code_val)
-                                } else {
-                                    log_both("[Naia] Deep link rejected: code is not a gateway API key (expected gw-*)");
-                                    None
-                                }
-                            } else {
-                                None
-                            };
-
-                            if let Some(naia_key) = resolved_key {
-                                // Validate key format: gw- prefix + [A-Za-z0-9_-], max 256 chars
-                                let is_valid = naia_key.starts_with("gw-")
-                                    && naia_key.len() <= 256
-                                    && naia_key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_');
-                                if !is_valid {
-                                    log_both("[Naia] Deep link rejected: invalid key format");
-                                    continue;
-                                }
-                                let payload = serde_json::json!({
-                                    "naiaKey": naia_key,
-                                    "naiaUserId": validated_user_id,
-                                });
-                                let _ = deep_link_handle.emit("naia_auth_complete", payload);
-                                log_both("[Naia] Naia auth complete — key received via deep link");
-                            }
-
-                            let is_discord_flow = matches!(channel.as_deref(), Some("discord"))
-                                || discord_user_id.is_some()
-                                || discord_channel_id.is_some()
-                                || discord_target.is_some();
-                            if is_discord_flow {
-                                let validated_discord_user_id = discord_user_id
-                                    .filter(|uid| is_valid_discord_snowflake(uid));
-                                let validated_discord_channel_id = discord_channel_id
-                                    .filter(|cid| is_valid_discord_snowflake(cid));
-                                let normalized_target = discord_target
-                                    .and_then(|target| {
-                                        let t = target.trim().to_string();
-                                        if t.starts_with("user:") || t.starts_with("channel:") {
-                                            Some(t)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .or_else(|| {
-                                        validated_discord_user_id
-                                            .as_ref()
-                                            .map(|uid| format!("user:{}", uid))
-                                    })
-                                    .or_else(|| {
-                                        validated_discord_channel_id
-                                            .as_ref()
-                                            .map(|cid| format!("channel:{}", cid))
-                                    });
-
-                                let payload = serde_json::json!({
-                                    "discordUserId": validated_discord_user_id,
-                                    "discordChannelId": validated_discord_channel_id,
-                                    "discordTarget": normalized_target,
-                                });
-                                let _ = deep_link_handle.emit("discord_auth_complete", payload);
-                                log_both("[Naia] Discord auth complete — deep link payload received");
-                            }
-                        }
-                    }
+                for url in event.urls() {
+                    process_deep_link_url(
+                        url.as_str(),
+                        &deep_link_handle,
+                        Some(&oauth_state_ref),
+                        "plugin",
+                    );
                 }
             });
+
+            platform::start_deep_link_file_watcher(app_handle.clone());
 
             // Set window icon explicitly (prevents default yellow WRY icon on Linux)
             if let Some(window) = app.get_webview_window("main") {
@@ -2657,34 +2506,15 @@ pub fn run() {
                 let _ = window.show();
             }
 
-            // WebKit GPU/permission settings for Linux
-            #[cfg(target_os = "linux")]
-            if let Some(webview_window) = app.get_webview_window("main") {
-                let _ = webview_window.with_webview(|webview| {
-                    use webkit2gtk::WebViewExt;
-
-                    // EGL crash workaround: WEBKIT_DISABLE_DMABUF_RENDERER=1 (set in main.rs)
-                    // keeps HW accel enabled for WebGL (VRM/Three.js) while avoiding
-                    // EGL_BAD_PARAMETER on Intel iGPU + XWayland.
-
-                    // Allow only microphone/media permissions (deny all others)
-                    webview.inner().connect_permission_request(|_, request| {
-                        if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
-                            request.allow();
-                        } else {
-                            request.deny();
-                        }
-                        true
-                    });
-                });
-            }
+            // Platform-specific WebView configuration (Linux: WebKit permissions)
+            platform::configure_webview(&app);
 
             // Log session start
             log_both("[Naia] === Session started ===");
             log_verbose(&format!("[Naia] Log files at: {}", log_dir().display()));
 
             // Clean up orphan processes from previous sessions
-            cleanup_orphan_processes();
+            platform::cleanup_orphan_processes();
 
             // Spawn Gateway first (Agent connects to it via WebSocket)
             let (gateway_running, gateway_managed) = match spawn_gateway() {
@@ -2884,7 +2714,7 @@ mod tests {
     #[test]
     fn gateway_process_we_spawned_flag() {
         // Verify the struct has the expected fields
-        let child = dummy_child().unwrap();
+        let child = platform::dummy_child().unwrap();
         let process = GatewayProcess {
             child,
             node_host: None,
@@ -2893,8 +2723,8 @@ mod tests {
         assert!(!process.we_spawned);
         assert!(process.node_host.is_none());
 
-        let child2 = dummy_child().unwrap();
-        let nh = dummy_child().unwrap();
+        let child2 = platform::dummy_child().unwrap();
+        let nh = platform::dummy_child().unwrap();
         let process2 = GatewayProcess {
             child: child2,
             node_host: Some(nh),

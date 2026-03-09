@@ -678,11 +678,21 @@ Ollama setup in WSL distro:
 
 | # | Component | Change |
 |---|-----------|--------|
-| 26 | Agent | fs-based fallback for read/write/search (no Gateway) — Tier 1 enhancement |
-| 27 | Agent | Flatpak detection: add `process.platform === "linux"` guard |
-| 28 | Rust | Test code: #[cfg(unix)] gate on Unix-only tests |
+| 26 | Agent | Flatpak detection: add `process.platform === "linux"` guard |
+| 27 | Rust | Test code: #[cfg(unix)] gate on Unix-only tests |
+| 28 | Agent | fs-based fallback for file tools (read_file, write_file, search_files) when Gateway unavailable (Windows Tier 1) |
 
 ### Total: 17 P0 + 8 P1 + 3 P2 = 28 items (Windows-only scope)
+
+### Cross-cutting: Platform code separation
+
+All platform-specific Rust code has been extracted from `lib.rs` into `src/platform/`:
+- `platform/mod.rs` — Facade with `#[cfg]` re-exports and `GatewaySpawnResult` enum
+- `platform/linux.rs` — Unix implementations (signal handling, nvm paths, WebKit config)
+- `platform/windows.rs` — Windows implementations (Win32 API, NVM-Windows/fnm, bundled node.exe, WSL gateway)
+- `platform/wsl.rs` — WSL2 management (only compiled on Windows)
+
+`lib.rs` has **zero** `#[cfg(unix)]` / `#[cfg(windows)]` / `#[cfg(target_os)]` attributes.
 
 ---
 
@@ -795,10 +805,21 @@ Ollama setup in WSL distro:
 
 ---
 
-### Phase 3: Nice to Have (P2 items 26–28) ⏳
+### Phase 3: Nice to Have (P2 items 26–28) ✅
 
-- [ ] Agent fs-based fallback (no Gateway) — deferred to separate issue
 - [x] Flatpak detection platform guard (process.platform === "linux")
 - [x] Test code: dummy_child() replaces Command::new("true")
+- [x] Agent fs-based fallback for file tools when Gateway unavailable (Tier 1 mode)
 
 **Checkpoint 3**: Agent tests pass, no regressions
+
+### Phase 4: Platform code separation (cross-cutting) ✅
+
+- [x] Create `platform/mod.rs` facade with `#[cfg]` re-exports + `GatewaySpawnResult` enum
+- [x] Create `platform/linux.rs` with all Unix-specific implementations
+- [x] Create `platform/windows.rs` with all Windows-specific implementations
+- [x] Move `wsl.rs` → `platform/wsl.rs` (remove redundant `#[cfg]` guards)
+- [x] Refactor `lib.rs` to call `platform::*` functions — zero platform `#[cfg]` remaining
+- [x] Make shared helpers `pub(crate)`: log_verbose, log_both, read_pid_file, remove_pid_file, find_highest_node_version, check_gateway_health_sync
+
+**Checkpoint 4**: lib.rs has zero `#[cfg(unix/windows/target_os)]`, TypeScript checks pass, agent tests pass (641/21 same as baseline)
