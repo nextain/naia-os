@@ -19,7 +19,7 @@ import { Logger } from "../lib/logger";
 import { syncToOpenClaw } from "../lib/openclaw-sync";
 import { persistDiscordDefaults } from "../lib/discord-auth";
 import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
-import { buildSystemPrompt } from "../lib/persona";
+import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
 import { VrmPreview } from "./VrmPreview";
@@ -77,7 +77,7 @@ const PERSONALITY_PRESETS: {
 		descKey: "personality.friendly.desc",
 		persona: `You are {name}, a warm and friendly AI companion.
 Personality:
-- Speaks casually in Korean (반말)
+- Speaks casually and warmly
 - Warm, caring, and supportive
 - Uses friendly expressions naturally
 - Gives concise, helpful answers`,
@@ -88,7 +88,7 @@ Personality:
 		descKey: "personality.polite.desc",
 		persona: `You are {name}, a reliable and professional AI assistant.
 Personality:
-- Speaks politely in Korean (존댓말)
+- Speaks politely and professionally
 - Professional, reliable, and thorough
 - Clear and organized communication
 - Gives structured, detailed answers when needed`,
@@ -99,7 +99,7 @@ Personality:
 		descKey: "personality.playful.desc",
 		persona: `You are {name}, a playful and humorous AI companion.
 Personality:
-- Speaks casually with humor in Korean
+- Speaks casually with humor
 - Playful, witty, and cheerful
 - Makes conversations fun and lighthearted
 - Sneaks in jokes and clever remarks`,
@@ -110,7 +110,7 @@ Personality:
 		descKey: "personality.calm.desc",
 		persona: `You are {name}, a calm and intellectual AI companion.
 Personality:
-- Speaks thoughtfully in Korean
+- Speaks thoughtfully and analytically
 - Calm, analytical, and knowledgeable
 - Explains things clearly and logically
 - Takes time to consider before answering`,
@@ -188,7 +188,7 @@ export function OnboardingWizard({
 	const [naiaUserId, setNaiaUserId] = useState("");
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labTimeout, setLabTimeout] = useState(false);
-	const [selectedSpeechStyle, setSelectedSpeechStyle] = useState("반말");
+	const [selectedSpeechStyle, setSelectedSpeechStyle] = useState("casual");
 	const [honorificInput, setHonorificInput] = useState("");
 	const [discordConnectLoading, setDiscordConnectLoading] = useState(false);
 	const [discordConnected, setDiscordConnected] = useState(false);
@@ -362,10 +362,12 @@ export function OnboardingWizard({
 	function goNext() {
 		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
+		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex < STEPS.length - 1) {
 			let next = stepIndex + 1;
 			if (STEPS[next] === "apiKey" && skipApiKey) next++;
 			if (STEPS[next] === "ollamaConfig" && skipOllamaConfig) next++;
+			if (STEPS[next] === "speechStyle" && skipSpeechStyle) next++;
 			setStep(STEPS[next]);
 		}
 	}
@@ -373,8 +375,10 @@ export function OnboardingWizard({
 	function goBack() {
 		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
+		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex > 0) {
 			let prev = stepIndex - 1;
+			if (STEPS[prev] === "speechStyle" && skipSpeechStyle) prev--;
 			if (STEPS[prev] === "ollamaConfig" && skipOllamaConfig) prev--;
 			if (STEPS[prev] === "apiKey" && skipApiKey) prev--;
 			setStep(STEPS[prev]);
@@ -784,7 +788,7 @@ export function OnboardingWizard({
 									className={`onboarding-personality-card${selectedPersonality === p.id ? " selected" : ""}`}
 									onClick={() => {
 									setSelectedPersonality(p.id);
-									setSelectedSpeechStyle(p.id === "polite" || p.id === "calm" ? "존댓말" : "반말");
+									setSelectedSpeechStyle(p.id === "polite" || p.id === "calm" ? "formal" : "casual");
 								}}
 								>
 									<span className="personality-card-label">{t(p.labelKey as any)}</span>
@@ -807,16 +811,16 @@ export function OnboardingWizard({
 						<div className="onboarding-personality-cards">
 							<button
 								type="button"
-								className={`onboarding-personality-card${selectedSpeechStyle === "반말" ? " selected" : ""}`}
-								onClick={() => setSelectedSpeechStyle("반말")}
+								className={`onboarding-personality-card${selectedSpeechStyle === "casual" ? " selected" : ""}`}
+								onClick={() => setSelectedSpeechStyle("casual")}
 							>
 								<span className="personality-card-label">{t("onboard.speechStyle.casual")}</span>
 								<span className="personality-card-desc">{t("onboard.speechStyle.casualDesc")}</span>
 							</button>
 							<button
 								type="button"
-								className={`onboarding-personality-card${selectedSpeechStyle === "존댓말" ? " selected" : ""}`}
-								onClick={() => setSelectedSpeechStyle("존댓말")}
+								className={`onboarding-personality-card${selectedSpeechStyle === "formal" ? " selected" : ""}`}
+								onClick={() => setSelectedSpeechStyle("formal")}
 							>
 								<span className="personality-card-label">{t("onboard.speechStyle.formal")}</span>
 								<span className="personality-card-desc">{t("onboard.speechStyle.formalDesc")}</span>

@@ -63,6 +63,15 @@ function buildToolStatusPrompt(
 			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요.";
 	}
 
+	// Tool usage rules — always injected regardless of system prompt source
+	status +=
+		"\n\n[Tool Usage Rules (CRITICAL)]" +
+		"\n- When the user asks you to DO something (check, search, send, run, find, look up, etc.), you MUST call the appropriate tool. NEVER just say '할게요/확인해볼게요' without actually calling a tool." +
+		"\n- If you don't know the answer, use a tool to find out (web_search, skill_github, execute_command, etc.). Do NOT guess or make up information." +
+		"\n- When the user mentions an app or service name (옵시디안, スポティファイ, GitHub, Slack, Notion, etc.), search for it using skill_skill_manager action='search' query='{english name}'. Skill names are English: skill_obsidian, skill_github, skill_slack, etc." +
+		"\n- When asked about GitHub repos/PRs/issues, ALWAYS use skill_github. Never guess URLs." +
+		"\n- '확인해볼게' / '検索するね' / 'Let me check' without actually calling a tool is FORBIDDEN.";
+
 	return base + status;
 }
 

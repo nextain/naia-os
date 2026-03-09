@@ -16,6 +16,12 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 	openUrl: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock getLocale to return "ko" (formality locale) so speechStyle step is shown
+vi.mock("../../lib/i18n", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../lib/i18n")>();
+	return { ...actual, getLocale: () => "ko" as any };
+});
+
 // Mock VrmPreview (Three.js doesn't work in jsdom)
 vi.mock("../VrmPreview", () => ({
 	VrmPreview: ({ modelPath }: { modelPath: string }) => (

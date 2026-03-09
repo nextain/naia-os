@@ -295,6 +295,29 @@ export async function migrateLabKeyToNaiaKey(): Promise<void> {
 	}
 }
 
+// ── Speech style migration ──
+
+/** Normalize legacy Korean speech style values to locale-neutral keys */
+export function normalizeSpeechStyle(val: string | undefined): string | undefined {
+	if (!val) return val;
+	if (val === "반말") return "casual";
+	if (val === "존댓말") return "formal";
+	return val;
+}
+
+/**
+ * Migrate speechStyle from Korean values ("반말"/"존댓말") to locale-neutral ("casual"/"formal").
+ * Call once on app startup. Idempotent.
+ */
+export function migrateSpeechStyleValues(): void {
+	const config = loadConfig();
+	if (!config?.speechStyle) return;
+	const normalized = normalizeSpeechStyle(config.speechStyle);
+	if (normalized !== config.speechStyle) {
+		saveConfig({ ...config, speechStyle: normalized });
+	}
+}
+
 // ── Utility functions (sync, unchanged) ──
 
 export function getDefaultModel(provider: ProviderId): string {

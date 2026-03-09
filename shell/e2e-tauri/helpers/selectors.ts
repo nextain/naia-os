@@ -158,6 +158,7 @@ export const S = {
 	bgCardActive: ".bg-card.active",
 
 	// Settings inputs
+	speechStyleSelect: '[data-testid="settings-speech-style"]',
 	localeSelect: "#locale-select",
 	personaInput: "#persona-input",
 	modelInput: "#model-input",

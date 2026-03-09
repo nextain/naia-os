@@ -12,7 +12,7 @@ For non-feature changes (typos, config values, simple directives), use `developm
 
 ---
 
-## 10 Phases
+## 13 Phases
 
 ### User-Involved (front-loaded)
 
@@ -21,18 +21,21 @@ For non-feature changes (typos, config values, simple directives), use `developm
 | 1 | **Issue** | — | Create or receive a GitHub Issue |
 | 2 | **Understand** | ✓ | Confirm understanding with user |
 | 3 | **Scope** | ✓ | Define investigation scope and depth |
-| 4 | **Investigate** | — | Code-centric investigation (loop until 2 consecutive clean passes) |
-| 5 | **Plan** | ✓ | Draft plan, iterate until stable (2 consecutive clean passes), user approves |
+| 4 | **Investigate** | — | Code-centric investigation (loop until no new findings) |
+| 5 | **Plan** | ✓ | Draft plan, user approves |
 
 ### AI-Autonomous (with quality gates)
 
 | # | Phase | Description |
 |---|-------|-------------|
 | 6 | **Build** | Implement per plan (TDD) |
-| 7 | **Review** | Self-review loop (2 consecutive clean passes) |
+| 7 | **Review** | Per-phase iterative review (2 consecutive clean passes) |
 | 8 | **E2E Test** | End-to-end test through real user path |
-| 9 | **Sync** | Update .agents/ + .users/ context (2 consecutive clean passes) |
-| 10 | **Commit** | Commit with Issue reference, create PR |
+| 9 | **Post-test Review** | Re-review after tests pass (2 consecutive clean passes) |
+| 10 | **Sync** | Update .agents/ + .users/ context (mirror sync) |
+| 11 | **Sync Verify** | Verify context accuracy (2 consecutive clean passes) |
+| 12 | **Report** | Summarize results to user |
+| 13 | **Commit** | Commit with Issue reference, create PR |
 
 ---
 
@@ -46,9 +49,15 @@ For non-feature changes (typos, config values, simple directives), use `developm
 
 ---
 
-## Iteration Rule
+## Iterative Review
 
-All loops terminate after **two consecutive clean passes** (not just one). A single clean pass can be a false negative.
+All review loops terminate after **two consecutive clean passes** (not just one). A single clean pass can be a false negative.
+
+**Applies at 4 points:**
+1. After **Plan** — review plan before build
+2. After each **Build** phase — per-phase code review
+3. After **E2E Test** — post-test full code review
+4. After **Sync** — context mirror accuracy verification
 
 ---
 

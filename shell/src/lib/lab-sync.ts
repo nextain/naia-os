@@ -1,4 +1,5 @@
 import type { AppConfig } from "./config";
+import { normalizeSpeechStyle } from "./config";
 import { Logger } from "./logger";
 
 const LAB_API_BASE = "https://naia.nextain.io/api/gateway/config";
@@ -65,7 +66,11 @@ export async function fetchLabConfig(
 		};
 		const raw = data?.config;
 		if (!raw || typeof raw !== "object") return null;
-		return pickSyncFields(raw as Partial<AppConfig>);
+		const synced = pickSyncFields(raw as Partial<AppConfig>);
+		if (synced.speechStyle) {
+			synced.speechStyle = normalizeSpeechStyle(synced.speechStyle);
+		}
+		return synced;
 	} catch (err) {
 		Logger.warn("lab-sync", "fetchLabConfig failed", { error: String(err) });
 		return null;

@@ -32,13 +32,14 @@ architecture:
 
   locale_aware_features:
     speech_style:
-      description: "반말/존댓말 toggle — Korean-only concept"
-      guard: "locale === 'ko' or locale undefined"
-      ui_visibility: "hidden when locale !== 'ko'"
+      description: "casual/formal toggle — available for locales with formal/informal distinction"
+      stored_values: "'casual' | 'formal' (legacy: '반말'/'존댓말' auto-migrated)"
+      guard: "FORMALITY_LOCALES.has(locale) — ko, ja, de, fr, es, hi, vi, ru, pt, id, ar"
+      ui_visibility: "hidden when locale not in FORMALITY_LOCALES"
     honorific:
-      description: "Korean honorific suffix (오빠, 님, etc)"
-      guard: "locale === 'ko' or locale undefined"
-      ui_visibility: "hidden when locale !== 'ko'"
+      description: "Honorific/title (오빠, 先輩, Herr, etc) — supports prefix and suffix patterns"
+      guard: "FORMALITY_LOCALES.has(locale) — same set as speech_style"
+      ui_visibility: "hidden when locale not in FORMALITY_LOCALES"
     emotion_examples:
       description: "Emotion tag examples in system prompt"
       behavior: "locale-specific greeting example for all 14 locales"
@@ -57,8 +58,13 @@ key_files:
   - shell/src/components/OnboardingWizard.tsx  # locale propagation on setup
 
 testing:
-  unit: shell/src/lib/__tests__/persona.test.ts  # locale-aware prompt tests
-  e2e: shell/e2e-tauri/specs/54-settings-locale-prompt.spec.ts
+  unit: shell/src/lib/__tests__/persona.test.ts  # locale-aware prompt tests (28 tests)
+  e2e: shell/e2e-tauri/specs/54-settings-locale-prompt.spec.ts  # 32 tests total
+  e2e_coverage:
+    - "Settings: speechStyle visibility for all 14 locales (hidden 3 + visible 11)"
+    - "Settings: normalized value storage + legacy migration"
+    - "Onboarding: speechStyle step skip for non-formality locales (3)"
+    - "Onboarding: speechStyle step shown for formality locales (11)"
 
 # Translation contribution scope
 translation_contribution:

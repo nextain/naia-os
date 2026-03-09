@@ -37,7 +37,8 @@ describe("lab-sync", () => {
 			expect(result!.userName).toBe("Luke");
 			expect(result!.agentName).toBe("Naia");
 			expect(result!.honorific).toBe("오빠");
-			expect(result!.speechStyle).toBe("반말");
+			// Legacy "반말" normalized to "casual" by fetchLabConfig
+			expect(result!.speechStyle).toBe("casual");
 			expect(result!.provider).toBe("nextain");
 			// Excluded fields should not be present
 			expect((result as Record<string, unknown>).apiKey).toBeUndefined();
@@ -81,7 +82,7 @@ describe("lab-sync", () => {
 				apiKey: "secret-key",
 				userName: "Luke",
 				honorific: "님",
-				speechStyle: "존댓말",
+				speechStyle: "formal",
 			});
 
 			expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -94,7 +95,7 @@ describe("lab-sync", () => {
 			const body = JSON.parse(opts.body);
 			expect(body.config.userName).toBe("Luke");
 			expect(body.config.honorific).toBe("님");
-			expect(body.config.speechStyle).toBe("존댓말");
+			expect(body.config.speechStyle).toBe("formal");
 			// apiKey should NOT be in sync data
 			expect(body.config.apiKey).toBeUndefined();
 		});
@@ -102,8 +103,8 @@ describe("lab-sync", () => {
 
 	describe("diffConfigs", () => {
 		it("returns empty array when configs match", () => {
-			const local = { userName: "Luke", speechStyle: "반말" };
-			const online = { userName: "Luke", speechStyle: "반말" };
+			const local = { userName: "Luke", speechStyle: "casual" };
+			const online = { userName: "Luke", speechStyle: "casual" };
 			expect(diffConfigs(local, online)).toEqual([]);
 		});
 
@@ -111,13 +112,13 @@ describe("lab-sync", () => {
 			const local = {
 				userName: "Luke",
 				agentName: "Naia",
-				speechStyle: "반말",
+				speechStyle: "casual",
 				honorific: "",
 			};
 			const online = {
 				userName: "Luke",
 				agentName: "Mochi",
-				speechStyle: "존댓말",
+				speechStyle: "formal",
 				honorific: "오빠",
 			};
 			const diffs = diffConfigs(local, online);

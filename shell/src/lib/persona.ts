@@ -11,6 +11,11 @@ Personality:
 
 Keep responses concise (1-3 sentences for casual chat, longer for complex topics).`;
 
+/** Locales with a meaningful formal/informal speech distinction */
+export const FORMALITY_LOCALES = new Set([
+	"ko", "ja", "de", "fr", "es", "hi", "vi", "ru", "pt", "id", "ar",
+]);
+
 function localeToLanguage(locale: string): string {
 	const map: Record<string, string> = {
 		ko: "Korean", en: "English", ja: "Japanese", zh: "Chinese",
@@ -19,6 +24,41 @@ function localeToLanguage(locale: string): string {
 		id: "Indonesian", vi: "Vietnamese",
 	};
 	return map[locale] || "English";
+}
+
+/** Generate locale-appropriate speech style instruction for the system prompt */
+function getSpeechStyleInstruction(locale: string, style: string): string {
+	const lang = localeToLanguage(locale);
+	const casual: Record<string, string> = {
+		ko: "IMPORTANT: Speak casually in Korean (반말). Do NOT use 존댓말.",
+		ja: "IMPORTANT: Speak casually in Japanese (タメ口). Do NOT use 敬語.",
+		de: "IMPORTANT: Speak casually using 'du' in German. Do NOT use 'Sie'.",
+		fr: "IMPORTANT: Speak casually using 'tu' in French. Do NOT use 'vous'.",
+		es: "IMPORTANT: Speak casually using 'tú' in Spanish. Do NOT use 'usted'.",
+		hi: "IMPORTANT: Speak casually using 'तुम' in Hindi. Do NOT use 'आप'.",
+		vi: "IMPORTANT: Speak casually using informal pronouns in Vietnamese.",
+		ru: "IMPORTANT: Speak casually using 'ты' in Russian. Do NOT use 'вы'.",
+		pt: "IMPORTANT: Speak casually using 'tu/você' in Portuguese. Do NOT use 'senhor/senhora'.",
+		id: "IMPORTANT: Speak casually using 'kamu' in Indonesian. Do NOT use 'Anda'.",
+		ar: "IMPORTANT: Speak casually using 'أنت' in Arabic. Do NOT use 'حضرتك'.",
+	};
+	const formal: Record<string, string> = {
+		ko: "IMPORTANT: Speak politely in Korean (존댓말). Do NOT use 반말.",
+		ja: "IMPORTANT: Speak politely in Japanese (敬語/丁寧語). Do NOT use タメ口.",
+		de: "IMPORTANT: Speak formally using 'Sie' in German. Do NOT use 'du'.",
+		fr: "IMPORTANT: Speak formally using 'vous' in French. Do NOT use 'tu'.",
+		es: "IMPORTANT: Speak formally using 'usted' in Spanish. Do NOT use 'tú'.",
+		hi: "IMPORTANT: Speak formally using 'आप' in Hindi. Do NOT use 'तुम/तू'.",
+		vi: "IMPORTANT: Speak formally using honorific pronouns in Vietnamese.",
+		ru: "IMPORTANT: Speak formally using 'вы' in Russian. Do NOT use 'ты'.",
+		pt: "IMPORTANT: Speak formally using 'senhor/senhora' in Portuguese.",
+		id: "IMPORTANT: Speak formally using 'Anda' in Indonesian. Do NOT use 'kamu'.",
+		ar: "IMPORTANT: Speak formally using 'حضرتك' in Arabic.",
+	};
+	if (style === "casual") {
+		return casual[locale] ?? `IMPORTANT: Speak casually in ${lang}.`;
+	}
+	return formal[locale] ?? `IMPORTANT: Speak formally in ${lang}.`;
 }
 
 function getEmotionExample(locale?: string): string {
@@ -99,9 +139,10 @@ export function buildSystemPrompt(
 			);
 		}
 
-		if (context.honorific && (!context.locale || context.locale === "ko")) {
+		if (context.honorific && (!context.locale || FORMALITY_LOCALES.has(context.locale))) {
+			const lang = context.locale ? localeToLanguage(context.locale) : "the user's language";
 			contextLines.push(
-				`Call the user "${context.userName || ""}${context.honorific}" (e.g., "${context.userName || ""}${context.honorific}").`,
+				`Address the user as "${context.honorific} ${context.userName || ""}" or "${context.userName || ""}${context.honorific}" as appropriate for ${lang}.`,
 			);
 		}
 
@@ -112,11 +153,9 @@ export function buildSystemPrompt(
 			);
 		}
 
-		if (context.speechStyle && (!context.locale || context.locale === "ko")) {
+		if (context.speechStyle && (!context.locale || FORMALITY_LOCALES.has(context.locale))) {
 			contextLines.push(
-				context.speechStyle === "반말"
-					? "IMPORTANT: Speak casually in Korean (반말). Do NOT use 존댓말."
-					: "IMPORTANT: Speak politely in Korean (존댓말). Do NOT use 반말.",
+				getSpeechStyleInstruction(context.locale || "ko", context.speechStyle),
 			);
 		}
 
