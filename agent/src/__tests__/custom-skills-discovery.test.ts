@@ -26,9 +26,8 @@ import {
 	getAllTools,
 	skillRegistry,
 } from "../gateway/tool-bridge.js";
-import { buildToolStatusPrompt } from "../index.js";
 import type { ChatMessage, StreamChunk } from "../providers/types.js";
-import { ALPHA_SYSTEM_PROMPT } from "../system-prompt.js";
+import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "../system-prompt.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
