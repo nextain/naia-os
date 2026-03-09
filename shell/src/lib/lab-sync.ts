@@ -13,7 +13,6 @@ export const LAB_SYNC_FIELDS = [
 	"backgroundImage",
 	"vrmModel",
 	"ttsEnabled",
-	"sttEnabled",
 	"ttsVoice",
 	"ttsProvider",
 	"ttsEngine",
@@ -33,6 +32,9 @@ export const LAB_SYNC_FIELDS = [
 	"googleChatWebhookUrl",
 	"panelPosition",
 	"panelVisible",
+	"liveVoice",
+	"liveModel",
+	"voiceConversation",
 ] as const;
 
 type SyncField = (typeof LAB_SYNC_FIELDS)[number];

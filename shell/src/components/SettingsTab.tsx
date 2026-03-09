@@ -37,7 +37,7 @@ import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "..
 import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
-import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
+import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
@@ -664,9 +664,9 @@ export function SettingsTab() {
 	const [backgroundImage, setBackgroundImage] = useState(
 		normalizeLocalPath(existing?.backgroundImage ?? ""),
 	);
-	const defaultVoiceForProvider = (existing?.ttsProvider ?? "edge") === "edge"
-		? "ko-KR-SunHiNeural"
-		: "ko-KR-Neural2-A";
+	const defaultVoiceForProvider = getDefaultTtsVoiceForAvatar(
+		existing?.ttsProvider ?? "edge", existing?.vrmModel,
+	);
 	const [ttsVoice, setTtsVoice] = useState(
 		existing?.ttsVoice ?? defaultVoiceForProvider,
 	);
@@ -679,7 +679,6 @@ export function SettingsTab() {
 			 existing?.ttsEngine === "google" ? "google" : "edge"),
 	);
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
-	const [sttEnabled, setSttEnabled] = useState(existing?.sttEnabled ?? true);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [userName, setUserName] = useState(existing?.userName ?? "");
 	const [agentName, setAgentName] = useState(existing?.agentName ?? "");
@@ -1098,12 +1097,15 @@ export function SettingsTab() {
 				const current = loadConfig();
 				const nextModel = current?.model || getDefaultModel("nextain");
 				if (current) {
+					// Auto-set default voice based on VRM avatar gender if not previously configured
+					const liveVoice = current.liveVoice ?? getDefaultVoiceForAvatar(current.vrmModel);
 					saveConfig({
 						...current,
 						provider: "nextain",
 						model: nextModel,
 						naiaKey: nextNaiaKey,
 						naiaUserId: nextNaiaUserId || undefined,
+						liveVoice,
 					});
 				}
 
@@ -1334,7 +1336,7 @@ export function SettingsTab() {
 					return;
 				}
 				const cfg = loadConfig();
-				const voiceName = cfg?.liveVoice ?? "Kore";
+				const voiceName = cfg?.liveVoice ?? getDefaultVoiceForAvatar(cfg?.vrmModel);
 				const fullVoice = `ko-KR-Chirp3-HD-${voiceName}`;
 				const previewText = getPreviewText(fullVoice);
 				const resp = await fetch(`${LAB_GATEWAY_URL}/v1/audio/speech`, {
@@ -1576,7 +1578,6 @@ export function SettingsTab() {
 		if (merged.locale) setLocaleState(merged.locale);
 		if (merged.theme) setTheme(merged.theme);
 		if (merged.ttsEnabled !== undefined) setTtsEnabled(merged.ttsEnabled);
-		if (merged.sttEnabled !== undefined) setSttEnabled(merged.sttEnabled);
 		if (merged.ttsVoice) setTtsVoice(merged.ttsVoice);
 		if (merged.ttsProvider) setTtsProvider(merged.ttsProvider);
 		setSyncDialogOpen(false);
@@ -1618,7 +1619,6 @@ export function SettingsTab() {
 			customBgs: customBgs.length > 0 ? customBgs : undefined,
 			backgroundImage: backgroundImage || undefined,
 			ttsEnabled,
-			sttEnabled,
 			ttsVoice,
 			ttsProvider,
 			ttsEngine: derivedTtsEngine as "google" | "openclaw",
@@ -2387,16 +2387,6 @@ export function SettingsTab() {
 				/>
 			</div>
 
-			<div className="settings-field settings-toggle-row">
-				<label htmlFor="stt-toggle">{t("settings.sttEnabled")}</label>
-				<input
-					id="stt-toggle"
-					type="checkbox"
-					checked={sttEnabled}
-					onChange={(e) => setSttEnabled(e.target.checked)}
-				/>
-			</div>
-
 			<div className="settings-field">
 				<label htmlFor="tts-provider-select">TTS 프로바이더</label>
 				<select
@@ -2407,12 +2397,11 @@ export function SettingsTab() {
 						persistTtsProvider(newProvider);
 						// Reset voice to first available for the new provider
 						if (newProvider === "google") {
-							persistTtsVoice(TTS_VOICES[0]?.id ?? "ko-KR-Neural2-A");
+							persistTtsVoice(getDefaultTtsVoiceForAvatar("google", existing?.vrmModel));
 						} else if (newProvider === "nextain") {
 							// liveVoice is managed separately — no ttsVoice reset needed
 						} else if (newProvider === "edge") {
-							const edgeVoices = getEdgeVoicesForLocale(locale);
-							persistTtsVoice(edgeVoices[0] ?? "ko-KR-SunHiNeural");
+							persistTtsVoice(getDefaultTtsVoiceForAvatar("edge", existing?.vrmModel));
 						} else if (newProvider === "openai") {
 							persistTtsVoice(OPENAI_VOICES[0] ?? "alloy");
 						} else if (newProvider === "elevenlabs") {
@@ -2511,7 +2500,7 @@ export function SettingsTab() {
 					<div className="voice-picker">
 						<select
 							id="tts-voice-select"
-							value={existing?.liveVoice ?? "Kore"}
+							value={existing?.liveVoice ?? getDefaultVoiceForAvatar(existing?.vrmModel)}
 							onChange={(e) => {
 								if (existing) saveConfig({ ...existing, liveVoice: e.target.value });
 							}}

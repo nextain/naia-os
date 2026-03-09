@@ -38,6 +38,7 @@ import type {
 	ChatMessage,
 	ProviderId,
 } from "../lib/types";
+import { getDefaultVoiceForAvatar } from "../lib/avatar-presets";
 import { parseEmotion } from "../lib/vrm/expression";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
@@ -524,8 +525,8 @@ export function ChatPanel() {
 				onChunk: (chunk) => handleChunk(chunk, activeProvider),
 				requestId,
 				ttsVoice: ttsEnabled
-					? (cfgTtsProvider === "nextain" && config.liveVoice
-						? `ko-KR-Chirp3-HD-${config.liveVoice}`
+					? (cfgTtsProvider === "nextain"
+						? `ko-KR-Chirp3-HD-${config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
 						: config.ttsVoice)
 					: undefined,
 				ttsApiKey: ttsEnabled
@@ -856,14 +857,21 @@ export function ChatPanel() {
 			await session.connect({
 				gatewayUrl: gatewayUrl,
 				naiaKey,
-				voice: config.liveVoice ?? "Puck",
+				voice: config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel),
 				systemInstruction: systemPrompt,
 				model: config.liveModel ?? "gemini-live-2.5-flash-native-audio",
 			});
 
 			// Create mic stream
 			const mic = await createMicStream({
-				onChunk: (pcmBase64) => session.sendAudio(pcmBase64),
+				onChunk: (pcmBase64) => {
+					// Mute mic while Naia is speaking to prevent echo feedback (Issue #22).
+					// WebKitGTK (Tauri) does not support browser-level AEC effectively,
+					// so we suppress mic input during playback at the application level.
+					if (!audioPlayerRef.current?.isPlaying) {
+						session.sendAudio(pcmBase64);
+					}
+				},
 				sampleRate: 16000,
 			});
 			micStreamRef.current = mic;
