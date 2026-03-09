@@ -25,8 +25,12 @@ latest.json을 Release 에셋에 업로드
 - `shell/src/components/UpdateBanner.tsx` — 알림 배너 UI
 - `shell/src/components/SettingsTab.tsx` — VersionFooter (수동 체크 버튼)
 - `shell/src-tauri/src/lib.rs` — 조건부 플러그인 등록 (`FLATPAK=1` → updater 생략)
-- `shell/src-tauri/tauri.conf.json` — 업데이터 엔드포인트 및 공개키
+- `shell/src-tauri/tauri.conf.json` — 업데이터 엔드포인트, 공개키, `createUpdaterArtifacts: true`
 - `.github/workflows/release-app.yml` — 서명, latest.json 생성, itch.io push
+- `releases/v*.yaml` — 중앙 다국어 changelog (CI, 웹, 인앱에서 사용)
+
+### 서명
+`tauri-plugin-updater`를 통한 Ed25519 서명. 키는 비밀번호를 반드시 설정해야 합니다 (빈 비밀번호는 GitHub Actions에서 문제 발생). 필요 시크릿: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. 키 백업: `~/.tauri/naia.key` + `my-envs/tauri-signing.key`.
 
 ### Flatpak 예외
 Flatpak은 자체 업데이트를 관리합니다. `FLATPAK=1` 환경변수가 설정되면 Tauri updater 플러그인이 등록되지 않습니다. JS 측에서는 `try-catch`와 동적 `import()`로 플러그인 미존재를 우아하게 처리합니다.

@@ -25,8 +25,12 @@ Download + verify signature → install → relaunch
 - `shell/src/components/UpdateBanner.tsx` — Notification banner UI
 - `shell/src/components/SettingsTab.tsx` — VersionFooter (manual check button)
 - `shell/src-tauri/src/lib.rs` — Conditional plugin registration (`FLATPAK=1` → skip updater)
-- `shell/src-tauri/tauri.conf.json` — Updater endpoint and public key
+- `shell/src-tauri/tauri.conf.json` — Updater endpoint, public key, and `createUpdaterArtifacts: true`
 - `.github/workflows/release-app.yml` — Signing, latest.json generation, itch.io push
+- `releases/v*.yaml` — Centralized multilingual changelog (consumed by CI, web, and in-app)
+
+### Signing
+Ed25519 signing via `tauri-plugin-updater`. Key must be generated with a non-empty password (empty password causes GitHub Actions issues). Required secrets: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Key backup: `~/.tauri/naia.key` + `my-envs/tauri-signing.key`.
 
 ### Flatpak Exception
 Flatpak manages its own updates. When `FLATPAK=1` environment variable is set, the Tauri updater plugin is not registered. The JS side uses `try-catch` with dynamic `import()` to gracefully handle the missing plugin.
