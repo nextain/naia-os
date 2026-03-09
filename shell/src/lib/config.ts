@@ -30,7 +30,6 @@ export interface AppConfig {
 	customVrms?: string[];
 	customBgs?: string[];
 	ttsEnabled?: boolean;
-	sttEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;
 	ttsProvider?: TtsProviderId;
