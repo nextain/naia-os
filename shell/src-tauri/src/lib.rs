@@ -2189,7 +2189,9 @@ async fn gemini_live_disconnect(state: tauri::State<'_, AppState>) -> Result<(),
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let is_flatpak = std::env::var("FLATPAK").map(|v| v == "1").unwrap_or(false);
+
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // When a second instance is launched (e.g. via deep link),
             // focus the existing window instead.
@@ -2202,7 +2204,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .manage(AppState {
+        .plugin(tauri_plugin_process::init());
+
+    // Flatpak manages its own updates; skip updater plugin in Flatpak builds
+    if !is_flatpak {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder.manage(AppState {
             agent: Mutex::new(None),
             gateway: Mutex::new(None),
             health_monitor_shutdown: Mutex::new(None),

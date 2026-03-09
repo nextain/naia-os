@@ -43,6 +43,7 @@ export const SECRET_KEYS = [
 	"googleApiKey",
 	"naiaKey",
 	"gatewayToken",
+	"openaiRealtimeApiKey",
 ] as const;
 
 export type SecretKeyName = (typeof SECRET_KEYS)[number];

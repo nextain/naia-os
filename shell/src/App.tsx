@@ -4,7 +4,7 @@ import { AvatarCanvas } from "./components/AvatarCanvas";
 import { ChatPanel } from "./components/ChatPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { TitleBar } from "./components/TitleBar";
-import { syncLinkedChannels } from "./lib/channel-sync";
+import { UpdateBanner } from "./components/UpdateBanner";
 import {
 	type PanelPosition,
 	type ThemeId,
@@ -15,6 +15,8 @@ import {
 	saveConfig,
 } from "./lib/config";
 import { persistDiscordDefaults } from "./lib/discord-auth";
+import { syncLinkedChannels } from "./lib/channel-sync";
+import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 
 function applyTheme(theme: ThemeId) {
 	document.documentElement.setAttribute("data-theme", theme);
@@ -25,6 +27,7 @@ export function App() {
 	const [panelPosition, setPanelPosition] = useState<PanelPosition>("bottom");
 	const [panelVisible, setPanelVisible] = useState(true);
 	const [panelSize, setPanelSize] = useState(70);
+	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 	const layoutRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -42,6 +45,14 @@ export function App() {
 			setShowOnboarding(true);
 		}
 	}, []);
+
+	// Check for updates after onboarding is complete
+	useEffect(() => {
+		if (showOnboarding) return;
+		checkForUpdate().then((info) => {
+			if (info) setUpdateInfo(info);
+		}).catch(() => { /* updater not available (Flatpak) or network error */ });
+	}, [showOnboarding]);
 
 	// Ctrl+B: toggle panel visibility
 	useEffect(() => {
@@ -150,6 +161,9 @@ export function App() {
 	return (
 		<div className="app-root">
 			<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+			{updateInfo && (
+				<UpdateBanner info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
+			)}
 			<div
 				className="app-layout"
 				ref={layoutRef}

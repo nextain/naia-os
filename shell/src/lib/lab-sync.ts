@@ -32,6 +32,7 @@ export const LAB_SYNC_FIELDS = [
 	"googleChatWebhookUrl",
 	"panelPosition",
 	"panelVisible",
+	"liveProvider",
 	"liveVoice",
 	"liveModel",
 	"voiceConversation",

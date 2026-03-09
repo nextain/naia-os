@@ -75,9 +75,9 @@ export interface AppConfig {
 	discordSessionMigrated?: boolean;
 	ollamaHost?: string;
 	voiceConversation?: boolean;
+	liveProvider?: LiveProviderId;
 	liveVoice?: string;
 	liveModel?: string;
-	liveProvider?: LiveProviderId;
 	openaiRealtimeApiKey?: string;
 	openaiRealtimeVoice?: string;
 }

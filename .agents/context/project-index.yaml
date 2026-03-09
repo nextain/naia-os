@@ -27,6 +27,9 @@ mirror_pairs:
     users: .users/context/architecture.md
     users_ko: .users/context/ko/architecture.md
     description: Hybrid architecture design (OpenClaw + Careti + OpenCode), security layers, Gateway protocol
+    supplements:
+      - .users/context/live-provider-guide.md
+      - .users/context/ko/live-provider-guide.md
 
   - agents: .agents/context/careti-reuse.yaml
     users: .users/context/careti-reuse.md

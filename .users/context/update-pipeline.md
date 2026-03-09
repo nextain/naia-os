@@ -1,6 +1,44 @@
-# OS Update Pipeline
+# Update Pipeline
 
-## How Updates Work
+## App Updates (Naia Shell)
+
+Naia Shell has an in-app auto-updater powered by the Tauri updater plugin.
+
+### How It Works
+
+```
+GitHub Release tagged (v*)
+  ↓
+CI builds AppImage with Ed25519 signing
+  ↓
+latest.json uploaded to Release assets
+  ↓
+App checks: GET /releases/latest/download/latest.json
+  ↓ update available
+Banner notification in app → "Update Now" / "View Details" / "Later"
+  ↓ user clicks "Update Now"
+Download + verify signature → install → relaunch
+```
+
+### Key Files
+- `shell/src/lib/updater.ts` — Update check logic (dynamic import for Flatpak compatibility)
+- `shell/src/components/UpdateBanner.tsx` — Notification banner UI
+- `shell/src/components/SettingsTab.tsx` — VersionFooter (manual check button)
+- `shell/src-tauri/src/lib.rs` — Conditional plugin registration (`FLATPAK=1` → skip updater)
+- `shell/src-tauri/tauri.conf.json` — Updater endpoint and public key
+- `.github/workflows/release-app.yml` — Signing, latest.json generation, itch.io push
+
+### Flatpak Exception
+Flatpak manages its own updates. When `FLATPAK=1` environment variable is set, the Tauri updater plugin is not registered. The JS side uses `try-catch` with dynamic `import()` to gracefully handle the missing plugin.
+
+### Manual Check
+Users can check for updates manually in Settings → bottom of page → "Check for Updates" button.
+
+---
+
+## OS Updates (bootc)
+
+### How Updates Work
 
 Naia OS is built on [Bazzite](https://github.com/ublue-os/bazzite) (Fedora Atomic). Your system receives updates through **atomic container image deployments**, not traditional package upgrades.
 

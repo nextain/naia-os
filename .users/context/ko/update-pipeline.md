@@ -1,6 +1,44 @@
-# OS 업데이트 파이프라인
+# 업데이트 파이프라인
 
-## 업데이트 원리
+## 앱 업데이트 (Naia Shell)
+
+Naia Shell은 Tauri updater 플러그인 기반의 인앱 자동 업데이트를 지원합니다.
+
+### 동작 원리
+
+```
+GitHub Release 태그 (v*)
+  ↓
+CI에서 AppImage Ed25519 서명 빌드
+  ↓
+latest.json을 Release 에셋에 업로드
+  ↓
+앱이 확인: GET /releases/latest/download/latest.json
+  ↓ 업데이트 있음
+앱 내 배너 알림 → "지금 업데이트" / "자세히 보기" / "나중에"
+  ↓ "지금 업데이트" 클릭
+다운로드 + 서명 검증 → 설치 → 재실행
+```
+
+### 주요 파일
+- `shell/src/lib/updater.ts` — 업데이트 체크 로직 (Flatpak 호환 동적 import)
+- `shell/src/components/UpdateBanner.tsx` — 알림 배너 UI
+- `shell/src/components/SettingsTab.tsx` — VersionFooter (수동 체크 버튼)
+- `shell/src-tauri/src/lib.rs` — 조건부 플러그인 등록 (`FLATPAK=1` → updater 생략)
+- `shell/src-tauri/tauri.conf.json` — 업데이터 엔드포인트 및 공개키
+- `.github/workflows/release-app.yml` — 서명, latest.json 생성, itch.io push
+
+### Flatpak 예외
+Flatpak은 자체 업데이트를 관리합니다. `FLATPAK=1` 환경변수가 설정되면 Tauri updater 플러그인이 등록되지 않습니다. JS 측에서는 `try-catch`와 동적 `import()`로 플러그인 미존재를 우아하게 처리합니다.
+
+### 수동 확인
+설정 → 페이지 하단 → "업데이트 확인" 버튼으로 수동 체크 가능합니다.
+
+---
+
+## OS 업데이트 (bootc)
+
+### 업데이트 원리
 
 Naia OS는 [Bazzite](https://github.com/ublue-os/bazzite) (Fedora Atomic) 기반입니다. 기존 패키지 업그레이드가 아닌 **원자적 컨테이너 이미지 배포** 방식으로 업데이트됩니다.
 

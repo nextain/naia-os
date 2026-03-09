@@ -37,6 +37,7 @@ import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "..
 import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
+import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
 import { LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS, OPENAI_REALTIME_VOICES, type LiveProviderId } from "../lib/voice/types";
 import { useAvatarStore } from "../stores/avatar";
@@ -2767,6 +2768,8 @@ export function SettingsTab() {
 				</button>
 			</div>
 
+			<VersionFooter />
+
 			{syncDialogOpen && (
 				<div className="sync-dialog-overlay">
 					<div className="sync-dialog-card">
@@ -2793,6 +2796,72 @@ export function SettingsTab() {
 						</div>
 					</div>
 				</div>
+			)}
+		</div>
+	);
+}
+
+function VersionFooter() {
+	const [appVersion, setAppVersion] = useState("");
+	const [updateStatus, setUpdateStatus] = useState<
+		"idle" | "checking" | "upToDate" | "available" | "failed"
+	>("idle");
+	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+
+	useEffect(() => {
+		import("@tauri-apps/api/app")
+			.then(({ getVersion }) => getVersion())
+			.then(setAppVersion)
+			.catch(() => {});
+	}, []);
+
+	const handleCheckUpdate = async () => {
+		setUpdateStatus("checking");
+		try {
+			const info = await checkForUpdate();
+			if (info) {
+				setUpdateInfo(info);
+				setUpdateStatus("available");
+			} else {
+				setUpdateStatus("upToDate");
+			}
+		} catch {
+			setUpdateStatus("failed");
+		}
+	};
+
+	const handleInstall = async () => {
+		if (!updateInfo) return;
+		try {
+			await updateInfo.installFn();
+		} catch {
+			setUpdateStatus("failed");
+		}
+	};
+
+	return (
+		<div className="version-footer">
+			<span className="version-footer-text">
+				{t("update.version")} {appVersion || "—"}
+			</span>
+			{updateStatus === "idle" && (
+				<button type="button" className="version-footer-btn" onClick={handleCheckUpdate}>
+					{t("update.checkNow")}
+				</button>
+			)}
+			{updateStatus === "checking" && (
+				<span className="version-footer-status">{t("update.checking")}</span>
+			)}
+			{updateStatus === "upToDate" && (
+				<span className="version-footer-status">{t("update.upToDate")}</span>
+			)}
+			{updateStatus === "available" && updateInfo && (
+				<button type="button" className="version-footer-btn" onClick={handleInstall}>
+					{t("update.now")} ({updateInfo.version})
+				</button>
+			)}
+			{updateStatus === "failed" && (
+				<span className="version-footer-status">{t("update.failed")}</span>
 			)}
 		</div>
 	);
