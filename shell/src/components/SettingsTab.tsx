@@ -628,6 +628,17 @@ const THEMES: { id: ThemeId; label: string; preview: string }[] = [
 	{ id: "cloud", label: "Cloud", preview: "#f1f5f9" },
 ];
 
+/** Map known Rust WSL error strings to i18n-translated messages. */
+function mapWslError(error: string): string {
+	if (error.includes("not yet active") || error.includes("reopen Naia")) {
+		return t("settings.wslNeedsReboot");
+	}
+	if (error.includes("system restart") || error.includes("HCS_E_SERVICE_NOT_AVAILABLE") || error.includes("0x80070422")) {
+		return t("settings.wslRebootRequired");
+	}
+	return error;
+}
+
 export function SettingsTab() {
 	const existing = loadConfig();
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
@@ -2871,13 +2882,13 @@ export function SettingsTab() {
 			{platformTier?.platform === "windows" && (
 				<>
 					<div className="settings-section-divider">
-						<span>Platform</span>
+						<span>{t("settings.platformSection")}</span>
 					</div>
 					<div className="settings-field">
 						<span className="settings-hint">
 							{platformTier.tier === 1
-								? "Tier 1 (Standalone) — Chat, Avatar, TTS, Memory"
-								: "Tier 2 (Advanced) — Full features with WSL Gateway"}
+								? t("settings.platformTier1")
+								: t("settings.platformTier2")}
 						</span>
 					</div>
 					{platformTier.tier === 1 && (
@@ -2893,13 +2904,13 @@ export function SettingsTab() {
 										const result = await invoke("setup_wsl");
 										setPlatformTier(JSON.parse(result as string));
 									} catch (e) {
-										setWslSetupError(String(e));
+										setWslSetupError(mapWslError(String(e)));
 									} finally {
 										setWslSetupRunning(false);
 									}
 								}}
 							>
-								{wslSetupRunning ? "Setting up WSL..." : "Setup WSL + NaiaEnv (Tier 2)"}
+								{wslSetupRunning ? t("settings.wslSetupRunning") : t("settings.wslSetupButton")}
 							</button>
 							{wslSetupError && (
 								<span className="settings-hint" style={{ color: "#e57373", fontSize: "0.8em" }}>
@@ -2909,8 +2920,8 @@ export function SettingsTab() {
 							{!wslSetupError && (
 								<span className="settings-hint" style={{ fontSize: "0.8em", opacity: 0.7 }}>
 									{!platformTier.wsl
-										? "Installs WSL2 and NaiaEnv environment (admin required)"
-										: "WSL detected — will import NaiaEnv distro"}
+										? t("settings.wslHintInstall")
+										: t("settings.wslHintImport")}
 								</span>
 							)}
 						</div>

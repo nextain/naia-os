@@ -54,7 +54,12 @@ pub(crate) fn import_distro(name: &str, install_path: &str, tar_path: &str) -> R
     if output.status.success() {
         Ok(())
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.contains("HCS_E_SERVICE_NOT_AVAILABLE") || stderr.contains("0x80070422") {
+            Err("WSL requires a system restart to finish setup. Please restart your computer and try again.".to_string())
+        } else {
+            Err(stderr.to_string())
+        }
     }
 }
 
