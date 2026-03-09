@@ -714,6 +714,7 @@ export function SettingsTab() {
 	const [naiaUserId, setNaiaUserIdState] = useState(existing?.naiaUserId ?? "");
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
+	const [platformTier, setPlatformTier] = useState<{ platform: string; tier: number; wsl: boolean; distro: boolean } | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
@@ -876,6 +877,12 @@ export function SettingsTab() {
 			}
 		});
 	}, [naiaKey]);
+	useEffect(() => {
+		invoke("get_platform_tier").then((result) => {
+			setPlatformTier(result as { platform: string; tier: number; wsl: boolean; distro: boolean });
+		}).catch(() => {});
+	}, []);
+
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labBalance, setLabBalance] = useState<number | null>(null);
 	const [labBalanceLoading, setLabBalanceLoading] = useState(false);
@@ -2858,6 +2865,32 @@ export function SettingsTab() {
 			)}
 
 			{enableTools && <DevicePairingSection />}
+
+			{platformTier?.platform === "windows" && (
+				<>
+					<div className="settings-section-divider">
+						<span>Platform</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							{platformTier.tier === 1
+								? "Tier 1 (Standalone) — Chat, Avatar, TTS, Memory"
+								: "Tier 2 (Advanced) — Full features with WSL Gateway"}
+						</span>
+					</div>
+					{platformTier.tier === 1 && (
+						<div className="settings-field">
+							<span className="settings-hint" style={{ fontSize: "0.8em", opacity: 0.7 }}>
+								{!platformTier.wsl
+									? "Install WSL2 for advanced features: wsl --install (admin PowerShell)"
+									: !platformTier.distro
+										? "WSL detected. Import NaiaEnv distro for Tier 2 features."
+										: ""}
+							</span>
+						</div>
+					)}
+				</>
+			)}
 
 			<div className="settings-section-divider">
 				<span>{t("settings.memorySection")}</span>
