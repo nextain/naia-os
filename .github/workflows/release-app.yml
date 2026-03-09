@@ -69,7 +69,7 @@ jobs:
 
       - name: Build Tauri app
         working-directory: shell
-        run: pnpm run tauri build -- --config src-tauri/tauri.conf.linux.json
+        run: cargo tauri build --config src-tauri/tauri.conf.linux.json
 
       - name: List build artifacts
         run: |
@@ -147,7 +147,7 @@ jobs:
 
       - name: Build Tauri app
         working-directory: shell
-        run: pnpm run tauri build -- --config src-tauri/tauri.conf.windows.json
+        run: cargo tauri build --config src-tauri/tauri.conf.windows.json
 
       - name: Normalize artifact filenames
         shell: pwsh
