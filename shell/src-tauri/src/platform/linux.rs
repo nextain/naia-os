@@ -99,6 +99,11 @@ pub(crate) fn get_platform_tier_info() -> serde_json::Value {
     })
 }
 
+/// Auto-setup WSL (Linux: not applicable — return error).
+pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<String, String> {
+    Err("WSL setup is only available on Windows".to_string())
+}
+
 /// Whether to skip OpenClaw config sync (Linux: never skip).
 pub(crate) fn should_skip_openclaw_sync() -> bool {
     false

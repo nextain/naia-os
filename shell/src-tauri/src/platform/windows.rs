@@ -137,6 +137,132 @@ pub(crate) fn get_platform_tier_info() -> serde_json::Value {
     })
 }
 
+/// Auto-setup WSL + NaiaEnv distro. Called from frontend setup wizard.
+/// Steps: 1) Install WSL if needed  2) Import NaiaEnv rootfs  3) Copy .wslconfig
+/// Returns JSON progress messages for each step.
+pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    // Step 1: Check if WSL is available
+    if !super::wsl::is_wsl_available() {
+        // Check if wsl.exe binary exists (installed but needs reboot)
+        let wsl_exe_exists = Command::new("where")
+            .arg("wsl")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if wsl_exe_exists {
+            // WSL binary exists but wsl --status fails → needs reboot
+            return Err("WSL is installed but not yet active. Please restart your computer and reopen Naia.".to_string());
+        }
+
+        crate::log_both("[Naia] WSL not available — attempting install");
+        // wsl --install requires admin. Use ShellExecuteW with "runas" verb.
+        let mut cmd = Command::new("powershell");
+        cmd.args([
+            "-NoProfile", "-Command",
+            "Start-Process -FilePath 'wsl.exe' -ArgumentList '--install','--no-distribution' -Verb RunAs -Wait"
+        ]);
+        hide_console(&mut cmd);
+        match cmd.output() {
+            Ok(output) => {
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("WSL install failed: {}", stderr));
+                }
+                crate::log_both("[Naia] WSL install command completed — reboot may be required");
+            }
+            Err(e) => return Err(format!("Failed to run WSL install: {}", e)),
+        }
+
+        // Check again after install attempt
+        if !super::wsl::is_wsl_available() {
+            return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+        }
+    }
+
+    // Step 2: Copy .wslconfig to %USERPROFILE%
+    if let Some(home) = dirs::home_dir() {
+        let wslconfig_dest = home.join(".wslconfig");
+        if !wslconfig_dest.exists() {
+            // Try bundled template first, then dev-mode path
+            let template_content = include_str!("../../../../config/defaults/wslconfig-template");
+            if let Err(e) = std::fs::write(&wslconfig_dest, template_content) {
+                crate::log_both(&format!("[Naia] Failed to write .wslconfig: {}", e));
+            } else {
+                crate::log_both(&format!("[Naia] .wslconfig written to {}", wslconfig_dest.display()));
+            }
+        }
+    }
+
+    // Step 3: Import NaiaEnv distro if not registered
+    if !super::wsl::is_distro_registered("NaiaEnv") {
+        crate::log_both("[Naia] NaiaEnv not found — importing distro");
+
+        // Find the rootfs tar.gz (bundled in resources or user-provided)
+        let rootfs_path = find_naia_env_rootfs(app_handle)?;
+        let install_dir = dirs::home_dir()
+            .map(|h| h.join(".naia").join("wsl").join("NaiaEnv"))
+            .ok_or("Cannot determine home directory")?;
+        let _ = std::fs::create_dir_all(&install_dir);
+
+        super::wsl::import_distro(
+            "NaiaEnv",
+            &install_dir.to_string_lossy(),
+            &rootfs_path.to_string_lossy(),
+        )?;
+
+        crate::log_both("[Naia] NaiaEnv distro imported successfully");
+
+        // Restart WSL to apply .wslconfig
+        let mut cmd = Command::new("wsl");
+        cmd.arg("--shutdown");
+        hide_console(&mut cmd);
+        let _ = cmd.output();
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+
+    // Step 4: Verify
+    if super::wsl::is_distro_registered("NaiaEnv") {
+        let tier_info = get_platform_tier_info();
+        Ok(tier_info.to_string())
+    } else {
+        Err("NaiaEnv distro import failed — not registered after import".to_string())
+    }
+}
+
+/// Find NaiaEnv rootfs tar.gz — check resources dir and common locations.
+fn find_naia_env_rootfs(app_handle: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+
+    // 1. Tauri resources (production — bundled in installer)
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        let bundled = normalize_path(&resource_dir.join("NaiaEnv-rootfs.tar.gz"));
+        if bundled.exists() {
+            return Ok(bundled);
+        }
+    }
+
+    // 2. Downloads folder (user manually downloaded from GitHub Release)
+    if let Some(home) = dirs::home_dir() {
+        for dir in &["Downloads", "Desktop"] {
+            let candidate = home.join(dir).join("NaiaEnv-rootfs.tar.gz");
+            if candidate.exists() {
+                return Ok(candidate);
+            }
+        }
+    }
+
+    // 3. ~/.naia/ (pre-placed by installer or script)
+    if let Some(home) = dirs::home_dir() {
+        let candidate = home.join(".naia").join("NaiaEnv-rootfs.tar.gz");
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+
+    Err("NaiaEnv rootfs not found. Download NaiaEnv-rootfs.tar.gz from the Naia GitHub Release page and place it in your Downloads folder.".to_string())
+}
+
 /// Whether to skip OpenClaw config sync (Windows: always skip — config lives in WSL).
 pub(crate) fn should_skip_openclaw_sync() -> bool {
     true

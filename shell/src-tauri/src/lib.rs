@@ -1798,6 +1798,16 @@ fn get_platform_tier() -> serde_json::Value {
     platform::get_platform_tier_info()
 }
 
+/// Auto-setup WSL + NaiaEnv distro (Windows only).
+/// On Linux, returns an error since WSL is not applicable.
+/// Runs on a blocking thread to avoid stalling the main async runtime.
+#[tauri::command]
+async fn setup_wsl(app: AppHandle) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || platform::setup_wsl_environment(&app))
+        .await
+        .map_err(|e| format!("WSL setup task failed: {}", e))?
+}
+
 /// Fetch linked messaging channels for the current user from naia.nextain.io BFF.
 /// Returns JSON string: { "channels": [{ "type": "discord", "userId": "..." }] }
 #[tauri::command]
@@ -2418,6 +2428,7 @@ pub fn run() {
             sync_openclaw_config,
             fetch_linked_channels,
             get_platform_tier,
+            setup_wsl,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

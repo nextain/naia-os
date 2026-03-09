@@ -204,27 +204,33 @@ jobs:
           path: Naia-Shell-x86_64.flatpak
           if-no-files-found: error
 
-  # build-wsl-distro:
-  #   name: Build WSL Distro (NaiaEnv)
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #     - name: Build NaiaEnv rootfs
-  #       run: |
-  #         docker build -t naia-wsl-distro -f config/wsl/Dockerfile .
-  #         docker export $(docker create naia-wsl-distro) | gzip > NaiaEnv-rootfs.tar.gz
-  #     - name: Upload artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: naia-wsl-distro
-  #         path: NaiaEnv-rootfs.tar.gz
+  build-wsl-distro:
+    name: Build WSL Distro (NaiaEnv)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build NaiaEnv rootfs
+        run: |
+          docker build -t naia-wsl-distro -f config/wsl/Dockerfile config/wsl/
+          CID=$(docker create naia-wsl-distro)
+          docker export "$CID" | gzip > NaiaEnv-rootfs.tar.gz
+          docker rm "$CID"
+          ls -lh NaiaEnv-rootfs.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: naia-wsl-distro
+          path: NaiaEnv-rootfs.tar.gz
+          if-no-files-found: error
 
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows, build-flatpak]
+    needs: [build-linux, build-windows, build-flatpak, build-wsl-distro]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     permissions:
@@ -247,6 +253,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: naia-shell-flatpak-x86_64
+          path: artifacts
+
+      - name: Download WSL distro artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: naia-wsl-distro
           path: artifacts
 
       - name: List downloaded artifacts
@@ -281,7 +293,7 @@ jobs:
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.exe" -o -name "*.msi" \) \
+          find . -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.exe" -o -name "*.msi" -o -name "*.tar.gz" \) \
             -exec sha256sum {} + > SHA256SUMS
           echo "=== SHA256SUMS ==="
           cat SHA256SUMS
@@ -323,6 +335,7 @@ jobs:
             artifacts/**/*.rpm
             artifacts/**/*.exe
             artifacts/**/*.msi
+            artifacts/**/*.tar.gz
             artifacts/SHA256SUMS
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}

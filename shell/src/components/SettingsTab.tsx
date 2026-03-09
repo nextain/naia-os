@@ -715,6 +715,8 @@ export function SettingsTab() {
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
 	const [platformTier, setPlatformTier] = useState<{ platform: string; tier: number; wsl: boolean; distro: boolean } | null>(null);
+	const [wslSetupRunning, setWslSetupRunning] = useState(false);
+	const [wslSetupError, setWslSetupError] = useState<string | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
@@ -2880,13 +2882,37 @@ export function SettingsTab() {
 					</div>
 					{platformTier.tier === 1 && (
 						<div className="settings-field">
-							<span className="settings-hint" style={{ fontSize: "0.8em", opacity: 0.7 }}>
-								{!platformTier.wsl
-									? "Install WSL2 for advanced features: wsl --install (admin PowerShell)"
-									: !platformTier.distro
-										? "WSL detected. Import NaiaEnv distro for Tier 2 features."
-										: ""}
-							</span>
+							<button
+								type="button"
+								className="voice-preview-btn"
+								disabled={wslSetupRunning}
+								onClick={async () => {
+									setWslSetupRunning(true);
+									setWslSetupError(null);
+									try {
+										const result = await invoke("setup_wsl");
+										setPlatformTier(JSON.parse(result as string));
+									} catch (e) {
+										setWslSetupError(String(e));
+									} finally {
+										setWslSetupRunning(false);
+									}
+								}}
+							>
+								{wslSetupRunning ? "Setting up WSL..." : "Setup WSL + NaiaEnv (Tier 2)"}
+							</button>
+							{wslSetupError && (
+								<span className="settings-hint" style={{ color: "#e57373", fontSize: "0.8em" }}>
+									{wslSetupError}
+								</span>
+							)}
+							{!wslSetupError && (
+								<span className="settings-hint" style={{ fontSize: "0.8em", opacity: 0.7 }}>
+									{!platformTier.wsl
+										? "Installs WSL2 and NaiaEnv environment (admin required)"
+										: "WSL detected — will import NaiaEnv distro"}
+								</span>
+							)}
 						</div>
 					)}
 				</>

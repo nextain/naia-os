@@ -59,6 +59,7 @@ pub(crate) fn import_distro(name: &str, install_path: &str, tar_path: &str) -> R
 }
 
 /// Run a command inside a named WSL distro and return stdout.
+#[allow(dead_code)]
 pub(crate) fn run_in_distro(name: &str, command: &str) -> Result<String, String> {
     let mut cmd = Command::new("wsl");
     cmd.args(["-d", name, "--", "bash", "-lc", command]);
@@ -98,6 +99,7 @@ pub(crate) fn spawn_gateway_in_wsl(
 }
 
 /// Terminate a WSL distro.
+#[allow(dead_code)]
 pub(crate) fn terminate_distro(name: &str) {
     let mut cmd = Command::new("wsl");
     cmd.args(["--terminate", name]);

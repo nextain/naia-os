@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
@@ -476,6 +477,19 @@ export function OnboardingWizard({
 
 		setAvatarModelPath(selectedVrm);
 		onComplete();
+
+		// On Windows, trigger WSL + NaiaEnv auto-setup in background after onboarding
+		invoke("get_platform_tier")
+			.then((tier) => {
+				const info = tier as { platform: string; tier: number };
+				if (info.platform === "windows" && info.tier === 1) {
+					Logger.info("OnboardingWizard", "Starting WSL auto-setup (background)");
+					invoke("setup_wsl").catch((e) => {
+						Logger.warn("OnboardingWizard", "WSL auto-setup failed (non-blocking)", { error: String(e) });
+					});
+				}
+			})
+			.catch(() => {});
 	}
 
 	function canProceed(): boolean {
