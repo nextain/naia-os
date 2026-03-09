@@ -1,0 +1,15 @@
+# Naia OS — WSL2 Configuration Template
+# Copy to %USERPROFILE%\.wslconfig and restart WSL: wsl --shutdown
+# Reference: https://learn.microsoft.com/windows/wsl/wsl-config
+
+[wsl2]
+# Mirrored networking: localhost access works reliably for WebSocket
+networkingMode=mirrored
+localhostForwarding=true
+
+# Resource limits (adjust based on your system)
+memory=8GB
+processors=4
+
+# Disable GUI support (Naia uses host-side Tauri, not WSL GUI)
+guiApplications=false

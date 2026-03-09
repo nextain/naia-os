@@ -1,5 +1,7 @@
 mod audit;
 mod memory;
+#[cfg(target_os = "windows")]
+mod wsl;
 
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
@@ -778,11 +780,33 @@ fn spawn_node_host(
 
 /// Spawn or attach to OpenClaw Gateway + Node Host
 fn spawn_gateway() -> Result<GatewayProcess, String> {
-    // Windows Tier 1: Gateway requires WSL (Tier 2). Return a dummy process
-    // so the app works in standalone mode (chat, avatar, TTS, memory).
+    // Windows: check WSL/NaiaEnv for Tier 2, otherwise fall back to Tier 1
     #[cfg(windows)]
-    if find_openclaw_paths().is_err() {
-        log_both("[Naia] Windows Tier 1 mode — Gateway skipped (no WSL/OpenClaw found)");
+    {
+        const DISTRO_NAME: &str = "NaiaEnv";
+        if !wsl::is_wsl_available() || !wsl::is_distro_registered(DISTRO_NAME) {
+            log_both("[Naia] Windows Tier 1 mode — Gateway skipped (WSL/NaiaEnv not found)");
+            let child = dummy_child()?;
+            return Ok(GatewayProcess {
+                child,
+                node_host: None,
+                we_spawned: false,
+            });
+        }
+        // Tier 2: WSL + NaiaEnv available — spawn gateway inside WSL
+        if !check_gateway_health_sync() {
+            log_both("[Naia] Windows Tier 2 — spawning Gateway in WSL (NaiaEnv)");
+            let child = wsl::spawn_gateway_in_wsl(DISTRO_NAME, 18789)?;
+            // Wait briefly for startup
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            return Ok(GatewayProcess {
+                child,
+                node_host: None, // Node Host runs inside WSL alongside Gateway
+                we_spawned: true,
+            });
+        }
+        // Gateway already running (e.g. WSL systemd) — reuse
+        log_both("[Naia] Windows Tier 2 — Gateway already running, reusing");
         let child = dummy_child()?;
         return Ok(GatewayProcess {
             child,
@@ -1774,6 +1798,33 @@ async fn read_local_binary(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&file_path).map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
+/// Get Windows tier status: { "tier": 1|2, "wsl": bool, "distro": bool }
+/// On non-Windows platforms, always returns Tier 2 equivalent (full feature set).
+#[tauri::command]
+fn get_platform_tier() -> serde_json::Value {
+    #[cfg(not(windows))]
+    {
+        serde_json::json!({
+            "platform": std::env::consts::OS,
+            "tier": 2,
+            "wsl": false,
+            "distro": false
+        })
+    }
+    #[cfg(windows)]
+    {
+        let wsl_available = wsl::is_wsl_available();
+        let distro_registered = wsl_available && wsl::is_distro_registered("NaiaEnv");
+        let tier = if distro_registered { 2 } else { 1 };
+        serde_json::json!({
+            "platform": "windows",
+            "tier": tier,
+            "wsl": wsl_available,
+            "distro": distro_registered
+        })
+    }
+}
+
 /// Fetch linked messaging channels for the current user from naia.nextain.io BFF.
 /// Returns JSON string: { "channels": [{ "type": "discord", "userId": "..." }] }
 #[tauri::command]
@@ -1827,9 +1878,10 @@ struct OpenClawSyncParams {
 /// OpenClaw gateway agent uses the same settings (e.g. for Discord DM replies).
 #[tauri::command]
 async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> {
-    // Windows Tier 1: no OpenClaw — skip config sync
+    // Windows: OpenClaw config lives inside WSL (Tier 2) or doesn't exist (Tier 1).
+    // In both cases, sync from the host side is not applicable.
     #[cfg(windows)]
-    if find_openclaw_paths().is_err() {
+    {
         return Ok(());
     }
 
@@ -2392,6 +2444,7 @@ pub fn run() {
             discord_api,
             sync_openclaw_config,
             fetch_linked_channels,
+            get_platform_tier,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
