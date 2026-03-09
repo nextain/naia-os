@@ -1,0 +1,15 @@
+{
+	"bundle": {
+		"targets": ["nsis", "msi"],
+		"resources": {
+			"resources/node.exe": "node.exe"
+		},
+		"windows": {
+			"certificateThumbprint": null,
+			"digestAlgorithm": "sha256",
+			"nsis": {
+				"installMode": "currentUser"
+			}
+		}
+	}
+}

@@ -118,9 +118,61 @@ fn save_window_state(app_handle: &AppHandle, state: &WindowState) {
     }
 }
 
+/// Migrate config data from old identifier (com.naia.shell) to new (io.nextain.naia).
+/// On first run after the identifier change, copies files from the old config dir.
+fn migrate_config_dir(app_handle: &AppHandle) {
+    let new_dir = match app_handle.path().app_config_dir() {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+    // Derive old config dir by replacing the last component
+    let old_dir = match new_dir.parent() {
+        Some(parent) => parent.join("com.naia.shell"),
+        None => return,
+    };
+    // Skip if old dir doesn't exist or new dir already has data
+    if !old_dir.is_dir() || new_dir.join("audit.db").exists() {
+        return;
+    }
+    let _ = std::fs::create_dir_all(&new_dir);
+    let files_to_migrate = ["audit.db", "memory.db", "window-state.json"];
+    for filename in &files_to_migrate {
+        let src = old_dir.join(filename);
+        let dst = new_dir.join(filename);
+        if src.exists() && !dst.exists() {
+            let _ = std::fs::copy(&src, &dst);
+        }
+    }
+    // Also migrate plugin-store data (.dat files)
+    if let Ok(entries) = std::fs::read_dir(&old_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |ext| ext == "dat") {
+                if let Some(name) = path.file_name() {
+                    let dst = new_dir.join(name);
+                    if !dst.exists() {
+                        let _ = std::fs::copy(&path, &dst);
+                    }
+                }
+            }
+        }
+    }
+    log_verbose("[Naia] Migrated config data from com.naia.shell → io.nextain.naia");
+}
+
+/// Cross-platform home directory. Uses `dirs::home_dir()` which works on
+/// Linux ($HOME), macOS ($HOME), and Windows (%USERPROFILE%).
+fn home_dir() -> String {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| {
+            std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
+        })
+}
+
 /// Get log directory (~/.naia/logs/) and ensure it exists
 fn log_dir() -> std::path::PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let home = home_dir();
     let dir = std::path::PathBuf::from(home).join(".naia/logs");
     let _ = std::fs::create_dir_all(&dir);
     dir
@@ -169,7 +221,7 @@ fn debug_e2e_enabled() -> bool {
 
 /// Get the run directory (~/.naia/run/) for PID files
 fn run_dir() -> std::path::PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let home = home_dir();
     let dir = std::path::PathBuf::from(home).join(".naia/run");
     let _ = std::fs::create_dir_all(&dir);
     dir
@@ -196,17 +248,50 @@ fn remove_pid_file(component: &str) {
     let _ = std::fs::remove_file(&path);
 }
 
-/// Check if a process with the given PID is still running
-fn is_pid_alive(pid: u32) -> bool {
-    // On Linux, sending signal 0 checks if process exists
-    std::path::Path::new(&format!("/proc/{}", pid)).exists()
+/// Spawn a no-op child process (used as a placeholder when gateway is externally managed)
+fn dummy_child() -> Result<Child, String> {
+    #[cfg(unix)]
+    {
+        Command::new("true")
+            .spawn()
+            .map_err(|e| format!("Failed to create dummy process: {}", e))
+    }
+    #[cfg(windows)]
+    {
+        Command::new("cmd")
+            .args(["/C", "echo."])
+            .spawn()
+            .map_err(|e| format!("Failed to create dummy process: {}", e))
+    }
 }
 
-/// Clean up orphan processes from a previous session
+/// Check if a process with the given PID is still running
+#[cfg(unix)]
+fn is_pid_alive(pid: u32) -> bool {
+    unsafe { libc::kill(pid as i32, 0) == 0 }
+}
+
+#[cfg(windows)]
+fn is_pid_alive(pid: u32) -> bool {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{GetExitCodeProcess, OpenProcess};
+    let handle = unsafe { OpenProcess(0x0400, 0, pid) }; // PROCESS_QUERY_INFORMATION
+    if handle == 0 {
+        return false; // OpenProcess returns 0 (NULL HANDLE) on failure
+    }
+    let mut exit_code: u32 = 0;
+    let alive = unsafe {
+        GetExitCodeProcess(handle, &mut exit_code) != 0 && exit_code == 259 // STILL_ACTIVE
+    };
+    unsafe { CloseHandle(handle) };
+    alive
+}
+
+/// Clean up orphan processes from a previous session (Unix: SIGTERM/SIGKILL)
+#[cfg(unix)]
 fn cleanup_orphan_processes() {
     for component in &["gateway", "node-host"] {
         if let Some(pid) = read_pid_file(component) {
-            // Guard against PID overflow — negative values target process groups
             let signed_pid = match i32::try_from(pid) {
                 Ok(p) if p > 0 => p,
                 _ => {
@@ -226,7 +311,6 @@ fn cleanup_orphan_processes() {
                 unsafe {
                     libc::kill(signed_pid, libc::SIGTERM);
                 }
-                // Give it a moment to terminate gracefully
                 std::thread::sleep(std::time::Duration::from_millis(500));
                 if is_pid_alive(pid) {
                     log_verbose(&format!(
@@ -235,6 +319,31 @@ fn cleanup_orphan_processes() {
                     ));
                     unsafe {
                         libc::kill(signed_pid, libc::SIGKILL);
+                    }
+                }
+            }
+            remove_pid_file(component);
+        }
+    }
+}
+
+/// Clean up orphan processes from a previous session (Windows: TerminateProcess)
+#[cfg(windows)]
+fn cleanup_orphan_processes() {
+    for component in &["gateway", "node-host"] {
+        if let Some(pid) = read_pid_file(component) {
+            if is_pid_alive(pid) {
+                log_verbose(&format!(
+                    "[Naia] Orphan {} found (PID {}) — terminating",
+                    component, pid
+                ));
+                let handle = unsafe {
+                    windows_sys::Win32::System::Threading::OpenProcess(0x0001, 0, pid) // PROCESS_TERMINATE
+                };
+                if handle != 0 {
+                    unsafe {
+                        windows_sys::Win32::System::Threading::TerminateProcess(handle, 1);
+                        windows_sys::Win32::Foundation::CloseHandle(handle);
                     }
                 }
             }
@@ -368,7 +477,7 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
     }
 
     // Try nvm fallback (check both standard ~/.nvm and XDG ~/.config/nvm)
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     let nvm_dirs = [
         format!("{}/.nvm/versions/node", home),
         format!("{}/.config/nvm/versions/node", home),
@@ -418,7 +527,7 @@ fn check_gateway_health_sync() -> bool {
 /// Find openclaw binary and node binary paths
 fn find_openclaw_paths() -> Result<(std::path::PathBuf, String, String), String> {
     let node_bin = find_node_binary()?;
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     // Search order: Flatpak bundle → system install → user install
     // Use openclaw.mjs directly (not .bin/openclaw) to avoid broken ESM imports from cp -rL
     let candidates = [
@@ -527,7 +636,7 @@ fn ensure_openclaw_config(config_path: &str) {
                 Err(e) => log_both(&format!("[Naia] ERROR: Failed to write bootstrap config to {}: {}", config_path, e)),
             }
         }
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = home_dir();
         let _ = std::fs::create_dir_all(format!("{}/.openclaw/workspace", home));
         return;
     }
@@ -646,20 +755,40 @@ fn spawn_node_host(
 
 /// Spawn or attach to OpenClaw Gateway + Node Host
 fn spawn_gateway() -> Result<GatewayProcess, String> {
+    // Windows Tier 1: Gateway requires WSL (Tier 2). Return a dummy process
+    // so the app works in standalone mode (chat, avatar, TTS, memory).
+    #[cfg(windows)]
+    if find_openclaw_paths().is_err() {
+        log_both("[Naia] Windows Tier 1 mode — Gateway skipped (no WSL/OpenClaw found)");
+        let child = dummy_child()?;
+        return Ok(GatewayProcess {
+            child,
+            node_host: None,
+            we_spawned: false,
+        });
+    }
+
     // 1. Check if already running (e.g. systemd or manual start)
     if check_gateway_health_sync() {
         log_both("[Naia] Gateway detected on port 18789 — killing stale process and starting fresh");
         // Kill existing gateway to ensure clean state on app restart.
         // Previous app exit may have left gateway in a half-alive state
         // (HTTP responds but WebSocket/Node Host connections are broken).
-        let _ = Command::new("pkill").arg("-f").arg("openclaw.*gateway").output();
+        #[cfg(unix)]
+        {
+            let _ = Command::new("pkill").arg("-f").arg("openclaw.*gateway").output();
+        }
+        #[cfg(windows)]
+        {
+            // On Windows, gateway runs in WSL (Tier 2) — cannot kill from host.
+            // If a native gateway process exists, it's externally managed.
+            log_verbose("[Naia] Windows: skipping pkill (gateway runs in WSL or is externally managed)");
+        }
         std::thread::sleep(std::time::Duration::from_millis(500));
         // If it's still alive (e.g. systemd auto-restart), reuse it
         if check_gateway_health_sync() {
             log_both("[Naia] Gateway still running after pkill (managed externally) — reusing");
-            let child = Command::new("true")
-                .spawn()
-                .map_err(|e| format!("Failed to create dummy process: {}", e))?;
+            let child = dummy_child()?;
 
             let node_host = match find_openclaw_paths() {
                 Ok((node_bin, openclaw_bin, config_path)) => {
@@ -1150,7 +1279,7 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
     }
 
     // Scan ~/.naia/skills/
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let home = home_dir();
     let skills_dir = std::path::PathBuf::from(&home).join(".naia/skills");
     if skills_dir.is_dir() {
         if let Ok(entries) = std::fs::read_dir(&skills_dir) {
@@ -1298,7 +1427,7 @@ async fn memory_delete_fact(
 /// Returns Vec<(filename, content, mtime_ms)> for fact extraction.
 #[tauri::command]
 async fn read_openclaw_memory_files(since_ms: u64) -> Result<Vec<(String, String, u64)>, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     let memory_dir = format!("{}/.openclaw/workspace/memory", home);
     let dir = std::path::Path::new(&memory_dir);
     if !dir.exists() {
@@ -1497,7 +1626,7 @@ async fn reset_window_state(app: AppHandle) -> Result<(), String> {
 /// Reset OpenClaw session data (agents/main/sessions + memory).
 #[tauri::command]
 fn reset_openclaw_data() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     let base_dirs = [
         format!("{}/.openclaw", home),
         format!("{}/.naia/openclaw", home),
@@ -1528,7 +1657,7 @@ fn reset_openclaw_data() -> Result<String, String> {
 /// Read Discord bot token from OpenClaw config (~/.openclaw/openclaw.json).
 #[tauri::command]
 fn read_discord_bot_token() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     let candidates = [
         format!("{}/.openclaw/openclaw.json", home),
         format!("{}/.naia/openclaw/openclaw.json", home),
@@ -1666,6 +1795,12 @@ struct OpenClawSyncParams {
 /// OpenClaw gateway agent uses the same settings (e.g. for Discord DM replies).
 #[tauri::command]
 async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> {
+    // Windows Tier 1: no OpenClaw — skip config sync
+    #[cfg(windows)]
+    if find_openclaw_paths().is_err() {
+        return Ok(());
+    }
+
     // Map Shell ProviderId → OpenClaw provider name
     let oc_provider = match params.provider.as_str() {
         "gemini" | "nextain" => "google",
@@ -1678,7 +1813,7 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         _ => return Ok(()),
     };
 
-    let home = std::env::var("HOME").unwrap_or_default();
+    let home = home_dir();
     // Prefer ~/.openclaw/ (standard), fallback to ~/.naia/openclaw/
     let primary = format!("{}/.openclaw/openclaw.json", home);
     let legacy = format!("{}/.naia/openclaw/openclaw.json", home);
@@ -2230,6 +2365,9 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let state: tauri::State<'_, AppState> = app.state();
 
+            // Migrate data from old identifier (com.naia.shell → io.nextain.naia)
+            migrate_config_dir(&app_handle);
+
             // Initialize audit DB
             let audit_db_path = app_handle
                 .path()
@@ -2661,7 +2799,7 @@ mod tests {
     #[test]
     fn gateway_process_we_spawned_flag() {
         // Verify the struct has the expected fields
-        let child = Command::new("true").spawn().unwrap();
+        let child = dummy_child().unwrap();
         let process = GatewayProcess {
             child,
             node_host: None,
@@ -2670,8 +2808,8 @@ mod tests {
         assert!(!process.we_spawned);
         assert!(process.node_host.is_none());
 
-        let child2 = Command::new("true").spawn().unwrap();
-        let nh = Command::new("true").spawn().unwrap();
+        let child2 = dummy_child().unwrap();
+        let nh = dummy_child().unwrap();
         let process2 = GatewayProcess {
             child: child2,
             node_host: Some(nh),

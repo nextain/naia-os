@@ -2,7 +2,7 @@
 	"$schema": "https://raw.githubusercontent.com/nicollasricas/tauri-settings-schema/refs/heads/master/schemas/v2/tauri.conf.json",
 	"productName": "Naia",
 	"version": "0.1.1",
-	"identifier": "com.naia.shell",
+	"identifier": "io.nextain.naia",
 	"build": {
 		"frontendDist": "../dist",
 		"devUrl": "http://localhost:1420",
@@ -32,7 +32,7 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["deb", "rpm", "appimage"],
+		"targets": "all",
 		"resources": {
 			"../../agent/dist": "agent/dist",
 			"../../agent/package.json": "agent/package.json",
@@ -47,19 +47,7 @@
 		],
 		"category": "Utility",
 		"shortDescription": "AI Avatar Desktop — Chat with Naia",
-		"longDescription": "Naia Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Naia), tool execution, and always-on daemon.",
-		"linux": {
-			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
-				"desktopTemplate": null
-			},
-			"rpm": {
-				"depends": ["webkit2gtk4.1", "gtk3"]
-			},
-			"appimage": {
-				"bundleMediaFramework": false
-			}
-		}
+		"longDescription": "Naia Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Naia), tool execution, and always-on daemon."
 	},
 	"plugins": {
 		"deep-link": {

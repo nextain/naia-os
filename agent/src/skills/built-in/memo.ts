@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import type { SkillDefinition } from "../types.js";
 
@@ -10,7 +11,7 @@ export function createMemoSkill(
 	memoDir?: string,
 ): SkillDefinition {
 	const dir =
-		memoDir ?? path.join(process.env.HOME ?? "~", ".naia", "memos");
+		memoDir ?? path.join(homedir(), ".naia", "memos");
 
 	return {
 		name: "skill_memo",
