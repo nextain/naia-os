@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	getNotifyWebhookUrl,
@@ -9,6 +10,12 @@ vi.mock("node:fs/promises", () => ({
 	readFile: vi.fn(),
 }));
 
+// Mock os.homedir() to return a stable fake home directory
+const FAKE_HOME = join("/", "home", "test");
+vi.mock("node:os", () => ({
+	homedir: () => FAKE_HOME,
+}));
+
 import { readFile } from "node:fs/promises";
 
 const mockReadFile = vi.mocked(readFile);
@@ -17,7 +24,7 @@ describe("getNotifyWebhookUrl", () => {
 	const originalEnv = process.env;
 
 	beforeEach(() => {
-		process.env = { ...originalEnv, HOME: "/home/test" };
+		process.env = { ...originalEnv };
 		mockReadFile.mockReset();
 	});
 
@@ -51,7 +58,7 @@ describe("getNotifyWebhookUrl", () => {
 		const url = await getNotifyWebhookUrl("slack");
 		expect(url).toBe("https://hooks.slack.com/from-config");
 		expect(mockReadFile).toHaveBeenCalledWith(
-			"/home/test/.naia/config.json",
+			join(FAKE_HOME, ".naia", "config.json"),
 			"utf-8",
 		);
 	});
