@@ -30,12 +30,12 @@ import type { ToolDefinition } from "./providers/types.js";
 
 const activeStreams = new Map<string, AbortController>();
 
-const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/i;
+const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/;
 const MAX_TOOL_ITERATIONS = 10;
 const APPROVAL_TIMEOUT_MS = 120_000;
 
 /** Build system prompt with current tool/gateway status */
-function buildToolStatusPrompt(
+export function buildToolStatusPrompt(
 	base: string,
 	enableTools: boolean,
 	wantGateway: boolean,
@@ -50,7 +50,7 @@ function buildToolStatusPrompt(
 	let status = `\n\n[System Status]\n사용 가능한 도구(${toolNames.length}개): ${toolNames.join(", ")}`;
 
 	if (wantGateway && !gatewayConnected) {
-		status += `\n⚠️ Gateway 연결 실패: 일부 도구(채널 관리, 디바이스 페어링 등 Gateway 필요 도구)를 사용할 수 없습니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.`;
+		status += `\n⚠️ Gateway 연결 실패: Gateway 필요 도구(execute_command, read_file, write_file, search_files, web_search, apply_diff, browser, sessions_spawn 및 커스텀 스킬)를 사용할 수 없습니다. 로컬 스킬(skill_time, skill_weather, skill_memo 등)은 정상 사용 가능합니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.`;
 	} else if (gatewayConnected) {
 		status += "\nGateway 연결됨 ✓";
 	}
@@ -58,9 +58,13 @@ function buildToolStatusPrompt(
 	if (toolNames.includes("skill_naia_discord")) {
 		status +=
 			"\n\n[Tool Guide: skill_naia_discord]" +
+			"\n- IMPORTANT: Use ONLY skill_naia_discord for Discord. NEVER use a built-in 'message' tool." +
+			"\n- Available actions: 'send', 'status', 'history'. No other actions exist." +
 			"\n- 메시지 전송: action='send', message='내용' (to 생략 가능 — 자동 타깃)" +
 			"\n- 상태 확인: action='status'" +
-			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요.";
+			"\n- 대화 기록: action='history'" +
+			"\n- 사용자가 '메시지 보내줘/전송해줘' 등을 요청하면 반드시 action='send'를 사용하세요." +
+			"\n- Write messages naturally with emoji. Do NOT include [HAPPY]/[SAD] emotion tags in Discord messages.";
 	}
 
 	// Tool usage rules — always injected regardless of system prompt source

@@ -26,6 +26,7 @@ import {
 	getAllTools,
 	skillRegistry,
 } from "../gateway/tool-bridge.js";
+import { buildToolStatusPrompt } from "../index.js";
 import type { ChatMessage, StreamChunk } from "../providers/types.js";
 import { ALPHA_SYSTEM_PROMPT } from "../system-prompt.js";
 
@@ -169,27 +170,62 @@ describe("custom skills: registry and tool delivery", () => {
 		});
 	});
 
-	describe("system prompt includes tool usage instructions", () => {
-		it("contains skill_skill_manager instruction", () => {
-			expect(ALPHA_SYSTEM_PROMPT).toContain("skill_skill_manager");
+	describe("buildToolStatusPrompt injects tool usage rules", () => {
+		const tools = getAllTools(true);
+		const prompt = buildToolStatusPrompt("base", true, true, true, tools);
+
+		it("contains Tool Usage Rules CRITICAL section", () => {
+			expect(prompt).toContain("Tool Usage Rules (CRITICAL)");
 		});
 
-		it("contains tool usage CRITICAL section", () => {
-			expect(ALPHA_SYSTEM_PROMPT).toContain("Tool Usage (CRITICAL");
-		});
-
-		it("instructs to search skills for Korean app names", () => {
-			expect(ALPHA_SYSTEM_PROMPT).toContain("옵시디안");
-			expect(ALPHA_SYSTEM_PROMPT).toContain("스포티파이");
-			expect(ALPHA_SYSTEM_PROMPT).toContain("깃허브");
+		it("contains skill_skill_manager search instruction", () => {
+			expect(prompt).toContain("skill_skill_manager");
+			expect(prompt).toContain("옵시디안");
 		});
 
 		it("forbids empty promises without tool calls", () => {
-			expect(ALPHA_SYSTEM_PROMPT).toContain("FORBIDDEN");
+			expect(prompt).toContain("FORBIDDEN");
 		});
 
 		it("instructs to use skill_github for GitHub queries", () => {
-			expect(ALPHA_SYSTEM_PROMPT).toContain("skill_github");
+			expect(prompt).toContain("skill_github");
+		});
+
+		it("contains Discord tool guide when skill_naia_discord available", () => {
+			expect(prompt).toContain("[Tool Guide: skill_naia_discord]");
+			expect(prompt).toContain("NEVER use a built-in 'message' tool");
+		});
+
+		it("lists available tool count and names", () => {
+			expect(prompt).toContain(`사용 가능한 도구(${tools.length}개)`);
+		});
+
+		it("shows gateway connected status", () => {
+			expect(prompt).toContain("Gateway 연결됨");
+		});
+
+		it("shows gateway failure with specific tool names when disconnected", () => {
+			const failPrompt = buildToolStatusPrompt("base", true, true, false, tools);
+			expect(failPrompt).toContain("execute_command");
+			expect(failPrompt).toContain("로컬 스킬");
+		});
+	});
+
+	describe("ALPHA_SYSTEM_PROMPT fallback content", () => {
+		it("contains personality and app features", () => {
+			expect(ALPHA_SYSTEM_PROMPT).toContain("Naia");
+			expect(ALPHA_SYSTEM_PROMPT).toContain("App Features");
+			expect(ALPHA_SYSTEM_PROMPT).toContain("skill_skill_manager");
+		});
+
+		it("does NOT contain duplicated tool usage rules (handled by buildToolStatusPrompt)", () => {
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain("Tool Usage (CRITICAL");
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain("FORBIDDEN");
+		});
+
+		it("does NOT contain duplicated emotion/discord instructions (handled by persona.ts/buildToolStatusPrompt)", () => {
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain("Emotion tags (for Shell avatar only)");
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain("skill_naia_discord has EXACTLY 3 actions");
 		});
 	});
 
@@ -391,9 +427,14 @@ describe.skipIf(!LIVE_LLM_E2E)(
 	"Live LLM E2E: Korean skill discovery via tool_use",
 	() => {
 		const tools = getAllTools(true);
-		const systemPrompt = ALPHA_SYSTEM_PROMPT +
-			`\n\n[System Status]\n사용 가능한 도구(${tools.length}개): ${tools.map((t) => t.name).join(", ")}` +
-			"\nGateway 연결됨 ✓";
+		// Use buildToolStatusPrompt to get the real prompt the LLM sees
+		const systemPrompt = buildToolStatusPrompt(
+			ALPHA_SYSTEM_PROMPT,
+			true,
+			true,
+			true,
+			tools,
+		);
 
 		describe("Gemini", () => {
 			const apiKey = getKey("GEMINI_API_KEY");
