@@ -291,3 +291,81 @@ pub(crate) fn terminate_distro(name: &str) {
     super::hide_console(&mut cmd);
     let _ = cmd.output();
 }
+
+/// Decode UTF-16LE stderr from wsl.exe (public helper for windows.rs).
+pub(crate) fn decode_wsl_stderr(bytes: &[u8]) -> String {
+    decode_utf16_lossy(bytes)
+}
+
+/// Check if a distro has Node.js + OpenClaw provisioned.
+pub(crate) fn is_provisioned(name: &str) -> bool {
+    let mut cmd = Command::new("wsl");
+    cmd.args([
+        "-d", name, "--",
+        "test", "-f", "/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs",
+    ]);
+    super::hide_console(&mut cmd);
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
+}
+
+/// Provision a distro with Node.js 22 + OpenClaw.
+/// Runs the equivalent of config/wsl/Dockerfile steps inside an existing distro.
+pub(crate) fn provision_distro(name: &str) -> Result<(), String> {
+    // Step 1: Install Node.js 22
+    crate::log_both("[Naia] Installing Node.js 22 in WSL...");
+    run_provision_step(name, concat!(
+        "apt-get update -qq && ",
+        "apt-get install -y -qq curl ca-certificates && ",
+        "curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && ",
+        "apt-get install -y -qq nodejs && ",
+        "node -v"
+    ), "Node.js install")?;
+
+    // Step 2: Install OpenClaw
+    crate::log_both("[Naia] Installing OpenClaw in WSL...");
+    run_provision_step(name, concat!(
+        "mkdir -p /opt/naia/openclaw && ",
+        "cd /opt/naia/openclaw && ",
+        "npm init -y --quiet 2>/dev/null && ",
+        "npm install openclaw@latest --quiet"
+    ), "OpenClaw install")?;
+
+    // Step 3: Configure PATH
+    run_provision_step(name,
+        "grep -q '/opt/naia/openclaw' /root/.bashrc || echo 'export PATH=\"/opt/naia/openclaw/node_modules/.bin:$PATH\"' >> /root/.bashrc",
+        "PATH config"
+    )?;
+
+    // Step 4: Copy wsl.conf for systemd support
+    let wsl_conf = "[boot]\nsystemd=true\n\n[interop]\nenabled=true\nappendWindowsPath=true\n\n[network]\ngenerateResolvConf=true\n";
+    run_provision_step(name,
+        &format!("cat > /etc/wsl.conf << 'WSLEOF'\n{}\nWSLEOF", wsl_conf),
+        "wsl.conf"
+    )?;
+
+    // Verify
+    if is_provisioned(name) {
+        crate::log_both("[Naia] Provisioning verified — OpenClaw available");
+        Ok(())
+    } else {
+        Err("Provisioning completed but OpenClaw not found at expected path".to_string())
+    }
+}
+
+/// Run a single provisioning step inside WSL, with error reporting.
+fn run_provision_step(name: &str, script: &str, step_name: &str) -> Result<(), String> {
+    let mut cmd = Command::new("wsl");
+    cmd.args(["-d", name, "--", "bash", "-lc", script]);
+    super::hide_console(&mut cmd);
+    let output = cmd.output().map_err(|e| format!("{} failed: {}", step_name, e))?;
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().is_empty() {
+            crate::log_verbose(&format!("[Naia] {}: {}", step_name, stdout.trim()));
+        }
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("{} failed: {}", step_name, stderr.trim()))
+    }
+}

@@ -191,14 +191,11 @@ pub(crate) fn get_platform_tier_info() -> serde_json::Value {
 }
 
 /// Auto-setup WSL + NaiaEnv distro. Called from frontend setup wizard.
-/// Steps: 1) Install WSL if needed  2) Import NaiaEnv rootfs  3) Copy .wslconfig
-/// Returns JSON progress messages for each step.
-pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<String, String> {
-    // Step 1: Check if WSL is available
+/// Steps: 1) Install WSL  2) .wslconfig  3) Install Ubuntu + create NaiaEnv  4) Provision
+/// Returns JSON progress/tier info.
+pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<String, String> {
+    // Step 1: Install WSL if not available
     if !super::wsl::is_wsl_available() {
-        // Always run `wsl --install --no-distribution` first.
-        // Note: `wsl.exe` is a built-in stub on Windows 10 2004+ even when WSL is not installed,
-        // so checking `where wsl` is NOT a reliable way to detect WSL presence.
         crate::log_both("[Naia] WSL not available — running wsl --install");
         let mut cmd = Command::new("powershell");
         cmd.args([
@@ -216,8 +213,6 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             }
             Err(e) => return Err(format!("Failed to run WSL install: {}", e)),
         }
-
-        // Check again after install
         if !super::wsl::is_wsl_available() {
             return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
         }
@@ -227,7 +222,6 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
     if let Some(home) = dirs::home_dir() {
         let wslconfig_dest = home.join(".wslconfig");
         if !wslconfig_dest.exists() {
-            // Try bundled template first, then dev-mode path
             let template_content = include_str!("../../../../config/defaults/wslconfig-template");
             if let Err(e) = std::fs::write(&wslconfig_dest, template_content) {
                 crate::log_both(&format!("[Naia] Failed to write .wslconfig: {}", e));
@@ -237,24 +231,52 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
         }
     }
 
-    // Step 3: Import NaiaEnv distro if not registered
+    // Step 3: Create NaiaEnv distro from Ubuntu base
     if !super::wsl::is_distro_registered("NaiaEnv") {
-        crate::log_both("[Naia] NaiaEnv not found — importing distro");
+        crate::log_both("[Naia] NaiaEnv not found — creating from Ubuntu base");
 
-        // Find the rootfs tar.gz (bundled in resources or user-provided)
-        let rootfs_path = find_naia_env_rootfs(app_handle)?;
-        let install_dir = dirs::home_dir()
-            .map(|h| h.join(".naia").join("wsl").join("NaiaEnv"))
-            .ok_or("Cannot determine home directory")?;
+        // 3a: Install Ubuntu-24.04 as base (if not already present)
+        if !super::wsl::is_distro_registered("Ubuntu-24.04") {
+            crate::log_both("[Naia] Installing Ubuntu-24.04 base...");
+            let mut cmd = Command::new("wsl");
+            cmd.args(["--install", "-d", "Ubuntu-24.04", "--no-launch"]);
+            hide_console(&mut cmd);
+            let output = cmd.output().map_err(|e| format!("Ubuntu install failed: {}", e))?;
+            if !output.status.success() {
+                let stderr = super::wsl::decode_wsl_stderr(&output.stderr);
+                return Err(format!("Ubuntu install failed: {}", stderr));
+            }
+            crate::log_both("[Naia] Ubuntu-24.04 installed");
+        }
+
+        // 3b: Export Ubuntu → import as NaiaEnv
+        let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
+        let wsl_dir = home.join(".naia").join("wsl");
+        let _ = std::fs::create_dir_all(&wsl_dir);
+        let export_path = wsl_dir.join("ubuntu-export.tar");
+        let install_dir = wsl_dir.join("NaiaEnv");
         let _ = std::fs::create_dir_all(&install_dir);
 
+        crate::log_both("[Naia] Exporting Ubuntu base...");
+        let mut export_cmd = Command::new("wsl");
+        export_cmd.args(["--export", "Ubuntu-24.04", &export_path.to_string_lossy()]);
+        hide_console(&mut export_cmd);
+        let export_out = export_cmd.output().map_err(|e| format!("Export failed: {}", e))?;
+        if !export_out.status.success() {
+            let stderr = super::wsl::decode_wsl_stderr(&export_out.stderr);
+            return Err(format!("Ubuntu export failed: {}", stderr));
+        }
+
+        crate::log_both("[Naia] Importing as NaiaEnv...");
         super::wsl::import_distro(
             "NaiaEnv",
             &install_dir.to_string_lossy(),
-            &rootfs_path.to_string_lossy(),
+            &export_path.to_string_lossy(),
         )?;
+        // Clean up export file
+        let _ = std::fs::remove_file(&export_path);
 
-        crate::log_both("[Naia] NaiaEnv distro imported successfully");
+        crate::log_both("[Naia] NaiaEnv distro created");
 
         // Restart WSL to apply .wslconfig
         let mut cmd = Command::new("wsl");
@@ -264,46 +286,20 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
-    // Step 4: Verify
+    // Step 4: Provision NaiaEnv (install Node.js + OpenClaw if missing)
     if super::wsl::is_distro_registered("NaiaEnv") {
+        if !super::wsl::is_provisioned("NaiaEnv") {
+            crate::log_both("[Naia] Provisioning NaiaEnv (Node.js + OpenClaw)...");
+            super::wsl::provision_distro("NaiaEnv")?;
+            crate::log_both("[Naia] NaiaEnv provisioned successfully");
+        } else {
+            crate::log_both("[Naia] NaiaEnv already provisioned");
+        }
         let tier_info = get_platform_tier_info();
         Ok(tier_info.to_string())
     } else {
-        Err("NaiaEnv distro import failed — not registered after import".to_string())
+        Err("NaiaEnv distro creation failed — not registered after setup".to_string())
     }
-}
-
-/// Find NaiaEnv rootfs tar.gz — check resources dir and common locations.
-fn find_naia_env_rootfs(app_handle: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    use tauri::Manager;
-
-    // 1. Tauri resources (production — bundled in installer)
-    if let Ok(resource_dir) = app_handle.path().resource_dir() {
-        let bundled = normalize_path(&resource_dir.join("NaiaEnv-rootfs.tar.gz"));
-        if bundled.exists() {
-            return Ok(bundled);
-        }
-    }
-
-    // 2. Downloads folder (user manually downloaded from GitHub Release)
-    if let Some(home) = dirs::home_dir() {
-        for dir in &["Downloads", "Desktop"] {
-            let candidate = home.join(dir).join("NaiaEnv-rootfs.tar.gz");
-            if candidate.exists() {
-                return Ok(candidate);
-            }
-        }
-    }
-
-    // 3. ~/.naia/ (pre-placed by installer or script)
-    if let Some(home) = dirs::home_dir() {
-        let candidate = home.join(".naia").join("NaiaEnv-rootfs.tar.gz");
-        if candidate.exists() {
-            return Ok(candidate);
-        }
-    }
-
-    Err("NaiaEnv rootfs not found. Download NaiaEnv-rootfs.tar.gz from the Naia GitHub Release page and place it in your Downloads folder.".to_string())
 }
 
 /// Whether to skip OpenClaw config sync (Windows: always skip — config lives in WSL).
