@@ -30,7 +30,7 @@ interface ChatState {
 
 	setSessionId: (id: string) => void;
 	setMessages: (messages: ChatMessage[]) => void;
-	addMessage: (msg: Pick<ChatMessage, "role" | "content">) => void;
+	addMessage: (msg: Pick<ChatMessage, "role" | "content"> & Partial<Pick<ChatMessage, "cost">>) => void;
 	updateLastMessage: (role: ChatMessage["role"], content: string) => void;
 	startStreaming: () => void;
 	appendStreamChunk: (text: string) => void;
@@ -81,6 +81,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 				...s.messages,
 				{ ...msg, id: generateId(), timestamp: Date.now() },
 			],
+			totalSessionCost: s.totalSessionCost + (msg.cost?.cost ?? 0),
 		})),
 
 	updateLastMessage: (role, content) =>
@@ -102,7 +103,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 		}),
 
 	startStreaming: () =>
-		set({ isStreaming: true, streamingContent: "", streamingThinking: "", streamingToolCalls: [] }),
+		set({
+			isStreaming: true,
+			streamingContent: "",
+			streamingThinking: "",
+			streamingToolCalls: [],
+		}),
 
 	appendStreamChunk: (text) =>
 		set((s) => ({ streamingContent: s.streamingContent + text })),
@@ -148,7 +154,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 		}),
 
 	finishStreaming: () => {
-		const { isStreaming, streamingContent, streamingThinking, streamingToolCalls } = get();
+		const {
+			isStreaming,
+			streamingContent,
+			streamingThinking,
+			streamingToolCalls,
+		} = get();
 		if (!isStreaming) return;
 		const toolCalls =
 			streamingToolCalls.length > 0 ? streamingToolCalls : undefined;
@@ -221,7 +232,6 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 		set({ messageQueue: rest });
 		return first;
 	},
-
 }));
 
 // Expose for Playwright screenshot capture & dev tools

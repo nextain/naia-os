@@ -18,10 +18,20 @@ export const FORMALITY_LOCALES = new Set([
 
 function localeToLanguage(locale: string): string {
 	const map: Record<string, string> = {
-		ko: "Korean", en: "English", ja: "Japanese", zh: "Chinese",
-		fr: "French", de: "German", ru: "Russian", es: "Spanish",
-		ar: "Arabic", hi: "Hindi", bn: "Bengali", pt: "Portuguese",
-		id: "Indonesian", vi: "Vietnamese",
+		ko: "Korean",
+		en: "English",
+		ja: "Japanese",
+		zh: "Chinese",
+		fr: "French",
+		de: "German",
+		ru: "Russian",
+		es: "Spanish",
+		ar: "Arabic",
+		hi: "Hindi",
+		bn: "Bengali",
+		pt: "Portuguese",
+		id: "Indonesian",
+		vi: "Vietnamese",
 	};
 	return map[locale] || "English";
 }

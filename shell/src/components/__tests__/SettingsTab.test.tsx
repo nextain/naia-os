@@ -94,7 +94,9 @@ describe("SettingsTab", () => {
 	it("replaces API key input with Naia account UI", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+		const providerSelect = document.getElementById(
+			"provider-select",
+		) as HTMLSelectElement;
 		fireEvent.change(providerSelect, { target: { value: "nextain" } });
 		expect(screen.queryByLabelText(/^API/i)).toBeNull();
 		expect(
@@ -102,31 +104,29 @@ describe("SettingsTab", () => {
 		).toBeDefined();
 	});
 
-	it("shows unified TTS provider selector and Google key only when google selected", () => {
+	it("shows live provider selector with default edge-tts", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
 
-		// TTS provider selector is always visible
-		expect(screen.getByLabelText("TTS 프로바이더")).toBeDefined();
-
-		// Default is edge → no Google API key
-		expect(screen.queryByLabelText(/google api key/i)).toBeNull();
-
-		// switch to google → Google API key should appear
-		fireEvent.change(screen.getByLabelText("TTS 프로바이더"), {
-			target: { value: "google" },
-		});
-		expect(screen.getByLabelText(/google api key/i)).toBeDefined();
+		// Live provider selector is always visible
+		const liveSelect = document.getElementById("live-provider-select") as HTMLSelectElement;
+		expect(liveSelect).toBeDefined();
+		// Default is edge-tts for non-logged-in users
+		expect(liveSelect.value).toBe("edge-tts");
 	});
 
 	it("hides API key input for Claude Code CLI provider", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
-		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+		const providerSelect = document.getElementById(
+			"provider-select",
+		) as HTMLSelectElement;
 		fireEvent.change(providerSelect, { target: { value: "claude-code-cli" } });
 		expect(screen.queryByLabelText(/^API/i)).toBeNull();
 		expect(
-			screen.getByText("Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다."),
+			screen.getByText(
+				"Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다.",
+			),
 		).toBeDefined();
 	});
 

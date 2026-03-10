@@ -1,5 +1,4 @@
 import * as fs from "node:fs";
-import { homedir } from "node:os";
 import * as path from "node:path";
 import type { SkillDefinition } from "../types.js";
 
@@ -7,11 +6,8 @@ function sanitizeKey(key: string): string {
 	return key.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
-export function createMemoSkill(
-	memoDir?: string,
-): SkillDefinition {
-	const dir =
-		memoDir ?? path.join(homedir(), ".naia", "memos");
+export function createMemoSkill(memoDir?: string): SkillDefinition {
+	const dir = memoDir ?? path.join(process.env.HOME ?? "~", ".naia", "memos");
 
 	return {
 		name: "skill_memo",

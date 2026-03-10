@@ -32,6 +32,7 @@ export const LAB_SYNC_FIELDS = [
 	"googleChatWebhookUrl",
 	"panelPosition",
 	"panelVisible",
+	"liveProvider",
 	"liveVoice",
 	"liveModel",
 	"voiceConversation",
@@ -100,7 +101,10 @@ export function pushConfigToLab(
 }
 
 /** Delete all config from Lab (reset nan_config to empty) */
-export async function clearLabConfig(naiaKey: string, naiaUserId: string): Promise<void> {
+export async function clearLabConfig(
+	naiaKey: string,
+	naiaUserId: string,
+): Promise<void> {
 	try {
 		await fetch(LAB_API_BASE, {
 			method: "PATCH",

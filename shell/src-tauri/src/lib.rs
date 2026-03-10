@@ -1,4 +1,5 @@
 mod audit;
+mod gemini_live;
 mod memory;
 mod platform;
 
@@ -29,6 +30,8 @@ struct AppState {
     health_monitor_shutdown: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
     /// Random state token for OAuth deep link CSRF protection.
     oauth_state: Arc<Mutex<Option<String>>>,
+    /// Active Gemini Live WebSocket proxy session.
+    gemini_live: gemini_live::SharedHandle,
 }
 
 struct AuditState {
@@ -1551,48 +1554,6 @@ async fn validate_api_key(provider: String, api_key: String) -> Result<bool, Str
     }
 }
 
-#[tauri::command]
-async fn preview_tts(api_key: String, voice: String, text: String) -> Result<String, String> {
-    let url = format!(
-        "https://texttospeech.googleapis.com/v1/text:synthesize?key={}",
-        api_key
-    );
-    let language_code = voice.get(..5).unwrap_or("ko-KR");
-    let body = serde_json::json!({
-        "input": { "text": text },
-        "voice": { "languageCode": language_code, "name": voice },
-        "audioConfig": { "audioEncoding": "MP3" }
-    });
-
-    let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("TTS request failed: {}", e))?;
-
-    if !res.status().is_success() {
-        let status = res.status();
-        let body = res.text().await.unwrap_or_default();
-        return Err(format!("TTS API error {}: {}", status, body));
-    }
-
-    #[derive(Deserialize)]
-    struct TtsResponse {
-        #[serde(rename = "audioContent")]
-        audio_content: Option<String>,
-    }
-
-    let data: TtsResponse = res
-        .json()
-        .await
-        .map_err(|e| format!("TTS response parse error: {}", e))?;
-
-    data.audio_content
-        .ok_or_else(|| "No audio content in response".to_string())
-}
-
 /// Check if OpenClaw Gateway is reachable on localhost
 #[tauri::command]
 async fn gateway_health() -> Result<bool, String> {
@@ -2381,11 +2342,55 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
     Ok(())
 }
 
+// ── Gemini Live WebSocket proxy commands ──
+// WebKitGTK cannot directly connect to wss://generativelanguage.googleapis.com
+// (silent hang). These commands proxy the WebSocket through Rust.
+
+#[tauri::command]
+async fn gemini_live_connect(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    params: gemini_live::GeminiLiveConnectParams,
+) -> Result<(), String> {
+    gemini_live::connect(app, state.gemini_live.clone(), params).await
+}
+
+#[tauri::command]
+async fn gemini_live_send_audio(
+    state: tauri::State<'_, AppState>,
+    pcm_base64: String,
+) -> Result<(), String> {
+    gemini_live::send_audio(&state.gemini_live, pcm_base64).await
+}
+
+#[tauri::command]
+async fn gemini_live_send_text(
+    state: tauri::State<'_, AppState>,
+    text: String,
+) -> Result<(), String> {
+    gemini_live::send_text(&state.gemini_live, text).await
+}
+
+#[tauri::command]
+async fn gemini_live_send_tool_response(
+    state: tauri::State<'_, AppState>,
+    call_id: String,
+    result: serde_json::Value,
+) -> Result<(), String> {
+    gemini_live::send_tool_response(&state.gemini_live, call_id, result).await
+}
+
+#[tauri::command]
+async fn gemini_live_disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    gemini_live::disconnect(state.gemini_live.clone()).await;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        // deep-link MUST be registered before single-instance so that
-        // single-instance can forward deep link URLs from a second instance.
+    let is_flatpak = std::env::var("FLATPAK").map(|v| v == "1").unwrap_or(false);
+
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // When a second instance is launched (e.g. via deep link),
@@ -2399,11 +2404,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .manage(AppState {
+        .plugin(tauri_plugin_process::init());
+
+    // Flatpak manages its own updates; skip updater plugin in Flatpak builds
+    if !is_flatpak {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder.manage(AppState {
             agent: Mutex::new(None),
             gateway: Mutex::new(None),
             health_monitor_shutdown: Mutex::new(None),
             oauth_state: Arc::new(Mutex::new(None)),
+            gemini_live: gemini_live::new_shared_handle(),
         })
         .invoke_handler(tauri::generate_handler![
             list_skills,
@@ -2411,7 +2424,6 @@ pub fn run() {
             cancel_stream,
             reset_window_state,
             reset_openclaw_data,
-            preview_tts,
             gateway_health,
             restart_gateway,
             get_audit_log,
@@ -2429,6 +2441,11 @@ pub fn run() {
             fetch_linked_channels,
             get_platform_tier,
             setup_wsl,
+            gemini_live_connect,
+            gemini_live_send_audio,
+            gemini_live_send_text,
+            gemini_live_send_tool_response,
+            gemini_live_disconnect,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

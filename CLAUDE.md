@@ -60,7 +60,7 @@ Naia-OS/
 ## 컨벤션 (요약)
 
 - **언어 원칙**: Git/공유 (커밋, Issue 코멘트, PR, 컨텍스트) → 영어 | 개인 (work-logs/) → 자유 | AI 응답 → 기여자 언어
-- **커밋**: `<type>(<scope>): <description>` (영어)
+- **커밋**: `<type>(<scope>): <description> (#<issue>)` (영어, 이슈 번호 필수)
 - **포맷터**: Biome (tab, double quote, semicolons)
 - **테스트**: Integration-first TDD (Vitest + tauri-driver)
 - **로깅**: 구조화된 Logger만 (console.log 금지)
@@ -177,17 +177,18 @@ gh workflow run iso.yml
 **SoT**: `.agents/workflows/issue-driven-development.yaml` — 매 세션 시작 시 반드시 읽을 것.
 
 **핵심 흐름** (13 phases):
-Issue → Understand (gate) → Scope (gate) → Investigate → Plan (gate) → Build → Review → E2E Test → Post-test Review → Sync → Sync Verify → Report → Commit
+Issue → Understand (gate) → Scope (gate) → Investigate → Plan (gate) → Build → Review → E2E Test → Post-test Review → Sync (gate) → Sync Verify → Report → Commit
 
-**Gate**: understand, scope, plan에서 사용자 확인 필수 (진행 전 STOP).
+**Gate**: understand, scope, plan, sync에서 사용자 확인 필수 (진행 전 STOP).
 
 **반복 리뷰**: 파일을 다시 읽고, 수정하고, 다시 읽는 것을 **연속 2회 수정이 안 나올 때까지** 반복. 1회 검토가 아님.
 
-**반복 리뷰 적용 시점** (4곳):
+**반복 리뷰 적용 시점** (5곳):
 1. **Plan 후** — 구현 계획 반복 리뷰
-2. **Build 각 phase 후** — 페이스별 코드 반복 리뷰
-3. **E2E Test 후** — 테스트 통과 후 전체 코드 반복 리뷰
-4. **Sync 후** — 컨텍스트 미러 정확성 반복 검증
+2. **Build 각 phase 후** — 페이스별 코드 반복 리뷰 + 테스트
+3. **모든 Build phase 후** — 전체 코드 반복 리뷰
+4. **E2E Test 후** — 테스트 통과 후 전체 코드 반복 리뷰
+5. **Sync 후** — 컨텍스트 미러 정확성 반복 검증
 
 **산출물 위치**: 중간 결과(발견, 계획, 분석) → GitHub Issue 코멘트 (영어). 최종 결론 → `.agents/` 컨텍스트 파일.
 

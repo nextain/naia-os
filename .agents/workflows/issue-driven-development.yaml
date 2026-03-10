@@ -60,7 +60,7 @@ principles:
 iteration_rule:
   description: "All loops in this workflow terminate only after TWO consecutive clean passes"
   rationale: "A single clean pass can be a false negative. Two consecutive clean passes reduce the risk of missed issues."
-  applies_to: ["investigate", "plan", "review", "sync"]
+  applies_to: ["plan", "review", "post_test_review", "sync_verify"]
 
 # ─── Phases ───────────────────────────────────────────────────
 
@@ -129,6 +129,7 @@ phases:
     gate: true  # must not proceed without user confirmation
     steps:
       - "Draft plan addressing all findings (not just the first one)"
+      - "Split phases by testable boundaries — each phase must have a verification method"
       - "loop:"
       - "  - Re-read plan against findings and actual code"
       - "  - Check for missing items, inconsistencies, unverified references"
@@ -136,7 +137,11 @@ phases:
       - "  - If TWO consecutive passes find nothing to fix → plan is stable"
       - "Present stable plan to user for approval"
       - "User confirms or adjusts"
-    output: "Approved implementation plan"
+    rules:
+      - "Each phase MUST define its verification method (build check, unit test, E2E, manual, file review)"
+      - "If a phase cannot be tested locally, note it explicitly and state what CAN be verified"
+      - "Never group untestable and testable work in the same phase"
+    output: "Approved implementation plan with per-phase verification methods"
     record: "Post plan as Issue comment (English)"
 
   # ── AI-Autonomous (with quality gates) ────────────────────
@@ -145,12 +150,19 @@ phases:
     description: "Implement according to approved plan"
     steps:
       - "Create branch: issue-N-description"
-      - "Implement changes per plan"
+      - "Implement changes per plan, one phase at a time"
+      - "After each phase:"
+      - "  1. Run iterative code review (TWO consecutive clean passes)"
+      - "  2. Run defined verification method (test/build check)"
+      - "  3. Do NOT proceed to next phase until both are clean"
+      - "After ALL phases complete:"
+      - "  - Run full iterative code review across all changes (TWO consecutive clean passes)"
       - "Follow TDD where applicable (RED → GREEN → REFACTOR)"
     rules:
       - "Stay within plan scope — no unplanned changes"
       - "Follow upstream patterns, don't invent new ones"
-    output: "Implementation on feature branch"
+      - "Do NOT proceed to the next phase if review or verification fails"
+    output: "Implementation on feature branch (verified per-phase + full review)"
 
   review:
     description: "Self-review against plan AND original issue"
@@ -182,6 +194,7 @@ phases:
       - "Test through the real UI/Shell path"
       - "Never use simplified or shortcut test paths"
       - "The test must match what a real user would do"
+      - "Tests must pass completely clean (no partial passes)"
     rules:
       - "No runtime patches to make tests pass"
       - "No manual post-processing"
@@ -190,21 +203,58 @@ phases:
       implementation_issue: "→ return to BUILD"
       design_issue: "→ return to PLAN"
       investigation_gap: "→ return to INVESTIGATE"
-    output: "Passing E2E test"
+    output: "Passing E2E test (fully clean)"
+
+  post_test_review:
+    description: "Re-review after tests pass — catch issues that testing context reveals"
+    steps:
+      - "loop:"
+      - "  - Re-read ALL new/modified files (fresh eyes after testing)"
+      - "  - Review against same checklist as initial review"
+      - "  - Fix any issues found"
+      - "  - If TWO consecutive passes find no issues → post-test review complete"
+    output: "Final clean code"
 
   sync:
-    description: "Synchronize contexts"
+    description: "Synchronize contexts, record lessons, present to user"
+    gate: true  # must not proceed without user confirmation
     steps:
+      - "Reflect on trial-and-error during this issue's work"
+      - "Before writing: check if content already exists elsewhere (prevent duplication/scattering)"
       - "loop:"
       - "  - Check if .agents/ needs updates → update"
       - "  - Check if .users/ needs updates → update (1:1 mirror)"
       - "  - Check if entry points (AGENTS.md/CLAUDE.md/GEMINI.md) need updates → update"
-      - "  - If TWO consecutive passes find nothing to update → sync complete"
-    output: "Synchronized context files"
+      - "Review: were there mistakes or lessons this cycle?"
+      - "  YES → add to lessons-learned"
+      - "  NO → skip"
+      - "Present sync summary to user for confirmation"
+    rules:
+      - "Check existing context files before adding — avoid scattering same content across multiple files"
+      - "Lessons from trial-and-error MUST be captured, not just code changes"
+    output: "User-confirmed context updates"
+
+  sync_verify:
+    description: "Verify context updates are accurate and complete"
+    steps:
+      - "loop:"
+      - "  - Re-read all updated context files"
+      - "  - Check accuracy against actual implementation"
+      - "  - Check mirror consistency (.agents/ ↔ .users/)"
+      - "  - Fix any inaccuracies or missing updates"
+      - "  - If TWO consecutive passes find nothing to fix → verification complete"
+    output: "Verified, synchronized context files"
+
+  report:
+    description: "Report results to user and Issue"
+    steps:
+      - "Summarize what was done, what changed, and any remaining items"
+      - "Post completion status as Issue comment (English)"
+    output: "Completion report"
 
   commit:
     description: "Commit and link to Issue"
-    prerequisite: "ALL prior phases (build, review, e2e_test, sync) must be complete before committing"
+    prerequisite: "ALL prior phases (build, review, e2e_test, post_test_review, sync, sync_verify) must be complete before committing"
     steps:
       - "Stage relevant files only"
       - "Commit with descriptive message referencing Issue number"
@@ -220,6 +270,8 @@ gates:
     prompt: "I propose investigating scope L{n} / depth {level}. Does this look right?"
   - phase: plan
     prompt: "Here is my implementation plan. Shall I proceed?"
+  - phase: sync
+    prompt: "Here are the context updates from this work. Please review before I proceed."
 
 # ─── Artifact Storage ────────────────────────────────────────
 

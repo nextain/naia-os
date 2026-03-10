@@ -124,16 +124,19 @@ formats:
       - "rsync workaround patches (3b-3f) removed 2026-03-03 in favor of ostreecontainer"
 
 release:
-  current_version: v0.1.1
+  current_version: v0.1.2
   assets:
     - Naia-Shell-x86_64.AppImage
+    - Naia-Shell-x86_64.AppImage.sig
     - Naia-Shell-x86_64.deb
     - Naia-Shell-x86_64.rpm
     - Naia-Shell-x86_64.flatpak
     - SHA256SUMS
+    - latest.json
   naming_convention: "Version-independent filenames for stable /latest/ download URLs"
   download_page: https://naia.nextain.io/download
   download_page_repo: naia.nextain.io/
+  changelog_source: releases/v*.yaml
 
 workflows:
   release_app: .github/workflows/release-app.yml
@@ -142,12 +145,28 @@ workflows:
 
 ci_pipeline:
   # Parallel
-  build_linux: "tauri build → AppImage, DEB, RPM"
+  build_linux: "tauri build (with signing) → AppImage + .sig, DEB, RPM"
   build_flatpak: "flatpak-builder → flatpak build-bundle"
   # Sequential (depends on both above)
-  release: "download artifacts → SHA256SUMS → GitHub Release"
+  release: "download artifacts → release notes from YAML → latest.json → SHA256SUMS → GitHub Release → itch.io butler push"
   # Triggered by release success
   generate_iso: "OCI image → bootable ISO (needs GHCR image first)"
+
+app_update:
+  mechanism: "Tauri updater plugin (Ed25519 signed AppImage)"
+  endpoint: "https://github.com/nextain/naia-os/releases/latest/download/latest.json"
+  signing: "TAURI_SIGNING_PRIVATE_KEY + TAURI_SIGNING_PRIVATE_KEY_PASSWORD (CI secrets)"
+  flatpak_exclusion: "FLATPAK=1 env → updater plugin not registered (Flatpak manages own updates)"
+  itch_io:
+    channel_linux: "nextain/naia:linux (AppImage)"
+    channel_flatpak: "nextain/naia:linux-flatpak"
+    secret: BUTLER_API_KEY
+  changelog:
+    source: "releases/v*.yaml (multilingual YAML)"
+    consumers:
+      - "CI → GitHub Release body (English)"
+      - "naia.nextain.io → download page changelog (locale-matched)"
+      - "In-app → Tauri updater body (English) + View Details link to web"
 
 local_build:
   flatpak:

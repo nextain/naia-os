@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
-import * as fsPromises from "node:fs/promises";
-import { homedir } from "node:os";
-import * as path from "node:path";
-import type { ToolDefinition } from "../providers/types.js";
 import { CronScheduler } from "../cron/scheduler.js";
 import { CronStore } from "../cron/store.js";
+import type { ToolDefinition } from "../providers/types.js";
 import { createAgentsSkill } from "../skills/built-in/agents.js";
 import { createApprovalsSkill } from "../skills/built-in/approvals.js";
 import { createBotmadangSkill } from "../skills/built-in/botmadang.js";
@@ -28,7 +25,7 @@ import { createVoiceWakeSkill } from "../skills/built-in/voicewake.js";
 import { createWeatherSkill } from "../skills/built-in/weather.js";
 import { bootstrapDefaultSkills, loadCustomSkills } from "../skills/loader.js";
 import { SkillRegistry } from "../skills/registry.js";
-import { GatewayRequestError, type GatewayClient } from "./client.js";
+import { type GatewayClient, GatewayRequestError } from "./client.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
 
 export type { ToolDefinition };
@@ -56,7 +53,7 @@ skillRegistry.register(createVoiceWakeSkill());
 skillRegistry.register(createWeatherSkill());
 
 // Cron skill — persistent store in ~/.naia/cron-jobs.json
-const cronStorePath = path.join(homedir(), ".naia", "cron-jobs.json");
+const cronStorePath = `${process.env.HOME ?? "~"}/.naia/cron-jobs.json`;
 const cronStore = new CronStore(cronStorePath);
 skillRegistry.register(createCronSkill(cronStore));
 
@@ -76,11 +73,9 @@ export const cronScheduler = new CronScheduler((payload) => {
 cronScheduler.restoreFromStore(cronStore);
 
 // Bootstrap default skills from bundled assets (first-run only)
-const customSkillsDir = path.join(homedir(), ".naia", "skills");
-const bundledSkillsDir = new URL(
-	"../../assets/default-skills",
-	import.meta.url,
-).pathname;
+const customSkillsDir = `${process.env.HOME ?? "~"}/.naia/skills`;
+const bundledSkillsDir = new URL("../../assets/default-skills", import.meta.url)
+	.pathname;
 bootstrapDefaultSkills(customSkillsDir, bundledSkillsDir);
 
 // Load custom skills from ~/.naia/skills/
@@ -108,7 +103,7 @@ export interface ToolResult {
 
 /** Escape a string for safe use inside a shell single-quoted context */
 function shellEscape(s: string): string {
-	return "'" + s.replace(/'/g, "'\\''") + "'";
+	return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 /** Validate path has no null bytes or directory traversal */
@@ -467,11 +462,13 @@ async function runShellCommand(
 	let actualCommand = command;
 	// Automatically route command to host if running inside a flatpak sandbox
 	try {
-		if (process.platform === "linux" && fs.existsSync("/.flatpak-info")) {
+		if (fs.existsSync("/.flatpak-info")) {
 			const escaped = command.replace(/'/g, "'\\''");
 			actualCommand = `flatpak-spawn --host bash -c '${escaped}'`;
 		}
-	} catch { /* ignore */ }
+	} catch {
+		/* ignore */
+	}
 
 	if (hasMethod(client, "exec.bash")) {
 		try {
@@ -548,97 +545,6 @@ export interface ExecuteToolContext {
 	disabledSkills?: string[];
 }
 
-// --- fs-based fallback for file tools (when Gateway is unavailable) ---
-
-function resolvePath(p: string): string {
-	if (p.startsWith("~/") || p === "~") {
-		return path.join(homedir(), p.slice(2));
-	}
-	return path.resolve(p);
-}
-
-async function fsReadFile(filePath: string): Promise<ToolResult> {
-	try {
-		const resolved = resolvePath(filePath);
-		const content = await fsPromises.readFile(resolved, "utf-8");
-		return { success: true, output: content };
-	} catch (err) {
-		return { success: false, output: "", error: `read_file: ${err}` };
-	}
-}
-
-async function fsWriteFile(filePath: string, content: string): Promise<ToolResult> {
-	try {
-		const resolved = resolvePath(filePath);
-		await fsPromises.mkdir(path.dirname(resolved), { recursive: true });
-		await fsPromises.writeFile(resolved, content, "utf-8");
-		return { success: true, output: `File written: ${filePath}` };
-	} catch (err) {
-		return { success: false, output: "", error: `write_file: ${err}` };
-	}
-}
-
-async function fsSearchFiles(pattern: string, searchPath: string, byContent: boolean): Promise<ToolResult> {
-	try {
-		const resolved = resolvePath(searchPath);
-		const results: string[] = [];
-		const maxResults = 20;
-
-		async function walk(dir: string): Promise<void> {
-			if (results.length >= maxResults) return;
-			let entries;
-			try {
-				entries = await fsPromises.readdir(dir, { withFileTypes: true });
-			} catch {
-				return;
-			}
-			for (const entry of entries) {
-				if (results.length >= maxResults) break;
-				const fullPath = path.join(dir, entry.name);
-				if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-				if (entry.isDirectory()) {
-					await walk(fullPath);
-				} else if (byContent) {
-					try {
-						const content = await fsPromises.readFile(fullPath, "utf-8");
-						if (content.includes(pattern)) {
-							results.push(fullPath);
-						}
-					} catch { /* skip unreadable */ }
-				} else {
-					if (entry.name.includes(pattern) || entry.name.match(new RegExp(pattern.replace(/\*/g, ".*")))) {
-						results.push(fullPath);
-					}
-				}
-			}
-		}
-
-		await walk(resolved);
-		return { success: true, output: results.join("\n") || "No matches found" };
-	} catch (err) {
-		return { success: false, output: "", error: `search_files: ${err}` };
-	}
-}
-
-const FS_FALLBACK_TOOLS = new Set(["read_file", "write_file", "search_files"]);
-
-async function executeFsFallback(toolName: string, args: Record<string, unknown>): Promise<ToolResult> {
-	switch (toolName) {
-		case "read_file":
-			return fsReadFile(args.path as string);
-		case "write_file":
-			return fsWriteFile(args.path as string, args.content as string);
-		case "search_files":
-			return fsSearchFiles(
-				args.pattern as string,
-				(args.path as string) || "~",
-				!!args.content,
-			);
-		default:
-			return { success: false, output: "", error: `Unknown fs fallback tool: ${toolName}` };
-	}
-}
-
 /** Execute a tool call (gateway tools need client; skills may not) */
 export async function executeTool(
 	client: GatewayClient | null,
@@ -656,11 +562,8 @@ export async function executeTool(
 		});
 	}
 
-	// Gateway tools require connected client — fall back to fs for file tools
+	// Gateway tools require connected client
 	if (!client?.isConnected()) {
-		if (FS_FALLBACK_TOOLS.has(toolName)) {
-			return executeFsFallback(toolName, args);
-		}
 		return { success: false, output: "", error: "Gateway not connected" };
 	}
 
@@ -759,7 +662,8 @@ export async function executeTool(
 					return {
 						success: false,
 						output: "",
-						error: "No supported web search RPC (skills.invoke/browser.request)",
+						error:
+							"No supported web search RPC (skills.invoke/browser.request)",
 					};
 				}
 
@@ -848,10 +752,7 @@ export async function executeTool(
 				}
 				return {
 					success: true,
-					output:
-						typeof result === "string"
-							? result
-							: JSON.stringify(result),
+					output: typeof result === "string" ? result : JSON.stringify(result),
 				};
 			} catch (err) {
 				return {

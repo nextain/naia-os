@@ -1,6 +1,12 @@
 import type { Locale } from "./i18n";
-import { SECRET_KEYS, deleteSecretKey, getSecretKey, saveSecretKey } from "./secure-store";
+import {
+	SECRET_KEYS,
+	deleteSecretKey,
+	getSecretKey,
+	saveSecretKey,
+} from "./secure-store";
 import type { ProviderId } from "./types";
+import type { LiveProviderId } from "./voice/types";
 
 const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
@@ -15,7 +21,12 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
-export type TtsProviderId = "google" | "edge" | "openai" | "elevenlabs" | "nextain";
+export type TtsProviderId =
+	| "google"
+	| "edge"
+	| "openai"
+	| "elevenlabs"
+	| "nextain";
 
 export type PanelPosition = "left" | "right" | "bottom";
 
@@ -64,8 +75,11 @@ export interface AppConfig {
 	discordSessionMigrated?: boolean;
 	ollamaHost?: string;
 	voiceConversation?: boolean;
+	liveProvider?: LiveProviderId;
 	liveVoice?: string;
 	liveModel?: string;
+	openaiRealtimeApiKey?: string;
+	openaiRealtimeVoice?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
@@ -148,7 +162,9 @@ export function hasApiKey(): boolean {
 export function isReadyToChat(): boolean {
 	const config = loadConfig();
 	if (!config) return false;
-	return isApiKeyOptional(config.provider) || !!config.apiKey || !!config.naiaKey;
+	return (
+		isApiKeyOptional(config.provider) || !!config.apiKey || !!config.naiaKey
+	);
 }
 
 export function hasNaiaKey(): boolean {
@@ -281,12 +297,12 @@ export async function migrateLabKeyToNaiaKey(): Promise<void> {
 	let changed = false;
 	if (raw.labKey && !raw.naiaKey) {
 		raw.naiaKey = raw.labKey;
-		delete raw.labKey;
+		raw.labKey = undefined;
 		changed = true;
 	}
 	if (raw.labUserId && !raw.naiaUserId) {
 		raw.naiaUserId = raw.labUserId;
-		delete raw.labUserId;
+		raw.labUserId = undefined;
 		changed = true;
 	}
 	if (changed) {

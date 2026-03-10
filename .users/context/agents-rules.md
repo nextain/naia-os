@@ -247,15 +247,20 @@ main <- Stable, always deployable (BlueBuild builds from main)
 ### Commit Convention
 
 ```
-<type>(<scope>): <description>
+<type>(<scope>): <description> (#<issue>)
 
 types: feat, fix, refactor, test, docs, chore, ci
 scopes: shell, agent, gateway, os, context
 
+⚠️ Issue reference is MANDATORY.
+  - Append (#N) to the first line (N = GitHub Issue number)
+  - Add "Closes #N" in commit body for the final commit
+  - Exceptions: merge commits, initial repository setup
+
 Examples:
-feat(shell): add VRM avatar idle animation
-fix(agent): handle LLM timeout gracefully
-ci(os): add BlueBuild GitHub Action
+feat(shell): add VRM avatar idle animation (#36)
+fix(agent): handle LLM timeout gracefully (#26)
+ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR Process
