@@ -22,7 +22,7 @@ pub(crate) enum GatewaySpawnResult {
     /// Platform says skip gateway entirely (e.g. Windows Tier 1).
     Skip { reason: String },
     /// Platform spawned the gateway itself (e.g. Windows Tier 2 via WSL).
-    Spawned { child: Child },
+    Spawned { child: Child, node_host: Option<Child> },
     /// Platform has no special handling — use default flow.
     UseDefault,
 }

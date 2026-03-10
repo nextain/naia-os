@@ -120,6 +120,34 @@ pub(crate) fn spawn_gateway_in_wsl(
     cmd.spawn().map_err(|e| e.to_string())
 }
 
+/// Spawn OpenClaw Node Host inside a WSL distro (returns a Child handle).
+pub(crate) fn spawn_node_host_in_wsl(
+    name: &str,
+    port: u16,
+) -> Result<std::process::Child, String> {
+    let mut cmd = Command::new("wsl");
+    cmd.args([
+        "-d",
+        name,
+        "--",
+        "node",
+        "/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs",
+        "node",
+        "run",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        &port.to_string(),
+        "--display-name",
+        "NaiaLocal",
+    ])
+    .stdin(std::process::Stdio::null())
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped());
+    super::hide_console(&mut cmd);
+    cmd.spawn().map_err(|e| e.to_string())
+}
+
 /// Terminate a WSL distro.
 #[allow(dead_code)]
 pub(crate) fn terminate_distro(name: &str) {

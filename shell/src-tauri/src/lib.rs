@@ -803,11 +803,11 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
             log_both(&format!("[Naia] {}", reason));
             return Err(reason);
         }
-        platform::GatewaySpawnResult::Spawned { child } => {
+        platform::GatewaySpawnResult::Spawned { child, node_host } => {
             std::thread::sleep(std::time::Duration::from_secs(2));
             return Ok(GatewayProcess {
                 child,
-                node_host: None,
+                node_host,
                 we_spawned: true,
             });
         }

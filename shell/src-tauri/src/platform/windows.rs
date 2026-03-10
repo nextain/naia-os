@@ -109,7 +109,21 @@ pub(crate) fn try_platform_gateway_spawn() -> super::GatewaySpawnResult {
     if !crate::check_gateway_health_sync() {
         crate::log_both("[Naia] Windows Tier 2 — spawning Gateway in WSL (NaiaEnv)");
         match super::wsl::spawn_gateway_in_wsl(DISTRO_NAME, 18789) {
-            Ok(child) => super::GatewaySpawnResult::Spawned { child },
+            Ok(child) => {
+                // Wait for Gateway to start before spawning Node Host
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                let node_host = match super::wsl::spawn_node_host_in_wsl(DISTRO_NAME, 18789) {
+                    Ok(nh) => {
+                        crate::log_both("[Naia] Node Host spawned in WSL (NaiaEnv)");
+                        Some(nh)
+                    }
+                    Err(e) => {
+                        crate::log_both(&format!("[Naia] Node Host spawn failed: {}", e));
+                        None
+                    }
+                };
+                super::GatewaySpawnResult::Spawned { child, node_host }
+            }
             Err(e) => {
                 crate::log_both(&format!("[Naia] WSL Gateway spawn failed: {}", e));
                 super::GatewaySpawnResult::Skip {
