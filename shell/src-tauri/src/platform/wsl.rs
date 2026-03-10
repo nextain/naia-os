@@ -237,6 +237,32 @@ fn extract_uuid(s: &str) -> Option<String> {
     None
 }
 
+/// Kill OpenClaw processes (gateway + node host) running inside a WSL distro.
+/// This ensures the `node` processes inside WSL are actually terminated,
+/// not just the `wsl.exe` bridge on Windows.
+pub(crate) fn kill_openclaw_processes(name: &str) {
+    let mut cmd = Command::new("wsl");
+    cmd.args(["-d", name, "--", "pkill", "-f", "openclaw"]);
+    super::hide_console(&mut cmd);
+    match cmd.output() {
+        Ok(o) => {
+            if o.status.success() {
+                crate::log_verbose(&format!(
+                    "[Naia] Killed OpenClaw processes inside WSL distro '{}'",
+                    name
+                ));
+            }
+            // pkill returns 1 if no processes matched — that's fine
+        }
+        Err(e) => {
+            crate::log_verbose(&format!(
+                "[Naia] Failed to pkill inside WSL '{}': {}",
+                name, e
+            ));
+        }
+    }
+}
+
 /// Terminate a WSL distro.
 #[allow(dead_code)]
 pub(crate) fn terminate_distro(name: &str) {

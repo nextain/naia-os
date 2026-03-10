@@ -104,6 +104,9 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
     Err("WSL setup is only available on Windows".to_string())
 }
 
+/// Kill OpenClaw processes inside WSL (Linux: no-op — no WSL on Linux).
+pub(crate) fn kill_wsl_openclaw_processes() {}
+
 /// Whether to skip OpenClaw config sync (Linux: never skip).
 pub(crate) fn should_skip_openclaw_sync() -> bool {
     false

@@ -67,6 +67,14 @@ pub(crate) fn kill_stale_gateway() {
     );
 }
 
+/// Kill OpenClaw processes inside WSL (gateway + node host).
+/// On Windows, killing `wsl.exe` does NOT kill the `node` process inside WSL.
+pub(crate) fn kill_wsl_openclaw_processes() {
+    if super::wsl::is_distro_registered("NaiaEnv") {
+        super::wsl::kill_openclaw_processes("NaiaEnv");
+    }
+}
+
 /// Find Node.js via Windows version managers (NVM for Windows, fnm).
 pub(crate) fn find_node_version_manager(_home: &str) -> Option<PathBuf> {
     let appdata = std::env::var("APPDATA").unwrap_or_default();

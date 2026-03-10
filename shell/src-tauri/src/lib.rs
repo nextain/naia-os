@@ -28,6 +28,8 @@ struct AppState {
     agent: Mutex<Option<AgentProcess>>,
     gateway: Mutex<Option<GatewayProcess>>,
     health_monitor_shutdown: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
+    /// When true, health monitor skips checks (restart in progress).
+    restarting_gateway: Arc<std::sync::atomic::AtomicBool>,
     /// Random state token for OAuth deep link CSRF protection.
     oauth_state: Arc<Mutex<Option<String>>>,
     /// Active Gemini Live WebSocket proxy session.
@@ -401,6 +403,7 @@ pub(crate) fn remove_pid_file(component: &str) {
 fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic::AtomicBool> {
     let shutdown = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let shutdown_flag = shutdown.clone();
+    let restarting = app_handle.state::<AppState>().restarting_gateway.clone();
     thread::spawn(move || {
         let interval = std::time::Duration::from_secs(30);
         let mut consecutive_failures: u32 = 0;
@@ -409,6 +412,12 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
             thread::sleep(interval);
             if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
                 break;
+            }
+            // Skip health checks while a restart is in progress
+            if restarting.load(std::sync::atomic::Ordering::Relaxed) {
+                log_verbose("[Naia] Health monitor: skipping (restart in progress)");
+                consecutive_failures = 0;
+                continue;
             }
 
             let healthy = check_gateway_health_sync();
@@ -453,6 +462,9 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
                                     let _ = old.child.kill();
                                 }
                             }
+                            // Kill processes inside WSL
+                            platform::kill_wsl_openclaw_processes();
+                            thread::sleep(std::time::Duration::from_millis(1000));
                             // Try to respawn
                             match spawn_gateway() {
                                 Ok(process) => {
@@ -1574,39 +1586,60 @@ async fn gateway_health() -> Result<bool, String> {
 
 /// Restart the OpenClaw Gateway.
 /// Kills existing gateway + node host, then respawns both.
+/// Pauses the health monitor during the restart to prevent race conditions.
 /// Call this after writing openclaw.json to ensure the gateway reads fresh config.
 #[tauri::command]
 async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, String> {
     log_verbose("[Naia] restart_gateway requested");
-    let guard_result = state.gateway.lock();
-    if let Ok(mut guard) = guard_result {
-        // Kill existing processes
-        if let Some(mut old) = guard.take() {
-            if let Some(ref mut nh) = old.node_host {
-                let _ = nh.kill();
+
+    // Pause health monitor during restart
+    state
+        .restarting_gateway
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let result = (|| -> Result<bool, String> {
+        let guard_result = state.gateway.lock();
+        if let Ok(mut guard) = guard_result {
+            // Kill existing processes
+            if let Some(mut old) = guard.take() {
+                if let Some(ref mut nh) = old.node_host {
+                    let _ = nh.kill();
+                }
+                if old.we_spawned {
+                    let _ = old.child.kill();
+                }
             }
-            if old.we_spawned {
-                let _ = old.child.kill();
+
+            // Kill processes inside WSL (they survive wsl.exe death)
+            platform::kill_wsl_openclaw_processes();
+
+            // Give processes time to release the port
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+
+            // Respawn
+            match spawn_gateway() {
+                Ok(process) => {
+                    let managed = process.we_spawned;
+                    *guard = Some(process);
+                    log_both(&format!("[Naia] Gateway restarted (managed={})", managed));
+                    Ok(true)
+                }
+                Err(e) => {
+                    log_both(&format!("[Naia] Gateway restart failed: {}", e));
+                    Err(e)
+                }
             }
-            // Give processes time to exit cleanly
-            std::thread::sleep(std::time::Duration::from_millis(500));
+        } else {
+            Err("Failed to acquire gateway lock".to_string())
         }
-        // Respawn
-        match spawn_gateway() {
-            Ok(process) => {
-                let managed = process.we_spawned;
-                *guard = Some(process);
-                log_both(&format!("[Naia] Gateway restarted (managed={})", managed));
-                Ok(true)
-            }
-            Err(e) => {
-                log_both(&format!("[Naia] Gateway restart failed: {}", e));
-                Err(e)
-            }
-        }
-    } else {
-        Err("Failed to acquire gateway lock".to_string())
-    }
+    })();
+
+    // Resume health monitor
+    state
+        .restarting_gateway
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+
+    result
 }
 
 /// Generate a random state token for OAuth deep link CSRF protection.
@@ -2415,6 +2448,7 @@ pub fn run() {
             agent: Mutex::new(None),
             gateway: Mutex::new(None),
             health_monitor_shutdown: Mutex::new(None),
+            restarting_gateway: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             oauth_state: Arc::new(Mutex::new(None)),
             gemini_live: gemini_live::new_shared_handle(),
         })
@@ -2524,7 +2558,9 @@ pub fn run() {
                     let monitor_pos = monitor.position();
                     let scale = monitor.scale_factor();
                     let width = (380.0 * scale) as u32;
-                    let height = monitor_size.height;
+                    // Reserve space for the OS taskbar (typically 48px scaled).
+                    let taskbar_reserve = (48.0 * scale) as u32;
+                    let height = monitor_size.height.saturating_sub(taskbar_reserve);
                     let x = monitor_pos.x + (monitor_size.width as i32 - width as i32);
                     let y = monitor_pos.y;
                     let _ = window.set_size(PhysicalSize::new(width, height));
@@ -2661,6 +2697,9 @@ pub fn run() {
                             }
                         }
                     }
+
+                    // Kill processes inside WSL (they survive wsl.exe death)
+                    platform::kill_wsl_openclaw_processes();
                     log_both("[Naia] === Session ended ===");
                 }
                 _ => {}

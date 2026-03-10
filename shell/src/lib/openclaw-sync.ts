@@ -79,13 +79,40 @@ export async function syncToOpenClaw(
 /**
  * Restart the OpenClaw gateway so it reads fresh config from openclaw.json.
  * Best-effort — errors are logged but never block the UI.
+ *
+ * Debounced: multiple calls within 2s collapse to a single restart.
+ * If a restart is already in flight, returns the existing promise.
  */
-export async function restartGateway(): Promise<void> {
-	try {
-		await invoke("restart_gateway");
-	} catch (err) {
-		Logger.warn("openclaw-sync", "Failed to restart gateway", {
-			error: String(err),
-		});
-	}
+let restartTimer: ReturnType<typeof setTimeout> | null = null;
+let restartResolvers: Array<() => void> = [];
+let inflightRestart: Promise<void> | null = null;
+
+export function restartGateway(): Promise<void> {
+	// If invoke is already in-flight, return the existing promise
+	if (inflightRestart) return inflightRestart;
+
+	// Debounce: reset timer on each call, all callers share one promise
+	if (restartTimer) clearTimeout(restartTimer);
+
+	const promise = new Promise<void>((resolve) => {
+		restartResolvers.push(resolve);
+		restartTimer = setTimeout(async () => {
+			restartTimer = null;
+			const resolvers = restartResolvers.splice(0);
+			inflightRestart = (async () => {
+				try {
+					await invoke("restart_gateway");
+				} catch (err) {
+					Logger.warn("openclaw-sync", "Failed to restart gateway", {
+						error: String(err),
+					});
+				} finally {
+					inflightRestart = null;
+					for (const r of resolvers) r();
+				}
+			})();
+		}, 2000);
+	});
+
+	return promise;
 }
