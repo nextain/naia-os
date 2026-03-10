@@ -27,7 +27,14 @@ latest.json을 Release 에셋에 업로드
 - `shell/src-tauri/src/lib.rs` — 조건부 플러그인 등록 (`FLATPAK=1` → updater 생략)
 - `shell/src-tauri/tauri.conf.json` — 업데이터 엔드포인트, 공개키, `createUpdaterArtifacts: true`
 - `.github/workflows/release-app.yml` — 서명, latest.json 생성, itch.io push
-- `releases/v*.yaml` — 중앙 다국어 changelog (CI, 웹, 인앱에서 사용)
+- `releases/v*.yaml` — 중앙 다국어 changelog, 선택적 `issue` 필드 포함 (CI, 웹, 인앱에서 사용)
+- `CHANGELOG.md` / `CHANGELOG.ko.md` — releases/*.yaml에서 생성된 언어별 변경 이력, GitHub 이슈 링크 포함
+
+### Changelog 흐름
+`releases/v*.yaml`이 changelog 데이터의 단일 소스. 3곳에서 소비:
+1. **CI** (`.github/workflows/release-app.yml`) — GitHub Release에 이슈 링크 포함 릴리즈 노트 렌더링
+2. **웹** (`naia.nextain.io/download`) — 최근 2개 릴리즈 표시, 이슈 링크 포함; "전체 보기" → GitHub의 언어별 CHANGELOG로 이동
+3. **CHANGELOG.md** / **CHANGELOG.ko.md** — 이슈 링크 포함 전체 이력 Markdown, 웹에서 링크
 
 ### 서명
 `tauri-plugin-updater`를 통한 Ed25519 서명. 키는 비밀번호를 반드시 설정해야 합니다 (빈 비밀번호는 GitHub Actions에서 문제 발생). 필요 시크릿: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. 키 백업: `~/.tauri/naia.key` + `my-envs/tauri-signing.key`.
