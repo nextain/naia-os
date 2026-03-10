@@ -539,27 +539,36 @@ voice_architecture:
   stt_status: |
     Two STT modes exist:
     1. Live voice providers (Gemini/OpenAI) use built-in speech recognition (inputTranscription)
-    2. Pipeline voice mode uses Vosk STT (tauri-plugin-stt, offline, for LLM models)
+    2. Pipeline voice mode uses offline STT (Vosk or Whisper) for LLM models
     Legacy STT (stt.ts, audio-recorder.ts) and the sttEnabled config toggle have been removed.
-    Vosk Korean has only one model (small, 82MB, WER 28.1%) — Whisper support planned.
+    Unified model catalog: stt_models.rs (Rust) serves Vosk + Whisper models.
+    Settings UI: STT provider selector + model list with size/WER/download/delete.
+    First install: no sttProvider set → voice button shows popup → navigate to settings.
+    Config fields: sttProvider ("vosk"|"whisper"), sttModel (model_id string).
 
-  stt_whisper_plan:
-    description: "Add whisper.cpp as alternative offline STT engine with model download UI"
-    status: "planned"
-    approach: |
-      - whisper.cpp via whisper-rs Rust binding (Tauri plugin)
-      - Same event interface as Vosk (plugin:stt:result, plugin:stt:stateChange)
-      - Settings UI: engine selector, model list with size/WER, download button + progress
-      - Models stored in ~/.naia/models/stt/
-      - Half-duplex: record → transcribe → emit (0.5-2s latency)
-    whisper_models:
-      - {name: "tiny", size: "75MB", wer_est: "~40%", note: "fast, low quality"}
-      - {name: "base", size: "142MB", wer_est: "~30%", note: "similar to Vosk"}
-      - {name: "small", size: "466MB", wer_est: "~20%", note: "noticeable improvement"}
-      - {name: "medium", size: "1.5GB", wer_est: "~12%", note: "recommended"}
-      - {name: "large-v3", size: "3GB", wer_est: "~8%", note: "best quality"}
+  stt_model_management:
+    description: "Unified STT model catalog with download/delete via Tauri commands"
+    status: "implemented (Vosk ready, Whisper download-only — backend pending)"
+    files:
+      - "shell/src-tauri/src/stt_models.rs — model catalog, download, delete, migration"
+      - "shell/src-tauri/src/lib.rs — list_stt_models, download_stt_model, delete_stt_model commands"
+      - "shell/src/components/SettingsTab.tsx — model management UI"
+      - "shell/src/components/ChatPanel.tsx — voice button guard (sttProvider check)"
+    models_dir: "~/.local/share/com.naia.shell/stt-models/"
     vosk_models:
-      - {name: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%", note: "only Korean model"}
+      - {id: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%", ready: true}
+      - {id: "vosk-model-small-en-us-0.15", size: "40MB", wer: "9.85%", ready: true}
+      - {id: "vosk-model-small-ja-0.22", size: "48MB", wer: "—", ready: true}
+    whisper_models:
+      - {id: "whisper-tiny", size: "75MB", wer: "~40%", ready: false}
+      - {id: "whisper-base", size: "142MB", wer: "~30%", ready: false}
+      - {id: "whisper-small", size: "466MB", wer: "~20%", ready: false}
+      - {id: "whisper-medium", size: "1.5GB", wer: "~12%", ready: false}
+      - {id: "whisper-large-v3", size: "3GB", wer: "~8%", ready: false}
+    next_steps: |
+      - Implement whisper-rs Rust backend (whisper.cpp binding)
+      - Same event interface as Vosk (plugin:stt:result, plugin:stt:stateChange)
+      - Set ready=true for Whisper models once backend is integrated
 
   voice_gender_defaults: |
     Default voice is automatically set based on VRM avatar gender:

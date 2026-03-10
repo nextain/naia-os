@@ -589,6 +589,19 @@ const THEMES: { id: ThemeId; label: string; preview: string }[] = [
 	{ id: "cloud", label: "Cloud", preview: "#f1f5f9" },
 ];
 
+interface SttModelInfo {
+	engine: string;
+	modelId: string;
+	modelName: string;
+	language: string;
+	sizeMb: number;
+	wer: string;
+	downloadUrl: string;
+	description: string;
+	downloaded: boolean;
+	ready: boolean;
+}
+
 export function SettingsTab() {
 	const existing = loadConfig();
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
@@ -640,6 +653,11 @@ export function SettingsTab() {
 			 existing?.ttsEngine === "google" ? "google" : "edge"),
 	);
 	const [sttProvider, setSttProvider] = useState<SttProviderId>(existing?.sttProvider ?? "vosk");
+	const [sttModel, setSttModel] = useState(existing?.sttModel ?? "");
+	const [sttModels, setSttModels] = useState<SttModelInfo[]>([]);
+	const [sttDownloading, setSttDownloading] = useState<string | null>(null);
+	const [sttDownloadProgress, setSttDownloadProgress] = useState(0);
+
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [userName, setUserName] = useState(existing?.userName ?? "");
@@ -683,6 +701,34 @@ export function SettingsTab() {
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Load STT model catalog on mount
+	useEffect(() => {
+		invoke<SttModelInfo[]>("list_stt_models")
+			.then(setSttModels)
+			.catch((e) => Logger.warn("Settings", "Failed to load STT models", { error: String(e) }));
+	}, []);
+
+	// Listen for download progress events
+	useEffect(() => {
+		let unlisten: (() => void) | null = null;
+		listen<{ status: string; model: string; progress: number }>(
+			"stt://download-progress",
+			(event) => {
+				const { status, progress } = event.payload;
+				setSttDownloadProgress(Math.min(progress, 100));
+				if (status === "complete") {
+					setSttDownloading(null);
+					setSttDownloadProgress(0);
+					// Refresh catalog
+					invoke<SttModelInfo[]>("list_stt_models")
+						.then(setSttModels)
+						.catch(() => {});
+				}
+			},
+		).then((fn) => { unlisten = fn; });
+		return () => { unlisten?.(); };
+	}, []);
 
 	useEffect(() => {
 		const modelPrefixPattern =
@@ -1441,6 +1487,33 @@ export function SettingsTab() {
 		window.location.reload();
 	}
 
+	async function handleSttModelDownload(modelId: string) {
+		setSttDownloading(modelId);
+		setSttDownloadProgress(0);
+		try {
+			await invoke("download_stt_model", { modelId });
+		} catch (e) {
+			Logger.warn("Settings", "STT model download failed", { error: String(e) });
+			setSttDownloading(null);
+			setSttDownloadProgress(0);
+		}
+	}
+
+	async function handleSttModelDelete(modelId: string) {
+		try {
+			await invoke("delete_stt_model", { modelId });
+			// Refresh catalog
+			const models = await invoke<SttModelInfo[]>("list_stt_models");
+			setSttModels(models);
+			// Clear selection if deleted model was selected
+			if (sttModel === modelId) {
+				setSttModel("");
+			}
+		} catch (e) {
+			Logger.warn("Settings", "STT model delete failed", { error: String(e) });
+		}
+	}
+
 	function handleSyncDialogApply() {
 		if (!syncDialogOnlineConfig) return;
 		const current = loadConfig();
@@ -1456,6 +1529,7 @@ export function SettingsTab() {
 		if (merged.locale) setLocaleState(merged.locale);
 		if (merged.theme) setTheme(merged.theme);
 		if (merged.sttProvider) setSttProvider(merged.sttProvider);
+		if (merged.sttModel) setSttModel(merged.sttModel);
 		if (merged.ttsEnabled !== undefined) setTtsEnabled(merged.ttsEnabled);
 		if (merged.ttsVoice) setTtsVoice(merged.ttsVoice);
 		if (merged.ttsProvider) setTtsProvider(merged.ttsProvider);
@@ -1498,6 +1572,7 @@ export function SettingsTab() {
 			customBgs: customBgs.length > 0 ? customBgs : undefined,
 			backgroundImage: backgroundImage || undefined,
 			sttProvider,
+			sttModel: sttModel || undefined,
 			ttsEnabled,
 			ttsVoice,
 			ttsProvider,
@@ -2335,14 +2410,91 @@ export function SettingsTab() {
 						<label>{t("settings.sttProvider")}</label>
 						<select
 							value={sttProvider}
-							onChange={(e) => setSttProvider(e.target.value as SttProviderId)}
+							onChange={(e) => {
+								const next = e.target.value as SttProviderId;
+								setSttProvider(next);
+								// Clear model selection when switching engine
+								setSttModel("");
+							}}
 						>
 							<option value="vosk">{t("settings.sttVosk")}</option>
-							<option value="whisper" disabled>{t("settings.sttWhisper")}</option>
+							<option value="whisper">{t("settings.sttWhisper")}</option>
 							<option value="google" disabled>{t("settings.sttGoogle")}</option>
 							<option value="elevenlabs" disabled>{t("settings.sttElevenlabs")}</option>
 						</select>
 					</div>
+
+					{/* STT Model Management */}
+					{(sttProvider === "vosk" || sttProvider === "whisper") && (
+						<>
+							<div className="settings-field">
+								<label>{t("settings.sttModelSection")}</label>
+								{sttModels
+									.filter((m) => m.engine === sttProvider)
+									.map((m) => (
+										<div
+											key={m.modelId}
+											className="stt-model-row"
+											style={{
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "space-between",
+												gap: "8px",
+												padding: "6px 0",
+												borderBottom: "1px solid var(--border-color, #333)",
+											}}
+										>
+											<div style={{ flex: 1, minWidth: 0 }}>
+												<div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+													<input
+														type="radio"
+														name="stt-model"
+														value={m.modelId}
+														checked={sttModel === m.modelId}
+														disabled={!m.downloaded || !m.ready}
+														onChange={() => setSttModel(m.modelId)}
+													/>
+													<strong style={{ fontSize: "0.9em" }}>{m.modelName}</strong>
+													{m.downloaded && <span style={{ color: "var(--success-color, #4caf50)", fontSize: "0.75em" }}>✓</span>}
+												</div>
+												<div style={{ fontSize: "0.75em", opacity: 0.7, marginLeft: "22px" }}>
+													{m.language} · {m.sizeMb}MB · WER {m.wer}
+													{m.description && ` · ${m.description}`}
+												</div>
+											</div>
+											<div style={{ flexShrink: 0 }}>
+												{!m.downloaded && m.ready && sttDownloading !== m.modelId && (
+													<button
+														type="button"
+														style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer" }}
+														onClick={() => handleSttModelDownload(m.modelId)}
+													>
+														{t("settings.sttModelDownload")}
+													</button>
+												)}
+												{!m.downloaded && !m.ready && (
+													<span style={{ fontSize: "0.75em", opacity: 0.5 }}>{t("settings.sttModelNotReady")}</span>
+												)}
+												{sttDownloading === m.modelId && (
+													<span style={{ fontSize: "0.8em" }}>
+														{sttDownloadProgress}%
+													</span>
+												)}
+												{m.downloaded && (
+													<button
+														type="button"
+														style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer", color: "var(--error-color, #f44)" }}
+														onClick={() => handleSttModelDelete(m.modelId)}
+													>
+														{t("settings.sttModelDelete")}
+													</button>
+												)}
+											</div>
+										</div>
+									))}
+							</div>
+						</>
+					)}
 
 					{/* TTS */}
 					<div className="settings-field settings-toggle-row">

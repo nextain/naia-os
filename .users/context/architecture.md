@@ -520,7 +520,15 @@ User speaks → Vosk STT (offline) → recognized text
 
 Two STT modes exist:
 1. **Live voice providers** (Gemini/OpenAI): Built-in speech recognition (`inputTranscription`)
-2. **Pipeline voice mode**: Vosk STT (`tauri-plugin-stt`, offline, for LLM models)
+2. **Pipeline voice mode**: Offline STT (Vosk or Whisper) for LLM models
+
+Unified model catalog in `stt_models.rs` serves both Vosk and Whisper models.
+Settings UI provides STT provider selector + model list with size/WER, download/delete buttons.
+First install: no `sttProvider` set → voice button shows popup → navigate to settings.
+Config fields: `sttProvider` ("vosk"|"whisper"), `sttModel` (model_id string).
+
+**Vosk models** (ready): ko-KR (82MB), en-US (40MB), ja-JP (48MB)
+**Whisper models** (download only, backend pending): tiny→large-v3 (75MB→3GB)
 
 Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
 

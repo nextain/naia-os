@@ -109,6 +109,7 @@ export interface AppConfig {
 	customVrms?: string[];
 	customBgs?: string[];
 	sttProvider?: SttProviderId;
+	sttModel?: string;
 	ttsEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;

@@ -1,0 +1,314 @@
+//! STT model catalog and download management.
+//!
+//! Provides a unified catalog of offline STT models (Vosk, Whisper)
+//! with download/delete/status commands exposed to the frontend.
+
+use log::info;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
+use tauri::{AppHandle, Emitter, Manager};
+
+/// Base directory name for STT models under app_data_dir
+const STT_MODELS_DIR: &str = "stt-models";
+
+// ── Model catalog ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SttModelInfo {
+    pub engine: String,       // "vosk" | "whisper"
+    pub model_id: String,     // unique key, e.g. "vosk-small-ko" or "whisper-medium"
+    pub model_name: String,   // display name
+    pub language: String,     // "ko-KR", "multilingual", etc.
+    pub size_mb: u32,         // download size in MB
+    pub wer: String,          // e.g. "28.1%", "~12%"
+    pub download_url: String, // direct download URL
+    pub description: String,  // short note
+    pub downloaded: bool,     // filled at runtime
+    pub ready: bool,          // engine backend available (false for whisper until implemented)
+}
+
+/// Returns the full model catalog with download status.
+pub fn get_model_catalog(app: &AppHandle) -> Vec<SttModelInfo> {
+    let models_dir = get_stt_models_dir(app);
+    let mut catalog = build_catalog();
+    for model in &mut catalog {
+        let model_path = models_dir.join(&model.model_id);
+        model.downloaded = model_path.exists();
+    }
+    catalog
+}
+
+fn build_catalog() -> Vec<SttModelInfo> {
+    vec![
+        // ── Vosk Korean ──
+        SttModelInfo {
+            engine: "vosk".into(),
+            model_id: "vosk-model-small-ko-0.22".into(),
+            model_name: "Vosk Korean (small)".into(),
+            language: "ko-KR".into(),
+            size_mb: 82,
+            wer: "28.1%".into(),
+            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-ko-0.22.zip".into(),
+            description: "Lightweight, fast. Only Korean Vosk model available.".into(),
+            downloaded: false,
+            ready: true,
+        },
+        // ── Vosk English ──
+        SttModelInfo {
+            engine: "vosk".into(),
+            model_id: "vosk-model-small-en-us-0.15".into(),
+            model_name: "Vosk English (small)".into(),
+            language: "en-US".into(),
+            size_mb: 40,
+            wer: "9.85%".into(),
+            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip".into(),
+            description: "Lightweight English model.".into(),
+            downloaded: false,
+            ready: true,
+        },
+        // ── Vosk Japanese ──
+        SttModelInfo {
+            engine: "vosk".into(),
+            model_id: "vosk-model-small-ja-0.22".into(),
+            model_name: "Vosk Japanese (small)".into(),
+            language: "ja-JP".into(),
+            size_mb: 48,
+            wer: "—".into(),
+            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip".into(),
+            description: "Lightweight Japanese model.".into(),
+            downloaded: false,
+            ready: true,
+        },
+        // ── Whisper models (ready=false until backend implemented) ──
+        SttModelInfo {
+            engine: "whisper".into(),
+            model_id: "whisper-tiny".into(),
+            model_name: "Whisper Tiny".into(),
+            language: "multilingual".into(),
+            size_mb: 75,
+            wer: "~40%".into(),
+            download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin".into(),
+            description: "Fast, low quality. Not recommended for Korean.".into(),
+            downloaded: false,
+            ready: false,
+        },
+        SttModelInfo {
+            engine: "whisper".into(),
+            model_id: "whisper-base".into(),
+            model_name: "Whisper Base".into(),
+            language: "multilingual".into(),
+            size_mb: 142,
+            wer: "~30%".into(),
+            download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin".into(),
+            description: "Similar quality to Vosk small.".into(),
+            downloaded: false,
+            ready: false,
+        },
+        SttModelInfo {
+            engine: "whisper".into(),
+            model_id: "whisper-small".into(),
+            model_name: "Whisper Small".into(),
+            language: "multilingual".into(),
+            size_mb: 466,
+            wer: "~20%".into(),
+            download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin".into(),
+            description: "Noticeable improvement over Vosk.".into(),
+            downloaded: false,
+            ready: false,
+        },
+        SttModelInfo {
+            engine: "whisper".into(),
+            model_id: "whisper-medium".into(),
+            model_name: "Whisper Medium".into(),
+            language: "multilingual".into(),
+            size_mb: 1500,
+            wer: "~12%".into(),
+            download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin".into(),
+            description: "Recommended. Good accuracy for Korean.".into(),
+            downloaded: false,
+            ready: false,
+        },
+        SttModelInfo {
+            engine: "whisper".into(),
+            model_id: "whisper-large-v3".into(),
+            model_name: "Whisper Large v3".into(),
+            language: "multilingual".into(),
+            size_mb: 3000,
+            wer: "~8%".into(),
+            download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin".into(),
+            description: "Best quality. Large download.".into(),
+            downloaded: false,
+            ready: false,
+        },
+    ]
+}
+
+// ── File system helpers ────────────────────────────────────────────
+
+fn get_stt_models_dir(app: &AppHandle) -> PathBuf {
+    let base = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    let dir = base.join(STT_MODELS_DIR);
+    let _ = fs::create_dir_all(&dir);
+    dir
+}
+
+/// Check if old vosk-models dir has models and migrate them.
+pub fn migrate_legacy_vosk_models(app: &AppHandle) {
+    let base = match app.path().app_data_dir() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let legacy_dir = base.join("vosk-models");
+    let new_dir = base.join(STT_MODELS_DIR);
+    let _ = fs::create_dir_all(&new_dir);
+
+    if legacy_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&legacy_dir) {
+            for entry in entries.flatten() {
+                if entry.metadata().map(|m| m.is_dir()).unwrap_or(false) {
+                    let name = entry.file_name();
+                    let dest = new_dir.join(&name);
+                    if !dest.exists() {
+                        // Move instead of copy
+                        if fs::rename(entry.path(), &dest).is_ok() {
+                            info!("[stt-models] Migrated legacy model: {:?}", name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Download ───────────────────────────────────────────────────────
+
+/// Download a model by model_id. Emits progress events.
+pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    let catalog = build_catalog();
+    let model = catalog
+        .iter()
+        .find(|m| m.model_id == model_id)
+        .ok_or_else(|| format!("Unknown model: {model_id}"))?
+        .clone();
+
+    let models_dir = get_stt_models_dir(&app);
+    let model_path = models_dir.join(&model.model_id);
+
+    if model_path.exists() {
+        return Ok(()); // Already downloaded
+    }
+
+    info!(
+        "[stt-models] Downloading {} ({} MB) from {}",
+        model.model_id, model.size_mb, model.download_url
+    );
+
+    // Emit start
+    let _ = app.emit(
+        "stt://download-progress",
+        serde_json::json!({
+            "status": "downloading",
+            "model": model.model_id,
+            "progress": 0,
+        }),
+    );
+
+    // Download
+    let response = reqwest::get(&model.download_url)
+        .await
+        .map_err(|e| format!("Download failed: {e}"))?;
+
+    let bytes = response.bytes().await.map_err(|e| format!("Read failed: {e}"))?.to_vec();
+
+    let _ = app.emit(
+        "stt://download-progress",
+        serde_json::json!({
+            "status": "downloading",
+            "model": model.model_id,
+            "progress": 50,
+        }),
+    );
+
+    // Process based on file type
+    if model.download_url.ends_with(".zip") {
+        // Vosk models come as zip — extract
+        let _ = app.emit(
+            "stt://download-progress",
+            serde_json::json!({
+                "status": "extracting",
+                "model": model.model_id,
+                "progress": 70,
+            }),
+        );
+
+        let cursor = std::io::Cursor::new(bytes);
+        let mut archive =
+            zip::ZipArchive::new(cursor).map_err(|e| format!("Zip open failed: {e}"))?;
+
+        // Vosk zips contain a top-level directory (the model name)
+        // Extract to models_dir, the zip's top-level dir becomes the model dir
+        let _ = fs::create_dir_all(&models_dir);
+        for i in 0..archive.len() {
+            let mut file = archive
+                .by_index(i)
+                .map_err(|e| format!("Zip entry failed: {e}"))?;
+            let outpath = models_dir.join(file.mangled_name());
+
+            if file.name().ends_with('/') {
+                let _ = fs::create_dir_all(&outpath);
+            } else {
+                if let Some(p) = outpath.parent() {
+                    let _ = fs::create_dir_all(p);
+                }
+                let mut outfile =
+                    fs::File::create(&outpath).map_err(|e| format!("File create failed: {e}"))?;
+                std::io::copy(&mut file, &mut outfile)
+                    .map_err(|e| format!("File write failed: {e}"))?;
+            }
+        }
+    } else {
+        // Whisper models are single .bin files — save directly
+        let _ = fs::create_dir_all(&model_path);
+        let bin_path = model_path.join("model.bin");
+        let mut file =
+            fs::File::create(&bin_path).map_err(|e| format!("File create failed: {e}"))?;
+        file.write_all(&bytes)
+            .map_err(|e| format!("File write failed: {e}"))?;
+    }
+
+    let _ = app.emit(
+        "stt://download-progress",
+        serde_json::json!({
+            "status": "complete",
+            "model": model.model_id,
+            "progress": 100,
+        }),
+    );
+
+    info!("[stt-models] Download complete: {}", model.model_id);
+    Ok(())
+}
+
+/// Delete a downloaded model.
+pub fn delete_model(app: &AppHandle, model_id: &str) -> Result<(), String> {
+    // Validate no path traversal
+    if model_id.contains("..") || model_id.contains('/') || model_id.contains('\\') {
+        return Err("Invalid model ID".into());
+    }
+
+    let models_dir = get_stt_models_dir(app);
+    let model_path = models_dir.join(model_id);
+
+    if model_path.exists() {
+        fs::remove_dir_all(&model_path).map_err(|e| format!("Delete failed: {e}"))?;
+        info!("[stt-models] Deleted model: {}", model_id);
+    }
+
+    Ok(())
+}

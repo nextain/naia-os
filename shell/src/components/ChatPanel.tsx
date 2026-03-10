@@ -959,6 +959,15 @@ export function ChatPanel() {
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
+				// Guard: STT provider must be configured
+				if (!config.sttProvider) {
+					setVoiceMode("off");
+					if (globalThis.confirm(t("voice.setupRequired") + "\n\n" + t("voice.goToSettings") + "?")) {
+						setActiveTab("settings");
+					}
+					return;
+				}
+
 				const queue = new AudioQueue({
 					onPlaybackStart: () => useAvatarStore.getState().setSpeaking(true),
 					onPlaybackEnd: () => useAvatarStore.getState().setSpeaking(false),

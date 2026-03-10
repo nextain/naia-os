@@ -338,6 +338,7 @@ test.describe("Pipeline Voice E2E", () => {
 				model: "gemini-2.5-flash", // LLM model, not omni
 				apiKey: API_KEY,
 				enableTools: false,
+				sttProvider: "vosk",
 				ttsProvider: "edge",
 				locale: "ko",
 				onboardingComplete: true,

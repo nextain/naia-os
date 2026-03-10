@@ -1,6 +1,7 @@
 mod audit;
 mod gemini_live;
 mod memory;
+mod stt_models;
 
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
@@ -1244,6 +1245,23 @@ fn frontend_log(level: String, message: String) {
     }
 }
 
+// ── STT model management commands ──────────────────────────────────
+
+#[tauri::command]
+fn list_stt_models(app: AppHandle) -> Vec<stt_models::SttModelInfo> {
+    stt_models::get_model_catalog(&app)
+}
+
+#[tauri::command]
+async fn download_stt_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    stt_models::download_model(app, model_id).await
+}
+
+#[tauri::command]
+fn delete_stt_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    stt_models::delete_model(&app, &model_id)
+}
+
 #[tauri::command]
 async fn send_to_agent_command(
     app: AppHandle,
@@ -2239,6 +2257,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_skills,
             frontend_log,
+            list_stt_models,
+            download_stt_model,
+            delete_stt_model,
             send_to_agent_command,
             cancel_stream,
             reset_window_state,
@@ -2292,6 +2313,9 @@ pub fn run() {
                 .map_err(|e| -> Box<dyn std::error::Error> { format!("Failed to init memory DB: {}", e).into() })?;
             app.manage(MemoryState { db: memory_db });
             log_verbose(&format!("[Naia] Memory DB initialized at: {}", memory_db_path.display()));
+
+            // Migrate legacy vosk-models → stt-models
+            stt_models::migrate_legacy_vosk_models(&app_handle);
 
             // Register deep-link handler for naia:// URI scheme
             #[cfg(desktop)]
