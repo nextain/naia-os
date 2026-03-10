@@ -110,17 +110,43 @@ pub(crate) fn try_platform_gateway_spawn() -> super::GatewaySpawnResult {
         crate::log_both("[Naia] Windows Tier 2 — spawning Gateway in WSL (NaiaEnv)");
         match super::wsl::spawn_gateway_in_wsl(DISTRO_NAME, 18789) {
             Ok(child) => {
-                // Wait for Gateway to start before spawning Node Host
-                std::thread::sleep(std::time::Duration::from_secs(3));
-                let node_host = match super::wsl::spawn_node_host_in_wsl(DISTRO_NAME, 18789) {
-                    Ok(nh) => {
-                        crate::log_both("[Naia] Node Host spawned in WSL (NaiaEnv)");
-                        Some(nh)
+                // Wait for Gateway to become healthy (max 60s, same as Linux path)
+                crate::log_verbose("[Naia] Waiting for WSL Gateway health check (max 60s)...");
+                let mut gateway_healthy = false;
+                for i in 0..60 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    if crate::check_gateway_health_sync() {
+                        crate::log_both(&format!(
+                            "[Naia] WSL Gateway healthy after {}s",
+                            i + 1
+                        ));
+                        gateway_healthy = true;
+                        break;
                     }
-                    Err(e) => {
-                        crate::log_both(&format!("[Naia] Node Host spawn failed: {}", e));
-                        None
+                    if (i + 1) % 10 == 0 {
+                        crate::log_verbose(&format!(
+                            "[Naia] Still waiting for WSL Gateway... ({}s elapsed)",
+                            i + 1
+                        ));
                     }
+                }
+                // Spawn Node Host only after Gateway is healthy
+                let node_host = if gateway_healthy {
+                    match super::wsl::spawn_node_host_in_wsl(DISTRO_NAME, 18789) {
+                        Ok(nh) => {
+                            crate::log_both("[Naia] Node Host spawned in WSL (NaiaEnv)");
+                            // Give Node Host time to connect
+                            std::thread::sleep(std::time::Duration::from_secs(2));
+                            Some(nh)
+                        }
+                        Err(e) => {
+                            crate::log_both(&format!("[Naia] Node Host spawn failed: {}", e));
+                            None
+                        }
+                    }
+                } else {
+                    crate::log_both("[Naia] WSL Gateway not healthy after 60s — skipping Node Host");
+                    None
                 };
                 super::GatewaySpawnResult::Spawned { child, node_host }
             }
