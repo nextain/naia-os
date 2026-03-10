@@ -73,6 +73,7 @@ async def voice_ws(websocket: WebSocket):
 
     await websocket.accept()
     active_session = websocket
+    session_alive = True
     logger.info("Client connected")
 
     try:
@@ -97,36 +98,62 @@ async def voice_ws(websocket: WebSocket):
         await websocket.send_text(json.dumps({"type": protocol.SESSION_READY}))
         logger.info("Session ready")
 
-        # 3. Message loop
+        # 3. Message loop with keepalive
         async def send_fn(data: str):
-            await websocket.send_text(data)
+            if not session_alive:
+                return
+            try:
+                await websocket.send_text(data)
+            except Exception:
+                pass  # Client already disconnected
 
-        while True:
-            raw = await websocket.receive_text()
-            msg = json.loads(raw)
-            msg_type = msg.get("type")
+        # Keepalive task — prevents RunPod proxy from closing idle connections
+        async def keepalive_loop():
+            while session_alive:
+                await asyncio.sleep(10)
+                if session_alive:
+                    try:
+                        await websocket.send_text(json.dumps({
+                            "type": "status",
+                            "message": "keepalive",
+                        }))
+                    except Exception:
+                        break
 
-            if msg_type == protocol.AUDIO_APPEND:
-                data = msg.get("data", "")
-                if data:
-                    await model_backend.process_audio(data, send_fn)
+        keepalive_task = asyncio.create_task(keepalive_loop())
 
-            elif msg_type == protocol.TEXT_SEND:
-                text = msg.get("text", "")
-                if text:
-                    await model_backend.process_text(text, send_fn)
+        try:
+            while True:
+                raw = await websocket.receive_text()
+                msg = json.loads(raw)
+                msg_type = msg.get("type")
 
-            else:
-                logger.warning("Unknown message type: %s", msg_type)
+                if msg_type == protocol.AUDIO_APPEND:
+                    data = msg.get("data", "")
+                    if data:
+                        await model_backend.process_audio(data, send_fn)
+
+                elif msg_type == protocol.TEXT_SEND:
+                    text = msg.get("text", "")
+                    if text:
+                        await model_backend.process_text(text, send_fn)
+
+                else:
+                    logger.warning("Unknown message type: %s", msg_type)
+        finally:
+            keepalive_task.cancel()
 
     except WebSocketDisconnect:
         logger.info("Client disconnected")
     except asyncio.TimeoutError:
         logger.warning("Client did not send session.config within timeout")
-        await websocket.send_text(json.dumps({
-            "type": protocol.ERROR,
-            "message": "Timeout waiting for session.config",
-        }))
+        try:
+            await websocket.send_text(json.dumps({
+                "type": protocol.ERROR,
+                "message": "Timeout waiting for session.config",
+            }))
+        except Exception:
+            pass
     except Exception as e:
         logger.error("Session error: %s", e)
         try:
@@ -137,6 +164,7 @@ async def voice_ws(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        session_alive = False
         active_session = None
         if model_backend:
             model_backend.cleanup()

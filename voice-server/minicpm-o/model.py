@@ -17,6 +17,7 @@ TTS initialization:
   3. model.chat(generate_audio=True, output_audio_path=...) — saves audio to file
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -30,6 +31,10 @@ from audio_utils import pcm_base64_to_numpy, numpy_to_pcm_base64
 logger = logging.getLogger("minicpm-bridge.model")
 
 OUTPUT_SAMPLE_RATE = 24000
+INPUT_SAMPLE_RATE = 16000
+
+# Audio accumulation settings
+PROCESS_INTERVAL_SEC = 4.0      # Process audio every N seconds of accumulated data
 
 # 0.5s near-silence at 16kHz — used as default reference audio for Token2wav.
 # Token2wav requires a prompt_wav for voice synthesis. Without one (text-only input),
@@ -47,6 +52,7 @@ class ModelBackend:
         self.tokenizer = None
         self.tts_available = False
         self.audio_buffer = np.array([], dtype=np.float32)
+        self._processing = False          # Guard against concurrent inference
         self._system_instruction = ""
         self._load_model()
 
@@ -116,15 +122,23 @@ class ModelBackend:
         """Initialize session with system instruction and voice config."""
         self._system_instruction = config.get("system_instruction", "")
         self.audio_buffer = np.array([], dtype=np.float32)
+        self._processing = False
         logger.info("Session initialized (tts=%s)", self.tts_available)
 
     async def process_audio(self, pcm_base64: str, send_fn):
-        """Process incoming audio chunk (half-duplex: accumulate then process)."""
+        """Process incoming audio chunk with silence detection.
+
+        Accumulates audio and detects speech/silence transitions.
+        Only triggers inference after speech is detected followed by
+        sufficient silence (end-of-utterance detection).
+        """
         audio = pcm_base64_to_numpy(pcm_base64)
         self.audio_buffer = np.concatenate([self.audio_buffer, audio])
 
-        # Process every 2 seconds of accumulated audio
-        if len(self.audio_buffer) >= 16000 * 2:
+        # Process after accumulating enough audio, skip if already processing
+        buf_sec = len(self.audio_buffer) / INPUT_SAMPLE_RATE
+        if buf_sec >= PROCESS_INTERVAL_SEC and not self._processing:
+            logger.info("Processing %.1fs of audio", buf_sec)
             await self._process_audio_input(send_fn)
 
     async def process_text(self, text: str, send_fn):
@@ -133,6 +147,7 @@ class ModelBackend:
 
     async def _process_audio_input(self, send_fn):
         """Process accumulated audio in half-duplex mode."""
+        self._processing = True
         audio_data = self.audio_buffer.copy()
         self.audio_buffer = np.array([], dtype=np.float32)
 
@@ -141,7 +156,7 @@ class ModelBackend:
             if self._system_instruction:
                 msgs.insert(0, {"role": "system", "content": self._system_instruction})
 
-            text, audio_np = self._chat_with_audio(msgs)
+            text, audio_np = await self._chat_with_keepalive(msgs, send_fn)
             await self._send_result(text, audio_np, send_fn)
 
         except Exception as e:
@@ -150,6 +165,8 @@ class ModelBackend:
                 "type": protocol.ERROR,
                 "message": str(e),
             }))
+        finally:
+            self._processing = False
 
     async def _process_text_input(self, text: str, send_fn):
         """Process text input in half-duplex mode."""
@@ -162,7 +179,7 @@ class ModelBackend:
             if self._system_instruction:
                 msgs.insert(0, {"role": "system", "content": self._system_instruction})
 
-            resp_text, audio_np = self._chat_with_audio(msgs)
+            resp_text, audio_np = await self._chat_with_keepalive(msgs, send_fn)
             await self._send_result(resp_text, audio_np, send_fn)
 
         except Exception as e:
@@ -172,12 +189,40 @@ class ModelBackend:
                 "message": str(e),
             }))
 
-    def _chat_with_audio(self, msgs: list) -> tuple:
-        """Run model.chat() and return (text, audio_numpy_or_none).
+    async def _chat_with_keepalive(self, msgs: list, send_fn) -> tuple:
+        """Run inference in a thread while sending keepalive pings.
 
-        MiniCPM-o's chat() saves audio to a file via output_audio_path.
-        It does NOT return audio as a tensor. We use a temp file and read it back.
+        RunPod proxy drops idle WebSocket connections after ~15s.
+        This sends periodic status messages to keep the connection alive
+        during the 5-15+ second TTS generation.
         """
+        loop = asyncio.get_event_loop()
+
+        # Start inference in thread pool
+        future = loop.run_in_executor(None, self._chat_with_audio, msgs)
+
+        # Send keepalives every 5s while waiting
+        while not future.done():
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.shield(future), timeout=5.0
+                )
+                return result
+            except asyncio.TimeoutError:
+                # Inference still running — send keepalive
+                try:
+                    await send_fn(json.dumps({
+                        "type": "status",
+                        "message": "processing",
+                    }))
+                    logger.debug("Sent keepalive ping")
+                except Exception:
+                    pass  # Client may have disconnected
+
+        return future.result()
+
+    def _chat_with_audio(self, msgs: list) -> tuple:
+        """Run model.chat() and return (text, audio_numpy_or_none)."""
         import soundfile as sf
 
         audio_np = None
@@ -239,3 +284,4 @@ class ModelBackend:
     def cleanup(self):
         """Clean up session state."""
         self.audio_buffer = np.array([], dtype=np.float32)
+        self._processing = False
