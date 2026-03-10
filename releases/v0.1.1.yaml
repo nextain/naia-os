@@ -6,21 +6,25 @@ summary:
 changes:
   - type: feat
     scope: shell
+    issue: 35
     description:
       en: "Flatpak packaging with OpenClaw bundled"
       ko: "OpenClaw 번들 Flatpak 패키징"
   - type: feat
     scope: shell
+    issue: 36
     description:
       en: "VRM 3D avatar with emotion expressions"
       ko: "감정 표현이 있는 VRM 3D 아바타"
   - type: feat
     scope: agent
+    issue: 37
     description:
       en: "Multi-provider LLM support (Gemini, Claude, OpenAI, xAI, Ollama)"
       ko: "멀티 프로바이더 LLM 지원 (Gemini, Claude, OpenAI, xAI, Ollama)"
   - type: feat
     scope: shell
+    issue: 38
     description:
       en: "TTS voice chat with Edge, Google, OpenAI, ElevenLabs"
       ko: "Edge, Google, OpenAI, ElevenLabs TTS 음성 대화"

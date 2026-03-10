@@ -24,6 +24,7 @@ changes:
       en: "Changelog section on naia.nextain.io download page from releases/*.yaml"
       ko: "releases/*.yaml 기반 naia.nextain.io 다운로드 페이지 changelog 섹션"
   # ── Voice (Issue #22, #24, #25) ──
+  # Note: #22 = echo fix, #24 = STT removal, #25 = live provider pattern
   - type: feat
     scope: voice
     issue: 25
@@ -38,41 +39,46 @@ changes:
       ko: "음성 대화 에코 억제 및 VRM 성별 기반 음성 기본값 추가"
   - type: refactor
     scope: shell
-    issue: 25
+    issue: 24
     description:
       en: "Remove dead STT code and legacy SettingsModal"
       ko: "미사용 STT 코드 및 레거시 SettingsModal 제거"
-  # ── Skills (Issue #28) ──
+  # ── Skills (Issue #26) ──
   - type: fix
     scope: agent
-    issue: 28
+    issue: 26
     description:
       en: "Fix AI failing to discover custom skills in non-English locales"
       ko: "비영어 환경에서 커스텀 스킬 탐색 실패 수정"
   - type: fix
     scope: skills
-    issue: 28
+    issue: 26
     description:
       en: "Fix skill install feedback, event leak, i18n, and sync 20 built-in skills"
       ko: "스킬 설치 피드백, 이벤트 릭, i18n 수정 및 20개 빌트인 스킬 동기화"
-  # ── Agent ──
+  # ── Agent (Issue #27, #39) ──
   - type: refactor
     scope: agent
+    issue: 27
     description:
       en: "Deduplicate system prompt pipeline"
       ko: "시스템 프롬프트 파이프라인 중복 제거"
   - type: feat
     scope: agent
+    issue: 39
     description:
       en: "Configurable Ollama host"
       ko: "Ollama 호스트 설정 지원"
+  # ── Shell (Issue #40, #41) ──
   - type: feat
     scope: shell
+    issue: 40
     description:
       en: "Dual-origin memory sync between Shell and OpenClaw"
       ko: "Shell-OpenClaw 간 양방향 메모리 동기화"
   - type: fix
     scope: shell
+    issue: 41
     description:
       en: "Make AI response language follow locale setting"
       ko: "AI 응답 언어가 로케일 설정을 따르도록 수정"
@@ -89,14 +95,16 @@ changes:
     description:
       en: "Chain pipeline: Release → Build OS → Generate ISO, weekly auto-rebuild"
       ko: "파이프라인 체인: Release → Build OS → Generate ISO, 주간 자동 리빌드"
-  # ── OS/Installer ──
+  # ── OS/Installer (Issue #42, #43) ──
   - type: fix
     scope: installer
+    issue: 42
     description:
       en: "Restore DNS triple fallback, CJK font fix, Plymouth two-step module"
       ko: "DNS 삼중 fallback 복원, CJK 폰트 수정, Plymouth two-step 모듈"
   - type: fix
     scope: branding
+    issue: 43
     description:
       en: "Add taskbar pins, wallpaper, lock screen for installed system"
       ko: "설치된 시스템에 태스크바 핀, 배경화면, 잠금화면 추가"

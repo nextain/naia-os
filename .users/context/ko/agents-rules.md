@@ -248,15 +248,20 @@ main ← 항상 배포 가능 (BlueBuild가 main에서 빌드)
 ### 커밋 컨벤션
 
 ```
-<type>(<scope>): <description>
+<type>(<scope>): <description> (#<issue>)
 
 types: feat, fix, refactor, test, docs, chore, ci
 scopes: shell, agent, gateway, os, context
 
+⚠️ 이슈 번호 참조는 필수입니다.
+  - 첫 줄 끝에 (#N) 추가 (N = GitHub Issue 번호)
+  - 이슈를 완료하는 마지막 커밋에는 본문에 "Closes #N" 추가
+  - 예외: merge 커밋, 초기 레포지토리 셋업
+
 예시:
-feat(shell): add VRM avatar idle animation
-fix(agent): handle LLM timeout gracefully
-ci(os): add BlueBuild GitHub Action
+feat(shell): add VRM avatar idle animation (#36)
+fix(agent): handle LLM timeout gracefully (#26)
+ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR 프로세스

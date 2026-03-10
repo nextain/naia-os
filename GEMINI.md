@@ -60,7 +60,7 @@ Naia-OS/
 ## 컨벤션 (요약)
 
 - **언어 원칙**: Git/공유 (커밋, Issue 코멘트, PR, 컨텍스트) → 영어 | 개인 (work-logs/) → 자유 | AI 응답 → 기여자 언어
-- **커밋**: `<type>(<scope>): <description>` (영어)
+- **커밋**: `<type>(<scope>): <description> (#<issue>)` (영어, 이슈 번호 필수)
 - **포맷터**: Biome (tab, double quote, semicolons)
 - **테스트**: Integration-first TDD (Vitest + tauri-driver)
 - **로깅**: 구조화된 Logger만 (console.log 금지)

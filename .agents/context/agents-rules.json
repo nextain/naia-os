@@ -249,14 +249,21 @@
 			"release": "Automatic via BlueBuild on main push"
 		},
 		"commit_convention": {
-			"format": "<type>(<scope>): <description>",
+			"format": "<type>(<scope>): <description> (#<issue>)",
 			"types": ["feat", "fix", "refactor", "test", "docs", "chore", "ci"],
 			"scopes": ["shell", "agent", "gateway", "os", "context"],
 			"language": "English for commits",
+			"issue_reference": {
+				"rule": "MANDATORY. Every commit MUST reference a GitHub Issue number in the commit message.",
+				"format": "Append (#N) to the first line, where N is the issue number",
+				"body_close": "Add 'Closes #N' in the commit body for the final commit that completes the issue",
+				"exceptions": ["merge commits", "initial repository setup"],
+				"rationale": "Ensures full traceability between code changes and tracked work. No untracked changes."
+			},
 			"examples": [
-				"feat(shell): add VRM avatar idle animation",
-				"fix(agent): handle LLM timeout gracefully",
-				"ci(os): add BlueBuild GitHub Action"
+				"feat(shell): add VRM avatar idle animation (#36)",
+				"fix(agent): handle LLM timeout gracefully (#26)",
+				"ci(os): add BlueBuild GitHub Action (#12)"
 			]
 		},
 		"pr_process": [
