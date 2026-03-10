@@ -148,6 +148,95 @@ pub(crate) fn spawn_node_host_in_wsl(
     cmd.spawn().map_err(|e| e.to_string())
 }
 
+/// Auto-approve pending device pairing requests in the WSL Gateway.
+/// Parses `openclaw devices list` CLI output to find pending request UUIDs,
+/// then approves each one so the Agent can connect without manual intervention.
+pub(crate) fn auto_approve_pending_devices(name: &str) {
+    let mut cmd = Command::new("wsl");
+    cmd.args([
+        "-d", name, "--",
+        "node",
+        "/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs",
+        "devices", "list",
+    ]);
+    super::hide_console(&mut cmd);
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return,
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Parse pending section — extract UUIDs from table rows
+    // Format: │ <uuid> │ <deviceId> │ ...
+    let mut in_pending = false;
+    let mut request_ids = Vec::new();
+
+    for line in stdout.lines() {
+        if line.contains("Pending") {
+            in_pending = true;
+            continue;
+        }
+        if line.contains("Paired") {
+            in_pending = false;
+            continue;
+        }
+        if in_pending {
+            // Extract UUID (8-4-4-4-12 hex) from table cell
+            let trimmed = line.trim().trim_start_matches('│').trim();
+            if let Some(uuid) = extract_uuid(trimmed) {
+                request_ids.push(uuid);
+            }
+        }
+    }
+
+    for request_id in &request_ids {
+        crate::log_both(&format!(
+            "[Naia] Auto-approving pending device: {}",
+            request_id
+        ));
+        let mut approve_cmd = Command::new("wsl");
+        approve_cmd.args([
+            "-d", name, "--",
+            "node",
+            "/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs",
+            "devices", "approve", request_id,
+        ]);
+        super::hide_console(&mut approve_cmd);
+        let _ = approve_cmd.output();
+    }
+
+    if !request_ids.is_empty() {
+        crate::log_both(&format!(
+            "[Naia] Auto-approved {} pending device(s)",
+            request_ids.len()
+        ));
+    }
+}
+
+/// Extract a UUID (8-4-4-4-12 hex pattern) from a string.
+fn extract_uuid(s: &str) -> Option<String> {
+    // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
+    let bytes = s.as_bytes();
+    if bytes.len() < 36 {
+        return None;
+    }
+    for start in 0..=bytes.len().saturating_sub(36) {
+        let candidate = &s[start..start + 36];
+        let parts: Vec<&str> = candidate.split('-').collect();
+        if parts.len() == 5
+            && parts[0].len() == 8
+            && parts[1].len() == 4
+            && parts[2].len() == 4
+            && parts[3].len() == 4
+            && parts[4].len() == 12
+            && candidate.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+        {
+            return Some(candidate.to_string());
+        }
+    }
+    None
+}
+
 /// Terminate a WSL distro.
 #[allow(dead_code)]
 pub(crate) fn terminate_distro(name: &str) {

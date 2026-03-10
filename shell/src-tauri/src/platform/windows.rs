@@ -130,6 +130,11 @@ pub(crate) fn try_platform_gateway_spawn() -> super::GatewaySpawnResult {
                         ));
                     }
                 }
+                // Auto-approve pending device pairings so Agent can connect
+                if gateway_healthy {
+                    super::wsl::auto_approve_pending_devices(DISTRO_NAME);
+                }
+
                 // Spawn Node Host only after Gateway is healthy
                 let node_host = if gateway_healthy {
                     match super::wsl::spawn_node_host_in_wsl(DISTRO_NAME, 18789) {
