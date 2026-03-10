@@ -942,6 +942,12 @@ export function ChatPanel() {
 					systemInstruction: systemPrompt,
 					model: config.liveModel,
 				});
+			} else if (liveProvider === "minicpm-o") {
+				await session.connect({
+					provider: "minicpm-o",
+					serverUrl: config.minicpmOServerUrl || "ws://localhost:8765",
+					systemInstruction: systemPrompt,
+				});
 			} else {
 				// Gemini Live: naia (gateway) or gemini-live (direct via Rust proxy)
 				const geminiVoice = config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel);

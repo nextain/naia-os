@@ -659,6 +659,10 @@ export function SettingsTab() {
 	const [openaiRealtimeVoice, setOpenaiRealtimeVoice] = useState(
 		existing?.openaiRealtimeVoice ?? "alloy",
 	);
+	const [minicpmOServerUrl, setMinicpmOServerUrl] = useState(
+		existing?.minicpmOServerUrl ?? "ws://localhost:8765",
+	);
+	const [minicpmConnectionStatus, setMinicpmConnectionStatus] = useState("");
 	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
@@ -1554,6 +1558,7 @@ export function SettingsTab() {
 			ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
 			liveProvider,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
+			minicpmOServerUrl: minicpmOServerUrl.trim() || undefined,
 		};
 		saveConfig(newConfig);
 		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
@@ -2419,6 +2424,70 @@ export function SettingsTab() {
 									: t("settings.voicePreview")}
 							</button>
 						</div>
+					</div>
+				</>
+			)}
+
+			{/* MiniCPM-o (Local) — server URL + connection test */}
+			{liveProvider === "minicpm-o" && (
+				<>
+					<div className="settings-field">
+						<label>Server URL</label>
+						<input
+							type="text"
+							value={minicpmOServerUrl}
+							onChange={(e) => {
+								setMinicpmOServerUrl(e.target.value);
+								setMinicpmConnectionStatus("");
+								if (existing) saveConfig({ ...existing, minicpmOServerUrl: e.target.value });
+							}}
+							placeholder="ws://localhost:8765"
+						/>
+						<span className="settings-hint" style={{ marginTop: 4, fontSize: "0.82em", opacity: 0.7 }}>
+							MiniCPM-o bridge server (local GPU or RunPod)
+						</span>
+					</div>
+					<div className="settings-field">
+						<button
+							type="button"
+							onClick={async () => {
+								setMinicpmConnectionStatus("Testing...");
+								const base = (minicpmOServerUrl || "ws://localhost:8765").replace(/\/+$/, "");
+								try {
+									const ws = new WebSocket(`${base}/ws`);
+									const ok = await new Promise<boolean>((resolve) => {
+										const t = setTimeout(() => { ws.close(); resolve(false); }, 5000);
+										ws.onopen = () => { clearTimeout(t); ws.close(); resolve(true); };
+										ws.onerror = () => { clearTimeout(t); resolve(false); };
+									});
+									setMinicpmConnectionStatus(ok ? "Connected ✓" : "Connection failed");
+								} catch {
+									setMinicpmConnectionStatus("Connection failed");
+								}
+							}}
+						>
+							Test Connection
+						</button>
+						{minicpmConnectionStatus && (
+							<span
+								className="settings-hint"
+								style={{
+									marginLeft: 8,
+									color: minicpmConnectionStatus.includes("✓")
+										? "var(--color-success, #22c55e)"
+										: minicpmConnectionStatus === "Testing..."
+											? undefined
+											: "var(--color-error, #ef4444)",
+								}}
+							>
+								{minicpmConnectionStatus}
+							</span>
+						)}
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint" style={{ fontSize: "0.82em", opacity: 0.7 }}>
+							EN/ZH speech supported. Your speech won't appear as text in chat (model limitation).
+						</span>
 					</div>
 				</>
 			)}

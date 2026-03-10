@@ -80,6 +80,7 @@ export interface AppConfig {
 	liveModel?: string;
 	openaiRealtimeApiKey?: string;
 	openaiRealtimeVoice?: string;
+	minicpmOServerUrl?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
