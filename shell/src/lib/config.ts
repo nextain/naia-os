@@ -22,6 +22,31 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
+export type SttProviderId = "vosk" | "whisper" | "google" | "elevenlabs";
+
+/** Map app locale to Vosk STT language code. */
+const LOCALE_TO_STT: Record<string, string> = {
+	ko: "ko-KR",
+	en: "en-US",
+	ja: "ja-JP",
+	zh: "zh-CN",
+	fr: "fr-FR",
+	de: "de-DE",
+	ru: "ru-RU",
+	es: "es-ES",
+	pt: "pt-BR",
+	hi: "hi-IN",
+	ar: "ar-SA",
+	vi: "vi-VN",
+	id: "id-ID",
+	bn: "bn-IN",
+};
+
+/** Convert app locale to STT language code. Falls back to en-US. */
+export function localeToSttLanguage(locale: string): string {
+	return LOCALE_TO_STT[locale] ?? LOCALE_TO_STT[locale.slice(0, 2)] ?? "en-US";
+}
+
 export type TtsProviderId =
 	| "google"
 	| "edge"
@@ -83,6 +108,7 @@ export interface AppConfig {
 	vrmModel?: string;
 	customVrms?: string[];
 	customBgs?: string[];
+	sttProvider?: SttProviderId;
 	ttsEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;

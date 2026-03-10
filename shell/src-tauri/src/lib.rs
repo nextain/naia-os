@@ -1233,6 +1233,17 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
     Ok(skills)
 }
 
+/// Frontend log bridge — prints frontend diagnostic messages to Rust stderr (terminal visible)
+#[tauri::command]
+fn frontend_log(level: String, message: String) {
+    match level.as_str() {
+        "error" => log::error!("[frontend] {}", message),
+        "warn" => log::warn!("[frontend] {}", message),
+        "debug" => log::debug!("[frontend] {}", message),
+        _ => log::info!("[frontend] {}", message),
+    }
+}
+
 #[tauri::command]
 async fn send_to_agent_command(
     app: AppHandle,
@@ -2189,6 +2200,12 @@ async fn gemini_live_disconnect(state: tauri::State<'_, AppState>) -> Result<(),
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize env_logger so `log` crate macros (info!, debug!, warn!) produce output.
+    // Control verbosity with RUST_LOG env var, e.g. RUST_LOG=tauri_plugin_stt=debug
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_millis()
+        .init();
+
     let is_flatpak = std::env::var("FLATPAK").map(|v| v == "1").unwrap_or(false);
 
     let mut builder = tauri::Builder::default()
@@ -2204,7 +2221,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_stt::init());
 
     // Flatpak manages its own updates; skip updater plugin in Flatpak builds
     if !is_flatpak {
@@ -2220,6 +2238,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_skills,
+            frontend_log,
             send_to_agent_command,
             cancel_stream,
             reset_window_state,

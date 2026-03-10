@@ -488,10 +488,78 @@ voice_architecture:
       - google, nextain → "google" engine (direct Google Cloud TTS)
       - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
 
+  pipeline_voice:
+    description: "Pipeline voice mode for LLM models (non-omni): STT → LLM → sentence TTS → audio playback"
+    updated: "2026-03-11"
+    status: "implemented — TTS pipeline working, STT Whisper planned"
+    architecture: |
+      User speaks → STT (Vosk offline) → recognized text
+      → sendChatMessage (normal LLM path, tools disabled, Agent auto-TTS disabled)
+      → LLM streams text → SentenceChunker (sentence boundary detection)
+      → emotion tag/emoji stripped → per-sentence tts_request → Agent handleTtsRequest → Edge TTS (default)
+      → MP3 base64 → AudioQueue (sequential playback with error logging)
+    components:
+      stt: "tauri-plugin-stt (Vosk, offline, auto-downloads ~50MB model per language)"
+      sentence_chunker:
+        file: "shell/src/lib/voice/sentence-chunker.ts"
+        description: "Korean+English mixed text, hard punct split (.!?。！？~), min 10 / max 120 chars, searchFrom skip for short sentences"
+      audio_queue:
+        file: "shell/src/lib/voice/audio-queue.ts"
+        description: "Sequential MP3 base64 playback, interrupt support, avatar speaking state, play failure logging"
+      tts_request:
+        agent: "agent/src/index.ts handleTtsRequest() + agent/src/protocol.ts TtsRequest"
+        shell: "shell/src/lib/chat-service.ts requestTts()"
+      logger_bridge:
+        description: "Frontend Logger bridges to Rust stderr via frontend_log command for terminal diagnostics"
+        files: ["shell/src/lib/logger.ts", "shell/src-tauri/src/lib.rs"]
+    state_flow: "LISTENING → PROCESSING → SPEAKING → LISTENING"
+    interrupt: "STT active during playback — user speech clears AudioQueue + cancels LLM stream"
+    debounce: "1000ms for multi-utterance merging (accumulate final results before sending)"
+    voice_prompt: "Prepends brief conversational system prompt for natural voice responses"
+    tts_providers: "edge (default, free), google, openai, elevenlabs, nextain"
+    stt_languages: "ko-KR (default based on locale), en-US, + 7 more (auto-download)"
+    pipeline_voice_rules: |
+      - Tools DISABLED in pipeline mode (prevents tool loops blocking TTS)
+      - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
+      - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
+      - SentenceChunker flush on both finish AND error events
+    openclaw_separation: |
+      Pipeline voice handles STT/TTS independently. OpenClaw used ONLY for LLM routing + skills/tools.
+      Agent auto-TTS is disabled in pipeline mode (ttsEnabled=false in ChatRequest).
+    files:
+      - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
+      - "shell/src/lib/voice/sentence-chunker.ts"
+      - "shell/src/lib/voice/audio-queue.ts"
+      - "shell/src/lib/chat-service.ts — requestTts()"
+      - "agent/src/index.ts — handleTtsRequest()"
+      - "agent/src/protocol.ts — TtsRequest interface"
+      - "shell/src-tauri/Cargo.toml — tauri-plugin-stt dependency"
+      - "shell/src-tauri/src/lib.rs — tauri_plugin_stt::init(), frontend_log"
+
   stt_status: |
+    Two STT modes exist:
+    1. Live voice providers (Gemini/OpenAI) use built-in speech recognition (inputTranscription)
+    2. Pipeline voice mode uses Vosk STT (tauri-plugin-stt, offline, for LLM models)
     Legacy STT (stt.ts, audio-recorder.ts) and the sttEnabled config toggle have been removed.
-    Real-time speech input is handled by each live provider's built-in speech recognition
-    (Gemini: inputTranscription, OpenAI: input_audio_transcription.completed).
+    Vosk Korean has only one model (small, 82MB, WER 28.1%) — Whisper support planned.
+
+  stt_whisper_plan:
+    description: "Add whisper.cpp as alternative offline STT engine with model download UI"
+    status: "planned"
+    approach: |
+      - whisper.cpp via whisper-rs Rust binding (Tauri plugin)
+      - Same event interface as Vosk (plugin:stt:result, plugin:stt:stateChange)
+      - Settings UI: engine selector, model list with size/WER, download button + progress
+      - Models stored in ~/.naia/models/stt/
+      - Half-duplex: record → transcribe → emit (0.5-2s latency)
+    whisper_models:
+      - {name: "tiny", size: "75MB", wer_est: "~40%", note: "fast, low quality"}
+      - {name: "base", size: "142MB", wer_est: "~30%", note: "similar to Vosk"}
+      - {name: "small", size: "466MB", wer_est: "~20%", note: "noticeable improvement"}
+      - {name: "medium", size: "1.5GB", wer_est: "~12%", note: "recommended"}
+      - {name: "large-v3", size: "3GB", wer_est: "~8%", note: "best quality"}
+    vosk_models:
+      - {name: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%", note: "only Korean model"}
 
   voice_gender_defaults: |
     Default voice is automatically set based on VRM avatar gender:

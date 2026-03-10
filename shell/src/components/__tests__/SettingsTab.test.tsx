@@ -104,15 +104,14 @@ describe("SettingsTab", () => {
 		).toBeDefined();
 	});
 
-	it("shows live provider selector with default edge-tts", () => {
+	it("shows STT provider selector with default vosk", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
 
-		// Live provider selector is always visible
-		const liveSelect = document.getElementById("live-provider-select") as HTMLSelectElement;
-		expect(liveSelect).toBeDefined();
-		// Default is edge-tts for non-logged-in users
-		expect(liveSelect.value).toBe("edge-tts");
+		// STT provider selector is always visible in voice section
+		const sttSelect = screen.getByText(/Vosk/)?.closest("select") as HTMLSelectElement;
+		expect(sttSelect).toBeDefined();
+		expect(sttSelect.value).toBe("vosk");
 	});
 
 	it("hides API key input for Claude Code CLI provider", () => {

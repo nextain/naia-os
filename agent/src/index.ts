@@ -15,6 +15,7 @@ import {
 	type ApprovalResponse,
 	type ChatRequest,
 	type ToolRequest,
+	type TtsRequest,
 	parseRequest,
 } from "./protocol.js";
 import { calculateCost } from "./providers/cost.js";
@@ -607,9 +608,11 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				model: providerConfig.model,
 			});
 		}
+		console.error(`[agent:chat] Finish — fullText=${fullText.length} chars, reqId=${requestId}`);
 		writeLine({ type: "finish", requestId });
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
+		console.error(`[agent:chat] Error — ${message}, reqId=${requestId}`);
 		writeLine({ type: "error", requestId, message });
 	} finally {
 		if (gateway) {
@@ -688,6 +691,57 @@ export async function handleToolRequest(req: ToolRequest): Promise<void> {
 	}
 }
 
+/**
+ * Handle standalone TTS request (pipeline voice mode).
+ * Synthesizes text → MP3 base64 and emits as audio chunk.
+ */
+async function handleTtsRequest(req: TtsRequest): Promise<void> {
+	const { requestId, text, voice, ttsProvider, ttsApiKey, naiaKey } = req;
+	const controller = new AbortController();
+	activeStreams.set(requestId, controller);
+
+	console.error(`[agent:tts] Start — provider=${ttsProvider || "edge"}, voice=${voice || "default"}, text="${text.slice(0, 60)}"`);
+
+	try {
+		if (controller.signal.aborted) return;
+
+		let audio: string | null = null;
+		const provider = ttsProvider || "edge";
+
+		if (provider === "nextain" && naiaKey) {
+			audio = await synthesizeNextainSpeech(text, naiaKey, voice);
+		} else if (provider === "openai" && ttsApiKey) {
+			audio = await synthesizeOpenAISpeech(text, ttsApiKey, voice);
+		} else if (provider === "elevenlabs" && ttsApiKey) {
+			audio = await synthesizeElevenLabsSpeech(text, ttsApiKey, voice);
+		} else if (provider === "google" && ttsApiKey) {
+			audio = await synthesizeSpeech(text, ttsApiKey, voice);
+		} else {
+			// Default: Edge TTS (free, no API key)
+			audio = await synthesizeEdgeSpeech(text, voice);
+		}
+
+		if (controller.signal.aborted) return;
+
+		console.error(`[agent:tts] Done — audio=${audio ? `${audio.length} chars base64` : "null"}`);
+		if (audio) {
+			writeLine({ type: "audio", requestId, data: audio });
+		}
+		writeLine({ type: "finish", requestId });
+	} catch (err) {
+		console.error(`[agent:tts] Error — ${err instanceof Error ? err.message : String(err)}`);
+		if (!controller.signal.aborted) {
+			writeLine({
+				type: "error",
+				requestId,
+				message: err instanceof Error ? err.message : String(err),
+			});
+		}
+	} finally {
+		activeStreams.delete(requestId);
+	}
+}
+
 function main(): void {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -724,6 +778,18 @@ function main(): void {
 
 		if (request.type === "tool_request") {
 			handleToolRequest(request).catch((err) => {
+				writeLine({
+					type: "error",
+					requestId: request.requestId,
+					message: err instanceof Error ? err.message : String(err),
+				});
+			});
+			return;
+		}
+
+		if (request.type === "tts_request") {
+			console.error(`[agent] TTS request received: provider=${(request as any).ttsProvider || "edge"}, text="${((request as any).text || "").slice(0, 50)}"`);
+			handleTtsRequest(request).catch((err) => {
 				writeLine({
 					type: "error",
 					requestId: request.requestId,

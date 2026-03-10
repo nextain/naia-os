@@ -54,11 +54,23 @@ export interface ToolRequest {
 	discordDmChannelId?: string;
 }
 
+/** Standalone TTS synthesis request (used by pipeline voice mode) */
+export interface TtsRequest {
+	type: "tts_request";
+	requestId: string;
+	text: string;
+	voice?: string;
+	ttsProvider?: "edge" | "google" | "openai" | "elevenlabs" | "nextain";
+	ttsApiKey?: string;
+	naiaKey?: string;
+}
+
 export type AgentRequest =
 	| ChatRequest
 	| CancelRequest
 	| ApprovalResponse
-	| ToolRequest;
+	| ToolRequest
+	| TtsRequest;
 
 export function parseRequest(line: string): AgentRequest | null {
 	try {
@@ -68,7 +80,8 @@ export function parseRequest(line: string): AgentRequest | null {
 			obj.type === "chat_request" ||
 			obj.type === "cancel_stream" ||
 			obj.type === "approval_response" ||
-			obj.type === "tool_request"
+			obj.type === "tool_request" ||
+			obj.type === "tts_request"
 		) {
 			return obj as AgentRequest;
 		}

@@ -33,6 +33,9 @@ getrandom = "0.3"
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-stt = { path = "plugins/tauri-plugin-stt" }
+log = "0.4"
+env_logger = "0.11"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }

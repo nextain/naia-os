@@ -490,10 +490,39 @@ All providers implement a unified `VoiceSession` interface:
 | openai | ChatPanel → agent → OpenClaw gateway → OpenAI TTS | OpenAI voices |
 | elevenlabs | ChatPanel → agent → OpenClaw gateway → ElevenLabs | ElevenLabs voices |
 
+### Pipeline Voice Mode
+
+Voice conversation mode for LLM models (non-omni): Vosk STT → LLM → sentence-level TTS → sequential playback.
+
+**Architecture:**
+```
+User speaks → Vosk STT (offline) → recognized text
+→ sendChatMessage (normal LLM path, TTS disabled)
+→ LLM text stream → SentenceChunker (sentence boundary detection)
+→ per-sentence tts_request → Agent handleTtsRequest → Edge TTS (default)
+→ MP3 base64 → AudioQueue (sequential playback)
+```
+
+**Key components:**
+| Component | File | Role |
+|-----------|------|------|
+| STT | `tauri-plugin-stt` (Vosk) | Offline speech recognition, ~50MB model per language auto-download |
+| SentenceChunker | `shell/src/lib/voice/sentence-chunker.ts` | Korean+English sentence splitting (min 10, max 120 chars) |
+| AudioQueue | `shell/src/lib/voice/audio-queue.ts` | Sequential MP3 playback, interrupt, avatar speaking state |
+| TTS request | `agent/src/index.ts`, `shell/src/lib/chat-service.ts` | Per-sentence TTS synthesis request/response |
+
+**State flow:** LISTENING → PROCESSING → SPEAKING → LISTENING
+**Interrupt:** User speech during playback clears AudioQueue + cancels LLM stream
+**Debounce:** 1000ms for multi-utterance merging
+**OpenClaw separation:** STT/TTS handled independently. OpenClaw only for LLM routing + skills/tools.
+
 ### STT Status
 
+Two STT modes exist:
+1. **Live voice providers** (Gemini/OpenAI): Built-in speech recognition (`inputTranscription`)
+2. **Pipeline voice mode**: Vosk STT (`tauri-plugin-stt`, offline, for LLM models)
+
 Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
-Real-time speech input is handled by each live provider's built-in speech recognition (Gemini: `inputTranscription`, OpenAI: `input_audio_transcription.completed`).
 
 ### Voice Gender Defaults
 

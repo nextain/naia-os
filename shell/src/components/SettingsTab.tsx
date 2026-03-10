@@ -12,6 +12,7 @@ import {
 	MODEL_OPTIONS,
 	type PanelPosition,
 	type ThemeId,
+	type SttProviderId,
 	type TtsProviderId,
 	clearAllowedTools,
 	fetchOllamaModels,
@@ -638,6 +639,7 @@ export function SettingsTab() {
 			(existing?.ttsEngine === "openclaw" ? "edge" :
 			 existing?.ttsEngine === "google" ? "google" : "edge"),
 	);
+	const [sttProvider, setSttProvider] = useState<SttProviderId>(existing?.sttProvider ?? "vosk");
 	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [userName, setUserName] = useState(existing?.userName ?? "");
@@ -1453,6 +1455,7 @@ export function SettingsTab() {
 		if (merged.persona) setPersona(merged.persona ?? DEFAULT_PERSONA);
 		if (merged.locale) setLocaleState(merged.locale);
 		if (merged.theme) setTheme(merged.theme);
+		if (merged.sttProvider) setSttProvider(merged.sttProvider);
 		if (merged.ttsEnabled !== undefined) setTtsEnabled(merged.ttsEnabled);
 		if (merged.ttsVoice) setTtsVoice(merged.ttsVoice);
 		if (merged.ttsProvider) setTtsProvider(merged.ttsProvider);
@@ -1494,6 +1497,7 @@ export function SettingsTab() {
 			customVrms: customVrms.length > 0 ? customVrms : undefined,
 			customBgs: customBgs.length > 0 ? customBgs : undefined,
 			backgroundImage: backgroundImage || undefined,
+			sttProvider,
 			ttsEnabled,
 			ttsVoice,
 			ttsProvider,
@@ -2326,15 +2330,18 @@ export function SettingsTab() {
 						<span>{t("settings.voiceSection")}</span>
 					</div>
 
-					{/* STT — placeholder for #46 pipeline implementation */}
+					{/* STT Provider */}
 					<div className="settings-field">
 						<label>{t("settings.sttProvider")}</label>
-						<select disabled>
-							<option>{t("settings.sttComingSoon")}</option>
+						<select
+							value={sttProvider}
+							onChange={(e) => setSttProvider(e.target.value as SttProviderId)}
+						>
+							<option value="vosk">{t("settings.sttVosk")}</option>
+							<option value="whisper" disabled>{t("settings.sttWhisper")}</option>
+							<option value="google" disabled>{t("settings.sttGoogle")}</option>
+							<option value="elevenlabs" disabled>{t("settings.sttElevenlabs")}</option>
 						</select>
-						<span className="settings-hint" style={{ marginTop: 4, fontSize: "0.82em", opacity: 0.6 }}>
-							LLM 모델의 음성 대화는 STT 파이프라인 구현 후 지원됩니다.
-						</span>
 					</div>
 
 					{/* TTS */}

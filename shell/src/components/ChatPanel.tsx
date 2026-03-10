@@ -1,8 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
-import { cancelChat, directToolCall, sendChatMessage } from "../lib/chat-service";
+import { cancelChat, directToolCall, requestTts, sendChatMessage } from "../lib/chat-service";
+import { AudioQueue } from "../lib/voice/audio-queue";
+import { SentenceChunker } from "../lib/voice/sentence-chunker";
+import {
+	startListening as sttStart,
+	stopListening as sttStop,
+	onResult as sttOnResult,
+	onStateChange as sttOnStateChange,
+	onError as sttOnError,
+	type RecognitionResult,
+} from "tauri-plugin-stt-api";
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
@@ -10,6 +21,7 @@ import {
 	isToolAllowed,
 	loadConfig,
 	loadConfigWithSecrets,
+	localeToSttLanguage,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
@@ -313,6 +325,19 @@ export function ChatPanel() {
 	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
 	const lastExtractedIdx = useRef(0);
 
+	// Pipeline voice state (Vosk STT → LLM → sentence TTS → audio queue)
+	const pipelineActiveRef = useRef(false);
+	const audioQueueRef = useRef<AudioQueue | null>(null);
+	const sentenceChunkerRef = useRef<SentenceChunker | null>(null);
+	const activeTtsRequestsRef = useRef<Set<string>>(new Set());
+	const pipelineVoiceConfigRef = useRef<{ voice?: string; ttsProvider?: string; ttsApiKey?: string; naiaKey?: string } | null>(null);
+	const sttCleanupRef = useRef<(() => void)[]>([]);
+	const sttDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const sttBufferRef = useRef("");
+	const [sttPartial, setSttPartial] = useState("");
+	const [sttState, setSttState] = useState<"idle" | "listening" | "downloading">("idle");
+	const [sttDownloadProgress, setSttDownloadProgress] = useState(0);
+
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
 	const streamingContent = useChatStore((s) => s.streamingContent);
@@ -453,16 +478,18 @@ export function ChatPanel() {
 		}
 	}
 
-	async function handleSend() {
-		const text = input.trim();
+	async function handleSend(overrideText?: string) {
+		const text = (overrideText ?? input).trim();
 		if (!text) return;
 
-		// Voice mode: send text via Live session
-		if (voiceMode === "active" && voiceSessionRef.current?.isConnected) {
+		// Omni voice mode: send text via Live session
+		if (voiceMode === "active" && !pipelineActiveRef.current && voiceSessionRef.current?.isConnected) {
 			setInput("");
 			voiceSessionRef.current.sendText(text);
 			return;
 		}
+		// Pipeline voice mode: send via normal chat path (TTS handled by handleChunk)
+		// Falls through to the normal sendChatMessage flow below
 
 		// If streaming, queue the message instead
 		if (isStreaming) {
@@ -501,7 +528,8 @@ export function ChatPanel() {
 			.filter((m) => m.role === "user" || m.role === "assistant")
 			.map((m) => ({ role: m.role, content: m.content }));
 
-		const ttsEnabled = config.ttsEnabled !== false;
+		// In pipeline voice mode, disable Agent auto-TTS (we handle TTS via sentence chunking)
+		const ttsEnabled = pipelineActiveRef.current ? false : config.ttsEnabled !== false;
 		const activeProvider = config.provider || provider;
 		// Derive ttsEngine from ttsProvider (new) or fall back to legacy ttsEngine
 		// Only "google" provider uses direct Google TTS; all others use Gateway
@@ -512,6 +540,13 @@ export function ChatPanel() {
 		const wantsGatewayForTts =
 			ttsEnabled && ttsEngine === "openclaw";
 		const memoryCtx = await buildMemoryContext();
+		Logger.info("ChatPanel", "handleSend → sendChatMessage", {
+			pipelineActive: pipelineActiveRef.current,
+			hasChunker: !!sentenceChunkerRef.current,
+			ttsEnabled,
+			requestId,
+			textPreview: text.slice(0, 40),
+		});
 		try {
 			await sendChatMessage({
 				message: text,
@@ -542,21 +577,26 @@ export function ChatPanel() {
 					: undefined,
 				ttsEngine: ttsEnabled ? ttsEngine : undefined,
 				ttsProvider: ttsEnabled ? cfgTtsProvider : undefined,
-				systemPrompt: buildSystemPrompt(config.persona, memoryCtx),
-				enableTools: config.enableTools,
+				systemPrompt: pipelineActiveRef.current
+					? `You are in a voice conversation. Keep responses brief and conversational (2-3 sentences max). Speak naturally as if talking to a friend.\n\n${buildSystemPrompt(config.persona, memoryCtx)}`
+					: buildSystemPrompt(config.persona, memoryCtx),
+				// Pipeline voice: disable tools to prevent tool loops that block TTS
+				enableTools: pipelineActiveRef.current ? false : config.enableTools,
 				gatewayUrl:
-					config.enableTools || wantsGatewayForTts
+					!pipelineActiveRef.current && (config.enableTools || wantsGatewayForTts)
 						? config.gatewayUrl || "ws://localhost:18789"
 						: undefined,
 				gatewayToken:
-					config.enableTools || wantsGatewayForTts
+					!pipelineActiveRef.current && (config.enableTools || wantsGatewayForTts)
 						? config.gatewayToken
 						: undefined,
-				disabledSkills: config.enableTools
-					? sanitizeDisabledSkills(config.disabledSkills)
+				disabledSkills: !pipelineActiveRef.current && config.enableTools
+					? [
+						...(sanitizeDisabledSkills(config.disabledSkills) ?? []),
+					]
 					: undefined,
 				routeViaGateway:
-					config.enableTools && (config.chatRouting ?? "auto") !== "direct"
+					!pipelineActiveRef.current && config.enableTools && (config.chatRouting ?? "auto") !== "direct"
 						? true
 						: undefined,
 				slackWebhookUrl: config.slackWebhookUrl,
@@ -577,6 +617,15 @@ export function ChatPanel() {
 	function handleChunk(chunk: AgentResponseChunk, activeProvider: ProviderId) {
 		const store = useChatStore.getState();
 
+		if (chunk.type === "text" || chunk.type === "finish" || chunk.type === "usage") {
+			Logger.info("ChatPanel", "handleChunk", {
+				type: chunk.type,
+				pipelineActive: pipelineActiveRef.current,
+				hasChunker: !!sentenceChunkerRef.current,
+				...(chunk.type === "text" ? { textLen: chunk.text.length, textPreview: chunk.text.slice(0, 60) } : {}),
+			});
+		}
+
 		switch (chunk.type) {
 			case "text": {
 				store.appendStreamChunk(chunk.text);
@@ -586,13 +635,31 @@ export function ChatPanel() {
 					const { emotion } = parseEmotion(accumulated);
 					setEmotion(emotion);
 				}
+				// Pipeline voice: chunk text into sentences and send to TTS
+				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+					const sentences = sentenceChunkerRef.current.feed(chunk.text);
+					if (sentences.length > 0) {
+						Logger.info("ChatPanel", "SentenceChunker produced sentences", { count: sentences.length, sentences });
+					}
+					for (const sentence of sentences) {
+						sendSentenceToTts(sentence);
+					}
+				} else {
+					Logger.debug("ChatPanel", "Pipeline voice TTS skipped", {
+						pipelineActive: pipelineActiveRef.current,
+						hasChunker: !!sentenceChunkerRef.current,
+					});
+				}
 				break;
 			}
 			case "thinking":
 				store.appendThinkingChunk(chunk.text);
 				break;
 			case "audio":
-				playBase64Audio(chunk.data);
+				// In pipeline mode, ignore Agent auto-TTS audio (we handle TTS ourselves)
+				if (!pipelineActiveRef.current) {
+					playBase64Audio(chunk.data);
+				}
 				break;
 			case "tool_use":
 				store.addStreamingToolUse(chunk.toolCallId, chunk.toolName, chunk.args);
@@ -645,6 +712,23 @@ export function ChatPanel() {
 				break;
 			}
 			case "finish":
+				// Pipeline voice: flush remaining text to TTS
+				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+					const remaining = sentenceChunkerRef.current.flush();
+					Logger.info("ChatPanel", "Pipeline voice flush on finish", {
+						hasRemaining: !!remaining,
+						remainingLen: remaining?.length ?? 0,
+						remainingPreview: remaining?.slice(0, 60),
+					});
+					if (remaining) {
+						sendSentenceToTts(remaining);
+					}
+				} else {
+					Logger.debug("ChatPanel", "finish: pipeline TTS flush skipped", {
+						pipelineActive: pipelineActiveRef.current,
+						hasChunker: !!sentenceChunkerRef.current,
+					});
+				}
 				if (store.isStreaming) {
 					store.finishStreaming();
 					setEmotion("neutral");
@@ -701,6 +785,15 @@ export function ChatPanel() {
 				// Ignore them here to keep the main chat clean.
 				break;
 			case "error":
+				Logger.warn("ChatPanel", "Agent error chunk", { message: chunk.message });
+				// Pipeline voice: flush remaining text to TTS before finishing
+				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+					const remaining = sentenceChunkerRef.current.flush();
+					if (remaining) {
+						Logger.info("ChatPanel", "Pipeline voice flush on error", { remainingLen: remaining.length });
+						sendSentenceToTts(remaining);
+					}
+				}
 				store.appendStreamChunk(`\n[${t("chat.error")}] ${chunk.message}`);
 				store.finishStreaming();
 				setEmotion("neutral");
@@ -784,16 +877,70 @@ export function ChatPanel() {
 		});
 	}
 
+	/** Send a sentence to TTS via Agent and enqueue the resulting audio. */
+	function sendSentenceToTts(sentence: string): void {
+		// Strip emotion tags and emoji before TTS
+		const clean = sentence
+			.replace(/\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/gi, "")
+			.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+			.trim();
+		if (!clean) return;
+
+		const reqId = generateRequestId();
+		activeTtsRequestsRef.current.add(reqId);
+		const voiceCfg = pipelineVoiceConfigRef.current;
+		Logger.info("ChatPanel", "Sending TTS request", { reqId, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
+		requestTts({
+			text: clean,
+			voice: voiceCfg?.voice,
+			ttsProvider: voiceCfg?.ttsProvider as "edge" | "google" | "openai" | "elevenlabs" | "nextain" | undefined,
+			ttsApiKey: voiceCfg?.ttsApiKey,
+			naiaKey: voiceCfg?.naiaKey,
+			requestId: reqId,
+			onAudio: (mp3Base64) => {
+				Logger.info("ChatPanel", "TTS audio received", { reqId, size: mp3Base64.length });
+				audioQueueRef.current?.enqueue(mp3Base64);
+				activeTtsRequestsRef.current.delete(reqId);
+			},
+		});
+	}
+
+	/** Clean up pipeline voice resources. */
+	function cleanupPipeline(): void {
+		pipelineActiveRef.current = false;
+		audioQueueRef.current?.destroy();
+		audioQueueRef.current = null;
+		sentenceChunkerRef.current?.clear();
+		sentenceChunkerRef.current = null;
+		pipelineVoiceConfigRef.current = null;
+		activeTtsRequestsRef.current.clear();
+		// Stop Vosk STT
+		for (const fn of sttCleanupRef.current) fn();
+		sttCleanupRef.current = [];
+		if (sttDebounceRef.current) {
+			clearTimeout(sttDebounceRef.current);
+			sttDebounceRef.current = null;
+		}
+		sttBufferRef.current = "";
+		setSttPartial("");
+		setSttState("idle");
+		sttStop().catch(() => {});
+	}
+
 	async function handleVoiceToggle() {
 		if (voiceMode !== "off") {
 			// Stop voice session — show cost summary before cleanup
-			showVoiceCostSummary();
-			voiceSessionRef.current?.disconnect();
-			micStreamRef.current?.stop();
-			audioPlayerRef.current?.destroy();
-			voiceSessionRef.current = null;
-			micStreamRef.current = null;
-			audioPlayerRef.current = null;
+			if (pipelineActiveRef.current) {
+				cleanupPipeline();
+			} else {
+				showVoiceCostSummary();
+				voiceSessionRef.current?.disconnect();
+				micStreamRef.current?.stop();
+				audioPlayerRef.current?.destroy();
+				voiceSessionRef.current = null;
+				micStreamRef.current = null;
+				audioPlayerRef.current = null;
+			}
 			setVoiceMode("off");
 			return;
 		}
@@ -810,10 +957,127 @@ export function ChatPanel() {
 			const modelMeta = getModelOption(config.provider, config.model);
 			const isOmni = modelMeta?.type === "omni";
 
-			// Only omni models support live voice conversation
+			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
-				useChatStore.getState().addMessage({ role: "assistant", content: "라이브 대화를 사용하려면 설정에서 음성 통합 모델(🔊)을 선택하세요." });
-				setVoiceMode("off");
+				const queue = new AudioQueue({
+					onPlaybackStart: () => useAvatarStore.getState().setSpeaking(true),
+					onPlaybackEnd: () => useAvatarStore.getState().setSpeaking(false),
+				});
+				audioQueueRef.current = queue;
+				sentenceChunkerRef.current = new SentenceChunker();
+				pipelineActiveRef.current = true;
+				pipelineVoiceConfigRef.current = {
+					voice: config.ttsVoice || config.voice,
+					ttsProvider: config.ttsProvider || "edge",
+					ttsApiKey: config.ttsProvider === "google"
+						? (config.googleApiKey || config.apiKey)
+						: config.ttsProvider === "openai"
+						? config.openaiTtsApiKey
+						: config.ttsProvider === "elevenlabs"
+						? config.elevenlabsApiKey
+						: undefined,
+					naiaKey: config.naiaKey,
+				};
+
+				// Start Vosk STT
+				setSttState("downloading"); // Model may need download on first use
+				setSttDownloadProgress(0);
+				try {
+					// Listen for model download progress
+					const unlistenDownload = await listen<{ status: string; model: string; progress: number }>(
+						"stt://download-progress",
+						(event) => {
+							const { status, progress } = event.payload;
+							setSttDownloadProgress(Math.min(progress, 100));
+							if (status === "complete") {
+								setSttState("listening");
+							}
+						},
+					);
+					sttCleanupRef.current.push(unlistenDownload);
+
+					const unlistenResult = await sttOnResult((result: RecognitionResult) => {
+						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
+						if (!pipelineActiveRef.current) return;
+
+						// Show partial transcript in real-time
+						if (!result.isFinal) {
+							setSttPartial(result.transcript);
+						}
+
+						// Interrupt: if audio is playing and user starts speaking, cancel current response
+						if (audioQueueRef.current?.isActive && result.transcript.trim()) {
+							audioQueueRef.current.clear();
+							sentenceChunkerRef.current?.clear();
+							if (currentRequestId.current) {
+								cancelChat(currentRequestId.current).catch(() => {});
+							}
+							if (useChatStore.getState().isStreaming) {
+								useChatStore.getState().finishStreaming();
+							}
+							Logger.info("ChatPanel", "Voice interrupt — user spoke during playback");
+						}
+
+						if (result.isFinal && result.transcript.trim()) {
+							setSttPartial("");
+							sttBufferRef.current += (sttBufferRef.current ? " " : "") + result.transcript.trim();
+							if (sttDebounceRef.current) clearTimeout(sttDebounceRef.current);
+							sttDebounceRef.current = setTimeout(() => {
+								const text = sttBufferRef.current.trim();
+								sttBufferRef.current = "";
+								if (text && pipelineActiveRef.current) {
+									handleSend(text);
+								}
+							}, 1000);
+						}
+					});
+					const resultCleanup = typeof unlistenResult === "function"
+						? unlistenResult
+						: () => unlistenResult.unregister();
+					sttCleanupRef.current.push(resultCleanup);
+
+					const unlistenState = await sttOnStateChange((event) => {
+						Logger.info("ChatPanel", "STT state change", { state: event.state });
+						if (event.state === "listening") setSttState("listening");
+					});
+					const stateCleanup = typeof unlistenState === "function"
+						? unlistenState
+						: () => unlistenState.unregister();
+					sttCleanupRef.current.push(stateCleanup);
+
+					const unlistenError = await sttOnError((err) => {
+						Logger.warn("ChatPanel", "STT error", { code: err.code, message: err.message });
+					});
+					const errorCleanup = typeof unlistenError === "function"
+						? unlistenError
+						: () => unlistenError.unregister();
+					sttCleanupRef.current.push(errorCleanup);
+
+					const sttLang = localeToSttLanguage(getLocale());
+					Logger.info("ChatPanel", "Starting STT", { language: sttLang, locale: getLocale() });
+					await sttStart({
+						language: sttLang,
+						continuous: true,
+						interimResults: true,
+					});
+					Logger.info("ChatPanel", "STT started successfully");
+					setSttState("listening");
+				} catch (sttErr) {
+					Logger.warn("ChatPanel", "STT start failed — falling back to text input", { error: String(sttErr) });
+					setSttState("idle");
+				}
+
+				Logger.info("ChatPanel", "Pipeline voice mode started", {
+					provider: config.provider,
+					model: config.model,
+					ttsProvider: config.ttsProvider || "edge",
+				});
+
+				setVoiceMode("active");
+				useChatStore.getState().addMessage({
+					role: "assistant",
+					content: "🎤 음성 대화 모드가 시작되었습니다.",
+				});
 				return;
 			}
 
@@ -1273,7 +1537,7 @@ export function ChatPanel() {
 			>
 				<button
 					type="button"
-					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}`}
+					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}${sttPartial ? " hearing" : ""}`}
 					onClick={handleVoiceToggle}
 					disabled={isStreaming}
 					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : t("chat.voiceEnd")}
@@ -1283,14 +1547,30 @@ export function ChatPanel() {
 				<span className="voice-bar" />
 				<span className="voice-bar" />
 				</button>
+				{pipelineActiveRef.current && sttPartial && (
+					<div className="stt-partial">{sttPartial}</div>
+				)}
+				{pipelineActiveRef.current && sttState === "downloading" && (
+					<div className="stt-status">
+						{sttDownloadProgress >= 95
+							? "STT 모델 설치 중..."
+							: sttDownloadProgress > 0
+								? `STT 모델 다운로드 중... ${sttDownloadProgress}%`
+								: "STT 모델 준비 중..."}
+					</div>
+				)}
 				<textarea
 					ref={inputRef}
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder={t("chat.placeholder")}
+					placeholder={
+						pipelineActiveRef.current
+							? (sttState === "listening" ? "듣고 있어요... (텍스트 입력도 가능)" : t("chat.placeholder"))
+							: t("chat.placeholder")
+					}
 					rows={1}
-					disabled={voiceMode !== "off"}
+					disabled={voiceMode !== "off" && !pipelineActiveRef.current}
 					className="chat-input"
 				/>
 				{messageQueue.length > 0 && (
@@ -1310,7 +1590,7 @@ export function ChatPanel() {
 				) : (
 					<button
 						type="button"
-						onClick={handleSend}
+						onClick={() => handleSend()}
 						disabled={!input.trim()}
 						className="chat-send-btn"
 					>
