@@ -30,6 +30,8 @@ struct AppState {
     health_monitor_shutdown: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
     /// When true, health monitor skips checks (restart in progress).
     restarting_gateway: Arc<std::sync::atomic::AtomicBool>,
+    /// Consecutive agent restart failures — prevents infinite restart loops.
+    agent_restart_failures: std::sync::atomic::AtomicU32,
     /// Random state token for OAuth deep link CSRF protection.
     oauth_state: Arc<Mutex<Option<String>>>,
     /// Active Gemini Live WebSocket proxy session.
@@ -537,7 +539,7 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
         return Ok(flatpak_node);
     }
 
-    // Check system node first
+    // Check system node first (via PATH)
     let mut node_check = Command::new("node");
     node_check.arg("-v");
     platform::hide_console(&mut node_check);
@@ -557,6 +559,26 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
         }
     }
 
+    // Windows: check well-known install paths (GUI apps may not inherit updated PATH)
+    #[cfg(windows)]
+    {
+        let well_known = [
+            r"C:\Program Files\nodejs\node.exe",
+            r"C:\Program Files (x86)\nodejs\node.exe",
+        ];
+        for candidate in &well_known {
+            let p = std::path::PathBuf::from(candidate);
+            if p.exists() {
+                if let Some(major) = check_node_version(&p) {
+                    if major >= 22 {
+                        log_verbose(&format!("[Naia] Found Node.js at well-known path: {}", candidate));
+                        return Ok(p);
+                    }
+                }
+            }
+        }
+    }
+
     // Try platform-specific version manager fallback
     let home = home_dir();
     if let Some(path) = platform::find_node_version_manager(&home) {
@@ -564,6 +586,24 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
     }
 
     Err("Node.js 22+ not found (checked system PATH and version managers)".to_string())
+}
+
+/// Check Node.js version at a given path. Returns the major version or None.
+fn check_node_version(node_path: &std::path::Path) -> Option<u32> {
+    let mut cmd = Command::new(node_path);
+    cmd.arg("-v");
+    platform::hide_console(&mut cmd);
+    let output = cmd.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version_str = String::from_utf8_lossy(&output.stdout);
+    version_str
+        .trim()
+        .trim_start_matches('v')
+        .split('.')
+        .next()
+        .and_then(|s| s.parse().ok())
 }
 
 /// Check if OpenClaw Gateway is already running (blocking, for setup use)
@@ -985,9 +1025,22 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
             if let Some(bundled) = platform::find_bundled_node(app_handle) {
                 return bundled.to_string_lossy().to_string();
             }
-            find_node_binary()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| "node".to_string())
+            match find_node_binary() {
+                Ok(p) => p.to_string_lossy().to_string(),
+                Err(e) => {
+                    log_both(&format!("[Naia] Node.js discovery failed: {}", e));
+                    // Last resort: try absolute path on Windows
+                    #[cfg(windows)]
+                    {
+                        let fallback = std::path::PathBuf::from(r"C:\Program Files\nodejs\node.exe");
+                        if fallback.exists() {
+                            log_both("[Naia] Using fallback Node.js at C:\\Program Files\\nodejs\\node.exe");
+                            return fallback.to_string_lossy().to_string();
+                        }
+                    }
+                    "node".to_string()
+                }
+            }
         });
 
     // In dev: tsx for TypeScript direct execution; in prod: compiled JS from bundle
@@ -1275,6 +1328,15 @@ fn restart_agent(
     message: &str,
     audit_db: Option<&audit::AuditDb>,
 ) -> Result<(), String> {
+    // Prevent infinite restart loops — max 3 consecutive failures
+    let failures = state.agent_restart_failures.load(std::sync::atomic::Ordering::Relaxed);
+    if failures >= 3 {
+        return Err(format!(
+            "agent-core restart disabled after {} consecutive failures. Check Node.js installation.",
+            failures
+        ));
+    }
+
     log_both("[Naia] Restarting agent-core...");
     // Use a temporary empty db if none provided (shouldn't happen in practice)
     let empty_db;
@@ -1289,6 +1351,7 @@ fn restart_agent(
     };
     match spawn_agent_core(app_handle, db) {
         Ok(process) => {
+            state.agent_restart_failures.store(0, std::sync::atomic::Ordering::Relaxed);
             let mut guard = lock_or_recover(&state.agent, "state.agent(restart_agent)");
             *guard = Some(process);
             log_both("[Naia] agent-core restarted");
@@ -1296,7 +1359,10 @@ fn restart_agent(
             std::thread::sleep(std::time::Duration::from_millis(300));
             send_to_agent(state, message, None, audit_db)
         }
-        Err(e) => Err(format!("Restart failed: {}", e)),
+        Err(e) => {
+            state.agent_restart_failures.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Err(format!("Restart failed: {}", e))
+        }
     }
 }
 
@@ -2449,6 +2515,7 @@ pub fn run() {
             gateway: Mutex::new(None),
             health_monitor_shutdown: Mutex::new(None),
             restarting_gateway: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            agent_restart_failures: std::sync::atomic::AtomicU32::new(0),
             oauth_state: Arc::new(Mutex::new(None)),
             gemini_live: gemini_live::new_shared_handle(),
         })
