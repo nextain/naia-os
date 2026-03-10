@@ -6,6 +6,7 @@ import { cancelChat, directToolCall, sendChatMessage } from "../lib/chat-service
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
+	getModelOption,
 	isToolAllowed,
 	loadConfig,
 	loadConfigWithSecrets,
@@ -527,7 +528,7 @@ export function ChatPanel() {
 				requestId,
 				ttsVoice: ttsEnabled
 					? (cfgTtsProvider === "nextain"
-						? `ko-KR-Chirp3-HD-${config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
+						? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
 						: config.ttsVoice)
 					: undefined,
 				ttsApiKey: ttsEnabled
@@ -806,21 +807,27 @@ export function ChatPanel() {
 				return;
 			}
 			const naiaKey = config?.naiaKey;
-			const liveProvider = config.liveProvider ?? (naiaKey ? "naia" : "edge-tts");
+			const modelMeta = getModelOption(config.provider, config.model);
+			const isOmni = modelMeta?.type === "omni";
 
-			// edge-tts is not a live provider
-			if (liveProvider === "edge-tts") {
-				useChatStore.getState().addMessage({ role: "assistant", content: "Edge는 TTS 전용입니다. 라이브 대화를 사용하려면 설정에서 Naia OS, Gemini, 또는 OpenAI를 선택하세요." });
+			// Only omni models support live voice conversation
+			if (!isOmni) {
+				useChatStore.getState().addMessage({ role: "assistant", content: "라이브 대화를 사용하려면 설정에서 음성 통합 모델(🔊)을 선택하세요." });
 				setVoiceMode("off");
 				return;
 			}
 
+			// Determine the live provider from the current model/provider
+			const liveProvider = config.provider === "openai" ? "openai-realtime" as const
+				: naiaKey ? "naia" as const : "gemini-live" as const;
+
 			Logger.info("ChatPanel", "Voice config", {
+				provider: config.provider,
+				model: config.model,
 				liveProvider,
 				hasNaiaKey: !!naiaKey,
 				hasGoogleApiKey: !!config.googleApiKey,
 				hasOpenaiKey: !!(config.openaiRealtimeApiKey ?? config.apiKey),
-				liveModel: config.liveModel ?? "(default)",
 			});
 
 			// Validate credentials per provider
@@ -932,33 +939,24 @@ export function ChatPanel() {
 			};
 
 			// Build provider-specific config and connect
+			const selectedVoice = config.voice ?? getDefaultVoiceForAvatar(config.vrmModel);
 			if (liveProvider === "openai-realtime") {
 				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
-				const openaiVoice = config.openaiRealtimeVoice ?? "alloy";
 				await session.connect({
 					provider: "openai-realtime",
 					apiKey: openaiKey!,
-					voice: openaiVoice,
-					systemInstruction: systemPrompt,
-					model: config.liveModel,
-				});
-			} else if (liveProvider === "minicpm-o") {
-				await session.connect({
-					provider: "minicpm-o",
-					serverUrl: config.minicpmOServerUrl || "ws://localhost:8765",
+					voice: selectedVoice,
 					systemInstruction: systemPrompt,
 				});
 			} else {
 				// Gemini Live: naia (gateway) or gemini-live (direct via Rust proxy)
-				const geminiVoice = config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel);
 				await session.connect({
 					provider: "gemini-live",
 					gatewayUrl: useDirectMode ? undefined : LAB_GATEWAY_URL,
 					naiaKey: useDirectMode ? undefined : naiaKey,
 					googleApiKey: useDirectMode ? config.googleApiKey : undefined,
-					voice: geminiVoice,
+					voice: selectedVoice,
 					systemInstruction: systemPrompt,
-					model: config.liveModel,
 				});
 			}
 

@@ -13,12 +13,15 @@
  */
 import { createGeminiLiveSession } from "./gemini-live";
 import { createGeminiLiveProxySession } from "./gemini-live-proxy";
-import { createMiniCpmOSession } from "./minicpm-o";
+// MiniCPM-o: disabled until pipeline voice support (#33)
+// import { createMiniCpmOSession } from "./minicpm-o";
 import { createOpenAIRealtimeSession } from "./openai-realtime";
 import type { LiveProviderId, VoiceSession } from "./types";
 
 export { type LiveProviderId, type LiveProviderConfig, type VoiceSession, LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS } from "./types";
 export type { GeminiLiveConfig, MiniCpmOConfig, OpenAIRealtimeConfig, ToolDeclaration } from "./types";
+// Re-export voice options from config.ts for backward compatibility
+export { OPENAI_REALTIME_VOICES, GEMINI_LIVE_VOICES } from "../config";
 
 interface CreateOptions {
 	/** Use Rust WebSocket proxy for Gemini Direct (bypasses WebKitGTK limitation). */
@@ -34,8 +37,9 @@ export function createVoiceSession(provider: LiveProviderId, options?: CreateOpt
 			return options?.useProxy ? createGeminiLiveProxySession() : createGeminiLiveSession();
 		case "openai-realtime":
 			return createOpenAIRealtimeSession();
-		case "minicpm-o":
-			return createMiniCpmOSession();
+		// MiniCPM-o: disabled until pipeline voice support (#33)
+		// case "minicpm-o":
+		// 	return createMiniCpmOSession();
 		default:
 			throw new Error(`Unknown live provider: ${provider}`);
 	}

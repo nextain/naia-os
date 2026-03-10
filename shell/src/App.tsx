@@ -11,6 +11,7 @@ import {
 	isOnboardingComplete,
 	loadConfig,
 	migrateLabKeyToNaiaKey,
+	migrateLiveProviderToUnifiedModel,
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
@@ -34,6 +35,7 @@ export function App() {
 		// One-time migrations (idempotent)
 		void migrateLabKeyToNaiaKey();
 		migrateSpeechStyleValues();
+		migrateLiveProviderToUnifiedModel();
 
 		const config = loadConfig();
 		applyTheme(config?.theme ?? "espresso");

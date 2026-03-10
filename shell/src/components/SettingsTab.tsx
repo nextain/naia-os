@@ -17,6 +17,7 @@ import {
 	fetchOllamaModels,
 	getDefaultModel,
 	isApiKeyOptional,
+	isOmniModel,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
@@ -39,7 +40,6 @@ import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
 import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
-import { LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS, OPENAI_REALTIME_VOICES, type LiveProviderId } from "../lib/voice/types";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
@@ -647,22 +647,12 @@ export function SettingsTab() {
 	const [enableTools, setEnableTools] = useState(
 		existing?.enableTools ?? true,
 	);
-	const [liveProvider, setLiveProvider] = useState<LiveProviderId>(
-		existing?.liveProvider ?? (existing?.naiaKey ? "naia" : "edge-tts"),
+	const [voice, setVoice] = useState(
+		existing?.voice ?? getDefaultVoiceForAvatar(existing?.vrmModel),
 	);
 	const [openaiRealtimeApiKey, setOpenaiRealtimeApiKey] = useState(
 		existing?.openaiRealtimeApiKey ?? "",
 	);
-	const [liveVoice, setLiveVoice] = useState(
-		existing?.liveVoice ?? getDefaultVoiceForAvatar(existing?.vrmModel),
-	);
-	const [openaiRealtimeVoice, setOpenaiRealtimeVoice] = useState(
-		existing?.openaiRealtimeVoice ?? "alloy",
-	);
-	const [minicpmOServerUrl, setMinicpmOServerUrl] = useState(
-		existing?.minicpmOServerUrl ?? "ws://localhost:8765",
-	);
-	const [minicpmConnectionStatus, setMinicpmConnectionStatus] = useState("");
 	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
@@ -801,7 +791,7 @@ export function SettingsTab() {
 
 						const pushModel = (key: ProviderId) => {
 							if (!grouped[key].some((x) => x.id === modelId)) {
-								grouped[key].push({ id: modelId, label });
+								grouped[key].push({ id: modelId, label, type: "llm" as const });
 							}
 						};
 
@@ -1072,14 +1062,14 @@ export function SettingsTab() {
 				const nextModel = current?.model || getDefaultModel("nextain");
 				if (current) {
 					// Auto-set default voice based on VRM avatar gender if not previously configured
-					const liveVoice = current.liveVoice ?? getDefaultVoiceForAvatar(current.vrmModel);
+					const defaultVoice = current.voice ?? getDefaultVoiceForAvatar(current.vrmModel);
 					saveConfig({
 						...current,
 						provider: "nextain",
 						model: nextModel,
 						naiaKey: nextNaiaKey,
 						naiaUserId: nextNaiaUserId || undefined,
-						liveVoice,
+						voice: defaultVoice,
 					});
 				}
 
@@ -1260,15 +1250,6 @@ export function SettingsTab() {
 		}
 		debouncedLabSync();
 	}
-	function persistTtsProvider(p: TtsProviderId) {
-		setTtsProvider(p);
-		const derivedEngine = (p === "google" || p === "nextain") ? "google" : "openclaw";
-		if (existing) {
-			saveConfig({ ...existing, ttsProvider: p, ttsEngine: derivedEngine as "google" | "openclaw" });
-		}
-		debouncedLabSync();
-	}
-
 	function getPreviewText(_voice?: string): string {
 		const lang = locale.slice(0, 2).toLowerCase();
 		switch (lang) {
@@ -1296,14 +1277,16 @@ export function SettingsTab() {
 		setIsPreviewing(true);
 		try {
 			let base64 = "";
-			if (liveProvider === "naia" || liveProvider === "gemini-live") {
-				const cfg = loadConfig();
-				const voiceName = cfg?.liveVoice ?? getDefaultVoiceForAvatar(cfg?.vrmModel);
+			const modelMeta = (dynamicModels[provider] ?? []).find((m) => m.id === model);
+			const isOmni = modelMeta?.type === "omni";
+
+			if (isOmni && (provider === "nextain" || provider === "gemini")) {
+				// Gemini voice preview via Chirp 3 HD
+				const voiceName = voice || getDefaultVoiceForAvatar(existing?.vrmModel);
 				const fullVoice = `ko-KR-Chirp3-HD-${voiceName}`;
 				const previewText = getPreviewText();
 
 				if (naiaKey) {
-					// Naia: use Lab gateway TTS (Chirp 3 HD via service account)
 					const resp = await fetch(`${LAB_GATEWAY_URL}/v1/audio/speech`, {
 						method: "POST",
 						headers: {
@@ -1326,15 +1309,15 @@ export function SettingsTab() {
 					setError("미리듣기를 사용하려면 Naia 로그인이 필요합니다.");
 					return;
 				}
-			} else if (liveProvider === "openai-realtime") {
+			} else if (isOmni && provider === "openai") {
 				// OpenAI TTS preview via agent skill_tts
-				const voice = existing?.openaiRealtimeVoice ?? "alloy";
-				const previewText = getPreviewText(voice);
+				const previewVoice = voice || "alloy";
+				const previewText = getPreviewText(previewVoice);
 				const previewArgs: Record<string, unknown> = {
 					action: "preview",
 					provider: "openai",
 					text: previewText,
-					voice,
+					voice: previewVoice,
 					apiKey: openaiRealtimeApiKey.trim() || existing?.openaiTtsApiKey || undefined,
 				};
 				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
@@ -1390,23 +1373,6 @@ export function SettingsTab() {
 		}
 	}
 
-	async function handleGatewayTtsProviderChange(newProvider: string) {
-		gatewayTtsActiveProviderRef.current = newProvider;
-		try {
-			const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-			await directToolCall({
-				toolName: "skill_tts",
-				args: { action: "set_provider", provider: newProvider },
-				requestId: `tts-set-${Date.now()}`,
-				gatewayUrl: effectiveGatewayUrl,
-				gatewayToken,
-			});
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to set Gateway TTS provider", {
-				error: String(err),
-			});
-		}
-	}
 
 	async function handleGatewayTtsAutoChange(auto: GatewayTtsAuto) {
 		setGatewayTtsAuto(auto);
@@ -1556,9 +1522,8 @@ export function SettingsTab() {
 			gatewayTtsAuto,
 			gatewayTtsMode,
 			ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
-			liveProvider,
+			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
-			minicpmOServerUrl: minicpmOServerUrl.trim() || undefined,
 		};
 		saveConfig(newConfig);
 		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
@@ -1592,6 +1557,8 @@ export function SettingsTab() {
 	const providerModels = dynamicModels[provider] ?? [];
 	const selectedModelMeta = providerModels.find((m) => m.id === model);
 	const hasSelectedModel = Boolean(selectedModelMeta);
+	const isSelectedOmni = selectedModelMeta?.type === "omni";
+	const omniVoices = selectedModelMeta?.voices;
 	const manualUrl = `https://naia.nextain.io/${locale}/manual`;
 
 	async function handleDiscordBotConnect() {
@@ -2035,6 +2002,14 @@ export function SettingsTab() {
 					onChange={(e) => {
 						if (e.target.value === "__custom__") return;
 						setModel(e.target.value);
+						// When switching to an omni model, set default voice if not already set
+						const newMeta = providerModels.find((m) => m.id === e.target.value);
+						if (newMeta?.type === "omni" && newMeta.voices?.length) {
+							const currentVoiceValid = newMeta.voices.some((v) => v.id === voice);
+							if (!currentVoiceValid) {
+								setVoice(newMeta.voices[0].id);
+							}
+						}
 					}}
 				>
 					{!hasSelectedModel && model ? (
@@ -2050,6 +2025,70 @@ export function SettingsTab() {
 					{selectedModelMeta?.label ?? model}
 				</div>
 			</div>
+
+			{/* Omni model voice selection */}
+			{isSelectedOmni && omniVoices && omniVoices.length > 0 && (
+				<div className="settings-field">
+					<label htmlFor="omni-voice-select">{t("settings.naiaVoice")}</label>
+					<div className="voice-picker">
+						<select
+							id="omni-voice-select"
+							value={voice}
+							onChange={(e) => {
+								setVoice(e.target.value);
+								if (existing) saveConfig({ ...existing, voice: e.target.value });
+							}}
+						>
+							{omniVoices.map((v) => (
+								<option key={v.id} value={v.id}>{v.label}</option>
+							))}
+						</select>
+						<button
+							type="button"
+							className="voice-preview-btn"
+							onClick={handleVoicePreview}
+							disabled={isPreviewing}
+						>
+							{isPreviewing
+								? t("settings.voicePreviewing")
+								: t("settings.voicePreview")}
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* Omni model: Gemini Direct mode needs Google API Key */}
+			{isSelectedOmni && provider === "gemini" && (
+				<div className="settings-field">
+					<label htmlFor="google-apikey-input">Google API Key</label>
+					<input
+						id="google-apikey-input"
+						type="password"
+						value={googleApiKey}
+						onChange={(e) => {
+							setGoogleApiKey(e.target.value);
+							if (existing) saveConfig({ ...existing, googleApiKey: e.target.value });
+						}}
+						placeholder="AIza..."
+					/>
+				</div>
+			)}
+
+			{/* Omni model: OpenAI Realtime needs API Key */}
+			{isSelectedOmni && provider === "openai" && (
+				<div className="settings-field">
+					<label>OpenAI API Key</label>
+					<input
+						type="password"
+						value={openaiRealtimeApiKey}
+						onChange={(e) => {
+							setOpenaiRealtimeApiKey(e.target.value);
+							if (existing) saveConfig({ ...existing, openaiRealtimeApiKey: e.target.value });
+						}}
+						placeholder="sk-..."
+					/>
+				</div>
+			)}
 
 			{provider === "nextain" ? (
 				<div className="settings-field">
@@ -2280,221 +2319,25 @@ export function SettingsTab() {
 				</div>
 			)}
 
-			<div className="settings-section-divider">
-				<span>{t("settings.voiceSection")}</span>
-			</div>
-
-			{/* Live Provider Selection */}
-			<div className="settings-field">
-				<label htmlFor="live-provider-select">{t("settings.voiceSection")}</label>
-				<select
-					id="live-provider-select"
-					value={liveProvider}
-					onChange={(e) => {
-						const val = e.target.value as LiveProviderId;
-						setLiveProvider(val);
-						if (existing) saveConfig({ ...existing, liveProvider: val });
-						// Edge TTS: auto-set ttsProvider to edge
-						if (val === "edge-tts") {
-							persistTtsProvider("edge");
-							persistTtsVoice(getDefaultTtsVoiceForAvatar("edge", existing?.vrmModel));
-							handleGatewayTtsProviderChange("edge").then(() => fetchGatewayTts());
-						}
-					}}
-				>
-					{(Object.entries(LIVE_PROVIDER_LABELS) as [LiveProviderId, string][]).map(([id, label]) => (
-						<option key={id} value={id}>{label}</option>
-					))}
-				</select>
-				<span className="settings-hint" style={{ marginTop: 4, fontSize: "0.82em", opacity: 0.7 }}>
-					{LIVE_PROVIDER_COST_HINTS[liveProvider].cost} ({LIVE_PROVIDER_COST_HINTS[liveProvider].note})
-				</span>
-			</div>
-
-			{/* Naia OS — needs login */}
-			{liveProvider === "naia" && !naiaKey && (
-				<div className="settings-field">
-					<span className="settings-hint" style={{ color: "var(--color-warning, #f59e0b)" }}>
-						{t("settings.nextainLoginRequired")}
-					</span>
-				</div>
-			)}
-
-			{/* Naia OS / Gemini — voice picker */}
-			{(liveProvider === "naia" || liveProvider === "gemini-live") && (
+			{/* Voice settings — only for LLM models (omni models have built-in STT/TTS) */}
+			{!isSelectedOmni && (
 				<>
-					{liveProvider === "gemini-live" && (
-						<div className="settings-field">
-							<label htmlFor="google-apikey-input">Google API Key</label>
-							<input
-								id="google-apikey-input"
-								type="password"
-								value={googleApiKey}
-								onChange={(e) => {
-									setGoogleApiKey(e.target.value);
-									if (existing) saveConfig({ ...existing, googleApiKey: e.target.value });
-								}}
-								placeholder="AIza..."
-							/>
-						</div>
-					)}
-					<div className="settings-field">
-						<label htmlFor="live-voice-select">{t("settings.naiaVoice")}</label>
-						<div className="voice-picker">
-							<select
-								id="live-voice-select"
-								value={liveVoice}
-								onChange={(e) => {
-									setLiveVoice(e.target.value);
-									if (existing) saveConfig({ ...existing, liveVoice: e.target.value });
-								}}
-							>
-								<option value="Kore">Kore (여성, 차분)</option>
-								<option value="Puck">Puck (남성, 활발)</option>
-								<option value="Charon">Charon (남성, 깊은)</option>
-								<option value="Aoede">Aoede (여성, 밝은)</option>
-								<option value="Fenrir">Fenrir (남성, 낮은)</option>
-								<option value="Leda">Leda (여성, 부드러운)</option>
-								<option value="Orus">Orus (남성, 단단한)</option>
-								<option value="Zephyr">Zephyr (중성)</option>
-								<option value="Achernar">Achernar</option>
-								<option value="Gacrux">Gacrux</option>
-								<option value="Sulafat">Sulafat</option>
-								<option value="Umbriel">Umbriel</option>
-							</select>
-							<button
-								type="button"
-								className="voice-preview-btn"
-								onClick={handleVoicePreview}
-								disabled={isPreviewing}
-							>
-								{isPreviewing
-									? t("settings.voicePreviewing")
-									: t("settings.voicePreview")}
-							</button>
-						</div>
+					<div className="settings-section-divider">
+						<span>{t("settings.voiceSection")}</span>
 					</div>
+
+					{/* STT — placeholder for #46 pipeline implementation */}
 					<div className="settings-field">
-						<span className="settings-hint">
-							{liveProvider === "naia"
-								? "Naia Gateway (Gemini Live)"
-								: "Direct mode (Google API Key)"}
+						<label>{t("settings.sttProvider")}</label>
+						<select disabled>
+							<option>{t("settings.sttComingSoon")}</option>
+						</select>
+						<span className="settings-hint" style={{ marginTop: 4, fontSize: "0.82em", opacity: 0.6 }}>
+							LLM 모델의 음성 대화는 STT 파이프라인 구현 후 지원됩니다.
 						</span>
 					</div>
-				</>
-			)}
 
-			{/* OpenAI Realtime — API key + voice picker */}
-			{liveProvider === "openai-realtime" && (
-				<>
-					<div className="settings-field">
-						<label>OpenAI API Key</label>
-						<input
-							type="password"
-							value={openaiRealtimeApiKey}
-							onChange={(e) => {
-								setOpenaiRealtimeApiKey(e.target.value);
-								if (existing) saveConfig({ ...existing, openaiRealtimeApiKey: e.target.value });
-							}}
-							placeholder="sk-..."
-						/>
-					</div>
-					<div className="settings-field">
-						<label>{t("settings.naiaVoice")}</label>
-						<div className="voice-picker">
-							<select
-								value={openaiRealtimeVoice}
-								onChange={(e) => {
-									setOpenaiRealtimeVoice(e.target.value);
-									if (existing) saveConfig({ ...existing, openaiRealtimeVoice: e.target.value });
-								}}
-							>
-								{OPENAI_REALTIME_VOICES.map((v) => (
-									<option key={v.id} value={v.id}>{v.label}</option>
-								))}
-							</select>
-							<button
-								type="button"
-								className="voice-preview-btn"
-								onClick={handleVoicePreview}
-								disabled={isPreviewing}
-							>
-								{isPreviewing
-									? t("settings.voicePreviewing")
-									: t("settings.voicePreview")}
-							</button>
-						</div>
-					</div>
-				</>
-			)}
-
-			{/* MiniCPM-o (Local) — server URL + connection test */}
-			{liveProvider === "minicpm-o" && (
-				<>
-					<div className="settings-field">
-						<label>Server URL</label>
-						<input
-							type="text"
-							value={minicpmOServerUrl}
-							onChange={(e) => {
-								setMinicpmOServerUrl(e.target.value);
-								setMinicpmConnectionStatus("");
-								if (existing) saveConfig({ ...existing, minicpmOServerUrl: e.target.value });
-							}}
-							placeholder="ws://localhost:8765"
-						/>
-						<span className="settings-hint" style={{ marginTop: 4, fontSize: "0.82em", opacity: 0.7 }}>
-							MiniCPM-o bridge server (local GPU or RunPod)
-						</span>
-					</div>
-					<div className="settings-field">
-						<button
-							type="button"
-							onClick={async () => {
-								setMinicpmConnectionStatus("Testing...");
-								const base = (minicpmOServerUrl || "ws://localhost:8765").replace(/\/+$/, "");
-								try {
-									const ws = new WebSocket(`${base}/ws`);
-									const ok = await new Promise<boolean>((resolve) => {
-										const t = setTimeout(() => { ws.close(); resolve(false); }, 5000);
-										ws.onopen = () => { clearTimeout(t); ws.close(); resolve(true); };
-										ws.onerror = () => { clearTimeout(t); resolve(false); };
-									});
-									setMinicpmConnectionStatus(ok ? "Connected ✓" : "Connection failed");
-								} catch {
-									setMinicpmConnectionStatus("Connection failed");
-								}
-							}}
-						>
-							Test Connection
-						</button>
-						{minicpmConnectionStatus && (
-							<span
-								className="settings-hint"
-								style={{
-									marginLeft: 8,
-									color: minicpmConnectionStatus.includes("✓")
-										? "var(--color-success, #22c55e)"
-										: minicpmConnectionStatus === "Testing..."
-											? undefined
-											: "var(--color-error, #ef4444)",
-								}}
-							>
-								{minicpmConnectionStatus}
-							</span>
-						)}
-					</div>
-					<div className="settings-field">
-						<span className="settings-hint" style={{ fontSize: "0.82em", opacity: 0.7 }}>
-							EN/ZH speech supported. Your speech won't appear as text in chat (model limitation).
-						</span>
-					</div>
-				</>
-			)}
-
-			{/* Edge TTS — voice picker + auto-speak */}
-			{liveProvider === "edge-tts" && (
-				<>
+					{/* TTS */}
 					<div className="settings-field settings-toggle-row">
 						<label htmlFor="tts-toggle">{t("settings.ttsEnabled")}</label>
 						<input
