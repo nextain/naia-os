@@ -1,0 +1,4 @@
+[env]
+# whisper-rs-sys: use pre-generated bindings instead of running bindgen.
+# This avoids requiring libclang at build time.
+WHISPER_DONT_GENERATE_BINDINGS = "1"

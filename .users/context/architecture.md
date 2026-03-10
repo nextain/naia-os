@@ -527,8 +527,10 @@ Settings UI provides STT provider selector + model list with size/WER, download/
 First install: no `sttProvider` set → voice button shows popup → navigate to settings.
 Config fields: `sttProvider` ("vosk"|"whisper"), `sttModel` (model_id string).
 
-**Vosk models** (ready): ko-KR (82MB), en-US (40MB), ja-JP (48MB)
-**Whisper models** (download only, backend pending): tiny→large-v3 (75MB→3GB)
+**Vosk models** (streaming, ready): ko-KR (82MB), en-US (40MB), ja-JP (48MB)
+**Whisper models** (batch, ready): tiny (75MB) → large-v3 (3GB). Uses whisper-rs 0.15 (whisper.cpp bindings).
+Whisper inference runs every 2s or on 1.5s silence detection. Same event interface as Vosk.
+Build requires cmake (whisper.cpp compile). `.cargo/config.toml` sets `WHISPER_DONT_GENERATE_BINDINGS=1` to skip bindgen (no libclang needed).
 
 Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
 

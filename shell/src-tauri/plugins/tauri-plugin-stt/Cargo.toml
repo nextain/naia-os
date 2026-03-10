@@ -82,5 +82,8 @@ features = ["blocking"]
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.vosk]
 version = "0.3"
 
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.whisper-rs]
+version = "0.15"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.zip]
 version = "6.0.0"

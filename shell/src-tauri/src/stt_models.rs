@@ -27,7 +27,7 @@ pub struct SttModelInfo {
     pub download_url: String, // direct download URL
     pub description: String,  // short note
     pub downloaded: bool,     // filled at runtime
-    pub ready: bool,          // engine backend available (false for whisper until implemented)
+    pub ready: bool,          // engine backend available
 }
 
 /// Returns the full model catalog with download status.
@@ -82,7 +82,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             downloaded: false,
             ready: true,
         },
-        // ── Whisper models (ready=false until backend implemented) ──
+        // ── Whisper models ──
         SttModelInfo {
             engine: "whisper".into(),
             model_id: "whisper-tiny".into(),
@@ -93,7 +93,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin".into(),
             description: "Fast, low quality. Not recommended for Korean.".into(),
             downloaded: false,
-            ready: false,
+            ready: true,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -105,7 +105,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin".into(),
             description: "Similar quality to Vosk small.".into(),
             downloaded: false,
-            ready: false,
+            ready: true,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -117,7 +117,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin".into(),
             description: "Noticeable improvement over Vosk.".into(),
             downloaded: false,
-            ready: false,
+            ready: true,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -129,7 +129,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin".into(),
             description: "Recommended. Good accuracy for Korean.".into(),
             downloaded: false,
-            ready: false,
+            ready: true,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -141,7 +141,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             download_url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin".into(),
             description: "Best quality. Large download.".into(),
             downloaded: false,
-            ready: false,
+            ready: true,
         },
     ]
 }

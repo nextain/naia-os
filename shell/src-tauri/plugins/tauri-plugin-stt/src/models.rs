@@ -3,10 +3,24 @@ use serde::{Deserialize, Serialize};
 /// Language code for speech recognition (e.g., "en-US", "pt-BR", "ja-JP")
 pub type LanguageCode = String;
 
+fn default_engine() -> String {
+    "vosk".into()
+}
+
 /// Configuration for starting speech recognition
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListenConfig {
+    /// STT engine to use: "vosk" (default) or "whisper"
+    #[serde(default = "default_engine")]
+    pub engine: String,
+
+    /// Model ID for the STT engine (e.g., "whisper-medium").
+    /// For Whisper, resolves to `stt-models/{modelId}/model.bin`.
+    /// For Vosk, ignored (auto-selected by language).
+    #[serde(default, rename = "modelId")]
+    pub model_id: Option<String>,
+
     /// Language code for recognition (e.g., "en-US", "pt-BR")
     /// If not specified, uses device default language
     #[serde(default)]

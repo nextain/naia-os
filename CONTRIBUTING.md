@@ -39,7 +39,8 @@ Code, commits, and context files should be in English — but if you can't, subm
 - Linux (Bazzite, Ubuntu, Fedora, etc.)
 - Node.js 22+, pnpm 9+
 - Rust stable (for Tauri build)
-- System packages: `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel` (Fedora)
+- System packages (Fedora): `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel`
+- cmake (for whisper.cpp build)
 
 ### Development run
 

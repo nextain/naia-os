@@ -988,7 +988,7 @@ export function ChatPanel() {
 					naiaKey: config.naiaKey,
 				};
 
-				// Start Vosk STT
+				// Start STT engine (Vosk or Whisper)
 				setSttState("downloading"); // Model may need download on first use
 				setSttDownloadProgress(0);
 				try {
@@ -1063,12 +1063,16 @@ export function ChatPanel() {
 					sttCleanupRef.current.push(errorCleanup);
 
 					const sttLang = localeToSttLanguage(getLocale());
-					Logger.info("ChatPanel", "Starting STT", { language: sttLang, locale: getLocale() });
+					const sttEngine = config.sttProvider || "vosk";
+					Logger.info("ChatPanel", "Starting STT", { engine: sttEngine, model: config.sttModel, language: sttLang, locale: getLocale() });
+					// engine & modelId are custom extensions — upstream types don't include them yet
 					await sttStart({
+						engine: sttEngine,
+						modelId: config.sttModel,
 						language: sttLang,
 						continuous: true,
 						interimResults: true,
-					});
+					} as Record<string, unknown> & Parameters<typeof sttStart>[0]);
 					Logger.info("ChatPanel", "STT started successfully");
 					setSttState("listening");
 				} catch (sttErr) {

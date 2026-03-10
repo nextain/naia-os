@@ -547,28 +547,32 @@ voice_architecture:
     Config fields: sttProvider ("vosk"|"whisper"), sttModel (model_id string).
 
   stt_model_management:
-    description: "Unified STT model catalog with download/delete via Tauri commands"
-    status: "implemented (Vosk ready, Whisper download-only — backend pending)"
+    description: "Unified STT model catalog with Vosk (streaming) and Whisper (batch) engines"
+    status: "implemented (both Vosk and Whisper backends functional)"
     files:
       - "shell/src-tauri/src/stt_models.rs — model catalog, download, delete, migration"
       - "shell/src-tauri/src/lib.rs — list_stt_models, download_stt_model, delete_stt_model commands"
+      - "shell/src-tauri/plugins/tauri-plugin-stt/src/desktop.rs — Vosk streaming + Whisper batch engine"
+      - "shell/src-tauri/plugins/tauri-plugin-stt/src/models.rs — ListenConfig with engine/modelId fields"
       - "shell/src/components/SettingsTab.tsx — model management UI"
-      - "shell/src/components/ChatPanel.tsx — voice button guard (sttProvider check)"
+      - "shell/src/components/ChatPanel.tsx — voice button guard + engine/modelId dispatch"
     models_dir: "~/.local/share/com.naia.shell/stt-models/"
     vosk_models:
       - {id: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%", ready: true}
       - {id: "vosk-model-small-en-us-0.15", size: "40MB", wer: "9.85%", ready: true}
       - {id: "vosk-model-small-ja-0.22", size: "48MB", wer: "—", ready: true}
     whisper_models:
-      - {id: "whisper-tiny", size: "75MB", wer: "~40%", ready: false}
-      - {id: "whisper-base", size: "142MB", wer: "~30%", ready: false}
-      - {id: "whisper-small", size: "466MB", wer: "~20%", ready: false}
-      - {id: "whisper-medium", size: "1.5GB", wer: "~12%", ready: false}
-      - {id: "whisper-large-v3", size: "3GB", wer: "~8%", ready: false}
-    next_steps: |
-      - Implement whisper-rs Rust backend (whisper.cpp binding)
-      - Same event interface as Vosk (plugin:stt:result, plugin:stt:stateChange)
-      - Set ready=true for Whisper models once backend is integrated
+      - {id: "whisper-tiny", size: "75MB", wer: "~40%", ready: true}
+      - {id: "whisper-base", size: "142MB", wer: "~30%", ready: true}
+      - {id: "whisper-small", size: "466MB", wer: "~20%", ready: true}
+      - {id: "whisper-medium", size: "1.5GB", wer: "~12%", ready: true}
+      - {id: "whisper-large-v3", size: "3GB", wer: "~8%", ready: true}
+    whisper_backend:
+      library: "whisper-rs 0.15 (whisper.cpp Rust bindings)"
+      build_deps: "cmake (whisper.cpp compile). .cargo/config.toml sets WHISPER_DONT_GENERATE_BINDINGS=1 to skip bindgen (no libclang needed)."
+      model_format: "ggml .bin files stored in stt-models/{model_id}/model.bin"
+      inference: "batch mode — accumulates audio, runs inference every 2s or on 1.5s silence"
+      events: "same as Vosk — plugin:stt:result, plugin:stt:stateChange"
 
   voice_gender_defaults: |
     Default voice is automatically set based on VRM avatar gender:

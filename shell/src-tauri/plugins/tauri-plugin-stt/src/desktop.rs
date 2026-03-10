@@ -9,6 +9,7 @@ use tauri::{plugin::PluginApi, AppHandle, Emitter, Manager, Runtime};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use vosk::{Model, Recognizer};
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 use crate::models::*;
 
@@ -105,6 +106,13 @@ struct AudioProcessor {
     resample_ratio: f64,
 }
 
+/// Shared Whisper audio buffer — audio callback pushes f32 samples, inference thread consumes.
+struct WhisperAudioBuffer {
+    samples: Vec<f32>,
+    /// Cumulative silence frames (energy below threshold)
+    silence_frames: u32,
+}
+
 struct SttState {
     model: Option<Arc<Model>>,
     current_model_name: Option<String>,
@@ -113,10 +121,19 @@ struct SttState {
     max_duration_ms: Option<u64>,
     /// The session ID of the current listening session (0 = not listening)
     active_session_id: u64,
-    /// Shared audio processor - reused across sessions
+    /// Shared audio processor - reused across sessions (Vosk only)
     audio_processor: Option<Arc<Mutex<AudioProcessor>>>,
     /// Whether the audio stream has been created
     stream_created: bool,
+    /// Active engine: "vosk" or "whisper"
+    active_engine: String,
+    /// Whisper model context (reused across sessions)
+    whisper_ctx: Option<Arc<WhisperContext>>,
+    whisper_model_id: Option<String>,
+    /// Shared buffer for Whisper audio
+    whisper_buffer: Option<Arc<Mutex<WhisperAudioBuffer>>>,
+    /// Whether a Whisper audio stream has been created
+    whisper_stream_created: bool,
 }
 
 pub fn init<R: Runtime, C: DeserializeOwned>(
@@ -132,6 +149,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
         active_session_id: 0,
         audio_processor: None,
         stream_created: false,
+        active_engine: "vosk".into(),
+        whisper_ctx: None,
+        whisper_model_id: None,
+        whisper_buffer: None,
+        whisper_stream_created: false,
     }));
 
     Ok(Stt {
@@ -174,6 +196,57 @@ impl<R: Runtime> Stt<R> {
         }
 
         None
+    }
+
+    /// Get the unified STT models directory (stt-models/)
+    fn get_stt_models_dir(&self) -> PathBuf {
+        self.app
+            .path()
+            .app_data_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("stt-models")
+    }
+
+    /// Load or reuse a Whisper model.
+    fn ensure_whisper_model(&self, model_id: &str) -> crate::Result<Arc<WhisperContext>> {
+        let mut state = self.state.lock().unwrap();
+
+        // Reuse if same model already loaded
+        if state.whisper_model_id.as_deref() == Some(model_id) {
+            if let Some(ctx) = &state.whisper_ctx {
+                return Ok(ctx.clone());
+            }
+        }
+
+        // Drop old context
+        state.whisper_ctx = None;
+        state.whisper_model_id = None;
+        state.whisper_buffer = None;
+        state.whisper_stream_created = false;
+
+        drop(state);
+
+        let model_path = self.get_stt_models_dir().join(model_id).join("model.bin");
+        if !model_path.exists() {
+            return Err(crate::Error::NotAvailable(format!(
+                "Whisper model not found: {:?}. Download it from Settings first.",
+                model_path
+            )));
+        }
+
+        info!("[STT] Loading Whisper model: {:?}", model_path);
+        let ctx = WhisperContext::new_with_params(
+            model_path.to_str().unwrap(),
+            WhisperContextParameters::default(),
+        )
+        .map_err(|e| crate::Error::Recording(format!("Failed to load Whisper model: {}", e)))?;
+
+        let ctx = Arc::new(ctx);
+        let mut state = self.state.lock().unwrap();
+        state.whisper_ctx = Some(ctx.clone());
+        state.whisper_model_id = Some(model_id.to_string());
+
+        Ok(ctx)
     }
 
     /// Download and extract a Vosk model in a separate thread to avoid tokio conflicts
@@ -409,6 +482,11 @@ impl<R: Runtime> Stt<R> {
     }
 
     pub fn start_listening(&self, config: ListenConfig) -> crate::Result<()> {
+        // Dispatch to Whisper engine if requested
+        if config.engine == "whisper" {
+            return self.start_listening_whisper(config);
+        }
+
         let model = self.ensure_model(config.language.as_deref())?;
 
         let mut state = self.state.lock().unwrap();
@@ -416,6 +494,8 @@ impl<R: Runtime> Stt<R> {
         if state.is_listening {
             return Err(crate::Error::Recording("Already listening".to_string()));
         }
+
+        state.active_engine = "vosk".into();
 
         // Generate a new session ID
         let session_id = CURRENT_SESSION_ID.fetch_add(1, Ordering::SeqCst) + 1;
@@ -833,6 +913,312 @@ impl<R: Runtime> Stt<R> {
         Ok(())
     }
 
+    /// Whisper engine: start listening with whisper.cpp
+    fn start_listening_whisper(&self, config: ListenConfig) -> crate::Result<()> {
+        let model_id = config.model_id.as_deref().unwrap_or("whisper-small");
+        let whisper_ctx = self.ensure_whisper_model(model_id)?;
+
+        let mut state = self.state.lock().unwrap();
+        if state.is_listening {
+            return Err(crate::Error::Recording("Already listening".to_string()));
+        }
+
+        let session_id = CURRENT_SESSION_ID.fetch_add(1, Ordering::SeqCst) + 1;
+        state.active_session_id = session_id;
+        state.active_engine = "whisper".into();
+        state.listen_start_time = Some(Instant::now());
+        state.max_duration_ms = if config.max_duration > 0 {
+            Some(config.max_duration as u64)
+        } else {
+            None
+        };
+
+        let need_new_stream = !state.whisper_stream_created || state.whisper_buffer.is_none();
+
+        if need_new_stream {
+            #[cfg(target_os = "linux")]
+            {
+                extern "C" {
+                    fn snd_lib_error_set_handler(
+                        handler: Option<
+                            extern "C" fn(
+                                file: *const std::ffi::c_char,
+                                line: std::ffi::c_int,
+                                function: *const std::ffi::c_char,
+                                err: std::ffi::c_int,
+                                fmt: *const std::ffi::c_char,
+                                ...
+                            ),
+                        >,
+                    ) -> std::ffi::c_int;
+                }
+                unsafe { snd_lib_error_set_handler(None); }
+            }
+
+            let host = cpal::default_host();
+            let mut candidates: Vec<(cpal::Device, cpal::SupportedStreamConfig)> = Vec::new();
+            let mut priority_candidates: Vec<(cpal::Device, cpal::SupportedStreamConfig, u8)> = Vec::new();
+
+            if let Ok(devices) = host.input_devices() {
+                for dev in devices {
+                    #[allow(deprecated)]
+                    let alsa_name = dev.name().unwrap_or_default();
+                    let display_name = dev.description()
+                        .map(|d| d.name().to_string())
+                        .unwrap_or_else(|_| alsa_name.clone());
+
+                    if alsa_name == "null" || alsa_name.contains("monitor")
+                        || display_name.contains("Discard all samples") {
+                        continue;
+                    }
+                    if let Ok(cfg) = dev.default_input_config() {
+                        let prio = if alsa_name == "default" || alsa_name == "pipewire" { 0 }
+                            else if alsa_name.starts_with("default:CARD=") { 1 }
+                            else if alsa_name.starts_with("sysdefault:CARD=") { 2 }
+                            else { 3 };
+                        priority_candidates.push((dev, cfg, prio));
+                    }
+                }
+            }
+            priority_candidates.sort_by_key(|(_, _, p)| *p);
+            for (dev, cfg, _) in priority_candidates {
+                candidates.push((dev, cfg));
+            }
+
+            if candidates.is_empty() {
+                if let Some(ref dev) = host.default_input_device() {
+                    if let Ok(cfg) = dev.default_input_config() {
+                        candidates.push((dev.clone(), cfg));
+                    }
+                }
+            }
+            if candidates.is_empty() {
+                return Err(crate::Error::Recording("No input device available".to_string()));
+            }
+
+            let target_sample_rate = 16000.0_f64;
+            let whisper_buffer = Arc::new(Mutex::new(WhisperAudioBuffer {
+                samples: Vec::new(),
+                silence_frames: 0,
+            }));
+
+            let mut found = false;
+            let mut last_err = String::new();
+
+            for (candidate_dev, candidate_cfg) in candidates {
+                let channels = candidate_cfg.channels() as usize;
+                let sample_format = candidate_cfg.sample_format();
+                let device_sample_rate = candidate_cfg.sample_rate() as f64;
+                let resample_ratio = device_sample_rate / target_sample_rate;
+
+                let buffer_for_cb = whisper_buffer.clone();
+
+                // Audio callback: push f32 samples (mono, resampled to 16kHz)
+                let process_whisper_audio = move |samples_f32: Vec<f32>| {
+                    let current_session = CURRENT_SESSION_ID.load(Ordering::SeqCst);
+                    if current_session == 0 { return; }
+
+                    // Resample to 16kHz if needed
+                    let resampled: Vec<f32> = if (resample_ratio - 1.0).abs() < 0.001 {
+                        samples_f32
+                    } else {
+                        let out_len = (samples_f32.len() as f64 / resample_ratio) as usize;
+                        let mut out = Vec::with_capacity(out_len);
+                        for i in 0..out_len {
+                            let pos = i as f64 * resample_ratio;
+                            let idx = pos as usize;
+                            let frac = (pos - idx as f64) as f32;
+                            if idx + 1 < samples_f32.len() {
+                                out.push(samples_f32[idx] * (1.0 - frac) + samples_f32[idx + 1] * frac);
+                            } else if idx < samples_f32.len() {
+                                out.push(samples_f32[idx]);
+                            }
+                        }
+                        out
+                    };
+
+                    // Detect silence (RMS < threshold)
+                    let rms = if resampled.is_empty() { 0.0 } else {
+                        (resampled.iter().map(|s| s * s).sum::<f32>() / resampled.len() as f32).sqrt()
+                    };
+
+                    let mut buf = buffer_for_cb.lock().unwrap();
+                    buf.samples.extend_from_slice(&resampled);
+                    if rms < 0.01 {
+                        buf.silence_frames += 1;
+                    } else {
+                        buf.silence_frames = 0;
+                    }
+                };
+
+                let stream_result = match sample_format {
+                    cpal::SampleFormat::F32 => candidate_dev.build_input_stream(
+                        &candidate_cfg.into(),
+                        move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                            let mono: Vec<f32> = if channels == 1 {
+                                data.to_vec()
+                            } else {
+                                data.chunks(channels).map(|frame| {
+                                    frame.iter().sum::<f32>() / channels as f32
+                                }).collect()
+                            };
+                            process_whisper_audio(mono);
+                        },
+                        |err| debug!("STT(whisper) audio error: {}", err),
+                        None,
+                    ),
+                    cpal::SampleFormat::I16 => candidate_dev.build_input_stream(
+                        &candidate_cfg.into(),
+                        move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                            let mono: Vec<f32> = if channels == 1 {
+                                data.iter().map(|&s| s as f32 / 32768.0).collect()
+                            } else {
+                                data.chunks(channels).map(|frame| {
+                                    let sum: f32 = frame.iter().map(|&s| s as f32).sum();
+                                    sum / (channels as f32 * 32768.0)
+                                }).collect()
+                            };
+                            process_whisper_audio(mono);
+                        },
+                        |err| debug!("STT(whisper) audio error: {}", err),
+                        None,
+                    ),
+                    _ => continue,
+                };
+
+                match stream_result {
+                    Ok(stream) => {
+                        stream.play().map_err(|e| {
+                            crate::Error::Recording(format!("Failed to start stream: {}", e))
+                        })?;
+                        info!("[STT] Whisper: audio stream opened ({} Hz → 16kHz)", device_sample_rate as u32);
+                        state.whisper_buffer = Some(whisper_buffer.clone());
+                        state.whisper_stream_created = true;
+                        std::mem::forget(stream);
+                        found = true;
+                        break;
+                    }
+                    Err(e) => {
+                        last_err = format!("{}", e);
+                        continue;
+                    }
+                }
+            }
+
+            if !found {
+                return Err(crate::Error::Recording(format!(
+                    "Failed to build audio stream: {}", last_err
+                )));
+            }
+        } else {
+            // Reuse stream — just clear buffer
+            if let Some(buf) = &state.whisper_buffer {
+                let mut b = buf.lock().unwrap();
+                b.samples.clear();
+                b.silence_frames = 0;
+            }
+        }
+
+        state.is_listening = true;
+
+        let _ = self.app.emit(
+            "plugin:stt:stateChange",
+            RecognitionStatus {
+                state: RecognitionState::Listening,
+                is_available: true,
+                language: config.language.clone(),
+            },
+        );
+
+        // Whisper inference thread — runs every 2 seconds or on silence
+        let inference_buffer = state.whisper_buffer.as_ref().unwrap().clone();
+        let inference_ctx = whisper_ctx.clone();
+        let inference_app = self.app.clone();
+        let inference_lang = config.language.clone();
+        let inference_interim = config.interim_results;
+        let inference_session = session_id;
+
+        std::thread::spawn(move || {
+            let mut last_text = String::new();
+
+            loop {
+                std::thread::sleep(Duration::from_secs(2));
+
+                let current = CURRENT_SESSION_ID.load(Ordering::SeqCst);
+                if current != inference_session {
+                    // Session ended — run final inference on remaining audio
+                    let buf = inference_buffer.lock().unwrap();
+                    if buf.samples.len() > 16000 { // At least 1 second
+                        let audio = buf.samples.clone();
+                        drop(buf);
+                        if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                            if !text.is_empty() && text != last_text {
+                                let result = RecognitionResult {
+                                    transcript: text, is_final: true, confidence: Some(0.9),
+                                };
+                                let _ = inference_app.emit("stt://result", &result);
+                                let _ = inference_app.emit("plugin:stt:result", &result);
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                // Check buffer
+                let mut buf = inference_buffer.lock().unwrap();
+                let sample_count = buf.samples.len();
+                let is_silence = buf.silence_frames > 15; // ~1.5 sec silence at ~10 callbacks/sec
+
+                // Need at least 0.5 seconds of audio
+                if sample_count < 8000 {
+                    continue;
+                }
+
+                // On silence: emit final result
+                if is_silence && sample_count > 16000 {
+                    let audio = buf.samples.clone();
+                    buf.samples.clear();
+                    buf.silence_frames = 0;
+                    drop(buf);
+
+                    if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                        if !text.is_empty() && text != last_text {
+                            last_text = text.clone();
+                            let result = RecognitionResult {
+                                transcript: text, is_final: true, confidence: Some(0.9),
+                            };
+                            info!("[STT] Whisper final: '{}'", result.transcript);
+                            let _ = inference_app.emit("stt://result", &result);
+                            let _ = inference_app.emit("plugin:stt:result", &result);
+                        }
+                    }
+                    continue;
+                }
+
+                // Interim: emit partial if enough audio
+                if inference_interim && sample_count > 32000 { // >2 sec
+                    let audio = buf.samples.clone();
+                    drop(buf);
+
+                    if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                        if !text.is_empty() && text != last_text {
+                            last_text = text.clone();
+                            let result = RecognitionResult {
+                                transcript: text, is_final: false, confidence: None,
+                            };
+                            let _ = inference_app.emit("stt://result", &result);
+                            let _ = inference_app.emit("plugin:stt:result", &result);
+                        }
+                    }
+                } else {
+                    drop(buf);
+                }
+            }
+        });
+
+        Ok(())
+    }
+
     pub fn stop_listening(&self) -> crate::Result<()> {
         let mut state = self.state.lock().unwrap();
 
@@ -914,5 +1300,59 @@ fn get_language_display_name(code: &str) -> String {
         "ja-JP" => "Japanese (Japan)".to_string(),
         "it-IT" => "Italian (Italy)".to_string(),
         _ => code.to_string(),
+    }
+}
+
+/// Run whisper.cpp inference on audio samples (f32, mono, 16kHz).
+/// Returns recognized text or None on error.
+fn run_whisper_inference(
+    ctx: &WhisperContext,
+    audio: &[f32],
+    language: Option<&str>,
+) -> Option<String> {
+    let mut state = match ctx.create_state() {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("[STT] Whisper create_state failed: {}", e);
+            return None;
+        }
+    };
+
+    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    // Map language code (e.g. "ko-KR") to Whisper language (e.g. "ko")
+    let lang_short = language.map(|l| l.split('-').next().unwrap_or(l).to_string());
+    if let Some(ref lang) = lang_short {
+        params.set_language(Some(lang));
+    }
+    params.set_print_progress(false);
+    params.set_print_realtime(false);
+    params.set_print_special(false);
+    params.set_print_timestamps(false);
+    params.set_suppress_blank(true);
+    // Single segment mode for faster processing
+    params.set_single_segment(true);
+    params.set_no_context(true);
+
+    if let Err(e) = state.full(params, audio) {
+        warn!("[STT] Whisper inference failed: {}", e);
+        return None;
+    }
+
+    let num_segments = state.full_n_segments();
+
+    let mut text = String::new();
+    for i in 0..num_segments {
+        if let Some(segment) = state.get_segment(i) {
+            if let Ok(s) = segment.to_str_lossy() {
+                text.push_str(&s);
+            }
+        }
+    }
+
+    let trimmed = text.trim().to_string();
+    if trimmed.is_empty() || trimmed == "[BLANK_AUDIO]" {
+        None
+    } else {
+        Some(trimmed)
     }
 }
