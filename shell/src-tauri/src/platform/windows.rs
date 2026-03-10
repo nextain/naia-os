@@ -196,20 +196,10 @@ pub(crate) fn get_platform_tier_info() -> serde_json::Value {
 pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<String, String> {
     // Step 1: Check if WSL is available
     if !super::wsl::is_wsl_available() {
-        // Check if wsl.exe binary exists (installed but needs reboot)
-        let wsl_exe_exists = Command::new("where")
-            .arg("wsl")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-
-        if wsl_exe_exists {
-            // WSL binary exists but wsl --status fails → needs reboot
-            return Err("WSL is installed but not yet active. Please restart your computer and reopen Naia.".to_string());
-        }
-
-        crate::log_both("[Naia] WSL not available — attempting install");
-        // wsl --install requires admin. Use ShellExecuteW with "runas" verb.
+        // Always run `wsl --install --no-distribution` first.
+        // Note: `wsl.exe` is a built-in stub on Windows 10 2004+ even when WSL is not installed,
+        // so checking `where wsl` is NOT a reliable way to detect WSL presence.
+        crate::log_both("[Naia] WSL not available — running wsl --install");
         let mut cmd = Command::new("powershell");
         cmd.args([
             "-NoProfile", "-Command",
@@ -220,14 +210,14 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             Ok(output) => {
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(format!("WSL install failed: {}", stderr));
+                    crate::log_both(&format!("[Naia] wsl --install exit non-zero: {}", stderr));
                 }
-                crate::log_both("[Naia] WSL install command completed — reboot may be required");
+                crate::log_both("[Naia] WSL install command completed");
             }
             Err(e) => return Err(format!("Failed to run WSL install: {}", e)),
         }
 
-        // Check again after install attempt
+        // Check again after install
         if !super::wsl::is_wsl_available() {
             return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
         }

@@ -5,24 +5,43 @@ use std::process::Command;
 
 /// Check if WSL2 is available and enabled.
 /// Returns: Ok(true) = ready, Err(msg) = WSL not installed or not enabled.
+///
+/// Check if WSL2 is functional. Tries multiple detection methods:
+/// 1. `wsl --version` (works on Windows 11 / newer WSL)
+/// 2. `wsl echo ok` (works on all versions — actually runs inside WSL)
+/// If wsl.exe doesn't exist at all, returns Err.
 pub(crate) fn check_wsl_status() -> Result<bool, String> {
+    // Method 1: wsl --version (fast, no VM boot, works on Win11+)
     let mut cmd = Command::new("wsl");
-    cmd.arg("--status");
+    cmd.arg("--version");
     super::hide_console(&mut cmd);
-    let output = cmd.output().map_err(|_| {
-        "WSL is not installed. Install from Microsoft Store or run: wsl --install".to_string()
-    })?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("not recognized") || stderr.contains("not found") {
+    match cmd.output() {
+        Ok(o) if o.status.success() => return Ok(true),
+        Err(_) => {
             return Err(
-                "WSL is not installed. Windows 10 2004+ required.\nRun: wsl --install (admin PowerShell)"
+                "WSL is not installed. Install from Microsoft Store or run: wsl --install"
                     .to_string(),
             );
         }
-        return Err(format!("WSL error: {}", stderr));
+        _ => {}
     }
-    Ok(true)
+
+    // Method 2: wsl echo ok (slower — boots VM if needed, but works everywhere)
+    let mut cmd2 = Command::new("wsl");
+    cmd2.args(["echo", "ok"]);
+    super::hide_console(&mut cmd2);
+    match cmd2.output() {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            if stdout.trim().contains("ok") {
+                return Ok(true);
+            }
+            // wsl echo failed — WSL installed but VM not ready
+            let stderr = decode_utf16_lossy(&o.stderr);
+            Err(format!("WSL not ready: {}", stderr.trim()))
+        }
+        Err(_) => Err("WSL is not installed".to_string()),
+    }
 }
 
 /// Check if WSL2 is available (simple bool wrapper).
@@ -70,7 +89,8 @@ pub(crate) fn import_distro(name: &str, install_path: &str, tar_path: &str) -> R
     if output.status.success() {
         Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        // WSL outputs errors in UTF-16LE — decode properly
+        let stderr = decode_utf16_lossy(&output.stderr);
         if stderr.contains("HCS_E_SERVICE_NOT_AVAILABLE") || stderr.contains("0x80070422") {
             Err("WSL requires a system restart to finish setup. Please restart your computer and try again.".to_string())
         } else {

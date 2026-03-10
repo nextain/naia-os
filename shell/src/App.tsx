@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarCanvas } from "./components/AvatarCanvas";
@@ -5,6 +6,7 @@ import { ChatPanel } from "./components/ChatPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { WslSetupScreen } from "./components/WslSetupScreen";
 import {
 	type PanelPosition,
 	type ThemeId,
@@ -23,6 +25,7 @@ function applyTheme(theme: ThemeId) {
 }
 
 export function App() {
+	const [showWslSetup, setShowWslSetup] = useState(false);
 	const [showOnboarding, setShowOnboarding] = useState(false);
 	const [panelPosition, setPanelPosition] = useState<PanelPosition>("bottom");
 	const [panelVisible, setPanelVisible] = useState(true);
@@ -41,8 +44,24 @@ export function App() {
 		if (config?.panelVisible === false) setPanelVisible(false);
 		if (config?.panelSize)
 			setPanelSize(Math.max(15, Math.min(80, config.panelSize)));
-		if (!isOnboardingComplete()) {
-			setShowOnboarding(true);
+
+		const needsOnboarding = !isOnboardingComplete();
+
+		// On Windows Tier 1: show WSL setup before onboarding
+		if (needsOnboarding) {
+			invoke("get_platform_tier")
+				.then((tier) => {
+					const info = tier as { platform: string; tier: number };
+					if (info.platform === "windows" && info.tier === 1) {
+						setShowWslSetup(true);
+					} else {
+						setShowOnboarding(true);
+					}
+				})
+				.catch(() => {
+					// Non-Windows or invoke failed — go straight to onboarding
+					setShowOnboarding(true);
+				});
 		}
 	}, []);
 
@@ -148,6 +167,20 @@ export function App() {
 			unlisten.then((fn) => fn());
 		};
 	}, []);
+
+	if (showWslSetup) {
+		return (
+			<div className="app-root">
+				<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+				<WslSetupScreen
+					onComplete={() => {
+						setShowWslSetup(false);
+						setShowOnboarding(true);
+					}}
+				/>
+			</div>
+		);
+	}
 
 	if (showOnboarding) {
 		return (
