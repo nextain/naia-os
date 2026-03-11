@@ -69,6 +69,20 @@ function run(cmd, opts = {}) {
 }
 
 function wslRun(distro, command, opts = {}) {
+	// For multiline commands, pipe via stdin to avoid quoting hell
+	if (command.includes("\n")) {
+		try {
+			return execSync(`wsl -d ${distro} -- bash -l`, {
+				input: command,
+				encoding: "utf-8",
+				timeout: opts.timeout || 120_000,
+				stdio: ["pipe", "pipe", "pipe"],
+			}).trim();
+		} catch (e) {
+			if (opts.allowFail) return e.stderr?.trim() || e.stdout?.trim() || "";
+			throw e;
+		}
+	}
 	return run(`wsl -d ${distro} -- bash -lc "${command.replace(/"/g, '\\"')}"`, opts);
 }
 
@@ -226,20 +240,27 @@ async function phase2_wslSetup() {
 
 	// 2d: Configure gateway.mode=local
 	try {
-		wslRun(DISTRO, [
-			'node -e "',
-			"const fs=require('fs');",
-			"const p='/root/.openclaw/openclaw.json';",
-			"let c={};",
-			"try{c=JSON.parse(fs.readFileSync(p,'utf8'))}catch{}",
-			"c.gateway=c.gateway||{};",
-			"c.gateway.mode='local';",
-			"fs.mkdirSync('/root/.openclaw',{recursive:true});",
-			"fs.writeFileSync(p,JSON.stringify(c,null,2));",
+		const script = [
+			"cat > /tmp/set-gw-mode.js << 'NODESCRIPT'",
+			"const fs = require('fs');",
+			"const p = '/root/.openclaw/openclaw.json';",
+			"let c = {};",
+			"try { c = JSON.parse(fs.readFileSync(p, 'utf8')); } catch {}",
+			"c.gateway = c.gateway || {};",
+			"c.gateway.mode = 'local';",
+			"fs.mkdirSync('/root/.openclaw', { recursive: true });",
+			"fs.writeFileSync(p, JSON.stringify(c, null, 2));",
 			"console.log('ok');",
-			'"',
-		].join(""));
-		ok("gateway.mode=local configured");
+			"NODESCRIPT",
+			"node /tmp/set-gw-mode.js",
+		].join("\n");
+		const result = wslRun(DISTRO, script);
+		if (result.includes("ok")) {
+			ok("gateway.mode=local configured");
+		} else {
+			fail("gateway.mode=local configured", result);
+			return false;
+		}
 	} catch (e) {
 		fail("gateway.mode=local configured", e.message);
 		return false;
@@ -390,7 +411,13 @@ async function phase5_agentHandshake() {
 		return false;
 	}
 
-	// Run the existing gateway-e2e test suite (quick subset)
+	// Run the existing gateway-e2e test suite if device identity exists
+	const identityPath = join(homedir(), ".openclaw", "identity", "device.json");
+	if (!existsSync(identityPath)) {
+		ok("Gateway E2E suite skipped (no device identity yet — expected for fresh install)");
+		return true;
+	}
+
 	try {
 		const result = run(
 			"npx vitest run src/__tests__/gateway-e2e.test.ts --reporter=verbose 2>&1",
