@@ -30,7 +30,7 @@ For non-feature changes (typos, config values, simple directives), use `developm
 |---|-------|-------------|
 | 6 | **Build** | Implement per plan, one phase at a time |
 | 7 | **Review** | Per-phase + full iterative review (2 consecutive clean passes) |
-| 8 | **E2E Test** | End-to-end test through real user path |
+| 8 | **E2E Test** | Run actual app/server, targeted tests first then full suite |
 | 9 | **Post-test Review** | Re-review after tests pass (2 consecutive clean passes) |
 | 10 | **Sync** | Update context + reflect lessons → user confirmation (gate) |
 | 11 | **Sync Verify** | Verify context accuracy (2 consecutive clean passes) |

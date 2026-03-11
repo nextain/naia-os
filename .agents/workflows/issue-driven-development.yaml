@@ -189,21 +189,31 @@ phases:
       - "unused_code: Are there unused props, imports, or dead code paths?"
 
   e2e_test:
-    description: "End-to-end test through actual user path"
+    description: "End-to-end test by running the actual application"
     steps:
-      - "Test through the real UI/Shell path"
-      - "Never use simplified or shortcut test paths"
-      - "The test must match what a real user would do"
+      - "Start the actual dev server / application (not a mock or stub)"
+      - "Run ONLY the tests covering changed code first (targeted test)"
+      - "After targeted tests pass, run the full E2E suite"
+      - "Test through the real UI/Shell path as a real user would"
       - "Tests must pass completely clean (no partial passes)"
     rules:
+      - "MUST actually run the web server or application — never just check integration flow"
+      - "Test data comes from .env files — if required env vars are missing, ask user before proceeding"
       - "No runtime patches to make tests pass"
       - "No manual post-processing"
       - "User's goal must be achieved without additional intervention"
+    execution_order:
+      - "1. Check .env for required test data (API keys, tokens, URLs)"
+      - "2. If .env vars missing → ask user to provide them"
+      - "3. Start dev server / app"
+      - "4. Run targeted tests (changed scope only) for fast feedback"
+      - "5. On pass → run full E2E suite"
+      - "6. On fail → fix and re-run targeted tests before full suite"
     on_failure:
       implementation_issue: "→ return to BUILD"
       design_issue: "→ return to PLAN"
       investigation_gap: "→ return to INVESTIGATE"
-    output: "Passing E2E test (fully clean)"
+    output: "Passing E2E test (targeted + full suite, fully clean)"
 
   post_test_review:
     description: "Re-review after tests pass — catch issues that testing context reveals"
