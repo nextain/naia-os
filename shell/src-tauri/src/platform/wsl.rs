@@ -308,10 +308,20 @@ pub(crate) fn is_provisioned(name: &str) -> bool {
     cmd.output().map(|o| o.status.success()).unwrap_or(false)
 }
 
+/// Emit provision progress to the frontend (if app_handle provided).
+fn emit_provision_progress(app: Option<&tauri::AppHandle>, detail: &str) {
+    if let Some(app) = app {
+        use tauri::Emitter;
+        let payload = serde_json::json!({ "step": "provision", "detail": detail });
+        let _ = app.emit("wsl-setup-progress", payload);
+    }
+}
+
 /// Provision a distro with Node.js 22 + OpenClaw.
 /// Runs the equivalent of config/wsl/Dockerfile steps inside an existing distro.
-pub(crate) fn provision_distro(name: &str) -> Result<(), String> {
+pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Result<(), String> {
     // Step 1: Install Node.js 22
+    emit_provision_progress(app, "Installing Node.js 22...");
     crate::log_both("[Naia] Installing Node.js 22 in WSL...");
     run_provision_step(name, concat!(
         "apt-get update -qq && ",
@@ -322,6 +332,7 @@ pub(crate) fn provision_distro(name: &str) -> Result<(), String> {
     ), "Node.js install")?;
 
     // Step 2: Install OpenClaw
+    emit_provision_progress(app, "Installing OpenClaw...");
     crate::log_both("[Naia] Installing OpenClaw in WSL...");
     run_provision_step(name, concat!(
         "mkdir -p /opt/naia/openclaw && ",
@@ -331,6 +342,7 @@ pub(crate) fn provision_distro(name: &str) -> Result<(), String> {
     ), "OpenClaw install")?;
 
     // Step 3: Configure PATH
+    emit_provision_progress(app, "Configuring environment...");
     run_provision_step(name,
         "grep -q '/opt/naia/openclaw' /root/.bashrc || echo 'export PATH=\"/opt/naia/openclaw/node_modules/.bin:$PATH\"' >> /root/.bashrc",
         "PATH config"
@@ -344,6 +356,7 @@ pub(crate) fn provision_distro(name: &str) -> Result<(), String> {
     )?;
 
     // Verify
+    emit_provision_progress(app, "Verifying installation...");
     if is_provisioned(name) {
         crate::log_both("[Naia] Provisioning verified — OpenClaw available");
         Ok(())

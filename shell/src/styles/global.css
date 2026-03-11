@@ -3896,10 +3896,30 @@ body.resizing-row {
 	border-radius: 6px;
 }
 
+.wsl-setup-progress {
+	text-align: center;
+	margin: 8px 0;
+}
+
 .wsl-setup-status {
 	color: var(--text-secondary);
 	font-size: 12px;
 	margin: 0;
+}
+
+.wsl-setup-detail {
+	color: var(--text-secondary);
+	font-size: 11px;
+	margin: 4px 0 0;
+	opacity: 0.7;
+}
+
+.wsl-setup-elapsed {
+	color: var(--text-secondary);
+	font-size: 11px;
+	margin: 4px 0 0;
+	opacity: 0.5;
+	font-variant-numeric: tabular-nums;
 }
 
 .wsl-setup-actions {

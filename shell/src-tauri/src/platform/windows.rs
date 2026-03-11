@@ -230,12 +230,21 @@ pub(crate) fn get_platform_tier_info() -> serde_json::Value {
     })
 }
 
+/// Emit a progress event to the frontend during WSL setup.
+fn emit_setup_progress(app: &tauri::AppHandle, step: &str, detail: &str) {
+    use tauri::Emitter;
+    let payload = serde_json::json!({ "step": step, "detail": detail });
+    let _ = app.emit("wsl-setup-progress", payload);
+    crate::log_both(&format!("[Naia] WSL setup: {} — {}", step, detail));
+}
+
 /// Auto-setup WSL + NaiaEnv distro. Called from frontend setup wizard.
 /// Steps: 1) Install WSL  2) .wslconfig  3) Install Ubuntu + create NaiaEnv  4) Provision
 /// Returns JSON progress/tier info.
-pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<String, String> {
+pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<String, String> {
     // Step 1: Install WSL if not available
     if !super::wsl::is_wsl_available() {
+        emit_setup_progress(app_handle, "wsl", "Installing WSL...");
         crate::log_both("[Naia] WSL not available — running wsl --install");
         let mut cmd = Command::new("powershell");
         cmd.args([
@@ -277,6 +286,7 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
 
         // 3a: Install Ubuntu-24.04 as base (if not already present)
         if !super::wsl::is_distro_registered("Ubuntu-24.04") {
+            emit_setup_progress(app_handle, "ubuntu", "Installing Ubuntu 24.04...");
             crate::log_both("[Naia] Installing Ubuntu-24.04 base...");
             let mut cmd = Command::new("wsl");
             cmd.args(["--install", "-d", "Ubuntu-24.04", "--no-launch"]);
@@ -297,6 +307,7 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
         let install_dir = wsl_dir.join("NaiaEnv");
         let _ = std::fs::create_dir_all(&install_dir);
 
+        emit_setup_progress(app_handle, "export", "Exporting Ubuntu base...");
         crate::log_both("[Naia] Exporting Ubuntu base...");
         let mut export_cmd = Command::new("wsl");
         export_cmd.args(["--export", "Ubuntu-24.04", &export_path.to_string_lossy()]);
@@ -307,6 +318,7 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
             return Err(format!("Ubuntu export failed: {}", stderr));
         }
 
+        emit_setup_progress(app_handle, "import", "Creating NaiaEnv distro...");
         crate::log_both("[Naia] Importing as NaiaEnv...");
         super::wsl::import_distro(
             "NaiaEnv",
@@ -329,8 +341,9 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
     // Step 4: Provision NaiaEnv (install Node.js + OpenClaw if missing)
     if super::wsl::is_distro_registered("NaiaEnv") {
         if !super::wsl::is_provisioned("NaiaEnv") {
+            emit_setup_progress(app_handle, "provision", "Installing Node.js + OpenClaw (2~5 min)...");
             crate::log_both("[Naia] Provisioning NaiaEnv (Node.js + OpenClaw)...");
-            super::wsl::provision_distro("NaiaEnv")?;
+            super::wsl::provision_distro("NaiaEnv", Some(app_handle))?;
             crate::log_both("[Naia] NaiaEnv provisioned successfully");
         } else {
             crate::log_both("[Naia] NaiaEnv already provisioned");
