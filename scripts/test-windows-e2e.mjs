@@ -385,17 +385,6 @@ async function phase4_deviceApproval() {
 async function phase5_agentHandshake() {
 	log("Phase 5: Agent ↔ Gateway handshake");
 
-	// Read config for WebSocket test
-	let gatewayToken;
-	try {
-		const configPath = join(homedir(), ".openclaw", "openclaw.json");
-		const config = JSON.parse(readFileSync(configPath, "utf-8"));
-		gatewayToken = config.gateway?.auth?.token;
-	} catch {
-		fail("Load gateway token", "cannot read token from Windows config");
-		return false;
-	}
-
 	// Simple WebSocket health check via HTTP
 	try {
 		const res = await fetch(`${GATEWAY_URL}/health`);

@@ -416,7 +416,7 @@ fn start_gateway_health_monitor(app_handle: AppHandle) -> Arc<std::sync::atomic:
                 break;
             }
             // Skip health checks while a restart is in progress
-            if restarting.load(std::sync::atomic::Ordering::Relaxed) {
+            if restarting.load(std::sync::atomic::Ordering::SeqCst) {
                 log_verbose("[Naia] Health monitor: skipping (restart in progress)");
                 consecutive_failures = 0;
                 continue;
@@ -1682,10 +1682,21 @@ async fn restart_gateway(
 ) -> Result<bool, String> {
     log_verbose("[Naia] restart_gateway requested");
 
-    // Pause health monitor during restart
-    state
+    // Guard: if already restarting, skip to prevent race condition.
+    // compare_exchange returns Err if the value was already true (restart in flight).
+    if state
         .restarting_gateway
-        .store(true, std::sync::atomic::Ordering::Relaxed);
+        .compare_exchange(
+            false,
+            true,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_err()
+    {
+        log_both("[Naia] restart_gateway skipped — already in progress");
+        return Ok(false);
+    }
 
     let result = (|| -> Result<bool, String> {
         let guard_result = state.gateway.lock();
@@ -1724,11 +1735,6 @@ async fn restart_gateway(
         }
     })();
 
-    // Resume health monitor
-    state
-        .restarting_gateway
-        .store(false, std::sync::atomic::Ordering::Relaxed);
-
     // If Gateway is now available, restart agent so it can connect
     if result.as_ref().copied().unwrap_or(false) {
         log_both("[Naia] Gateway is up — restarting agent-core to connect...");
@@ -1752,6 +1758,12 @@ async fn restart_gateway(
             }
         }
     }
+
+    // Release guard AFTER agent restart completes — prevents concurrent
+    // restart_gateway calls from killing the Gateway mid-agent-spawn.
+    state
+        .restarting_gateway
+        .store(false, std::sync::atomic::Ordering::SeqCst);
 
     result
 }
