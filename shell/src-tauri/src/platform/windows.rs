@@ -325,8 +325,15 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             &install_dir.to_string_lossy(),
             &export_path.to_string_lossy(),
         )?;
-        // Clean up export file
+        // Clean up export file and unregister Ubuntu base (no longer needed)
         let _ = std::fs::remove_file(&export_path);
+        if super::wsl::is_distro_registered("Ubuntu-24.04") {
+            crate::log_both("[Naia] Removing Ubuntu-24.04 base (no longer needed)...");
+            let mut unreg = Command::new("wsl");
+            unreg.args(["--unregister", "Ubuntu-24.04"]);
+            hide_console(&mut unreg);
+            let _ = unreg.output();
+        }
 
         crate::log_both("[Naia] NaiaEnv distro created");
 
