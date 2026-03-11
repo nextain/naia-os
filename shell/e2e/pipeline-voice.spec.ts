@@ -61,6 +61,7 @@ const PIPELINE_VOICE_MOCK = `
 	window.__NAIA_E2E__ = {
 		emitEvent: emitEvent,
 		sttListening: false,
+		lastSttConfig: null,  // Track engine/modelId passed to start_listening
 		audioPlayed: [],      // Track enqueued audio base64 data
 		ttsRequests: [],      // Track TTS requests sent to agent
 		lastChatRequestId: null,
@@ -137,6 +138,7 @@ const PIPELINE_VOICE_MOCK = `
 		// STT plugin commands
 		if (cmd === "plugin:stt|start_listening") {
 			window.__NAIA_E2E__.sttListening = true;
+			window.__NAIA_E2E__.lastSttConfig = (args && args.config) || {};
 			setTimeout(function() {
 				emitSttStateChange("listening");
 			}, 100);
@@ -339,6 +341,8 @@ test.describe("Pipeline Voice E2E", () => {
 				apiKey: API_KEY,
 				enableTools: false,
 				sttProvider: "vosk",
+				sttModel: "vosk-model-small-ko-0.22",
+				ttsEnabled: true,
 				ttsProvider: "edge",
 				locale: "ko",
 				onboardingComplete: true,
@@ -523,5 +527,71 @@ test.describe("Pipeline Voice E2E", () => {
 		// TTS count should be 0 since we only chatted after stopping pipeline
 		// (pipeline mode was stopped before sending "안녕")
 		expect(ttsCount).toBe(0);
+	});
+});
+
+test.describe("Whisper Engine E2E", () => {
+	test.beforeEach(async ({ page }) => {
+		await page.addInitScript(PIPELINE_VOICE_MOCK);
+
+		// Config: Whisper STT engine with whisper-medium model
+		await page.addInitScript(
+			(configJson: string) => {
+				localStorage.setItem("naia-config", configJson);
+			},
+			JSON.stringify({
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+				apiKey: API_KEY,
+				enableTools: false,
+				sttProvider: "whisper",
+				sttModel: "whisper-medium",
+				ttsEnabled: true,
+				ttsProvider: "edge",
+				locale: "ko",
+				onboardingComplete: true,
+			}),
+		);
+
+		await page.goto("/");
+		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("Whisper — pipeline voice 모드 시작/종료", async ({ page }) => {
+		const voiceBtn = page.locator(".chat-voice-btn");
+		await expect(voiceBtn).toBeVisible();
+		await voiceBtn.click();
+
+		await expect(voiceBtn).toHaveClass(/active/, { timeout: 5_000 });
+		expect(await isSttListening(page)).toBe(true);
+
+		// Verify engine/modelId passed to STT start
+		const sttConfig = await page.evaluate(() => (window as any).__NAIA_E2E__.lastSttConfig);
+		expect(sttConfig?.engine).toBe("whisper");
+		expect(sttConfig?.modelId).toBe("whisper-medium");
+
+		// Stop
+		await voiceBtn.click();
+		await expect(voiceBtn).not.toHaveClass(/active/, { timeout: 3_000 });
+		expect(await isSttListening(page)).toBe(false);
+	});
+
+	test("Whisper — STT 인식 → LLM 응답 → TTS", async ({ page }) => {
+		const voiceBtn = page.locator(".chat-voice-btn");
+		await voiceBtn.click();
+		await expect(voiceBtn).toHaveClass(/active/, { timeout: 5_000 });
+
+		await injectSttResult(page, "오늘 날씨 어때", true);
+		await page.waitForTimeout(1500);
+
+		const userMsg = page.locator(".chat-message.user .message-content");
+		await expect(userMsg.last()).toContainText("날씨", { timeout: 5_000 });
+
+		await expect(page.locator(".cursor-blink")).toBeHidden({ timeout: 15_000 });
+		const assistantMsg = page.locator(".chat-message.assistant .message-content");
+		await expect(assistantMsg.last()).toContainText("날씨", { timeout: 5_000 });
+
+		const ttsCount = await getTtsRequestCount(page);
+		expect(ttsCount).toBeGreaterThan(0);
 	});
 });

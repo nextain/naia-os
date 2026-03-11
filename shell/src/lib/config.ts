@@ -22,7 +22,7 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
-export type SttProviderId = "vosk" | "whisper" | "google" | "elevenlabs";
+export type SttProviderId = "" | "vosk" | "whisper" | "google" | "elevenlabs";
 
 /** Map app locale to Vosk STT language code. */
 const LOCALE_TO_STT: Record<string, string> = {

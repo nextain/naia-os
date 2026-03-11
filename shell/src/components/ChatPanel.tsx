@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
@@ -334,9 +333,11 @@ export function ChatPanel() {
 	const sttCleanupRef = useRef<(() => void)[]>([]);
 	const sttDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const sttBufferRef = useRef("");
+	const ttsPlayingRef = useRef(false);
+	const ttsCooldownUntilRef = useRef(0);
+	const [ttsPlaying, setTtsPlaying] = useState(false);
 	const [sttPartial, setSttPartial] = useState("");
-	const [sttState, setSttState] = useState<"idle" | "listening" | "downloading">("idle");
-	const [sttDownloadProgress, setSttDownloadProgress] = useState(0);
+	const [sttState, setSttState] = useState<"idle" | "initializing" | "listening">("idle");
 
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
@@ -502,6 +503,8 @@ export function ChatPanel() {
 		useChatStore.getState().addMessage({ role: "user", content: text });
 
 		useChatStore.getState().startStreaming();
+		// Reset TTS sequence for new response ordering
+		audioQueueRef.current?.resetSeq();
 
 		const requestId = generateRequestId();
 		currentRequestId.current = requestId;
@@ -887,9 +890,11 @@ export function ChatPanel() {
 		if (!clean) return;
 
 		const reqId = generateRequestId();
+		// Reserve sequence number BEFORE async request to guarantee order
+		const seq = audioQueueRef.current?.reserveSeq() ?? 0;
 		activeTtsRequestsRef.current.add(reqId);
 		const voiceCfg = pipelineVoiceConfigRef.current;
-		Logger.info("ChatPanel", "Sending TTS request", { reqId, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
+		Logger.info("ChatPanel", "Sending TTS request", { reqId, seq, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
 		requestTts({
 			text: clean,
 			voice: voiceCfg?.voice,
@@ -898,8 +903,8 @@ export function ChatPanel() {
 			naiaKey: voiceCfg?.naiaKey,
 			requestId: reqId,
 			onAudio: (mp3Base64) => {
-				Logger.info("ChatPanel", "TTS audio received", { reqId, size: mp3Base64.length });
-				audioQueueRef.current?.enqueue(mp3Base64);
+				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length });
+				audioQueueRef.current?.enqueueOrdered(seq, mp3Base64);
 				activeTtsRequestsRef.current.delete(reqId);
 			},
 		});
@@ -928,6 +933,18 @@ export function ChatPanel() {
 	}
 
 	async function handleVoiceToggle() {
+		// Barge-in: if TTS is playing, stop TTS + cancel stream, stay in voice mode
+		if (voiceMode === "active" && ttsPlayingRef.current) {
+			Logger.info("ChatPanel", "Barge-in via button: stopping TTS");
+			audioQueueRef.current?.clear();
+			ttsPlayingRef.current = false;
+			setTtsPlaying(false);
+			handleCancelStreaming();
+			sentenceChunkerRef.current?.clear();
+			ttsCooldownUntilRef.current = Date.now() + 300;
+			return;
+		}
+
 		if (voiceMode !== "off") {
 			// Stop voice session — show cost summary before cleanup
 			if (pipelineActiveRef.current) {
@@ -959,8 +976,8 @@ export function ChatPanel() {
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
-				// Guard: STT provider must be configured
-				if (!config.sttProvider) {
+				// Guard: STT provider + model must be configured
+				if (!config.sttProvider || !config.sttModel) {
 					setVoiceMode("off");
 					if (globalThis.confirm(t("voice.setupRequired") + "\n\n" + t("voice.goToSettings") + "?")) {
 						setActiveTab("settings");
@@ -969,8 +986,22 @@ export function ChatPanel() {
 				}
 
 				const queue = new AudioQueue({
-					onPlaybackStart: () => useAvatarStore.getState().setSpeaking(true),
-					onPlaybackEnd: () => useAvatarStore.getState().setSpeaking(false),
+					onPlaybackStart: () => {
+						useAvatarStore.getState().setSpeaking(true);
+						ttsPlayingRef.current = true;
+						setTtsPlaying(true);
+					},
+					onPlaybackEnd: () => {
+						useAvatarStore.getState().setSpeaking(false);
+						ttsPlayingRef.current = false;
+						setTtsPlaying(false);
+						// Cooldown: suppress STT for 1.5s after TTS ends
+						// to prevent mic echo from final TTS audio
+						ttsCooldownUntilRef.current = Date.now() + 800;
+						// Brief "waiting" state during cooldown, then back to listening
+						setSttState("initializing");
+						setTimeout(() => setSttState("listening"), 800);
+					},
 				});
 				audioQueueRef.current = queue;
 				sentenceChunkerRef.current = new SentenceChunker();
@@ -989,42 +1020,22 @@ export function ChatPanel() {
 				};
 
 				// Start STT engine (Vosk or Whisper)
-				setSttState("downloading"); // Model may need download on first use
-				setSttDownloadProgress(0);
+				setSttState("initializing");
 				try {
-					// Listen for model download progress
-					const unlistenDownload = await listen<{ status: string; model: string; progress: number }>(
-						"stt://download-progress",
-						(event) => {
-							const { status, progress } = event.payload;
-							setSttDownloadProgress(Math.min(progress, 100));
-							if (status === "complete") {
-								setSttState("listening");
-							}
-						},
-					);
-					sttCleanupRef.current.push(unlistenDownload);
-
 					const unlistenResult = await sttOnResult((result: RecognitionResult) => {
 						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
 						if (!pipelineActiveRef.current) return;
 
+						// Suppress STT while TTS is playing or in cooldown after TTS ends
+						// (echo cancellation removes speaker audio but mic is still muted-ish during playback)
+						if (ttsPlayingRef.current || Date.now() < ttsCooldownUntilRef.current) {
+							Logger.info("ChatPanel", "STT result suppressed (TTS playing/cooldown)");
+							return;
+						}
+
 						// Show partial transcript in real-time
 						if (!result.isFinal) {
 							setSttPartial(result.transcript);
-						}
-
-						// Interrupt: if audio is playing and user starts speaking, cancel current response
-						if (audioQueueRef.current?.isActive && result.transcript.trim()) {
-							audioQueueRef.current.clear();
-							sentenceChunkerRef.current?.clear();
-							if (currentRequestId.current) {
-								cancelChat(currentRequestId.current).catch(() => {});
-							}
-							if (useChatStore.getState().isStreaming) {
-								useChatStore.getState().finishStreaming();
-							}
-							Logger.info("ChatPanel", "Voice interrupt — user spoke during playback");
 						}
 
 						if (result.isFinal && result.transcript.trim()) {
@@ -1035,9 +1046,14 @@ export function ChatPanel() {
 								const text = sttBufferRef.current.trim();
 								sttBufferRef.current = "";
 								if (text && pipelineActiveRef.current) {
+									// Guard: skip if already streaming (prevents duplicate send from interim+silence double-fire)
+									if (useChatStore.getState().isStreaming) {
+										Logger.info("ChatPanel", "Skipping duplicate send (already streaming)", { text });
+										return;
+									}
 									handleSend(text);
 								}
-							}, 1000);
+							}, 300);
 						}
 					});
 					const resultCleanup = typeof unlistenResult === "function"
@@ -1073,8 +1089,7 @@ export function ChatPanel() {
 						continuous: true,
 						interimResults: true,
 					} as Record<string, unknown> & Parameters<typeof sttStart>[0]);
-					Logger.info("ChatPanel", "STT started successfully");
-					setSttState("listening");
+					Logger.info("ChatPanel", "STT started successfully (waiting for engine ready)");
 				} catch (sttErr) {
 					Logger.warn("ChatPanel", "STT start failed — falling back to text input", { error: String(sttErr) });
 					setSttState("idle");
@@ -1550,10 +1565,10 @@ export function ChatPanel() {
 			>
 				<button
 					type="button"
-					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}${sttPartial ? " hearing" : ""}`}
+					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}${sttPartial ? " hearing" : ""}${ttsPlaying ? " speaking" : ""}${sttState === "initializing" && !ttsPlaying ? " preparing" : ""}`}
 					onClick={handleVoiceToggle}
-					disabled={isStreaming}
-					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : t("chat.voiceEnd")}
+					disabled={voiceMode === "connecting"}
+					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : ttsPlaying ? "끼어들기 (TTS 중단)" : t("chat.voiceEnd")}
 				>
 					<span className="voice-bar" />
 				<span className="voice-bar" />
@@ -1563,23 +1578,14 @@ export function ChatPanel() {
 				{pipelineActiveRef.current && sttPartial && (
 					<div className="stt-partial">{sttPartial}</div>
 				)}
-				{pipelineActiveRef.current && sttState === "downloading" && (
-					<div className="stt-status">
-						{sttDownloadProgress >= 95
-							? "STT 모델 설치 중..."
-							: sttDownloadProgress > 0
-								? `STT 모델 다운로드 중... ${sttDownloadProgress}%`
-								: "STT 모델 준비 중..."}
-					</div>
-				)}
-				<textarea
+					<textarea
 					ref={inputRef}
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
 					placeholder={
 						pipelineActiveRef.current
-							? (sttState === "listening" ? "듣고 있어요... (텍스트 입력도 가능)" : t("chat.placeholder"))
+							? (ttsPlaying ? "나이아가 말하는 중... (버튼을 눌러 끊기)" : sttState === "initializing" ? "음성 인식 준비 중..." : sttState === "listening" ? "듣고 있어요... (텍스트 입력도 가능)" : t("chat.placeholder"))
 							: t("chat.placeholder")
 					}
 					rows={1}

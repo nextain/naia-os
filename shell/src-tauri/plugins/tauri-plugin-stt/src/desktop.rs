@@ -9,7 +9,7 @@ use tauri::{plugin::PluginApi, AppHandle, Emitter, Manager, Runtime};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use vosk::{Model, Recognizer};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
 
 use crate::models::*;
 
@@ -168,14 +168,6 @@ pub struct Stt<R: Runtime> {
 }
 
 impl<R: Runtime> Stt<R> {
-    fn get_models_dir(&self) -> PathBuf {
-        self.app
-            .path()
-            .app_data_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("vosk-models")
-    }
-
     fn get_model_info_for_language(&self, language: &str) -> Option<(&'static str, &'static str)> {
         // First try exact match
         if let Some((_, name, url)) = AVAILABLE_MODELS
@@ -251,7 +243,7 @@ impl<R: Runtime> Stt<R> {
 
     /// Download and extract a Vosk model in a separate thread to avoid tokio conflicts
     fn download_model(&self, model_name: &str, url: &str) -> crate::Result<PathBuf> {
-        let models_dir = self.get_models_dir();
+        let models_dir = self.get_stt_models_dir();
         fs::create_dir_all(&models_dir).map_err(|e| {
             crate::Error::Recording(format!("Failed to create models directory: {}", e))
         })?;
@@ -915,7 +907,9 @@ impl<R: Runtime> Stt<R> {
 
     /// Whisper engine: start listening with whisper.cpp
     fn start_listening_whisper(&self, config: ListenConfig) -> crate::Result<()> {
-        let model_id = config.model_id.as_deref().unwrap_or("whisper-small");
+        let model_id = config.model_id.as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("whisper-small");
         let whisper_ctx = self.ensure_whisper_model(model_id)?;
 
         let mut state = self.state.lock().unwrap();
@@ -1121,16 +1115,7 @@ impl<R: Runtime> Stt<R> {
 
         state.is_listening = true;
 
-        let _ = self.app.emit(
-            "plugin:stt:stateChange",
-            RecognitionStatus {
-                state: RecognitionState::Listening,
-                is_available: true,
-                language: config.language.clone(),
-            },
-        );
-
-        // Whisper inference thread — runs every 2 seconds or on silence
+        // Whisper inference thread — runs every 500ms or on silence
         let inference_buffer = state.whisper_buffer.as_ref().unwrap().clone();
         let inference_ctx = whisper_ctx.clone();
         let inference_app = self.app.clone();
@@ -1140,9 +1125,23 @@ impl<R: Runtime> Stt<R> {
 
         std::thread::spawn(move || {
             let mut last_text = String::new();
+            // Pre-create WhisperState once to avoid re-allocating GPU memory every inference
+            let mut whisper_state = match inference_ctx.create_state() {
+                Ok(s) => {
+                    info!("[STT] Whisper state ready — GPU initialized");
+                    Some(s)
+                },
+                Err(e) => {
+                    warn!("[STT] Whisper create_state failed at init: {}", e);
+                    None
+                }
+            };
+
+            let mut emitted_listening = false;
+            let mut emitted_interim_final = false; // Suppress silence→final after interim→final
 
             loop {
-                std::thread::sleep(Duration::from_secs(2));
+                std::thread::sleep(Duration::from_millis(250));
 
                 let current = CURRENT_SESSION_ID.load(Ordering::SeqCst);
                 if current != inference_session {
@@ -1151,7 +1150,7 @@ impl<R: Runtime> Stt<R> {
                     if buf.samples.len() > 16000 { // At least 1 second
                         let audio = buf.samples.clone();
                         drop(buf);
-                        if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                        if let Some(text) = whisper_state.as_mut().and_then(|s| run_whisper_inference(s, &audio, inference_lang.as_deref())) {
                             if !text.is_empty() && text != last_text {
                                 let result = RecognitionResult {
                                     transcript: text, is_final: true, confidence: Some(0.9),
@@ -1167,21 +1166,53 @@ impl<R: Runtime> Stt<R> {
                 // Check buffer
                 let mut buf = inference_buffer.lock().unwrap();
                 let sample_count = buf.samples.len();
-                let is_silence = buf.silence_frames > 15; // ~1.5 sec silence at ~10 callbacks/sec
+                let is_silence = buf.silence_frames > 16; // ~0.8 sec silence at ~20 callbacks/sec (cpal ~50ms chunks)
 
                 // Need at least 0.5 seconds of audio
                 if sample_count < 8000 {
                     continue;
                 }
 
-                // On silence: emit final result
+                // Emit "listening" once audio pipeline is confirmed working
+                if !emitted_listening {
+                    emitted_listening = true;
+                    info!("[STT] Audio pipeline ready — emitting listening state");
+                    let _ = inference_app.emit(
+                        "plugin:stt:stateChange",
+                        RecognitionStatus {
+                            state: RecognitionState::Listening,
+                            is_available: whisper_state.is_some(),
+                            language: inference_lang.clone(),
+                        },
+                    );
+                }
+
+                // Quick RMS check before expensive clone/inference
+                let rms = (buf.samples.iter().map(|s| s * s).sum::<f32>() / sample_count as f32).sqrt();
+                if rms < 0.01 {
+                    // Silent: clear buffer and skip
+                    buf.samples.clear();
+                    buf.silence_frames = 0;
+                    emitted_interim_final = false; // Reset — silence gap means new speech segment
+                    drop(buf);
+                    continue;
+                }
+
+                // On silence: emit final result (skip if interim→final already fired for this speech)
                 if is_silence && sample_count > 16000 {
                     let audio = buf.samples.clone();
                     buf.samples.clear();
                     buf.silence_frames = 0;
                     drop(buf);
 
-                    if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                    if emitted_interim_final {
+                        // interim→final already sent this speech — skip to prevent duplicate
+                        info!("[STT] Silence→final skipped (interim already emitted)");
+                        emitted_interim_final = false;
+                        continue;
+                    }
+
+                    if let Some(text) = whisper_state.as_mut().and_then(|s| run_whisper_inference(s, &audio, inference_lang.as_deref())) {
                         if !text.is_empty() && text != last_text {
                             last_text = text.clone();
                             let result = RecognitionResult {
@@ -1195,17 +1226,24 @@ impl<R: Runtime> Stt<R> {
                     continue;
                 }
 
-                // Interim: emit partial if enough audio
-                if inference_interim && sample_count > 32000 { // >2 sec
+                // Interim: emit partial if enough audio, then clear buffer
+                // to avoid re-processing the same audio every cycle
+                // RMS already checked above — audio has speech energy
+                if inference_interim && sample_count > 16000 { // >1 sec
                     let audio = buf.samples.clone();
+                    buf.samples.clear();
+                    buf.silence_frames = 0;
                     drop(buf);
 
-                    if let Some(text) = run_whisper_inference(&inference_ctx, &audio, inference_lang.as_deref()) {
+                    if let Some(text) = whisper_state.as_mut().and_then(|s| run_whisper_inference(s, &audio, inference_lang.as_deref())) {
                         if !text.is_empty() && text != last_text {
                             last_text = text.clone();
+                            emitted_interim_final = true; // Suppress next silence→final
+                            // Treat interim chunks as final since we clear the buffer
                             let result = RecognitionResult {
-                                transcript: text, is_final: false, confidence: None,
+                                transcript: text, is_final: true, confidence: Some(0.85),
                             };
+                            info!("[STT] Whisper interim→final: '{}'", result.transcript);
                             let _ = inference_app.emit("stt://result", &result);
                             let _ = inference_app.emit("plugin:stt:result", &result);
                         }
@@ -1256,7 +1294,7 @@ impl<R: Runtime> Stt<R> {
     }
 
     pub fn get_supported_languages(&self) -> crate::Result<SupportedLanguagesResponse> {
-        let models_dir = self.get_models_dir();
+        let models_dir = self.get_stt_models_dir();
 
         let languages: Vec<SupportedLanguage> = AVAILABLE_MODELS
             .iter()
@@ -1305,19 +1343,12 @@ fn get_language_display_name(code: &str) -> String {
 
 /// Run whisper.cpp inference on audio samples (f32, mono, 16kHz).
 /// Returns recognized text or None on error.
+/// Uses a pre-created WhisperState to avoid GPU memory reallocation.
 fn run_whisper_inference(
-    ctx: &WhisperContext,
+    state: &mut WhisperState,
     audio: &[f32],
     language: Option<&str>,
 ) -> Option<String> {
-    let mut state = match ctx.create_state() {
-        Ok(s) => s,
-        Err(e) => {
-            warn!("[STT] Whisper create_state failed: {}", e);
-            return None;
-        }
-    };
-
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     // Map language code (e.g. "ko-KR") to Whisper language (e.g. "ko")
     let lang_short = language.map(|l| l.split('-').next().unwrap_or(l).to_string());
@@ -1343,6 +1374,12 @@ fn run_whisper_inference(
     let mut text = String::new();
     for i in 0..num_segments {
         if let Some(segment) = state.get_segment(i) {
+            // Filter hallucinations: high no_speech_probability means silence
+            let no_speech = segment.no_speech_probability();
+            if no_speech > 0.6 {
+                info!("[STT] Whisper segment {} rejected: no_speech_prob={:.3}", i, no_speech);
+                continue;
+            }
             if let Ok(s) = segment.to_str_lossy() {
                 text.push_str(&s);
             }
@@ -1351,8 +1388,62 @@ fn run_whisper_inference(
 
     let trimmed = text.trim().to_string();
     if trimmed.is_empty() || trimmed == "[BLANK_AUDIO]" {
-        None
-    } else {
-        Some(trimmed)
+        return None;
     }
+
+    // Filter hallucination patterns:
+    // 1. Bracketed/parenthesized annotations: [감사합니다], (음악), 【Music】
+    // 2. Full-text wrapped in parentheses: (목소리 들으실 수 있으세요?)
+    let filtered = trimmed
+        .replace(|c: char| c == '[' || c == '【', "[")
+        .replace(|c: char| c == ']' || c == '】', "]");
+    // Remove all [...] blocks
+    let mut result = String::new();
+    let mut depth = 0i32;
+    for ch in filtered.chars() {
+        if ch == '[' {
+            depth += 1;
+        } else if ch == ']' {
+            depth = (depth - 1).max(0);
+        } else if depth == 0 {
+            result.push(ch);
+        }
+    }
+    let result = result.trim().to_string();
+    if result.is_empty() {
+        info!("[STT] Whisper result rejected: only bracketed text '{}'", trimmed);
+        return None;
+    }
+
+    // Reject if entire text is wrapped in parentheses (annotation-like)
+    if result.starts_with('(') && result.ends_with(')') && result.len() > 2 {
+        // Check that parentheses are balanced (not nested user speech with parens)
+        let inner = &result[1..result.len()-1];
+        if !inner.contains('(') && !inner.contains(')') {
+            info!("[STT] Whisper result rejected: parenthesized annotation '{}'", result);
+            return None;
+        }
+    }
+
+    // Reject repetitive hallucinations: if a short phrase repeats 3+ times
+    // e.g. "소리 들으... 소리 들으... 소리 들으..."
+    if result.len() >= 15 {
+        // Check for repeating pattern (try pattern lengths 3..20 chars)
+        let chars: Vec<char> = result.chars().collect();
+        let mut is_repetitive = false;
+        for pat_len in 3..=20.min(chars.len() / 3) {
+            let pattern: String = chars[..pat_len].iter().collect();
+            let count = result.matches(&pattern).count();
+            if count >= 3 {
+                is_repetitive = true;
+                info!("[STT] Whisper result rejected: repetitive pattern '{}' x{} in '{}'", pattern, count, result);
+                break;
+            }
+        }
+        if is_repetitive {
+            return None;
+        }
+    }
+
+    Some(result)
 }

@@ -3,6 +3,7 @@
 //! Provides a unified catalog of offline STT models (Vosk, Whisper)
 //! with download/delete/status commands exposed to the frontend.
 
+use futures_util::StreamExt;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -41,47 +42,36 @@ pub fn get_model_catalog(app: &AppHandle) -> Vec<SttModelInfo> {
     catalog
 }
 
+fn vosk(id: &str, name: &str, lang: &str, size_mb: u32, wer: &str) -> SttModelInfo {
+    SttModelInfo {
+        engine: "vosk".into(),
+        model_id: id.into(),
+        model_name: name.into(),
+        language: lang.into(),
+        size_mb,
+        wer: wer.into(),
+        download_url: format!("https://alphacephei.com/vosk/models/{id}.zip"),
+        description: String::new(),
+        downloaded: false,
+        ready: true,
+    }
+}
+
 fn build_catalog() -> Vec<SttModelInfo> {
     vec![
-        // ── Vosk Korean ──
-        SttModelInfo {
-            engine: "vosk".into(),
-            model_id: "vosk-model-small-ko-0.22".into(),
-            model_name: "Vosk Korean (small)".into(),
-            language: "ko-KR".into(),
-            size_mb: 82,
-            wer: "28.1%".into(),
-            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-ko-0.22.zip".into(),
-            description: "Lightweight, fast. Only Korean Vosk model available.".into(),
-            downloaded: false,
-            ready: true,
-        },
-        // ── Vosk English ──
-        SttModelInfo {
-            engine: "vosk".into(),
-            model_id: "vosk-model-small-en-us-0.15".into(),
-            model_name: "Vosk English (small)".into(),
-            language: "en-US".into(),
-            size_mb: 40,
-            wer: "9.85%".into(),
-            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip".into(),
-            description: "Lightweight English model.".into(),
-            downloaded: false,
-            ready: true,
-        },
-        // ── Vosk Japanese ──
-        SttModelInfo {
-            engine: "vosk".into(),
-            model_id: "vosk-model-small-ja-0.22".into(),
-            model_name: "Vosk Japanese (small)".into(),
-            language: "ja-JP".into(),
-            size_mb: 48,
-            wer: "—".into(),
-            download_url: "https://alphacephei.com/vosk/models/vosk-model-small-ja-0.22.zip".into(),
-            description: "Lightweight Japanese model.".into(),
-            downloaded: false,
-            ready: true,
-        },
+        // ── Vosk models (12 languages) ──
+        vosk("vosk-model-small-ko-0.22", "Vosk Korean", "ko-KR", 82, "28.1%"),
+        vosk("vosk-model-small-en-us-0.15", "Vosk English", "en-US", 40, "9.85%"),
+        vosk("vosk-model-small-cn-0.22", "Vosk Chinese", "zh-CN", 42, "—"),
+        vosk("vosk-model-small-ja-0.22", "Vosk Japanese", "ja-JP", 48, "—"),
+        vosk("vosk-model-small-es-0.42", "Vosk Spanish", "es-ES", 39, "—"),
+        vosk("vosk-model-small-fr-0.22", "Vosk French", "fr-FR", 41, "—"),
+        vosk("vosk-model-small-de-0.15", "Vosk German", "de-DE", 45, "—"),
+        vosk("vosk-model-small-ru-0.22", "Vosk Russian", "ru-RU", 45, "—"),
+        vosk("vosk-model-small-pt-0.3", "Vosk Portuguese", "pt-BR", 31, "—"),
+        vosk("vosk-model-small-it-0.22", "Vosk Italian", "it-IT", 48, "—"),
+        vosk("vosk-model-small-vn-0.4", "Vosk Vietnamese", "vi-VN", 32, "—"),
+        vosk("vosk-model-small-hi-0.22", "Vosk Hindi", "hi-IN", 42, "—"),
         // ── Whisper models ──
         SttModelInfo {
             engine: "whisper".into(),
@@ -219,31 +209,46 @@ pub async fn download_model(app: AppHandle, model_id: String) -> Result<(), Stri
         }),
     );
 
-    // Download
+    // Download with streaming progress
     let response = reqwest::get(&model.download_url)
         .await
         .map_err(|e| format!("Download failed: {e}"))?;
 
-    let bytes = response.bytes().await.map_err(|e| format!("Read failed: {e}"))?.to_vec();
+    let total_size = response.content_length().unwrap_or((model.size_mb as u64) * 1024 * 1024);
+    let mut downloaded: u64 = 0;
+    let mut bytes = Vec::with_capacity(total_size as usize);
+    let mut stream = response.bytes_stream();
 
-    let _ = app.emit(
-        "stt://download-progress",
-        serde_json::json!({
-            "status": "downloading",
-            "model": model.model_id,
-            "progress": 50,
-        }),
-    );
+    let mut last_pct: u64 = 0;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("Read failed: {e}"))?;
+        downloaded += chunk.len() as u64;
+        bytes.extend_from_slice(&chunk);
+
+        // Emit progress (download phase = 0..80%)
+        let pct = (downloaded * 80 / total_size).min(80);
+        if pct != last_pct {
+            last_pct = pct;
+            let _ = app.emit(
+                "stt://download-progress",
+                serde_json::json!({
+                    "status": "downloading",
+                    "model": model.model_id,
+                    "progress": pct,
+                }),
+            );
+        }
+    }
 
     // Process based on file type
     if model.download_url.ends_with(".zip") {
-        // Vosk models come as zip — extract
+        // Vosk models come as zip — extract (80..95%)
         let _ = app.emit(
             "stt://download-progress",
             serde_json::json!({
                 "status": "extracting",
                 "model": model.model_id,
-                "progress": 70,
+                "progress": 85,
             }),
         );
 

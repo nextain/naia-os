@@ -652,13 +652,13 @@ export function SettingsTab() {
 			(existing?.ttsEngine === "openclaw" ? "edge" :
 			 existing?.ttsEngine === "google" ? "google" : "edge"),
 	);
-	const [sttProvider, setSttProvider] = useState<SttProviderId>(existing?.sttProvider ?? "vosk");
+	const [sttProvider, setSttProvider] = useState<SttProviderId>(existing?.sttProvider ?? "");
 	const [sttModel, setSttModel] = useState(existing?.sttModel ?? "");
 	const [sttModels, setSttModels] = useState<SttModelInfo[]>([]);
 	const [sttDownloading, setSttDownloading] = useState<string | null>(null);
 	const [sttDownloadProgress, setSttDownloadProgress] = useState(0);
 
-	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? true);
+	const [ttsEnabled, setTtsEnabled] = useState(existing?.ttsEnabled ?? false);
 	const [persona, setPersona] = useState(existing?.persona ?? DEFAULT_PERSONA);
 	const [userName, setUserName] = useState(existing?.userName ?? "");
 	const [agentName, setAgentName] = useState(existing?.agentName ?? "");
@@ -698,6 +698,7 @@ export function SettingsTab() {
 	const [allowedToolsCount, setAllowedToolsCount] = useState(existing?.allowedTools?.length ?? 0);
 	const [naiaKey, setNaiaKeyState] = useState(existing?.naiaKey ?? "");
 	const [naiaUserId, setNaiaUserIdState] = useState(existing?.naiaUserId ?? "");
+	const [sttModelModalOpen, setSttModelModalOpen] = useState(false);
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1571,7 +1572,7 @@ export function SettingsTab() {
 			customVrms: customVrms.length > 0 ? customVrms : undefined,
 			customBgs: customBgs.length > 0 ? customBgs : undefined,
 			backgroundImage: backgroundImage || undefined,
-			sttProvider,
+			sttProvider: sttProvider || undefined,
 			sttModel: sttModel || undefined,
 			ttsEnabled,
 			ttsVoice,
@@ -2405,6 +2406,14 @@ export function SettingsTab() {
 						<span>{t("settings.voiceSection")}</span>
 					</div>
 
+					{/* Voice status summary */}
+					<div className="settings-field" style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}>
+						{!sttProvider && <div>{t("settings.voiceStatusSttNeeded")}</div>}
+						{sttProvider && !sttModel && <div>{t("settings.voiceStatusModelNeeded")}</div>}
+						{sttProvider && sttModel && !ttsEnabled && <div>{t("settings.voiceStatusTtsOff")}</div>}
+						{sttProvider && sttModel && ttsEnabled && <div style={{ color: "var(--success-color, #4caf50)" }}>{t("settings.voiceStatusReady")}</div>}
+					</div>
+
 					{/* STT Provider */}
 					<div className="settings-field">
 						<label>{t("settings.sttProvider")}</label>
@@ -2417,6 +2426,7 @@ export function SettingsTab() {
 								setSttModel("");
 							}}
 						>
+							<option value="">{t("settings.sttNone")}</option>
 							<option value="vosk">{t("settings.sttVosk")}</option>
 							<option value="whisper">{t("settings.sttWhisper")}</option>
 							<option value="google" disabled>{t("settings.sttGoogle")}</option>
@@ -2424,76 +2434,26 @@ export function SettingsTab() {
 						</select>
 					</div>
 
-					{/* STT Model Management */}
+					{/* STT Model — current selection + manage button */}
 					{(sttProvider === "vosk" || sttProvider === "whisper") && (
-						<>
-							<div className="settings-field">
-								<label>{t("settings.sttModelSection")}</label>
-								{sttModels
-									.filter((m) => m.engine === sttProvider)
-									.map((m) => (
-										<div
-											key={m.modelId}
-											className="stt-model-row"
-											style={{
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "space-between",
-												gap: "8px",
-												padding: "6px 0",
-												borderBottom: "1px solid var(--border-color, #333)",
-											}}
-										>
-											<div style={{ flex: 1, minWidth: 0 }}>
-												<div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-													<input
-														type="radio"
-														name="stt-model"
-														value={m.modelId}
-														checked={sttModel === m.modelId}
-														disabled={!m.downloaded || !m.ready}
-														onChange={() => setSttModel(m.modelId)}
-													/>
-													<strong style={{ fontSize: "0.9em" }}>{m.modelName}</strong>
-													{m.downloaded && <span style={{ color: "var(--success-color, #4caf50)", fontSize: "0.75em" }}>✓</span>}
-												</div>
-												<div style={{ fontSize: "0.75em", opacity: 0.7, marginLeft: "22px" }}>
-													{m.language} · {m.sizeMb}MB · WER {m.wer}
-													{m.description && ` · ${m.description}`}
-												</div>
-											</div>
-											<div style={{ flexShrink: 0 }}>
-												{!m.downloaded && m.ready && sttDownloading !== m.modelId && (
-													<button
-														type="button"
-														style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer" }}
-														onClick={() => handleSttModelDownload(m.modelId)}
-													>
-														{t("settings.sttModelDownload")}
-													</button>
-												)}
-												{!m.downloaded && !m.ready && (
-													<span style={{ fontSize: "0.75em", opacity: 0.5 }}>{t("settings.sttModelNotReady")}</span>
-												)}
-												{sttDownloading === m.modelId && (
-													<span style={{ fontSize: "0.8em" }}>
-														{sttDownloadProgress}%
-													</span>
-												)}
-												{m.downloaded && (
-													<button
-														type="button"
-														style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer", color: "var(--error-color, #f44)" }}
-														onClick={() => handleSttModelDelete(m.modelId)}
-													>
-														{t("settings.sttModelDelete")}
-													</button>
-												)}
-											</div>
-										</div>
-									))}
+						<div className="settings-field">
+							<label>{t("settings.sttCurrentModel")}</label>
+							<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+								<span style={{ fontSize: "0.9em" }}>
+									{sttModel
+										? sttModels.find((m) => m.modelId === sttModel)?.modelName ?? sttModel
+										: "—"}
+								</span>
+								<button
+									type="button"
+									className="onboarding-next-btn"
+									style={{ fontSize: "0.8em", padding: "4px 12px" }}
+									onClick={() => setSttModelModalOpen(true)}
+								>
+									{t("settings.sttManageModels")}
+								</button>
 							</div>
-						</>
+						</div>
 					)}
 
 					{/* TTS */}
@@ -2840,6 +2800,95 @@ export function SettingsTab() {
 			</div>
 
 			<VersionFooter />
+
+			{/* STT Model Manager Modal */}
+			{sttModelModalOpen && (
+				<div className="sync-dialog-overlay" onClick={() => setSttModelModalOpen(false)}>
+					<div className="sync-dialog-card" style={{ maxWidth: "520px", maxHeight: "85vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+						<h3>{t("settings.sttModelManagerTitle")}</h3>
+						{sttModels
+							.filter((m) => m.engine === sttProvider)
+							.map((m) => (
+								<div
+									key={m.modelId}
+									className="stt-model-row"
+									style={{
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "space-between",
+										gap: "8px",
+										padding: "5px 0",
+										borderBottom: "1px solid var(--border-color, #333)",
+									}}
+								>
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+											<input
+												type="radio"
+												name="stt-model-modal"
+												value={m.modelId}
+												checked={sttModel === m.modelId}
+												disabled={!m.downloaded || !m.ready}
+												onChange={() => setSttModel(m.modelId)}
+											/>
+											<strong style={{ fontSize: "0.9em" }}>{m.modelName}</strong>
+											{m.downloaded && <span style={{ color: "var(--success-color, #4caf50)", fontSize: "0.75em" }}>✓</span>}
+										</div>
+										<div style={{ fontSize: "0.75em", opacity: 0.7, marginLeft: "22px" }}>
+											{m.language === "multilingual" ? t("settings.sttLangMultilingual") : m.language} · {m.sizeMb}MB{m.wer && m.wer !== "—" ? ` · WER ${m.wer}` : ""}
+											{m.description && ` · ${
+												({
+													"Fast, low quality. Not recommended for Korean.": t("settings.sttDescWhisperTiny"),
+													"Similar quality to Vosk small.": t("settings.sttDescWhisperBase"),
+													"Noticeable improvement over Vosk.": t("settings.sttDescWhisperSmall"),
+													"Recommended. Good accuracy for Korean.": t("settings.sttDescWhisperMedium"),
+													"Best quality. Large download.": t("settings.sttDescWhisperLarge"),
+												} as Record<string, string>)[m.description] || m.description
+											}`}
+										</div>
+									</div>
+									<div style={{ flexShrink: 0, display: "flex", gap: "4px" }}>
+										{!m.downloaded && m.ready && sttDownloading !== m.modelId && (
+											<button
+												type="button"
+												style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer" }}
+												onClick={() => handleSttModelDownload(m.modelId)}
+											>
+												{t("settings.sttModelDownload")}
+											</button>
+										)}
+										{!m.downloaded && !m.ready && (
+											<span style={{ fontSize: "0.75em", opacity: 0.5 }}>{t("settings.sttModelNotReady")}</span>
+										)}
+										{sttDownloading === m.modelId && (
+											<span style={{ fontSize: "0.8em" }}>
+												{sttDownloadProgress}%
+											</span>
+										)}
+										{m.downloaded && (
+											<button
+												type="button"
+												style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer", color: "var(--error-color, #f44)" }}
+												onClick={() => handleSttModelDelete(m.modelId)}
+											>
+												{t("settings.sttModelDelete")}
+											</button>
+										)}
+									</div>
+								</div>
+							))}
+						<div className="sync-dialog-actions" style={{ marginTop: "12px" }}>
+							<button
+								type="button"
+								className="onboarding-next-btn"
+								onClick={() => setSttModelModalOpen(false)}
+							>
+								OK
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{syncDialogOpen && (
 				<div className="sync-dialog-overlay">

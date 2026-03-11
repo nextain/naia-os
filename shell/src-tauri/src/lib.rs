@@ -822,16 +822,9 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                 }
             }
 
-            // Production: bundled agent via Tauri resources
-            if let Ok(resource_dir) = app_handle.path().resource_dir() {
-                let bundled = resource_dir.join("agent/dist/index.js");
-                if bundled.exists() {
-                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
-                    return bundled.to_string_lossy().to_string();
-                }
-            }
-
             // Dev: tsx for TypeScript direct execution (NOT in Flatpak)
+            // Check dev source BEFORE bundled dist — bundled dist in target/debug/
+            // often has incomplete node_modules (pnpm hoisting issues)
             if !is_flatpak {
                 let candidates = [
                     "../../agent/src/index.ts",  // from src-tauri/
@@ -842,12 +835,21 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                         .map(|d| d.join(rel))
                         .unwrap_or_default();
                     if dev_path.exists() {
-                        log_verbose(&format!("[Naia] Found agent at: {}", dev_path.display()));
+                        log_verbose(&format!("[Naia] Found dev agent at: {}", dev_path.display()));
                         return dev_path.canonicalize()
                             .unwrap_or(dev_path)
                             .to_string_lossy()
                             .to_string();
                     }
+                }
+            }
+
+            // Production: bundled agent via Tauri resources
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let bundled = resource_dir.join("agent/dist/index.js");
+                if bundled.exists() {
+                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
+                    return bundled.to_string_lossy().to_string();
                 }
             }
 

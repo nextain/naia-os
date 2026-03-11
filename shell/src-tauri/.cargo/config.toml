@@ -2,3 +2,6 @@
 # whisper-rs-sys: use pre-generated bindings instead of running bindgen.
 # This avoids requiring libclang at build time.
 WHISPER_DONT_GENERATE_BINDINGS = "1"
+# CUDA 12.8: compiler and host compiler for whisper.cpp GPU build
+CUDA_PATH = "/usr/local/cuda-12.8"
+CUDACXX = "/usr/local/cuda-12.8/bin/nvcc"

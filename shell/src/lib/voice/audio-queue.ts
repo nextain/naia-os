@@ -2,7 +2,8 @@
  * Sequential audio playback queue for pipeline voice.
  *
  * Queues MP3 base64 chunks and plays them in order.
- * Supports interrupt (clear all) and avatar speaking state.
+ * Supports interrupt (clear all), avatar speaking state,
+ * and ordered enqueue for out-of-order TTS responses.
  */
 
 import { Logger } from "../logger";
@@ -18,6 +19,10 @@ export class AudioQueue {
 	private playing = false;
 	private callbacks: AudioQueueCallbacks;
 
+	// Ordered enqueue: buffer out-of-order items until their turn
+	private nextExpectedSeq = 0;
+	private pendingOrdered: Map<number, string> = new Map();
+
 	constructor(callbacks: AudioQueueCallbacks = {}) {
 		this.callbacks = callbacks;
 	}
@@ -30,9 +35,47 @@ export class AudioQueue {
 		}
 	}
 
+	/**
+	 * Reserve a sequence number for ordered enqueue.
+	 * Call this BEFORE sending the TTS request to guarantee ordering.
+	 */
+	reserveSeq(): number {
+		return this.nextExpectedSeq++;
+	}
+
+	/**
+	 * Enqueue audio by sequence number. Buffers out-of-order items
+	 * and flushes them in order when their turn arrives.
+	 */
+	enqueueOrdered(seq: number, mp3Base64: string): void {
+		this.pendingOrdered.set(seq, mp3Base64);
+		this.flushOrdered();
+	}
+
+	/** Reset sequence counter (call when starting a new response). */
+	resetSeq(): void {
+		this.nextExpectedSeq = 0;
+		this.flushCursor = 0;
+		this.pendingOrdered.clear();
+	}
+
+	private flushCursor = 0;
+
+	private flushOrdered(): void {
+		while (this.pendingOrdered.has(this.flushCursor)) {
+			const mp3 = this.pendingOrdered.get(this.flushCursor)!;
+			this.pendingOrdered.delete(this.flushCursor);
+			this.flushCursor++;
+			this.enqueue(mp3);
+		}
+	}
+
 	/** Stop current playback and clear all queued audio. */
 	clear(): void {
 		this.queue = [];
+		this.pendingOrdered.clear();
+		this.flushCursor = 0;
+		this.nextExpectedSeq = 0;
 		if (this.current) {
 			this.current.pause();
 			this.current.src = "";
