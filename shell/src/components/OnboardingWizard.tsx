@@ -17,7 +17,7 @@ import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
 import { getLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
-import { syncToOpenClaw } from "../lib/openclaw-sync";
+import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { persistDiscordDefaults } from "../lib/discord-auth";
 import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
 import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
@@ -284,6 +284,8 @@ export function OnboardingWizard({
 					if (restored.vrmModel) {
 						setAvatarModelPath(restored.vrmModel);
 					}
+					// Restart Gateway + agent to pick up new config
+					restartGateway().catch(() => {});
 					onComplete();
 				} else {
 					setStep("agentName");
@@ -478,15 +480,22 @@ export function OnboardingWizard({
 		setAvatarModelPath(selectedVrm);
 		onComplete();
 
+		// Restart Gateway + agent so they pick up the new config.
+		// On Windows Tier 2 this spawns the Gateway in WSL and reconnects the agent.
+		// On other platforms this is a safe no-op / refresh.
+		restartGateway().catch(() => {});
+
 		// On Windows, trigger WSL + NaiaEnv auto-setup in background after onboarding
 		invoke("get_platform_tier")
 			.then((tier) => {
 				const info = tier as { platform: string; tier: number };
 				if (info.platform === "windows" && info.tier === 1) {
 					Logger.info("OnboardingWizard", "Starting WSL auto-setup (background)");
-					invoke("setup_wsl").catch((e) => {
-						Logger.warn("OnboardingWizard", "WSL auto-setup failed (non-blocking)", { error: String(e) });
-					});
+					invoke("setup_wsl")
+						.then(() => restartGateway())
+						.catch((e) => {
+							Logger.warn("OnboardingWizard", "WSL auto-setup failed (non-blocking)", { error: String(e) });
+						});
 				}
 			})
 			.catch(() => {});

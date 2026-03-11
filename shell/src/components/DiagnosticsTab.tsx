@@ -43,10 +43,15 @@ export function DiagnosticsTab() {
 		setError(null);
 
 		const config = loadConfig();
-		const gatewayUrl = resolveGatewayUrl(config);
-		if (!gatewayUrl || !config?.enableTools) {
+		if (!config?.enableTools) {
 			setLoading(false);
-			setError(t("diagnostics.error"));
+			setError(t("diagnostics.errorToolsDisabled"));
+			return;
+		}
+		const gatewayUrl = resolveGatewayUrl(config);
+		if (!gatewayUrl) {
+			setLoading(false);
+			setError(t("diagnostics.errorNoGateway"));
 			return;
 		}
 
@@ -63,13 +68,13 @@ export function DiagnosticsTab() {
 				const parsed = JSON.parse(res.output);
 				setStatus(parsed);
 			} else {
-				setError(t("diagnostics.error"));
+				setError(t("diagnostics.errorConnection"));
 			}
 		} catch (err) {
 			Logger.warn("DiagnosticsTab", "Failed to fetch status", {
 				error: String(err),
 			});
-			setError(t("diagnostics.error"));
+			setError(t("diagnostics.errorConnection"));
 		} finally {
 			setLoading(false);
 		}
