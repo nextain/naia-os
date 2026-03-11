@@ -355,6 +355,22 @@ pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Re
         "wsl.conf"
     )?;
 
+    // Step 5: Configure OpenClaw gateway.mode=local
+    crate::log_both("[Naia] Setting gateway.mode=local in OpenClaw config...");
+    run_provision_step(name, concat!(
+        "node -e \"",
+        "const fs=require('fs');",
+        "const p='/root/.openclaw/openclaw.json';",
+        "let c={};",
+        "try{c=JSON.parse(fs.readFileSync(p,'utf8'))}catch{}",
+        "c.gateway=c.gateway||{};",
+        "c.gateway.mode='local';",
+        "fs.mkdirSync('/root/.openclaw',{recursive:true});",
+        "fs.writeFileSync(p,JSON.stringify(c,null,2));",
+        "console.log('gateway.mode=local set');",
+        "\""
+    ), "OpenClaw gateway.mode config")?;
+
     // Verify
     emit_provision_progress(app, "provision_verify", "Verifying installation...");
     if is_provisioned(name) {
