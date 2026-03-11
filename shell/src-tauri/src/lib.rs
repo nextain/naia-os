@@ -1675,7 +1675,11 @@ async fn gateway_health() -> Result<bool, String> {
 /// Pauses the health monitor during the restart to prevent race conditions.
 /// Call this after writing openclaw.json to ensure the gateway reads fresh config.
 #[tauri::command]
-async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+async fn restart_gateway(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    audit_state: tauri::State<'_, AuditState>,
+) -> Result<bool, String> {
     log_verbose("[Naia] restart_gateway requested");
 
     // Pause health monitor during restart
@@ -1724,6 +1728,30 @@ async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, Stri
     state
         .restarting_gateway
         .store(false, std::sync::atomic::Ordering::Relaxed);
+
+    // If Gateway is now available, restart agent so it can connect
+    if result.as_ref().copied().unwrap_or(false) {
+        log_both("[Naia] Gateway is up — restarting agent-core to connect...");
+        // Kill current agent
+        {
+            let mut guard = lock_or_recover(&state.agent, "state.agent(restart_gateway)");
+            if let Some(mut old) = guard.take() {
+                let _ = old.child.kill();
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        // Spawn fresh agent
+        match spawn_agent_core(&app, &audit_state.db) {
+            Ok(process) => {
+                let mut guard = lock_or_recover(&state.agent, "state.agent(restart_gateway)");
+                *guard = Some(process);
+                log_both("[Naia] agent-core restarted after Gateway restart");
+            }
+            Err(e) => {
+                log_both(&format!("[Naia] agent-core restart failed: {}", e));
+            }
+        }
+    }
 
     result
 }
