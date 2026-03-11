@@ -16,6 +16,7 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
+import { restartGateway } from "./lib/openclaw-sync";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { syncLinkedChannels } from "./lib/channel-sync";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
@@ -47,22 +48,25 @@ export function App() {
 
 		const needsOnboarding = !isOnboardingComplete();
 
-		// On Windows Tier 1: show WSL setup before onboarding
-		if (needsOnboarding) {
-			invoke("get_platform_tier")
-				.then((tier) => {
-					const info = tier as { platform: string; tier: number };
-					if (info.platform === "windows" && info.tier === 1) {
-						setShowWslSetup(true);
-					} else {
-						setShowOnboarding(true);
-					}
-				})
-				.catch(() => {
-					// Non-Windows or invoke failed — go straight to onboarding
+		// Always check platform tier on startup.
+		// On Windows Tier 1 (WSL/NaiaEnv missing): show WSL setup screen,
+		// even if onboarding was previously completed (install may have been
+		// interrupted, or user reinstalled without WSL).
+		invoke("get_platform_tier")
+			.then((tier) => {
+				const info = tier as { platform: string; tier: number };
+				if (info.platform === "windows" && info.tier === 1) {
+					setShowWslSetup(true);
+				} else if (needsOnboarding) {
 					setShowOnboarding(true);
-				});
-		}
+				}
+			})
+			.catch(() => {
+				// Non-Windows or invoke failed — show onboarding if needed
+				if (needsOnboarding) {
+					setShowOnboarding(true);
+				}
+			});
 	}, []);
 
 	// Check for updates after onboarding is complete
@@ -175,7 +179,14 @@ export function App() {
 				<WslSetupScreen
 					onComplete={() => {
 						setShowWslSetup(false);
-						setShowOnboarding(true);
+						if (!isOnboardingComplete()) {
+							// First install: proceed to onboarding
+							setShowOnboarding(true);
+						} else {
+							// WSL re-install (interrupted or deleted):
+							// start Gateway + reconnect agent
+							restartGateway().catch(() => {});
+						}
 					}}
 				/>
 			</div>

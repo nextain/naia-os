@@ -8,23 +8,26 @@ interface WslSetupScreenProps {
 	onComplete: () => void;
 }
 
-/** Step labels shown during WSL setup progress. */
+/** User-friendly step labels shown during setup progress. */
 const STEP_LABELS: Record<string, string> = {
-	wsl: "Installing WSL...",
-	ubuntu: "Installing Ubuntu 24.04...",
-	export: "Exporting Ubuntu base...",
-	import: "Creating NaiaEnv distro...",
-	provision: "Installing components...",
+	wsl: "wslProgress.wsl",
+	ubuntu: "wslProgress.ubuntu",
+	export: "wslProgress.export",
+	import: "wslProgress.import",
+	provision: "wslProgress.provision",
+	provision_node: "wslProgress.provisionNode",
+	provision_openclaw: "wslProgress.provisionOpenclaw",
+	provision_config: "wslProgress.provisionConfig",
+	provision_verify: "wslProgress.provisionVerify",
 };
 
 /**
  * Pre-onboarding screen for Windows users.
- * Guides WSL + NaiaEnv setup before the main onboarding wizard.
- * Users can skip to run in Tier 1 (standalone) mode.
+ * Guides automatic environment setup before the main onboarding wizard.
  */
 export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 	const [running, setRunning] = useState(false);
-	const [status, setStatus] = useState<string | null>(null);
+	const [stepKey, setStepKey] = useState<string | null>(null);
 	const [detail, setDetail] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [elapsed, setElapsed] = useState(0);
@@ -36,7 +39,7 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 			"wsl-setup-progress",
 			(event) => {
 				const { step, detail: d } = event.payload;
-				setStatus(STEP_LABELS[step] ?? step);
+				setStepKey(step);
 				setDetail(d);
 			},
 		);
@@ -62,18 +65,18 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 	const handleSetup = async () => {
 		setRunning(true);
 		setError(null);
-		setStatus(t("settings.wslSetupRunning"));
+		setStepKey(null);
 		setDetail(null);
 		try {
 			await invoke("setup_wsl");
-			setStatus(null);
+			setStepKey(null);
 			setDetail(null);
 			onComplete();
 		} catch (err) {
 			const msg = String(err);
 			Logger.warn("wsl-setup", "WSL setup failed", { error: msg });
 			if (msg.includes("restart") || msg.includes("reboot")) {
-				setError(t("settings.wslNeedsReboot"));
+				setError(t("wslSetup.needsReboot"));
 			} else {
 				setError(msg);
 			}
@@ -87,29 +90,27 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 		return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 	};
 
+	const statusLabel = stepKey
+		? t(STEP_LABELS[stepKey] as any) || stepKey
+		: running
+			? t("wslSetup.preparing")
+			: null;
+
 	return (
 		<div className="wsl-setup-screen">
 			<div className="wsl-setup-card">
-				<h1>Naia</h1>
+				<h1>{t("wslSetup.title")}</h1>
 				<p className="wsl-setup-desc">
-					{t("settings.platformTier2")}
+					{t("wslSetup.description")}
+				</p>
+				<p className="wsl-setup-desc" style={{ fontSize: "0.85em", opacity: 0.7 }}>
+					{t("wslSetup.timeEstimate")}
 				</p>
 
-				<div className="wsl-setup-tiers">
-					<div className="wsl-tier-box">
-						<strong>Tier 2</strong>
-						<span>{t("settings.wslHintInstall")}</span>
-					</div>
-					<div className="wsl-tier-box tier-1">
-						<strong>Tier 1</strong>
-						<span>{t("settings.platformTier1")}</span>
-					</div>
-				</div>
-
 				{error && <p className="wsl-setup-error">{error}</p>}
-				{!error && status && (
+				{!error && statusLabel && (
 					<div className="wsl-setup-progress">
-						<p className="wsl-setup-status">{status}</p>
+						<p className="wsl-setup-status">{statusLabel}</p>
 						{detail && <p className="wsl-setup-detail">{detail}</p>}
 						{running && (
 							<p className="wsl-setup-elapsed">{formatElapsed(elapsed)}</p>
@@ -123,7 +124,7 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 						onClick={handleSetup}
 						disabled={running}
 					>
-						{running ? t("settings.wslSetupRunning") : t("settings.wslSetupButton")}
+						{running ? t("wslSetup.running") : t("wslSetup.startButton")}
 					</button>
 				</div>
 			</div>
