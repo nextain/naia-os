@@ -5,7 +5,6 @@
 [wsl2]
 # Mirrored networking: localhost access works reliably for WebSocket
 networkingMode=mirrored
-localhostForwarding=true
 
 # Resource limits (adjust based on your system)
 memory=8GB
