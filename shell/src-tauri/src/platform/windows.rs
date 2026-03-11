@@ -171,9 +171,23 @@ pub(crate) fn try_platform_gateway_spawn() -> super::GatewaySpawnResult {
             }
         }
     } else {
-        // Gateway already running (e.g. WSL systemd) — reuse
+        // Gateway already running (e.g. WSL systemd or previous app session) — reuse with WSL Node Host
         crate::log_both("[Naia] Windows Tier 2 — Gateway already running, reusing");
-        super::GatewaySpawnResult::UseDefault
+        super::wsl::auto_approve_pending_devices(DISTRO_NAME);
+        let node_host = match super::wsl::spawn_node_host_in_wsl(DISTRO_NAME, 18789) {
+            Ok(nh) => {
+                crate::log_both("[Naia] Node Host spawned in WSL (NaiaEnv) for reused Gateway");
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                Some(nh)
+            }
+            Err(e) => {
+                crate::log_both(&format!("[Naia] Node Host spawn failed (reuse path): {}", e));
+                None
+            }
+        };
+        let child = crate::platform::dummy_child()
+            .expect("dummy_child failed");
+        super::GatewaySpawnResult::Spawned { child, node_host }
     }
 }
 

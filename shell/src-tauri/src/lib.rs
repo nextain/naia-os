@@ -1092,6 +1092,40 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
             "../agent/dist/index.js".to_string()
         });
 
+    // Ensure agent dependencies are installed (empty node_modules = broken bundle)
+    {
+        let script_path = std::path::Path::new(&agent_script);
+        let agent_root = script_path
+            .parent()
+            .and_then(|p| p.parent()) // dist/index.js → dist → agent
+            .unwrap_or(std::path::Path::new("."));
+        let nm = agent_root.join("node_modules");
+        let has_deps = nm.is_dir()
+            && std::fs::read_dir(&nm)
+                .map(|mut d| d.any(|e| e.is_ok()))
+                .unwrap_or(false);
+        if !has_deps {
+            log_both("[Naia] Agent node_modules missing — running npm install...");
+            let mut npm_cmd = Command::new(if cfg!(windows) { "npm.cmd" } else { "npm" });
+            npm_cmd
+                .args(["install", "--omit=dev"])
+                .current_dir(agent_root);
+            platform::hide_console(&mut npm_cmd);
+            match npm_cmd.output() {
+                Ok(out) if out.status.success() => {
+                    log_both("[Naia] Agent dependencies installed successfully");
+                }
+                Ok(out) => {
+                    let stderr = String::from_utf8_lossy(&out.stderr);
+                    log_both(&format!("[Naia] npm install failed: {}", stderr.trim()));
+                }
+                Err(e) => {
+                    log_both(&format!("[Naia] npm install error: {}", e));
+                }
+            }
+        }
+    }
+
     let use_tsx = agent_script.ends_with(".ts");
     let runner = if use_tsx {
         std::env::var("NAIA_AGENT_RUNNER")
