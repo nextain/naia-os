@@ -89,6 +89,26 @@ pub(crate) fn find_node_version_manager(_home: &str) -> Option<PathBuf> {
     None
 }
 
+/// Well-known Node.js install paths (GUI apps may not inherit updated PATH).
+pub(crate) fn find_node_well_known_paths() -> Option<PathBuf> {
+    let well_known = [
+        r"C:\Program Files\nodejs\node.exe",
+        r"C:\Program Files (x86)\nodejs\node.exe",
+    ];
+    for candidate in &well_known {
+        let p = PathBuf::from(candidate);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+/// Platform npm command name (Windows: npm.cmd because npm is a cmd script).
+pub(crate) fn npm_command() -> &'static str {
+    "npm.cmd"
+}
+
 /// Find bundled node.exe in Tauri resources (Windows only).
 pub(crate) fn find_bundled_node(app_handle: &tauri::AppHandle) -> Option<PathBuf> {
     use tauri::Manager;
@@ -185,9 +205,15 @@ pub(crate) fn try_platform_gateway_spawn() -> super::GatewaySpawnResult {
                 None
             }
         };
-        let child = crate::platform::dummy_child()
-            .expect("dummy_child failed");
-        super::GatewaySpawnResult::Spawned { child, node_host }
+        match crate::platform::dummy_child() {
+            Ok(child) => super::GatewaySpawnResult::Spawned { child, node_host },
+            Err(e) => {
+                crate::log_both(&format!("[Naia] dummy_child failed: {}", e));
+                super::GatewaySpawnResult::Skip {
+                    reason: format!("Gateway reuse failed: {}", e),
+                }
+            }
+        }
     }
 }
 

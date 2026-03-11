@@ -559,22 +559,12 @@ fn find_node_binary() -> Result<std::path::PathBuf, String> {
         }
     }
 
-    // Windows: check well-known install paths (GUI apps may not inherit updated PATH)
-    #[cfg(windows)]
-    {
-        let well_known = [
-            r"C:\Program Files\nodejs\node.exe",
-            r"C:\Program Files (x86)\nodejs\node.exe",
-        ];
-        for candidate in &well_known {
-            let p = std::path::PathBuf::from(candidate);
-            if p.exists() {
-                if let Some(major) = check_node_version(&p) {
-                    if major >= 22 {
-                        log_verbose(&format!("[Naia] Found Node.js at well-known path: {}", candidate));
-                        return Ok(p);
-                    }
-                }
+    // Platform well-known install paths (GUI apps may not inherit updated PATH)
+    if let Some(p) = platform::find_node_well_known_paths() {
+        if let Some(major) = check_node_version(&p) {
+            if major >= 22 {
+                log_verbose(&format!("[Naia] Found Node.js at well-known path: {}", p.display()));
+                return Ok(p);
             }
         }
     }
@@ -1029,14 +1019,10 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                 Ok(p) => p.to_string_lossy().to_string(),
                 Err(e) => {
                     log_both(&format!("[Naia] Node.js discovery failed: {}", e));
-                    // Last resort: try absolute path on Windows
-                    #[cfg(windows)]
-                    {
-                        let fallback = std::path::PathBuf::from(r"C:\Program Files\nodejs\node.exe");
-                        if fallback.exists() {
-                            log_both("[Naia] Using fallback Node.js at C:\\Program Files\\nodejs\\node.exe");
-                            return fallback.to_string_lossy().to_string();
-                        }
+                    // Last resort: platform well-known path without version check
+                    if let Some(fallback) = platform::find_node_well_known_paths() {
+                        log_both(&format!("[Naia] Using fallback Node.js at {}", fallback.display()));
+                        return fallback.to_string_lossy().to_string();
                     }
                     "node".to_string()
                 }
@@ -1106,7 +1092,7 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                 .unwrap_or(false);
         if !has_deps {
             log_both("[Naia] Agent node_modules missing — running npm install...");
-            let mut npm_cmd = Command::new(if cfg!(windows) { "npm.cmd" } else { "npm" });
+            let mut npm_cmd = Command::new(platform::npm_command());
             npm_cmd
                 .args(["install", "--omit=dev"])
                 .current_dir(agent_root);

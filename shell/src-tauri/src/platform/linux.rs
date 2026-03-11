@@ -79,6 +79,16 @@ pub(crate) fn find_node_version_manager(home: &str) -> Option<PathBuf> {
     None
 }
 
+/// Well-known Node.js install paths (Linux: not applicable — relies on PATH).
+pub(crate) fn find_node_well_known_paths() -> Option<PathBuf> {
+    None
+}
+
+/// Platform npm command name.
+pub(crate) fn npm_command() -> &'static str {
+    "npm"
+}
+
 /// Find bundled node binary (Linux: not applicable).
 pub(crate) fn find_bundled_node(_app_handle: &tauri::AppHandle) -> Option<PathBuf> {
     None
