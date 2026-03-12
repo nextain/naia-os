@@ -6,11 +6,19 @@ use std::process::Command;
 /// Check if WSL2 is available and enabled.
 /// Returns: Ok(true) = ready, Err(msg) = WSL not installed or not enabled.
 ///
-/// Check if WSL2 is functional. Tries multiple detection methods:
-/// 1. `wsl --version` (works on Windows 11 / newer WSL)
-/// 2. `wsl echo ok` (works on all versions — actually runs inside WSL)
+/// Detection methods (in order):
+/// 0. VirtualMachinePlatform feature enabled (PowerShell, no admin needed)
+/// 1. `wsl --version` (fast, no VM boot, works on Win11+)
+/// 2. `wsl echo ok` (slower — actually runs inside WSL)
 /// If wsl.exe doesn't exist at all, returns Err.
 pub(crate) fn check_wsl_status() -> Result<bool, String> {
+    // Method 0: Check if VirtualMachinePlatform Windows feature is enabled.
+    // wsl --version succeeds even when VMP is disabled (wsl.exe is always present),
+    // but WSL2 distros cannot run without it.
+    if !is_windows_feature_enabled("VirtualMachinePlatform") {
+        return Err("VirtualMachinePlatform is not enabled".to_string());
+    }
+
     // Method 1: wsl --version (fast, no VM boot, works on Win11+)
     let mut cmd = Command::new("wsl");
     cmd.arg("--version");
@@ -41,6 +49,26 @@ pub(crate) fn check_wsl_status() -> Result<bool, String> {
             Err(format!("WSL not ready: {}", stderr.trim()))
         }
         Err(_) => Err("WSL is not installed".to_string()),
+    }
+}
+
+/// Check if a Windows optional feature is enabled via PowerShell.
+/// Uses Get-WindowsOptionalFeature which works without admin privileges.
+/// Returns true only if state is exactly "Enabled".
+fn is_windows_feature_enabled(feature: &str) -> bool {
+    let script = format!(
+        "(Get-WindowsOptionalFeature -Online -FeatureName {}).State",
+        feature
+    );
+    let mut cmd = Command::new("powershell");
+    cmd.args(["-NoProfile", "-Command", &script]);
+    super::hide_console(&mut cmd);
+    match cmd.output() {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout.trim() == "Enabled"
+        }
+        _ => false,
     }
 }
 

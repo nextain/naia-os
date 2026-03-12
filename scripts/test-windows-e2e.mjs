@@ -134,6 +134,49 @@ async function phase1_verifyCleanState() {
 		return false;
 	}
 
+	// WSL Windows features must be enabled
+	const features = ["VirtualMachinePlatform", "Microsoft-Windows-Subsystem-Linux"];
+	for (const feature of features) {
+		const state = run(
+			`powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName ${feature}).State"`,
+			{ allowFail: true },
+		);
+		if (state === "Enabled") {
+			ok(`${feature} enabled`);
+		} else {
+			log(`  ${feature} is ${state} — enabling (requires admin)...`);
+			try {
+				run(
+					`powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -Command \\\"Enable-WindowsOptionalFeature -Online -FeatureName ${feature} -NoRestart\\\"'"`,
+					{ timeout: 120_000 },
+				);
+				const newState = run(
+					`powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName ${feature}).State"`,
+					{ allowFail: true },
+				);
+				if (newState === "Enabled" || newState === "EnablePending") {
+					ok(`${feature} enabled (${newState})`);
+				} else {
+					fail(`${feature} enable`, `state=${newState}`);
+					return false;
+				}
+			} catch (e) {
+				fail(`${feature} enable`, e.message);
+				return false;
+			}
+		}
+	}
+
+	// Check if reboot needed (EnablePending)
+	const vmpState = run(
+		'powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform).State"',
+		{ allowFail: true },
+	);
+	if (vmpState === "EnablePending") {
+		fail("WSL features ready", "Reboot required — features enabled but pending restart");
+		return false;
+	}
+
 	// WSL must be functional
 	try {
 		run("wsl --version");
