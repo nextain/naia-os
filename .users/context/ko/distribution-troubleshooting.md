@@ -59,3 +59,51 @@ CI=true pnpm install --shamefully-hoist
 **원인**: `npx tauri build --no-bundle` 대신 `cargo build --release`를 사용.
 
 **수정**: 반드시 `npx tauri build --no-bundle` 사용 (WebKitGTK asset protocol은 Tauri 빌드 파이프라인을 거쳐야 함).
+
+---
+
+## Windows: Gateway 모드 미설정
+
+**증상**: 새 WSL 프로비저닝 후 `Gateway start blocked: set gateway.mode=local (current: unset)`.
+
+**원인**: OpenClaw 프로비저닝에서 `/root/.openclaw/openclaw.json`에 `gateway.mode=local`을 설정하지 않음.
+
+**수정**: `wsl.rs`의 `provision_distro()`에 Step 5 추가 — 프로비저닝 중 node 스크립트로 `gateway.mode=local` 설정.
+
+**사례**: 2026-03-11
+
+---
+
+## Windows: restart_gateway 레이스 컨디션
+
+**증상**: Naia 로그인 후 Gateway 연결 실패 — Gateway 프로세스가 스폰 도중 종료됨.
+
+**원인**: 딥링크 인증이 Rust 쪽 재진입 방지 없이 `restartGateway()`를 여러 번 호출.
+
+**수정**: `restarting_gateway` AtomicBool에 `compare_exchange` atomic guard 적용 (SeqCst). guard 해제는 agent 재시작 완료 후.
+
+**사례**: 2026-03-11
+
+---
+
+## Windows: Git Bash 경로 변환
+
+**증상**: MSYS가 `/opt/naia/...`를 `C:/Program Files/Git/opt/naia/...`로 자동 변환.
+
+**수정**: 명령어 앞에 `MSYS_NO_PATHCONV=1` 접두사 추가.
+
+---
+
+## Windows: pnpm Non-TTY 에러
+
+**증상**: WSL에서 `pnpm install` 실행 시 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
+
+**수정**: `CI=true pnpm install` 사용.
+
+---
+
+## Windows: .wslconfig localhostForwarding 폐기
+
+**증상**: `networkingMode=mirrored`에서 `localhostForwarding` 미지원 경고.
+
+**수정**: `config/defaults/wslconfig-template`에서 `localhostForwarding=true` 제거.

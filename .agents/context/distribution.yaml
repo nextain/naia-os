@@ -51,6 +51,49 @@ formats:
     built_by: tauri build
     status: working
 
+  windows:
+    description: "Windows desktop app (Tauri exe with embedded frontend)"
+    status: in_progress
+    build_command: "cd shell && pnpm tauri build"
+    output: "shell/src-tauri/target/release/naia-shell.exe"
+    bundle_targets:
+      current: ["deb", "rpm", "appimage"]
+      pending: ["nsis", "msi"]
+      note: "Windows targets not yet added to tauri.conf.json — agent node_modules not bundled in installer"
+    wsl_requirement:
+      description: "Windows app requires WSL2 + NaiaEnv distro for Gateway execution"
+      tiers:
+        tier_1: "No WSL — shows WslSetupScreen (Ubuntu → NaiaEnv → provision)"
+        tier_2: "WSL ready — Gateway runs inside NaiaEnv via wsl.exe"
+      provisioning_steps:
+        1: "Install Ubuntu-24.04 (wsl --install -d Ubuntu-24.04 --no-launch)"
+        2: "Export Ubuntu → import as NaiaEnv (wsl --export/--import)"
+        3: "Install Node.js 22 (NodeSource)"
+        4: "Install OpenClaw (npm install openclaw@latest)"
+        5: "Set gateway.mode=local in /root/.openclaw/openclaw.json"
+      config_file: "config/defaults/wslconfig-template"
+      config_notes:
+        - "networkingMode=mirrored (localhost access for WebSocket)"
+        - "localhostForwarding removed (deprecated with mirrored mode)"
+        - "guiApplications=false (host-side Tauri handles UI)"
+    restart_gateway_guard:
+      description: "Atomic guard prevents concurrent Gateway restarts"
+      mechanism: "compare_exchange on restarting_gateway AtomicBool (SeqCst)"
+      reason: "Deep link auth can trigger multiple restartGateway calls; without guard, Gateway killed mid-spawn"
+      frontend_debounce: "2s debounce + inflight promise in openclaw-sync.ts"
+    e2e_test:
+      script: "scripts/test-windows-e2e.mjs"
+      command: "node scripts/test-windows-e2e.mjs [--skip-cleanup]"
+      phases:
+        1: "Verify clean state (no NaiaEnv, no .naia, no .openclaw)"
+        2: "WSL setup (Ubuntu → NaiaEnv → Node.js + OpenClaw + gateway.mode=local)"
+        3: "Gateway startup + HTTP health check"
+        4: "Device auto-approval + config copy to Windows"
+        5: "Agent ↔ Gateway handshake (HTTP health + optional gateway-e2e suite)"
+      duration: "~5-7 minutes"
+      ci_status: "manual only (requires WSL + VirtualMachinePlatform)"
+    ci_status: "no Windows build job in release-app.yml yet"
+
   iso:
     builder: ublue-os/titanoboa@main
     type: live ISO (squashfs + ephemeral overlay)
@@ -246,6 +289,34 @@ troubleshooting:
     symptom: "App launches but shows white/blank screen"
     cause: "Used cargo build --release instead of npx tauri build --no-bundle"
     fix: "ALWAYS use npx tauri build --no-bundle (WebKitGTK asset protocol)"
+
+  windows_gateway_mode_not_set:
+    symptom: "Gateway start blocked: set gateway.mode=local (current: unset)"
+    cause: "OpenClaw provisioning did not set gateway.mode=local in /root/.openclaw/openclaw.json"
+    fix: "Added Step 5 to provision_distro() in wsl.rs — sets gateway.mode=local via node script"
+    incident: "2026-03-11 — Gateway refused to start after fresh WSL provisioning"
+
+  windows_restart_gateway_race:
+    symptom: "Gateway connection fails after Naia login — Gateway killed mid-spawn"
+    cause: "Deep link auth triggers multiple restartGateway calls without re-entrancy guard"
+    fix: "compare_exchange atomic guard on restarting_gateway AtomicBool (SeqCst). Guard released AFTER agent restart completes."
+    incident: "2026-03-11 — login deep link fired 3 times, concurrent restarts killed Gateway"
+
+  windows_git_bash_path_conversion:
+    symptom: "MSYS translates /opt/naia/... to C:/Program Files/Git/opt/naia/..."
+    cause: "Git bash auto-converts Unix-style paths to Windows paths"
+    fix: "Prefix commands with MSYS_NO_PATHCONV=1"
+
+  windows_pnpm_non_tty:
+    symptom: "ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY when running pnpm install in WSL"
+    cause: "pnpm prompts for confirmation when replacing node_modules, but no TTY available"
+    fix: "CI=true pnpm install"
+
+  windows_wslconfig_localhost_forwarding:
+    symptom: "Warning: localhostForwarding is not applicable with networkingMode=mirrored"
+    cause: "Deprecated option in .wslconfig template"
+    fix: "Removed localhostForwarding=true from config/defaults/wslconfig-template"
+    incident: "2026-03-11"
 
 flathub_submission:
   guide: docs/flathub-submission-guide.md
