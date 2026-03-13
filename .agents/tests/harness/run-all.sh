@@ -104,7 +104,59 @@ else
     fail "1.6 Read tool ignored" "Original claude" "$(cat "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null)"
 fi
 
-rm -rf "$TMPDIR_SYNC"
+# Test 1.7: CLAUDE.md as source → syncs to AGENTS.md and GEMINI.md
+TMPDIR_SYNC2="$(mktemp -d)"
+echo "# original" > "$TMPDIR_SYNC2/AGENTS.md"
+echo "# original" > "$TMPDIR_SYNC2/CLAUDE.md"
+echo "# original" > "$TMPDIR_SYNC2/GEMINI.md"
+echo "# FROM CLAUDE" > "$TMPDIR_SYNC2/CLAUDE.md"
+OUTPUT=$(run_hook "sync-entry-points.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC2/CLAUDE.md\"}}")
+if grep -q "FROM CLAUDE" "$TMPDIR_SYNC2/AGENTS.md" 2>/dev/null && grep -q "FROM CLAUDE" "$TMPDIR_SYNC2/GEMINI.md" 2>/dev/null; then
+    pass "1.7 CLAUDE.md as source → AGENTS.md + GEMINI.md synced"
+else
+    fail "1.7 CLAUDE.md as source" "Both synced" "AGENTS=$(cat "$TMPDIR_SYNC2/AGENTS.md" 2>/dev/null) GEMINI=$(cat "$TMPDIR_SYNC2/GEMINI.md" 2>/dev/null)"
+fi
+
+# Test 1.8: GEMINI.md as source → syncs to AGENTS.md and CLAUDE.md
+echo "# FROM GEMINI" > "$TMPDIR_SYNC2/GEMINI.md"
+OUTPUT=$(run_hook "sync-entry-points.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC2/GEMINI.md\"}}")
+if grep -q "FROM GEMINI" "$TMPDIR_SYNC2/AGENTS.md" 2>/dev/null && grep -q "FROM GEMINI" "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null; then
+    pass "1.8 GEMINI.md as source → AGENTS.md + CLAUDE.md synced"
+else
+    fail "1.8 GEMINI.md as source" "Both synced" "AGENTS=$(cat "$TMPDIR_SYNC2/AGENTS.md" 2>/dev/null) CLAUDE=$(cat "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null)"
+fi
+
+# Test 1.9: Write tool triggers sync (not just Edit)
+echo "# VIA WRITE" > "$TMPDIR_SYNC2/AGENTS.md"
+OUTPUT=$(run_hook "sync-entry-points.js" "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC2/AGENTS.md\"}}")
+if grep -q "VIA WRITE" "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null; then
+    pass "1.9 Write tool triggers sync"
+else
+    fail "1.9 Write tool triggers sync" "VIA WRITE" "$(cat "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null)"
+fi
+
+# Test 1.10: Lockfile prevents recursive sync
+LOCKFILE="/tmp/.entry-points-sync.lock"
+echo "locked" > "$LOCKFILE"
+echo "# SHOULD NOT SYNC" > "$TMPDIR_SYNC2/AGENTS.md"
+echo "# KEPT" > "$TMPDIR_SYNC2/CLAUDE.md"
+OUTPUT=$(run_hook "sync-entry-points.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC2/AGENTS.md\"}}")
+if grep -q "KEPT" "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null; then
+    pass "1.10 Lockfile prevents recursive sync"
+else
+    fail "1.10 Lockfile prevents recursive sync" "KEPT (no sync)" "$(cat "$TMPDIR_SYNC2/CLAUDE.md" 2>/dev/null)"
+fi
+rm -f "$LOCKFILE"
+
+# Test 1.11: Malformed JSON stdin → no crash
+OUTPUT=$(echo "NOT JSON" | node "$PROJECT_ROOT/.claude/hooks/sync-entry-points.js" 2>/dev/null || true)
+if [ -z "$OUTPUT" ]; then
+    pass "1.11 Malformed JSON → graceful exit (no crash)"
+else
+    fail "1.11 Malformed JSON → graceful exit" "(empty)" "$OUTPUT"
+fi
+
+rm -rf "$TMPDIR_SYNC" "$TMPDIR_SYNC2"
 
 # ─── 2. commit-guard.js ───────────────────────────────────
 
@@ -183,6 +235,69 @@ else
     fail "2.8 Phase 'e2e_test' → warning" "Warning about premature commit" "$OUTPUT"
 fi
 
+# Test 2.9: git commit --amend → should still trigger guard
+echo '{"issue":"#99","current_phase":"build"}' > "$TMPDIR_CG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit --amend\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "Committing at phase"; then
+    pass "2.9 git commit --amend → triggers guard"
+else
+    fail "2.9 git commit --amend" "Warning" "$OUTPUT"
+fi
+
+# Test 2.10: git commit -a -m → should still trigger guard
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -a -m 'test'\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "Committing at phase"; then
+    pass "2.10 git commit -a -m → triggers guard"
+else
+    fail "2.10 git commit -a -m" "Warning" "$OUTPUT"
+fi
+
+# Test 2.11: Multiple progress files → picks most recent by mtime
+echo '{"issue":"#10","current_phase":"report"}' > "$TMPDIR_CG/.agents/progress/10.json"
+sleep 0.1
+echo '{"issue":"#20","current_phase":"build"}' > "$TMPDIR_CG/.agents/progress/20.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "Committing at phase"; then
+    pass "2.11 Multiple progress files → picks most recent (build warns)"
+else
+    fail "2.11 Multiple progress files → most recent" "Warning (build)" "$OUTPUT"
+fi
+
+# Test 2.12: Unknown phase name → silent pass (not in PHASE_ORDER)
+echo '{"issue":"#99","current_phase":"unknown_phase"}' > "$TMPDIR_CG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "2.12 Unknown phase → silent pass (graceful)"
+else
+    fail "2.12 Unknown phase → silent pass" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.13: Empty progress dir (no .json files) → silent pass
+rm -f "$TMPDIR_CG/.agents/progress/"*.json
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "2.13 Empty progress dir → silent pass"
+else
+    fail "2.13 Empty progress dir → silent pass" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.14: Edit tool (not Bash) → ignored even with git commit in input
+echo '{"issue":"#99","current_phase":"build"}' > "$TMPDIR_CG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "2.14 Edit tool with git commit text → ignored (Bash-only)"
+else
+    fail "2.14 Edit tool ignored" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.15: Malformed JSON stdin → no crash
+OUTPUT=$(echo "NOT JSON" | node "$PROJECT_ROOT/.claude/hooks/commit-guard.js" 2>/dev/null || true)
+if [ -z "$OUTPUT" ]; then
+    pass "2.15 Malformed JSON stdin → graceful exit (no crash)"
+else
+    fail "2.15 Malformed JSON → graceful exit" "(empty)" "$OUTPUT"
+fi
+
 rm -rf "$TMPDIR_CG"
 
 # ─── 3. cascade-check.js ──────────────────────────────────
@@ -253,6 +368,40 @@ else
     fail "3.8 Malformed JSON → graceful exit" "(empty)" "$OUTPUT"
 fi
 
+# Test 3.9: .agents/context/*.json (non agents-rules) → triple-mirror reminder
+OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/project/.agents/context/custom-config.json\"}}")
+if echo "$OUTPUT" | grep -q "Triple-mirror rule"; then
+    pass "3.9 .agents/context/*.json → triple-mirror reminder"
+else
+    fail "3.9 .agents/context/*.json → reminder" "Triple-mirror rule" "$OUTPUT"
+fi
+
+# Test 3.10: Write tool triggers cascade check (not just Edit)
+OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/project/.agents/context/testing.yaml\"}}")
+if echo "$OUTPUT" | grep -q "Triple-mirror rule"; then
+    pass "3.10 Write tool triggers cascade check"
+else
+    fail "3.10 Write tool triggers cascade" "Triple-mirror rule" "$OUTPUT"
+fi
+
+# Test 3.11: .users/context/ko/ edit → reminds both .agents/ AND .users/context/
+OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/project/.users/context/ko/architecture.md\"}}")
+if echo "$OUTPUT" | grep -q ".users/context/architecture.md"; then
+    pass "3.11 ko/ edit → also reminds English .users/ mirror"
+else
+    fail "3.11 ko/ → .users/ reminder" ".users/context/architecture.md" "$OUTPUT"
+fi
+
+# Test 3.12: agents-rules.json → gets BOTH triple-mirror AND SoT reminders
+OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/project/.agents/context/agents-rules.json\"}}")
+TRIPLE=$(echo "$OUTPUT" | grep -c "Triple-mirror rule" || true)
+SOT=$(echo "$OUTPUT" | grep -c "SoT" || true)
+if [ "$TRIPLE" -gt 0 ] && [ "$SOT" -gt 0 ]; then
+    pass "3.12 agents-rules.json → both triple-mirror AND SoT reminders"
+else
+    fail "3.12 agents-rules.json dual reminder" "Both Triple-mirror and SoT" "triple=$TRIPLE sot=$SOT"
+fi
+
 # ─── 4. Progress File Schema Validation ───────────────────
 
 echo ""
@@ -303,7 +452,36 @@ else
     fail "4.4 ISO timestamp format" "YYYY-MM-DDT..." "$TIMESTAMP"
 fi
 
-rm -rf "$TMPDIR_PF"
+# Test 4.5: Missing required field (no current_phase) → commit-guard handles gracefully
+TMPDIR_NEG="$(mktemp -d)"
+mkdir -p "$TMPDIR_NEG/.agents/progress"
+echo '{"issue":"#99"}' > "$TMPDIR_NEG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_NEG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "4.5 Missing current_phase → commit-guard passes gracefully"
+else
+    fail "4.5 Missing current_phase" "(empty/graceful)" "$OUTPUT"
+fi
+
+# Test 4.6: Invalid phase name → commit-guard passes (unknown index = -1)
+echo '{"issue":"#99","current_phase":"nonexistent_phase"}' > "$TMPDIR_NEG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_NEG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "4.6 Invalid phase name → commit-guard passes gracefully"
+else
+    fail "4.6 Invalid phase name" "(empty/graceful)" "$OUTPUT"
+fi
+
+# Test 4.7: Empty JSON object → commit-guard passes
+echo '{}' > "$TMPDIR_NEG/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_NEG\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "4.7 Empty JSON object → commit-guard passes gracefully"
+else
+    fail "4.7 Empty JSON" "(empty/graceful)" "$OUTPUT"
+fi
+
+rm -rf "$TMPDIR_PF" "$TMPDIR_NEG"
 
 # ─── 5. Integration: commit-guard + progress ──────────────
 

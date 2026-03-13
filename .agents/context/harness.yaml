@@ -132,12 +132,12 @@ tests:
   runner: run-all.sh
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
-    sync_entry_points: 6
-    commit_guard: 8
-    cascade_check: 8
-    progress_schema: 4
+    sync_entry_points: 11
+    commit_guard: 15
+    cascade_check: 12
+    progress_schema: 7
     integration_lifecycle: 2
-    total: 28
+    total: 47
 
 directory_structure:
   committed:
