@@ -224,6 +224,84 @@ describe("80 — Provider Registry", () => {
 		expect(hasApiInput).toBe(false);
 	});
 
+	it("should show all registered TTS providers in the TTS select", async () => {
+		// Navigate to settings
+		await navigateToSettings();
+		await browser.pause(500);
+
+		// Ensure live-provider-select is set to edge-tts
+		await scrollToSection("#live-provider-select");
+		await browser.execute(() => {
+			const el = document.getElementById("live-provider-select") as HTMLSelectElement | null;
+			if (!el) return;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLSelectElement.prototype, "value")?.set;
+			if (setter) setter.call(el, "edge-tts");
+			else el.value = "edge-tts";
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		await browser.pause(500);
+
+		await scrollToSection("#tts-provider-select");
+
+		const ttsProviderIds = await browser.execute(() => {
+			const select = document.getElementById("tts-provider-select") as HTMLSelectElement | null;
+			if (!select) return [];
+			return Array.from(select.options).map((o) => o.value);
+		});
+
+		// All 5 registered TTS providers
+		expect(ttsProviderIds).toContain("edge");
+		expect(ttsProviderIds).toContain("nextain");
+		expect(ttsProviderIds).toContain("google");
+		expect(ttsProviderIds).toContain("openai");
+		expect(ttsProviderIds).toContain("elevenlabs");
+		expect(ttsProviderIds.length).toBe(5);
+	});
+
+	it("should show API key input when selecting OpenAI TTS", async () => {
+		// Switch to OpenAI TTS
+		await browser.execute(() => {
+			const el = document.getElementById("tts-provider-select") as HTMLSelectElement | null;
+			if (!el) throw new Error("TTS provider select not found");
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLSelectElement.prototype,
+				"value",
+			)?.set;
+			if (setter) setter.call(el, "openai");
+			else el.value = "openai";
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		await browser.pause(300);
+
+		// API key input should appear
+		const hasApiKey = await browser.execute(
+			() => !!document.getElementById("tts-api-key"),
+		);
+		expect(hasApiKey).toBe(true);
+	});
+
+	it("should hide API key for Edge TTS (free)", async () => {
+		// Switch back to edge
+		await browser.execute(() => {
+			const el = document.getElementById("tts-provider-select") as HTMLSelectElement | null;
+			if (!el) throw new Error("TTS provider select not found");
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLSelectElement.prototype,
+				"value",
+			)?.set;
+			if (setter) setter.call(el, "edge");
+			else el.value = "edge";
+			el.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+		await browser.pause(300);
+
+		const hasApiKey = await browser.execute(
+			() => !!document.getElementById("tts-api-key"),
+		);
+		expect(hasApiKey).toBe(false);
+	});
+
 	it("should restore gemini provider for subsequent tests", async () => {
 		// Restore original config
 		await browser.execute(() => {

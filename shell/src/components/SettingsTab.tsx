@@ -45,17 +45,6 @@ import { LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS, OPENAI_REALTIME_VOICES,
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
-/** Get Edge TTS voices from registry, filtered by locale */
-function getEdgeVoicesForLocale(loc: string): string[] {
-	const edgeProvider = getProvider("edge", "tts");
-	const allVoices = edgeProvider?.listVoices?.() ?? [];
-	const langPrefix = loc.slice(0, 2).toLowerCase() + "-";
-	return allVoices
-		.filter((v) => v.id.toLowerCase().startsWith(langPrefix) || v.id.includes("Multilingual"))
-		.map((v) => v.id);
-}
-
-
 type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
 type GatewayTtsMode = "final" | "all";
 
@@ -2190,11 +2179,12 @@ export function SettingsTab() {
 						const val = e.target.value as LiveProviderId;
 						setLiveProvider(val);
 						if (existing) saveConfig({ ...existing, liveProvider: val });
-						// Edge TTS: auto-set ttsProvider to edge
+						// TTS mode: restore saved ttsProvider or default to edge
 						if (val === "edge-tts") {
-							persistTtsProvider("edge");
-							persistTtsVoice(getDefaultTtsVoiceForAvatar("edge", existing?.vrmModel));
-							handleGatewayTtsProviderChange("edge").then(() => fetchGatewayTts());
+							const savedTts = existing?.ttsProvider || "edge";
+							persistTtsProvider(savedTts);
+							persistTtsVoice(getDefaultTtsVoiceForAvatar(savedTts, existing?.vrmModel));
+							handleGatewayTtsProviderChange(savedTts).then(() => fetchGatewayTts());
 						}
 					}}
 				>
@@ -2324,7 +2314,7 @@ export function SettingsTab() {
 				</>
 			)}
 
-			{/* Edge TTS — voice picker + auto-speak */}
+			{/* TTS — provider selector + voice picker + auto-speak */}
 			{liveProvider === "edge-tts" && (
 				<>
 					<div className="settings-field settings-toggle-row">
@@ -2342,8 +2332,59 @@ export function SettingsTab() {
 							}}
 						/>
 					</div>
+					{/* TTS Provider selector from registry */}
+					<div className="settings-field">
+						<label htmlFor="tts-provider-select">TTS Provider</label>
+						<select
+							id="tts-provider-select"
+							value={ttsProvider}
+							onChange={(e) => {
+								const p = e.target.value;
+								persistTtsProvider(p);
+								const prov = getProvider(p, "tts");
+								const defaultVoice = prov?.defaultVoice ?? prov?.listVoices?.()[0]?.id ?? "";
+								if (defaultVoice) persistTtsVoice(defaultVoice);
+								handleGatewayTtsProviderChange(p).then(() => fetchGatewayTts());
+							}}
+						>
+							{listProviders("tts").map((p) => (
+								<option key={p.id} value={p.id}>{p.name}</option>
+							))}
+						</select>
+					</div>
+					{/* API key for TTS providers that require it */}
 					{(() => {
-						const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
+						const selectedTts = getProvider(ttsProvider, "tts");
+						if (!selectedTts?.capabilities?.requiresApiKey) return null;
+						const apiKeyField = selectedTts.configFields.find((f) => f.type === "password");
+						if (!apiKeyField) return null;
+						return (
+							<div className="settings-field">
+								<label htmlFor="tts-api-key">{apiKeyField.label}</label>
+								<input
+									id="tts-api-key"
+									type="password"
+									value={
+										ttsProvider === "openai" ? (existing?.openaiTtsApiKey ?? "") :
+										ttsProvider === "elevenlabs" ? (existing?.elevenlabsApiKey ?? "") :
+										ttsProvider === "google" ? (existing?.googleApiKey ?? "") :
+										""
+									}
+									onChange={(e) => {
+										const val = e.target.value;
+										if (!existing) return;
+										if (ttsProvider === "openai") saveConfig({ ...existing, openaiTtsApiKey: val });
+										else if (ttsProvider === "elevenlabs") saveConfig({ ...existing, elevenlabsApiKey: val });
+										else if (ttsProvider === "google") saveConfig({ ...existing, googleApiKey: val });
+									}}
+									placeholder={apiKeyField.placeholder ?? ""}
+								/>
+							</div>
+						);
+					})()}
+					{/* Voice picker */}
+					{(() => {
+						const gwProvider = gatewayTtsProviders.find((p) => p.id === ttsProvider);
 						let gwVoices = gwProvider?.voices ?? [];
 						if (gwVoices.length > 0) {
 							const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
@@ -2351,19 +2392,31 @@ export function SettingsTab() {
 								(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
 							);
 						}
-						const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
+						// Fall back to registry voices
+						const registryVoices = getProvider(ttsProvider, "tts")?.listVoices?.() ?? [];
+						const localeFilteredRegistry = registryVoices.length > 0
+							? registryVoices.filter((v) => {
+								const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
+								return !v.locale || v.locale.toLowerCase().startsWith(langPrefix) || v.id.includes("Multilingual");
+							})
+							: [];
+						const voices = gwVoices.length > 0
+							? gwVoices.map((v) => ({ id: v, label: v }))
+							: localeFilteredRegistry.length > 0
+							? localeFilteredRegistry
+							: registryVoices;
 						return voices.length > 0 ? (
 							<div className="settings-field">
-								<label htmlFor="edge-tts-voice">{t("settings.ttsVoice")}</label>
+								<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
 								<div className="voice-picker">
 									<select
-										id="edge-tts-voice"
+										id="tts-voice-select"
 										data-testid="gateway-tts-voice"
 										value={ttsVoice}
 										onChange={(e) => persistTtsVoice(e.target.value)}
 									>
 										{voices.map((v) => (
-											<option key={v} value={v}>{v}</option>
+											<option key={v.id} value={v.id}>{v.label}</option>
 										))}
 									</select>
 									<button
@@ -2378,13 +2431,7 @@ export function SettingsTab() {
 									</button>
 								</div>
 							</div>
-						) : (
-							<div className="settings-field">
-								<span className="settings-hint">
-									Gateway에 연결할 수 없습니다.
-								</span>
-							</div>
-						);
+						) : null;
 					})()}
 				</>
 			)}

@@ -294,4 +294,48 @@ describe("SettingsTab", () => {
 		expect(optionValues).toContain("ollama");
 		expect(optionValues.length).toBe(8);
 	});
+
+	it("shows TTS provider selector with all registered TTS providers", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		// Default live provider is edge-tts, so TTS section should be visible
+		const ttsSelect = document.getElementById("tts-provider-select") as HTMLSelectElement;
+		expect(ttsSelect).toBeDefined();
+		const ttsOptions = Array.from(ttsSelect.options).map(o => o.value);
+
+		// All 5 registered TTS providers
+		expect(ttsOptions).toContain("edge");
+		expect(ttsOptions).toContain("nextain");
+		expect(ttsOptions).toContain("google");
+		expect(ttsOptions).toContain("openai");
+		expect(ttsOptions).toContain("elevenlabs");
+		expect(ttsOptions.length).toBe(5);
+	});
+
+	it("shows API key input when selecting TTS provider that requires it", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const ttsSelect = document.getElementById("tts-provider-select") as HTMLSelectElement;
+
+		// Select OpenAI TTS (requires API key)
+		fireEvent.change(ttsSelect, { target: { value: "openai" } });
+
+		const ttsApiKey = document.getElementById("tts-api-key") as HTMLInputElement;
+		expect(ttsApiKey).toBeDefined();
+		expect(ttsApiKey.type).toBe("password");
+	});
+
+	it("hides API key input for Edge TTS (free, no key required)", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const ttsSelect = document.getElementById("tts-provider-select") as HTMLSelectElement;
+
+		// Edge TTS is default and doesn't require API key
+		expect(ttsSelect.value).toBe("edge");
+		const ttsApiKey = document.getElementById("tts-api-key");
+		expect(ttsApiKey).toBeNull();
+	});
 });
