@@ -1,3 +1,5 @@
+import { registerTtsProvider } from "./registry.js";
+
 const DEFAULT_VOICE = "nova";
 
 // Voices that require gpt-4o-mini-tts model
@@ -51,3 +53,10 @@ export async function synthesizeOpenAISpeech(
 		return null;
 	}
 }
+
+registerTtsProvider({
+	id: "openai",
+	name: "OpenAI TTS",
+	requiresApiKey: true,
+	synthesize: (opts) => synthesizeOpenAISpeech(opts.text, opts.apiKey!, opts.voice),
+});

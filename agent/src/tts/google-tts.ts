@@ -1,3 +1,5 @@
+import { registerTtsProvider } from "./registry.js";
+
 const TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
 const DEFAULT_VOICE = "ko-KR-Neural2-A";
@@ -38,3 +40,10 @@ export async function synthesizeSpeech(
 		return null;
 	}
 }
+
+registerTtsProvider({
+	id: "google",
+	name: "Google Cloud TTS",
+	requiresApiKey: true,
+	synthesize: (opts) => synthesizeSpeech(opts.text, opts.apiKey!, opts.voice),
+});

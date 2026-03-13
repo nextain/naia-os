@@ -1,4 +1,5 @@
 import { GATEWAY_URL } from "../providers/lab-proxy.js";
+import { registerTtsProvider } from "./registry.js";
 
 export async function synthesizeNextainSpeech(
 	text: string,
@@ -31,3 +32,11 @@ export async function synthesizeNextainSpeech(
 		return null;
 	}
 }
+
+registerTtsProvider({
+	id: "nextain",
+	name: "Naia Cloud TTS",
+	requiresApiKey: false,
+	requiresNaiaKey: true,
+	synthesize: (opts) => synthesizeNextainSpeech(opts.text, opts.naiaKey!, opts.voice),
+});
