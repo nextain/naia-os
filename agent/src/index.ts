@@ -21,11 +21,8 @@ import { calculateCost } from "./providers/cost.js";
 import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
 import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
-import { synthesizeEdgeSpeech } from "./tts/edge-tts.js";
-import { synthesizeElevenLabsSpeech } from "./tts/elevenlabs-tts.js";
-import { synthesizeSpeech } from "./tts/google-tts.js";
-import { synthesizeNextainSpeech } from "./tts/nextain-tts.js";
-import { synthesizeOpenAISpeech } from "./tts/openai-tts.js";
+import { getTts } from "./providers/registry.js";
+import "./tts/register.js";
 
 const activeStreams = new Map<string, AbortController>();
 
@@ -527,7 +524,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			}
 		}
 
-		// TTS synthesis — provider-specific direct calls
+		// TTS synthesis — registry-based dispatch
 		if (ttsVoice && fullText.trim()) {
 			const cleanText = fullText
 				.replace(EMOTION_TAG_RE, "")
@@ -535,56 +532,41 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				.trim();
 			let audioSent = !cleanText;
 
-			// Direct TTS based on selected provider
 			const effectiveNaiaKey = reqNaiaKey || providerConfig.naiaKey;
-			if (ttsProvider === "nextain" && effectiveNaiaKey) {
-				try {
-					const audio = await synthesizeNextainSpeech(cleanText, effectiveNaiaKey, ttsVoice);
-					if (audio) {
-						writeLine({ type: "audio", requestId, data: audio });
-						audioSent = true;
-					}
-				} catch { /* non-critical */ }
-			} else if (ttsProvider === "openai" && ttsApiKey) {
-				try {
-					const audio = await synthesizeOpenAISpeech(cleanText, ttsApiKey, ttsVoice);
-					if (audio) {
-						writeLine({ type: "audio", requestId, data: audio });
-						audioSent = true;
-					}
-				} catch { /* non-critical */ }
-			} else if (ttsProvider === "elevenlabs" && ttsApiKey) {
-				try {
-					const audio = await synthesizeElevenLabsSpeech(cleanText, ttsApiKey, ttsVoice);
-					if (audio) {
-						writeLine({ type: "audio", requestId, data: audio });
-						audioSent = true;
-					}
-				} catch { /* non-critical */ }
-			} else if (ttsProvider === "edge" || (!ttsProvider && ttsEngine === "openclaw")) {
-				// Edge TTS: try direct msedge-tts first
-				try {
-					const audio = await synthesizeEdgeSpeech(cleanText, ttsVoice);
-					if (audio) {
-						writeLine({ type: "audio", requestId, data: audio });
-						audioSent = true;
-					}
-				} catch { /* non-critical */ }
+			const resolvedProvider = ttsProvider || (ttsEngine === "openclaw" ? "edge" : undefined);
+
+			if (resolvedProvider) {
+				const synthesizer = getTts(resolvedProvider);
+				if (synthesizer) {
+					try {
+						const audio = await synthesizer({
+							text: cleanText,
+							voice: ttsVoice,
+							apiKey: ttsApiKey,
+							naiaKey: effectiveNaiaKey,
+						});
+						if (audio) {
+							writeLine({ type: "audio", requestId, data: audio });
+							audioSent = true;
+						}
+					} catch { /* non-critical */ }
+				}
 			}
 
-			// Fallback: Google Cloud TTS
+			// Fallback: Google Cloud TTS (for ttsEngine=google/auto when no explicit provider)
 			if (!audioSent && (ttsProvider === "google" || ttsEngine === "google" || ttsEngine === "auto")) {
 				const googleKey =
 					ttsApiKey ||
 					(providerConfig.provider === "gemini" ? providerConfig.apiKey : null);
 				if (googleKey) {
-					try {
-						const audio = await synthesizeSpeech(cleanText, googleKey, ttsVoice);
-						if (audio) {
-							writeLine({ type: "audio", requestId, data: audio });
-						}
-					} catch {
-						// TTS failure is non-critical
+					const googleSynth = getTts("google");
+					if (googleSynth) {
+						try {
+							const audio = await googleSynth({ text: cleanText, apiKey: googleKey, voice: ttsVoice });
+							if (audio) {
+								writeLine({ type: "audio", requestId, data: audio });
+							}
+						} catch { /* non-critical */ }
 					}
 				}
 			}
