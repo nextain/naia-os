@@ -135,7 +135,7 @@ AI 컨텍스트 파일은 **CC-BY-SA 4.0**으로 라이선스됩니다.
 
 ---
 
-## 기여 유형 (10가지)
+## 기여 유형 (11가지)
 
 전체 운영 모델: `.agents/context/open-source-operations.yaml`
 
@@ -151,6 +151,7 @@ AI 컨텍스트 파일은 **CC-BY-SA 4.0**으로 라이선스됩니다.
 | 8 | **디자인/UX/에셋** | 중간 | `feature_request.yml` |
 | 9 | **보안 리포트** | 중간~높음 | GitHub Security Advisory |
 | 10 | **컨텍스트** | 중간 | `context_contribution.yml` |
+| 11 | **프로바이더** | 낮음~중간 | `feature_request.yml` |
 
 컨텍스트 기여는 코드 기여와 동등한 가치를 가집니다.
 
@@ -165,6 +166,20 @@ AI 컨텍스트 파일은 **CC-BY-SA 4.0**으로 라이선스됩니다.
 | 스킬 | 스킬 코드 + LLM 테스트 + 컨텍스트 (아키텍처 변경 시) |
 | 문서 | 영문 + 한국어 미러 + AI 컨텍스트 (세 파일 모두 존재 시) |
 | 디자인/UX | 구현 시: 코드 + 테스트 + 컨텍스트를 같은 PR에 |
+
+---
+
+## 프로바이더 기여
+
+Naia OS에 새 LLM, TTS, STT 프로바이더를 추가할 수 있습니다. 자세한 내용은 [프로바이더 개발 가이드](provider-development-guide.md)를 참조하세요.
+
+**OpenAI 호환 LLM 빠른 경로** (DeepSeek, Groq, Mistral 등):
+1. `createOpenAICompatProvider()` 팩토리로 파일 1개 생성
+2. `shell/src/lib/providers/llm/index.ts`에 import 추가
+3. `memory-processor.ts`의 `OPENAI_COMPAT_URLS`에 base URL 추가
+4. 완료 — Settings UI가 자동으로 프로바이더를 인식합니다
+
+**커스텀 프로바이더**: 메타데이터 파일 + agent 런타임 구현 필요. 가이드에서 전체 단계를 확인하세요.
 
 ---
 

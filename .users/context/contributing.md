@@ -151,7 +151,7 @@ Extensions are welcome:
 
 ---
 
-## Contribution Types (10)
+## Contribution Types (11)
 
 Full operations model: `.agents/context/open-source-operations.yaml`
 
@@ -167,6 +167,7 @@ Full operations model: `.agents/context/open-source-operations.yaml`
 | 8 | **Design/UX/Assets** | Medium | `feature_request.yml` |
 | 9 | **Security Report** | Medium-High | GitHub Security Advisory |
 | 10 | **Context** | Medium | `context_contribution.yml` |
+| 11 | **Provider** | Low-Medium | `feature_request.yml` |
 
 Context contributions are valued equally to code contributions.
 
@@ -181,6 +182,20 @@ Context contributions are valued equally to code contributions.
 | Skill | Skill code + LLM tests + context (if architecture changes) |
 | Documentation | English + Korean mirror + AI context (when all three exist) |
 | Design/UX | If implementing: code + tests + context in same PR |
+
+---
+
+## Provider Contribution
+
+Add new LLM, TTS, or STT providers to Naia OS. See the full [Provider Development Guide](provider-development-guide.md).
+
+**Quick path for OpenAI-compatible LLMs** (DeepSeek, Groq, Mistral, etc.):
+1. Create 1 file using `createOpenAICompatProvider()` factory
+2. Add import to `shell/src/lib/providers/llm/index.ts`
+3. Add base URL to `OPENAI_COMPAT_URLS` in `memory-processor.ts`
+4. Done — Settings UI auto-discovers your provider
+
+**Custom providers**: Create metadata file + agent runtime implementation. See guide for full steps.
 
 ---
 

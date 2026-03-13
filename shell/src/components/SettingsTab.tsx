@@ -9,7 +9,8 @@ import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
 	LAB_GATEWAY_URL,
-	MODEL_OPTIONS,
+	buildModelOptionsMap,
+	getModelOptions,
 	type PanelPosition,
 	type ThemeId,
 	type TtsProviderId,
@@ -36,6 +37,7 @@ import { syncLinkedChannels } from "../lib/channel-sync";
 import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "../lib/lab-sync";
 import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { resetGatewaySession } from "../lib/gateway-sessions";
+import { getProvider, listProviders } from "../lib/providers/registry";
 import type { ProviderId } from "../lib/types";
 import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
@@ -43,117 +45,16 @@ import { LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS, OPENAI_REALTIME_VOICES,
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
-const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
-	{ id: "nextain", label: "Naia" },
-	{ id: "claude-code-cli", label: "Claude Code CLI (Local)" },
-	{ id: "gemini", label: "Google Gemini" },
-	{ id: "openai", label: "OpenAI (ChatGPT)", disabled: true },
-	{ id: "anthropic", label: "Anthropic (Claude)", disabled: true },
-	{ id: "xai", label: "xAI (Grok)", disabled: true },
-	{ id: "zai", label: "zAI (GLM)", disabled: true },
-	{ id: "ollama", label: "Ollama" },
-];
-
-// Fallback voice lists for Edge TTS
-const ALL_EDGE_VOICES: string[] = [
-	// 한국어
-	"ko-KR-SunHiNeural",
-	"ko-KR-InJoonNeural",
-	"ko-KR-HyunsuMultilingualNeural",
-	// English
-	"en-US-AvaNeural",
-	"en-US-AndrewNeural",
-	"en-US-EmmaNeural",
-	"en-US-BrianNeural",
-	"en-US-AriaNeural",
-	"en-US-AnaNeural",
-	"en-US-ChristopherNeural",
-	"en-US-EricNeural",
-	"en-US-GuyNeural",
-	"en-US-JennyNeural",
-	"en-US-MichelleNeural",
-	"en-US-RogerNeural",
-	"en-US-SteffanNeural",
-	"en-US-AndrewMultilingualNeural",
-	"en-US-AvaMultilingualNeural",
-	"en-US-BrianMultilingualNeural",
-	"en-US-EmmaMultilingualNeural",
-	"en-GB-LibbyNeural",
-	"en-GB-SoniaNeural",
-	"en-GB-RyanNeural",
-	"en-GB-ThomasNeural",
-	"en-GB-MaisieNeural",
-	"en-AU-NatashaNeural",
-	"en-AU-WilliamMultilingualNeural",
-	// 日本語
-	"ja-JP-NanamiNeural",
-	"ja-JP-KeitaNeural",
-	// 中文
-	"zh-CN-XiaoxiaoNeural",
-	"zh-CN-XiaoyiNeural",
-	"zh-CN-YunjianNeural",
-	"zh-CN-YunxiNeural",
-	"zh-CN-YunxiaNeural",
-	"zh-CN-YunyangNeural",
-	"zh-TW-HsiaoChenNeural",
-	"zh-TW-HsiaoYuNeural",
-	"zh-TW-YunJheNeural",
-	// Français
-	"fr-FR-DeniseNeural",
-	"fr-FR-HenriNeural",
-	"fr-FR-EloiseNeural",
-	"fr-FR-VivienneMultilingualNeural",
-	"fr-FR-RemyMultilingualNeural",
-	// Deutsch
-	"de-DE-KatjaNeural",
-	"de-DE-ConradNeural",
-	"de-DE-AmalaNeural",
-	"de-DE-KillianNeural",
-	"de-DE-SeraphinaMultilingualNeural",
-	"de-DE-FlorianMultilingualNeural",
-	// Русский
-	"ru-RU-SvetlanaNeural",
-	"ru-RU-DmitryNeural",
-	// Español
-	"es-ES-ElviraNeural",
-	"es-ES-AlvaroNeural",
-	"es-ES-XimenaNeural",
-	"es-MX-DaliaNeural",
-	"es-MX-JorgeNeural",
-	// العربية
-	"ar-SA-ZariyahNeural",
-	"ar-SA-HamedNeural",
-	"ar-EG-SalmaNeural",
-	"ar-EG-ShakirNeural",
-	// हिन्दी
-	"hi-IN-SwaraNeural",
-	"hi-IN-MadhurNeural",
-	// বাংলা
-	"bn-BD-NabanitaNeural",
-	"bn-BD-PradeepNeural",
-	"bn-IN-TanishaaNeural",
-	"bn-IN-BashkarNeural",
-	// Português
-	"pt-BR-FranciscaNeural",
-	"pt-BR-AntonioNeural",
-	"pt-BR-ThalitaMultilingualNeural",
-	"pt-PT-RaquelNeural",
-	"pt-PT-DuarteNeural",
-	// Bahasa Indonesia
-	"id-ID-GadisNeural",
-	"id-ID-ArdiNeural",
-	// Tiếng Việt
-	"vi-VN-HoaiMyNeural",
-	"vi-VN-NamMinhNeural",
-];
-
-/** Filter Edge voices by locale; multilingual voices always included */
+/** Get Edge TTS voices from registry, filtered by locale */
 function getEdgeVoicesForLocale(loc: string): string[] {
+	const edgeProvider = getProvider("edge", "tts");
+	const allVoices = edgeProvider?.listVoices?.() ?? [];
 	const langPrefix = loc.slice(0, 2).toLowerCase() + "-";
-	return ALL_EDGE_VOICES.filter(
-		(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
-	);
+	return allVoices
+		.filter((v) => v.id.toLowerCase().startsWith(langPrefix) || v.id.includes("Multilingual"))
+		.map((v) => v.id);
 }
+
 
 type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
 type GatewayTtsMode = "final" | "all";
@@ -604,7 +505,7 @@ export function SettingsTab() {
 	const initProvider = existing?.provider ?? "gemini";
 	const savedModel = existing?.model;
 	const modelValid =
-		savedModel && MODEL_OPTIONS[initProvider]?.some((m) => m.id === savedModel);
+		savedModel && getModelOptions(initProvider).some((m) => m.id === savedModel);
 	const [model, setModel] = useState(
 		modelValid ? savedModel : getDefaultModel(initProvider),
 	);
@@ -659,7 +560,7 @@ export function SettingsTab() {
 	const [openaiRealtimeVoice, setOpenaiRealtimeVoice] = useState(
 		existing?.openaiRealtimeVoice ?? "alloy",
 	);
-	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
+	const [dynamicModels, setDynamicModels] = useState(buildModelOptionsMap);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(
@@ -784,8 +685,8 @@ export function SettingsTab() {
 					if (models.length === 0) return;
 
 					const grouped = Object.fromEntries(
-						Object.entries(MODEL_OPTIONS).map(([k, v]) => [k, [...v]]),
-					) as typeof MODEL_OPTIONS;
+						Object.entries(buildModelOptionsMap()).map(([k, v]) => [k, [...v]]),
+					) as Record<string, import("../lib/providers/types").ModelInfo[]>;
 
 					for (const m of models) {
 						if (!m || typeof m.id !== "string") continue;
@@ -797,7 +698,7 @@ export function SettingsTab() {
 
 						const pushModel = (key: ProviderId) => {
 							if (!grouped[key].some((x) => x.id === modelId)) {
-								grouped[key].push({ id: modelId, label });
+								grouped[key].push({ id: modelId, label, type: "llm" });
 							}
 						};
 
@@ -822,7 +723,7 @@ export function SettingsTab() {
 					setDynamicModels(grouped);
 				}
 			} catch {
-				// Fallback to static MODEL_OPTIONS
+				// Fallback to registry defaults
 			}
 		}
 		fetchModels();
@@ -2014,9 +1915,9 @@ export function SettingsTab() {
 					value={provider}
 					onChange={(e) => handleProviderChange(e.target.value as ProviderId)}
 				>
-					{PROVIDERS.map((p) => (
-						<option key={p.id} value={p.id}>
-							{p.label}
+					{listProviders("llm").map((p) => (
+						<option key={p.id} value={p.id} disabled={p.disabled}>
+							{p.name}
 						</option>
 					))}
 				</select>

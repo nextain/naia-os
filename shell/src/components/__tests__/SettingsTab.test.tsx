@@ -34,6 +34,11 @@ vi.mock("../../lib/chat-service", () => ({
 	directToolCall: vi.fn().mockResolvedValue({ success: false }),
 }));
 
+// Register providers before importing SettingsTab (mirrors main.tsx)
+import "../../lib/providers/llm";
+import "../../lib/providers/tts";
+import "../../lib/providers/stt";
+
 import { SettingsTab } from "../SettingsTab";
 
 describe("SettingsTab", () => {
@@ -218,5 +223,75 @@ describe("SettingsTab", () => {
 		render(<SettingsTab />);
 		fireEvent.click(screen.getByText(/save|저장/i));
 		expect(screen.getByText(/입력해주세요|enter.*api/i)).toBeDefined();
+	});
+
+	it("saves new provider selection to localStorage", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+
+		// Select anthropic (API key required)
+		fireEvent.change(providerSelect, { target: { value: "anthropic" } });
+		expect(providerSelect.value).toBe("anthropic");
+
+		// Enter API key and save
+		const apiInput = screen.getByLabelText(/^API/i);
+		fireEvent.change(apiInput, { target: { value: "sk-ant-test-key" } });
+		fireEvent.click(screen.getByText(/save|저장/i));
+
+		const saved = JSON.parse(localStorage.getItem("naia-config") || "{}");
+		expect(saved.provider).toBe("anthropic");
+		expect(saved.apiKey).toBe("sk-ant-test-key");
+	});
+
+	it("saves provider with requiresApiKey=false without API key", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+
+		// Select ollama (no API key required)
+		fireEvent.change(providerSelect, { target: { value: "ollama" } });
+		expect(providerSelect.value).toBe("ollama");
+
+		// Save without API key — should NOT show error
+		fireEvent.click(screen.getByText(/save|저장/i));
+		expect(screen.queryByText(/입력해주세요|enter.*api/i)).toBeNull();
+	});
+
+	it("shows error when saving API-required provider without key", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+
+		// Select xai (requires API key)
+		fireEvent.change(providerSelect, { target: { value: "xai" } });
+
+		// Save without entering key
+		fireEvent.click(screen.getByText(/save|저장/i));
+		expect(screen.getByText(/입력해주세요|enter.*api/i)).toBeDefined();
+	});
+
+	it("all new providers appear as selectable options", () => {
+		mockInvoke.mockResolvedValue([]);
+		render(<SettingsTab />);
+
+		const providerSelect = document.getElementById("provider-select") as HTMLSelectElement;
+		const optionValues = Array.from(providerSelect.options).map(o => o.value);
+
+		// Core providers
+		expect(optionValues).toContain("nextain");
+		expect(optionValues).toContain("gemini");
+		expect(optionValues).toContain("openai");
+		expect(optionValues).toContain("anthropic");
+
+		// All 8 registered providers
+		expect(optionValues).toContain("claude-code-cli");
+		expect(optionValues).toContain("xai");
+		expect(optionValues).toContain("zai");
+		expect(optionValues).toContain("ollama");
+		expect(optionValues.length).toBe(8);
 	});
 });

@@ -28,7 +28,7 @@ Most open source projects in 2025-2026 are defending against AI contributions (c
 
 ---
 
-## Contribution Types (10)
+## Contribution Types (11)
 
 | # | Type | Difficulty | Description |
 |---|------|-----------|-------------|

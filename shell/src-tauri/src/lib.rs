@@ -1367,7 +1367,9 @@ async fn validate_api_key(provider: String, api_key: String) -> Result<bool, Str
                 .send()
                 .await
         }
-        _ => return Err(format!("Unknown provider: {}", provider)),
+        // Providers without server-side validation: accept the key as-is.
+        // Validation happens at first actual API call.
+        _ => return Ok(true),
     };
 
     match result {
@@ -1635,7 +1637,8 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         "xai" => "xai",
         "zai" => "zai",
         "ollama" => "ollama",
-        // claude-code-cli doesn't use openclaw config
+        // claude-code-cli and providers not yet supported by OpenClaw gateway
+        // TODO(#51): Add OpenClaw support for new OpenAI-compatible providers
         _ => return Ok(()),
     };
 

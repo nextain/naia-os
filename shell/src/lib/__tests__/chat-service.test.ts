@@ -159,7 +159,7 @@ describe("chat-service", () => {
 		expect(parsed.enableTools).toBe(false);
 	});
 
-	it("includes ttsEngine in request when provided", async () => {
+	it("includes ttsProvider in request when provided", async () => {
 		const { sendChatMessage } = await import("../chat-service");
 
 		mockListen.mockImplementation(
@@ -168,7 +168,7 @@ describe("chat-service", () => {
 					handler({
 						payload: JSON.stringify({
 							type: "finish",
-							requestId: "req-tts-engine",
+							requestId: "req-tts-provider",
 						}),
 					});
 				}, 10);
@@ -185,13 +185,13 @@ describe("chat-service", () => {
 			},
 			history: [],
 			onChunk: vi.fn(),
-			requestId: "req-tts-engine",
-			ttsEngine: "openclaw",
+			requestId: "req-tts-provider",
+			ttsProvider: "edge",
 		});
 
 		const sentMessage = mockInvoke.mock.calls[0][1].message;
 		const parsed = JSON.parse(sentMessage);
-		expect(parsed.ttsEngine).toBe("openclaw");
+		expect(parsed.ttsProvider).toBe("edge");
 	});
 
 	it("forwards webhook URLs to agent request", async () => {

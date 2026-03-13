@@ -76,7 +76,7 @@ philosophy:
     - "Add new principles that don't conflict"
     - "Add new skills, workflows, integrations"
 
-# ─── Contribution Types (10) ────────────────────────────────
+# ─── Contribution Types (11) ────────────────────────────────
 # Full operations model: .agents/context/open-source-operations.yaml
 
 contribution_types:
@@ -173,6 +173,20 @@ contribution_types:
       - "Use GitHub Security Advisory (private vulnerability reporting)"
       - "Do NOT open a public issue for security vulnerabilities"
     channel: "GitHub Security Advisories (GHSA)"
+
+  provider:
+    difficulty: low-medium
+    location: "shell/src/lib/providers/"
+    guide_ref: ".agents/context/provider-development-guide.yaml"
+    process:
+      - "Choose provider type: LLM, TTS, or STT"
+      - "For OpenAI-compatible LLM: use createOpenAICompatProvider factory (1 file)"
+      - "For custom LLM/TTS: create metadata file + agent runtime implementation"
+      - "Register import in type index file"
+      - "Settings UI auto-discovers — no manual UI changes needed"
+      - "Submit PR with tests"
+    rule: "Provider metadata + runtime + tests = one PR."
+    note: "8 LLM + 5 TTS + 3 STT providers registered via this pattern (Issue #51)"
 
   context_contribution:
     difficulty: medium
