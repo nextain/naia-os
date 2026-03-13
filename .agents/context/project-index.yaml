@@ -96,6 +96,11 @@ mirror_pairs:
     users_ko: .users/context/ko/brand.md
     description: Brand identity — Naia/Nextain origin, character design, color system, reference assets
 
+  - agents: .agents/context/harness.yaml
+    users: .users/context/harness.md
+    users_ko: .users/context/ko/harness.md
+    description: Harness engineering — Claude Code hooks, progress files, mechanical rule enforcement, test suite
+
   - agents: .agents/tests/license-protection-test.md
     users: null
     description: License protection test scenarios — verify AI agents refuse CC-BY-SA 4.0 violations
@@ -222,4 +227,5 @@ on_demand_loading:
     - .agents/workflows/issue-driven-development.yaml (when starting feature-level work — ALWAYS read at session start)
     - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
     - .agents/context/multi-project-workspace.yaml (when working in a multi-project workspace)
+    - .agents/context/harness.yaml (when working on hooks, progress files, or harness engineering)
     - .agents/workflows/* (when executing specific workflows)

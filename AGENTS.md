@@ -208,6 +208,46 @@ Issue → Understand (gate) → Scope (gate) → Investigate → Plan (gate) →
 
 핵심: **기존 코드 먼저 검색, 중복 생성 금지, 미사용 코드 정리, 셀프 리뷰 후 커밋.**
 
+## Harness Engineering (기계적 규칙 시행)
+
+AI 에이전트가 규칙을 반복 위반하지 않도록 Claude Code 훅으로 기계적으로 시행하는 시스템.
+
+상세: `.agents/context/harness.yaml`
+
+### Claude Code Hooks (`.claude/hooks/`)
+
+| Hook | Trigger | 목적 |
+|------|---------|------|
+| `sync-entry-points.js` | Edit\|Write on CLAUDE.md/AGENTS.md/GEMINI.md | 엔트리포인트 3파일 자동 동기화 |
+| `cascade-check.js` | Edit\|Write on context files | 삼중 미러링 누락 경고 |
+| `commit-guard.js` | Bash with `git commit` | E2E 테스트/컨텍스트 동기화 완료 전 커밋 경고 |
+
+### Progress File (`.agents/progress/*.json`)
+
+세션 핸드오프용 JSON. 세션이 끊겨도 다음 AI가 현재 상태를 파악 가능.
+
+```json
+{
+  "issue": "#42",
+  "title": "Feature description",
+  "project": "naia-os",
+  "current_phase": "build",
+  "gate_approvals": { "understand": "...", "scope": "...", "plan": "..." },
+  "decisions": [{ "decision": "...", "rationale": "...", "date": "..." }],
+  "surprises": [],
+  "blockers": [],
+  "updated_at": "2026-03-14T14:30Z"
+}
+```
+
+**규칙**: `.agents/progress/*.json`은 gitignored (세션 로컬). 커밋되지 않음.
+
+### Harness 테스트
+
+```bash
+bash .agents/tests/harness/run-all.sh   # 28 tests
+```
+
 ## 멀티 프로젝트 워크스페이스
 
 여러 프로젝트를 동시에 관리하는 경우(예: `~/dev/`에 여러 레포): `.agents/context/multi-project-workspace.yaml` 참조.

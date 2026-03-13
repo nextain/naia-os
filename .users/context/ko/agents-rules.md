@@ -329,6 +329,28 @@ AI 리뷰 권장, 보안 관련은 사람 리뷰 필수.
 - 규칙 변경 → 모든 의존 컨텍스트에 전파
 - **순서**: self → parent → siblings → children → mirror
 
+### Harness Engineering (하네스 엔지니어링)
+
+Claude Code 훅을 통한 프로젝트 규칙의 기계적 시행.
+텍스트 규칙은 잊혀짐; 기계적 시행은 잊혀지지 않음.
+
+**훅** (`.claude/hooks/`):
+
+| 훅 | 트리거 | 목적 |
+|----|--------|------|
+| `sync-entry-points.js` | 엔트리포인트 편집 시 | CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md 자동 동기화 |
+| `cascade-check.js` | 컨텍스트 파일 편집 시 | 삼중 미러링 업데이트 알림 |
+| `commit-guard.js` | `git commit` 실행 시 | sync_verify 이전 커밋 경고 |
+
+**진행 파일** (`.agents/progress/*.json`):
+- 세션 핸드오프용 JSON — 컨텍스트 압축과 세션 경계를 넘어 상태 보존
+- Gitignored (세션 로컬 전용, 커밋 안 됨)
+- 스키마: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers
+
+**테스트**: `bash .agents/tests/harness/run-all.sh` (28개 테스트)
+
+상세: `.agents/context/harness.yaml`
+
 ---
 
 ## AI 워크플로우
