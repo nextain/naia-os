@@ -46,6 +46,11 @@ categories = [
 license = "MIT"
 repository = "https://github.com/brenogonzaga/tauri-plugin-stt"
 
+[features]
+default = []
+cuda = ["whisper-rs/cuda"]
+cuda-dynamic = ["whisper-rs/cuda-dynamic"]
+
 [lib]
 name = "tauri_plugin_stt"
 path = "src/lib.rs"
@@ -83,8 +88,8 @@ features = ["blocking"]
 version = "0.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.whisper-rs]
-version = "0.15"
-features = ["cuda"]
+git = "https://github.com/nextain/whisper-rs-fork.git"
+rev = "83911ba"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.zip]
 version = "6.0.0"

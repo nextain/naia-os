@@ -227,11 +227,26 @@ impl<R: Runtime> Stt<R> {
         }
 
         info!("[STT] Loading Whisper model: {:?}", model_path);
-        let ctx = WhisperContext::new_with_params(
-            model_path.to_str().unwrap(),
-            WhisperContextParameters::default(),
-        )
-        .map_err(|e| crate::Error::Recording(format!("Failed to load Whisper model: {}", e)))?;
+        let path_str = model_path.to_str().unwrap();
+
+        // Try GPU first, fall back to CPU if unavailable
+        let ctx = {
+            let mut params = WhisperContextParameters::default();
+            params.use_gpu(true);
+            match WhisperContext::new_with_params(path_str, params) {
+                Ok(ctx) => {
+                    info!("[STT] Whisper model loaded with GPU acceleration");
+                    ctx
+                }
+                Err(gpu_err) => {
+                    warn!("[STT] GPU load failed ({}), falling back to CPU", gpu_err);
+                    let mut params = WhisperContextParameters::default();
+                    params.use_gpu(false);
+                    WhisperContext::new_with_params(path_str, params)
+                        .map_err(|e| crate::Error::Recording(format!("Failed to load Whisper model: {}", e)))?
+                }
+            }
+        };
 
         let ctx = Arc::new(ctx);
         let mut state = self.state.lock().unwrap();

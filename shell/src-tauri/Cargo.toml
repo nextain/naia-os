@@ -5,6 +5,11 @@ description = "Naia Shell - AI Avatar Desktop"
 authors = ["Luke"]
 edition = "2021"
 
+[features]
+default = []
+cuda = ["tauri-plugin-stt/cuda"]
+cuda-dynamic = ["tauri-plugin-stt/cuda-dynamic"]
+
 [lib]
 name = "naia_shell_lib"
 crate-type = ["lib", "cdylib", "staticlib"]

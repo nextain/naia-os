@@ -531,6 +531,14 @@ Config fields: `sttProvider` ("vosk"|"whisper"), `sttModel` (model_id string).
 **Whisper models** (batch, ready): tiny (75MB) → large-v3 (3GB). Uses whisper-rs 0.15 (whisper.cpp bindings).
 Whisper inference runs every 2s or on 1.5s silence detection. Same event interface as Vosk.
 Build requires cmake (whisper.cpp compile). `.cargo/config.toml` sets `WHISPER_DONT_GENERATE_BINDINGS=1` to skip bindgen (no libclang needed).
+Uses `nextain/whisper-rs-fork` with `cuda-dynamic` feature for runtime CUDA backend loading.
+
+**CUDA Dynamic Loading:** Single binary works on both NVIDIA and non-NVIDIA systems.
+- 2-pass CMake build: Pass 1 = static CPU-only binary, Pass 2 = `libggml-cuda.so` MODULE
+- `.so` files present next to executable → GPU acceleration; absent → CPU-only fallback (no crash)
+- `ggml_backend_load_all()` called via `std::sync::Once` before first WhisperContext creation
+- CUDA toolkit required at build time only; runtime detection via dlopen
+- Fork: `github.com/nextain/whisper-rs-fork`, upstream PR planned for `codeberg.org/tazz4843/whisper-rs`
 
 Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
 
