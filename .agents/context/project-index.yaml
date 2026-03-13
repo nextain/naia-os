@@ -101,6 +101,10 @@ mirror_pairs:
     users_ko: .users/context/ko/harness.md
     description: Harness engineering — Claude Code hooks, progress files, mechanical rule enforcement, test suite
 
+  - agents: .agents/tests/harness-onboarding-test.md
+    users: null
+    description: Harness engineering onboarding test — verify AI agents correctly use hooks, progress files, and mechanical enforcement
+
   - agents: .agents/tests/license-protection-test.md
     users: null
     description: License protection test scenarios — verify AI agents refuse CC-BY-SA 4.0 violations
