@@ -460,8 +460,28 @@ voice_architecture:
           Token usage accumulated with += across turns for correct billing.
     model: "configurable via config.liveModel (per-provider defaults exist)"
 
+  provider_registry:
+    description: "Extensible provider registry pattern for TTS (and STT metadata)"
+    updated: "2026-03-14"
+    pattern: |
+      Map-based registry with self-registration at module load.
+      Each provider file calls registerTtsProvider() at top level.
+      Barrel file (tts/index.ts) imports all providers to trigger registration.
+    adding_tts_provider: |
+      1. Create agent/src/tts/{name}.ts
+      2. Implement TtsProviderDefinition interface (synthesize + metadata)
+      3. Call registerTtsProvider({...}) at module scope
+      4. Add import in agent/src/tts/index.ts
+      5. Add TtsProviderMeta in shell/src/lib/tts/registry.ts (for Settings UI)
+    files:
+      agent_types: "agent/src/tts/types.ts — TtsProviderDefinition, TtsSynthesizeOptions"
+      agent_registry: "agent/src/tts/registry.ts — registerTtsProvider(), synthesize(), listTtsProviders()"
+      agent_barrel: "agent/src/tts/index.ts — side-effect imports + re-exports"
+      shell_stt_registry: "shell/src/lib/stt/registry.ts — SttProviderMeta (vosk, whisper)"
+      shell_tts_registry: "shell/src/lib/tts/registry.ts — TtsProviderMeta (edge, google, openai, elevenlabs, nextain)"
+
   tts:
-    description: "Text-to-speech for chat responses"
+    description: "Text-to-speech for chat responses (via provider registry)"
     default_provider: "edge (free, no login required)"
     naiaKey_routing: |
       TTS auth (naiaKey) is independent of LLM provider selection.

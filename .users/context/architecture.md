@@ -476,9 +476,26 @@ All providers implement a unified `VoiceSession` interface:
 
 **Model:** Configurable per provider via `config.liveModel` (each provider has its own default)
 
+### Provider Registry Pattern
+
+Extensible Map-based registry with self-registration at module load.
+
+**Adding a new TTS provider:**
+1. Create `agent/src/tts/{name}.ts`
+2. Implement `TtsProviderDefinition` interface (synthesize + metadata)
+3. Call `registerTtsProvider({...})` at module scope
+4. Add import in `agent/src/tts/index.ts`
+5. Add `TtsProviderMeta` in `shell/src/lib/tts/registry.ts` (for Settings UI)
+
+**Key files:**
+- `agent/src/tts/types.ts` — `TtsProviderDefinition`, `TtsSynthesizeOptions`
+- `agent/src/tts/registry.ts` — `registerTtsProvider()`, `synthesize()`, `listTtsProviders()`
+- `shell/src/lib/stt/registry.ts` — `SttProviderMeta` (vosk, whisper)
+- `shell/src/lib/tts/registry.ts` — `TtsProviderMeta` (edge, google, openai, elevenlabs, nextain)
+
 ### TTS (Text-to-Speech)
 
-**Default provider:** `edge` (free, no login required)
+**Default provider:** `edge` (free, no login required). Uses provider registry for dispatch.
 
 **naiaKey routing:** TTS auth (`naiaKey`) is independent of LLM provider selection. `ChatRequest` carries `naiaKey` as a top-level field, so Naia Cloud TTS works even when LLM is set to gemini/openai/xai/anthropic.
 
