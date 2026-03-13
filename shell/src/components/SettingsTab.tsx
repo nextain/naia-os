@@ -9,8 +9,7 @@ import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
 	LAB_GATEWAY_URL,
-	buildModelOptionsMap,
-	getModelOptions,
+	MODEL_OPTIONS,
 	type PanelPosition,
 	type ThemeId,
 	type TtsProviderId,
@@ -37,13 +36,124 @@ import { syncLinkedChannels } from "../lib/channel-sync";
 import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "../lib/lab-sync";
 import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { resetGatewaySession } from "../lib/gateway-sessions";
-import { getProvider, listProviders } from "../lib/providers/registry";
 import type { ProviderId } from "../lib/types";
 import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
 import { LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS, OPENAI_REALTIME_VOICES, type LiveProviderId } from "../lib/voice/types";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
+
+const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
+	{ id: "nextain", label: "Naia" },
+	{ id: "claude-code-cli", label: "Claude Code CLI (Local)" },
+	{ id: "gemini", label: "Google Gemini" },
+	{ id: "openai", label: "OpenAI (ChatGPT)", disabled: true },
+	{ id: "anthropic", label: "Anthropic (Claude)", disabled: true },
+	{ id: "xai", label: "xAI (Grok)", disabled: true },
+	{ id: "zai", label: "zAI (GLM)", disabled: true },
+	{ id: "ollama", label: "Ollama" },
+];
+
+// Fallback voice lists for Edge TTS
+const ALL_EDGE_VOICES: string[] = [
+	// 한국어
+	"ko-KR-SunHiNeural",
+	"ko-KR-InJoonNeural",
+	"ko-KR-HyunsuMultilingualNeural",
+	// English
+	"en-US-AvaNeural",
+	"en-US-AndrewNeural",
+	"en-US-EmmaNeural",
+	"en-US-BrianNeural",
+	"en-US-AriaNeural",
+	"en-US-AnaNeural",
+	"en-US-ChristopherNeural",
+	"en-US-EricNeural",
+	"en-US-GuyNeural",
+	"en-US-JennyNeural",
+	"en-US-MichelleNeural",
+	"en-US-RogerNeural",
+	"en-US-SteffanNeural",
+	"en-US-AndrewMultilingualNeural",
+	"en-US-AvaMultilingualNeural",
+	"en-US-BrianMultilingualNeural",
+	"en-US-EmmaMultilingualNeural",
+	"en-GB-LibbyNeural",
+	"en-GB-SoniaNeural",
+	"en-GB-RyanNeural",
+	"en-GB-ThomasNeural",
+	"en-GB-MaisieNeural",
+	"en-AU-NatashaNeural",
+	"en-AU-WilliamMultilingualNeural",
+	// 日本語
+	"ja-JP-NanamiNeural",
+	"ja-JP-KeitaNeural",
+	// 中文
+	"zh-CN-XiaoxiaoNeural",
+	"zh-CN-XiaoyiNeural",
+	"zh-CN-YunjianNeural",
+	"zh-CN-YunxiNeural",
+	"zh-CN-YunxiaNeural",
+	"zh-CN-YunyangNeural",
+	"zh-TW-HsiaoChenNeural",
+	"zh-TW-HsiaoYuNeural",
+	"zh-TW-YunJheNeural",
+	// Français
+	"fr-FR-DeniseNeural",
+	"fr-FR-HenriNeural",
+	"fr-FR-EloiseNeural",
+	"fr-FR-VivienneMultilingualNeural",
+	"fr-FR-RemyMultilingualNeural",
+	// Deutsch
+	"de-DE-KatjaNeural",
+	"de-DE-ConradNeural",
+	"de-DE-AmalaNeural",
+	"de-DE-KillianNeural",
+	"de-DE-SeraphinaMultilingualNeural",
+	"de-DE-FlorianMultilingualNeural",
+	// Русский
+	"ru-RU-SvetlanaNeural",
+	"ru-RU-DmitryNeural",
+	// Español
+	"es-ES-ElviraNeural",
+	"es-ES-AlvaroNeural",
+	"es-ES-XimenaNeural",
+	"es-MX-DaliaNeural",
+	"es-MX-JorgeNeural",
+	// العربية
+	"ar-SA-ZariyahNeural",
+	"ar-SA-HamedNeural",
+	"ar-EG-SalmaNeural",
+	"ar-EG-ShakirNeural",
+	// हिन्दी
+	"hi-IN-SwaraNeural",
+	"hi-IN-MadhurNeural",
+	// বাংলা
+	"bn-BD-NabanitaNeural",
+	"bn-BD-PradeepNeural",
+	"bn-IN-TanishaaNeural",
+	"bn-IN-BashkarNeural",
+	// Português
+	"pt-BR-FranciscaNeural",
+	"pt-BR-AntonioNeural",
+	"pt-BR-ThalitaMultilingualNeural",
+	"pt-PT-RaquelNeural",
+	"pt-PT-DuarteNeural",
+	// Bahasa Indonesia
+	"id-ID-GadisNeural",
+	"id-ID-ArdiNeural",
+	// Tiếng Việt
+	"vi-VN-HoaiMyNeural",
+	"vi-VN-NamMinhNeural",
+];
+
+/** Filter Edge voices by locale; multilingual voices always included */
+function getEdgeVoicesForLocale(loc: string): string[] {
+	const langPrefix = loc.slice(0, 2).toLowerCase() + "-";
+	return ALL_EDGE_VOICES.filter(
+		(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
+	);
+}
 
 type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
 type GatewayTtsMode = "final" | "all";
@@ -494,7 +604,7 @@ export function SettingsTab() {
 	const initProvider = existing?.provider ?? "gemini";
 	const savedModel = existing?.model;
 	const modelValid =
-		savedModel && getModelOptions(initProvider).some((m) => m.id === savedModel);
+		savedModel && MODEL_OPTIONS[initProvider]?.some((m) => m.id === savedModel);
 	const [model, setModel] = useState(
 		modelValid ? savedModel : getDefaultModel(initProvider),
 	);
@@ -549,7 +659,7 @@ export function SettingsTab() {
 	const [openaiRealtimeVoice, setOpenaiRealtimeVoice] = useState(
 		existing?.openaiRealtimeVoice ?? "alloy",
 	);
-	const [dynamicModels, setDynamicModels] = useState(buildModelOptionsMap);
+	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(
@@ -674,8 +784,8 @@ export function SettingsTab() {
 					if (models.length === 0) return;
 
 					const grouped = Object.fromEntries(
-						Object.entries(buildModelOptionsMap()).map(([k, v]) => [k, [...v]]),
-					) as Record<string, import("../lib/providers/types").ModelInfo[]>;
+						Object.entries(MODEL_OPTIONS).map(([k, v]) => [k, [...v]]),
+					) as typeof MODEL_OPTIONS;
 
 					for (const m of models) {
 						if (!m || typeof m.id !== "string") continue;
@@ -687,7 +797,7 @@ export function SettingsTab() {
 
 						const pushModel = (key: ProviderId) => {
 							if (!grouped[key].some((x) => x.id === modelId)) {
-								grouped[key].push({ id: modelId, label, type: "llm" });
+								grouped[key].push({ id: modelId, label });
 							}
 						};
 
@@ -712,7 +822,7 @@ export function SettingsTab() {
 					setDynamicModels(grouped);
 				}
 			} catch {
-				// Fallback to registry defaults
+				// Fallback to static MODEL_OPTIONS
 			}
 		}
 		fetchModels();
@@ -1904,9 +2014,9 @@ export function SettingsTab() {
 					value={provider}
 					onChange={(e) => handleProviderChange(e.target.value as ProviderId)}
 				>
-					{listProviders("llm").map((p) => (
-						<option key={p.id} value={p.id} disabled={p.disabled}>
-							{p.name}
+					{PROVIDERS.map((p) => (
+						<option key={p.id} value={p.id}>
+							{p.label}
 						</option>
 					))}
 				</select>
@@ -2179,12 +2289,11 @@ export function SettingsTab() {
 						const val = e.target.value as LiveProviderId;
 						setLiveProvider(val);
 						if (existing) saveConfig({ ...existing, liveProvider: val });
-						// TTS mode: restore saved ttsProvider or default to edge
+						// Edge TTS: auto-set ttsProvider to edge
 						if (val === "edge-tts") {
-							const savedTts = existing?.ttsProvider || "edge";
-							persistTtsProvider(savedTts);
-							persistTtsVoice(getDefaultTtsVoiceForAvatar(savedTts, existing?.vrmModel));
-							handleGatewayTtsProviderChange(savedTts).then(() => fetchGatewayTts());
+							persistTtsProvider("edge");
+							persistTtsVoice(getDefaultTtsVoiceForAvatar("edge", existing?.vrmModel));
+							handleGatewayTtsProviderChange("edge").then(() => fetchGatewayTts());
 						}
 					}}
 				>
@@ -2314,7 +2423,7 @@ export function SettingsTab() {
 				</>
 			)}
 
-			{/* TTS — provider selector + voice picker + auto-speak */}
+			{/* Edge TTS — voice picker + auto-speak */}
 			{liveProvider === "edge-tts" && (
 				<>
 					<div className="settings-field settings-toggle-row">
@@ -2332,59 +2441,8 @@ export function SettingsTab() {
 							}}
 						/>
 					</div>
-					{/* TTS Provider selector from registry */}
-					<div className="settings-field">
-						<label htmlFor="tts-provider-select">TTS Provider</label>
-						<select
-							id="tts-provider-select"
-							value={ttsProvider}
-							onChange={(e) => {
-								const p = e.target.value;
-								persistTtsProvider(p);
-								const prov = getProvider(p, "tts");
-								const defaultVoice = prov?.defaultVoice ?? prov?.listVoices?.()[0]?.id ?? "";
-								if (defaultVoice) persistTtsVoice(defaultVoice);
-								handleGatewayTtsProviderChange(p).then(() => fetchGatewayTts());
-							}}
-						>
-							{listProviders("tts").map((p) => (
-								<option key={p.id} value={p.id}>{p.name}</option>
-							))}
-						</select>
-					</div>
-					{/* API key for TTS providers that require it */}
 					{(() => {
-						const selectedTts = getProvider(ttsProvider, "tts");
-						if (!selectedTts?.capabilities?.requiresApiKey) return null;
-						const apiKeyField = selectedTts.configFields.find((f) => f.type === "password");
-						if (!apiKeyField) return null;
-						return (
-							<div className="settings-field">
-								<label htmlFor="tts-api-key">{apiKeyField.label}</label>
-								<input
-									id="tts-api-key"
-									type="password"
-									value={
-										ttsProvider === "openai" ? (existing?.openaiTtsApiKey ?? "") :
-										ttsProvider === "elevenlabs" ? (existing?.elevenlabsApiKey ?? "") :
-										ttsProvider === "google" ? (existing?.googleApiKey ?? "") :
-										""
-									}
-									onChange={(e) => {
-										const val = e.target.value;
-										if (!existing) return;
-										if (ttsProvider === "openai") saveConfig({ ...existing, openaiTtsApiKey: val });
-										else if (ttsProvider === "elevenlabs") saveConfig({ ...existing, elevenlabsApiKey: val });
-										else if (ttsProvider === "google") saveConfig({ ...existing, googleApiKey: val });
-									}}
-									placeholder={apiKeyField.placeholder ?? ""}
-								/>
-							</div>
-						);
-					})()}
-					{/* Voice picker */}
-					{(() => {
-						const gwProvider = gatewayTtsProviders.find((p) => p.id === ttsProvider);
+						const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
 						let gwVoices = gwProvider?.voices ?? [];
 						if (gwVoices.length > 0) {
 							const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
@@ -2392,31 +2450,19 @@ export function SettingsTab() {
 								(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
 							);
 						}
-						// Fall back to registry voices
-						const registryVoices = getProvider(ttsProvider, "tts")?.listVoices?.() ?? [];
-						const localeFilteredRegistry = registryVoices.length > 0
-							? registryVoices.filter((v) => {
-								const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
-								return !v.locale || v.locale.toLowerCase().startsWith(langPrefix) || v.id.includes("Multilingual");
-							})
-							: [];
-						const voices = gwVoices.length > 0
-							? gwVoices.map((v) => ({ id: v, label: v }))
-							: localeFilteredRegistry.length > 0
-							? localeFilteredRegistry
-							: registryVoices;
+						const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
 						return voices.length > 0 ? (
 							<div className="settings-field">
-								<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+								<label htmlFor="edge-tts-voice">{t("settings.ttsVoice")}</label>
 								<div className="voice-picker">
 									<select
-										id="tts-voice-select"
+										id="edge-tts-voice"
 										data-testid="gateway-tts-voice"
 										value={ttsVoice}
 										onChange={(e) => persistTtsVoice(e.target.value)}
 									>
 										{voices.map((v) => (
-											<option key={v.id} value={v.id}>{v.label}</option>
+											<option key={v} value={v}>{v}</option>
 										))}
 									</select>
 									<button
@@ -2431,7 +2477,13 @@ export function SettingsTab() {
 									</button>
 								</div>
 							</div>
-						) : null;
+						) : (
+							<div className="settings-field">
+								<span className="settings-hint">
+									Gateway에 연결할 수 없습니다.
+								</span>
+							</div>
+						);
 					})()}
 				</>
 			)}

@@ -161,8 +161,6 @@ describe("handleChatRequest TTS integration", () => {
 			},
 			messages: [{ role: "user", content: "Hello" }],
 			ttsVoice: "ko-KR-Neural2-A",
-			ttsProvider: "google",
-			ttsApiKey: "key123",
 		});
 
 		const types = outputs

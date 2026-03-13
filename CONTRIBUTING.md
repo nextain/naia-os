@@ -113,12 +113,6 @@ When editing context:
 | Code, commits, context files | English |
 | Work-logs (personal notes) | Your preferred language (tip: keep in a separate private repo) |
 
-## Adding a provider (LLM / TTS / STT)
-
-Want to add a new AI provider? See the [Provider Development Guide](.users/context/provider-development-guide.md) for step-by-step instructions.
-
-Quick summary: create 1 metadata file + 1 runtime file + register imports → Settings UI auto-discovers your provider.
-
 ## Development workflow
 
 For feature-level work, we follow **issue-driven development**:

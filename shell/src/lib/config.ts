@@ -5,8 +5,6 @@ import {
 	getSecretKey,
 	saveSecretKey,
 } from "./secure-store";
-import { getProvider, listProviders } from "./providers/registry";
-import type { ModelInfo } from "./providers/types";
 import type { ProviderId } from "./types";
 import type { LiveProviderId } from "./voice/types";
 
@@ -23,34 +21,12 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
-/** STT provider ID — plain string, validated by registry at runtime. */
-export type SttProviderId = string;
-
-/** Map app locale to Vosk STT language code. */
-const LOCALE_TO_STT: Record<string, string> = {
-	ko: "ko-KR",
-	en: "en-US",
-	ja: "ja-JP",
-	zh: "zh-CN",
-	fr: "fr-FR",
-	de: "de-DE",
-	ru: "ru-RU",
-	es: "es-ES",
-	pt: "pt-BR",
-	hi: "hi-IN",
-	ar: "ar-SA",
-	vi: "vi-VN",
-	id: "id-ID",
-	bn: "bn-IN",
-};
-
-/** Convert app locale to STT language code. Falls back to en-US. */
-export function localeToSttLanguage(locale: string): string {
-	return LOCALE_TO_STT[locale] ?? LOCALE_TO_STT[locale.slice(0, 2)] ?? "en-US";
-}
-
-/** TTS provider ID — plain string, validated by registry at runtime. */
-export type TtsProviderId = string;
+export type TtsProviderId =
+	| "google"
+	| "edge"
+	| "openai"
+	| "elevenlabs"
+	| "nextain";
 
 export type PanelPosition = "left" | "right" | "bottom";
 
@@ -106,46 +82,57 @@ export interface AppConfig {
 	openaiRealtimeVoice?: string;
 }
 
-/**
- * Get the model options for a provider from the registry.
- * Returns ModelInfo[] (compatible with the old ModelOption type).
- */
-export function getModelOptions(provider: ProviderId): ModelInfo[] {
-	return getProvider(provider, "llm")?.listModels?.() ?? [];
-}
+const DEFAULT_MODELS: Record<ProviderId, string> = {
+	nextain: "gemini-3-flash-preview",
+	"claude-code-cli": "claude-sonnet-4-6",
+	gemini: "gemini-3-flash-preview",
+	openai: "gpt-4o",
+	anthropic: "claude-sonnet-4-6",
+	xai: "grok-3-mini",
+	zai: "glm-4.7",
+	ollama: "",
+};
 
-/**
- * Build the full model options map from the registry.
- * Call at runtime (providers must be registered first).
- */
-export function buildModelOptionsMap(): Record<string, ModelInfo[]> {
-	const result: Record<string, ModelInfo[]> = {};
-	for (const p of listProviders("llm")) {
-		result[p.id] = p.listModels?.() ?? [];
-	}
-	return result;
-}
-
-// ── Model type helpers ──
-
-/** Model type: "llm" = text-only, "omni" = voice-integrated */
-export type ModelType = "llm" | "omni";
-
-/** Get the ModelInfo for a given provider + model ID */
-export function getModelOption(provider: ProviderId, modelId: string): ModelInfo | undefined {
-	return getModelOptions(provider).find((m) => m.id === modelId);
-}
-
-/** Get the model type for a given provider + model ID (defaults to "llm") */
-export function getModelType(provider: ProviderId, modelId: string): ModelType {
-	return getModelOption(provider, modelId)?.type ?? "llm";
-}
-
-/** Check if a model is an omni (voice-integrated) model */
-export function isOmniModel(provider: ProviderId, modelId: string): boolean {
-	return getModelType(provider, modelId) === "omni";
-}
-
+export const MODEL_OPTIONS: Record<
+	ProviderId,
+	{ id: string; label: string }[]
+> = {
+	nextain: [
+		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+	],
+	"claude-code-cli": [
+		{ id: "claude-opus-4-6", label: "Claude Opus 4.6" },
+		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+	],
+	gemini: [
+		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($1.25 / $10.00)" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)" },
+	],
+	openai: [{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)" }],
+	anthropic: [
+		{
+			id: "claude-opus-4-6",
+			label: "Claude Opus 4.6 ($15.00 / $75.00)",
+		},
+		{
+			id: "claude-sonnet-4-6",
+			label: "Claude Sonnet 4.6 ($3.00 / $15.00)",
+		},
+		{
+			id: "claude-haiku-4-5-20251001",
+			label: "Claude Haiku 4.5 ($0.80 / $4.00)",
+		},
+	],
+	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini ($0.30 / $0.50)" }],
+	zai: [{ id: "glm-4.7", label: "GLM 4.7 ($0.60 / $2.20)" }],
+	ollama: [],
+};
 
 // ── Sync API (localStorage only, backwards compatible) ──
 
@@ -164,9 +151,7 @@ export function saveConfig(config: AppConfig): void {
 }
 
 export function isApiKeyOptional(provider: ProviderId | undefined): boolean {
-	if (!provider) return false;
-	const def = getProvider(provider, "llm");
-	return def ? !def.capabilities?.requiresApiKey : false;
+	return provider === "claude-code-cli" || provider === "ollama";
 }
 
 export function hasApiKey(): boolean {
@@ -351,7 +336,7 @@ export function migrateSpeechStyleValues(): void {
 // ── Utility functions (sync, unchanged) ──
 
 export function getDefaultModel(provider: ProviderId): string {
-	return getProvider(provider, "llm")?.defaultModel ?? "";
+	return DEFAULT_MODELS[provider];
 }
 
 export function getDisabledSkills(): string[] {
@@ -413,7 +398,7 @@ export const DEFAULT_OLLAMA_HOST = "http://localhost:11434";
 
 export async function fetchOllamaModels(
 	host?: string,
-): Promise<{ models: ModelInfo[]; connected: boolean }> {
+): Promise<{ models: { id: string; label: string }[]; connected: boolean }> {
 	const base = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
 	try {
 		const res = await fetch(`${base}/api/tags`);
@@ -427,7 +412,6 @@ export async function fetchOllamaModels(
 			return {
 				id: m.name,
 				label: extra ? `${m.name} (${extra})` : m.name,
-				type: "llm" as const,
 			};
 		});
 		return { models, connected: true };

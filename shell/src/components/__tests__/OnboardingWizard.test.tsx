@@ -16,15 +16,6 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 	openUrl: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@tauri-apps/plugin-store", () => {
-	const store = {
-		get: vi.fn().mockResolvedValue(null),
-		set: vi.fn().mockResolvedValue(undefined),
-		delete: vi.fn().mockResolvedValue(undefined),
-	};
-	return { load: vi.fn().mockResolvedValue(store) };
-});
-
 // Mock getLocale to return "ko" (formality locale) so speechStyle step is shown
 vi.mock("../../lib/i18n", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("../../lib/i18n")>();
@@ -37,11 +28,6 @@ vi.mock("../VrmPreview", () => ({
 		<div data-testid="vrm-preview" data-model={modelPath} />
 	),
 }));
-
-// Register providers before importing OnboardingWizard (mirrors main.tsx)
-import "../../lib/providers/llm";
-import "../../lib/providers/tts";
-import "../../lib/providers/stt";
 
 import { OnboardingWizard } from "../OnboardingWizard";
 
@@ -60,13 +46,13 @@ describe("OnboardingWizard", () => {
 		expect(screen.getByText("Naia")).toBeDefined();
 	});
 
-	it("shows LLM providers from registry", () => {
+	it("shows all 5 providers", () => {
 		render(<OnboardingWizard onComplete={onComplete} />);
 		expect(screen.getByText("Google Gemini")).toBeDefined();
-		expect(screen.getByText("OpenAI (ChatGPT)")).toBeDefined();
-		expect(screen.getByText("Anthropic (Claude)")).toBeDefined();
-		expect(screen.getByText("xAI (Grok)")).toBeDefined();
-		expect(screen.getByText("Zhipu AI (GLM)")).toBeDefined();
+		expect(screen.getByText(/OpenAI/)).toBeDefined();
+		expect(screen.getByText(/Anthropic/)).toBeDefined();
+		expect(screen.getByText(/xAI/)).toBeDefined();
+		expect(screen.getByText(/zAI/)).toBeDefined();
 	});
 
 	it("progresses through steps: provider → apiKey → agentName → ...", () => {

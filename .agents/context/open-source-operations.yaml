@@ -44,7 +44,7 @@ premises:
     statement: "Person → AI → Git (English) → AI → Person"
     detail: "Bidirectional AI translation eliminates language barriers"
 
-# ─── Contribution Types (11) ────────────────────────────────
+# ─── Contribution Types (10) ────────────────────────────────
 
 contribution_types:
   - id: translation

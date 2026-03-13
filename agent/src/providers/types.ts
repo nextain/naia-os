@@ -1,8 +1,12 @@
-/**
- * Provider ID is a plain string — the registry validates at runtime.
- * This allows adding new providers without modifying type definitions.
- */
-export type ProviderId = string;
+export type ProviderId =
+	| "nextain"
+	| "claude-code-cli"
+	| "gemini"
+	| "openai"
+	| "anthropic"
+	| "xai"
+	| "zai"
+	| "ollama";
 
 export interface ProviderConfig {
 	provider: ProviderId;
@@ -10,8 +14,6 @@ export interface ProviderConfig {
 	apiKey: string;
 	naiaKey?: string;
 	ollamaHost?: string;
-	/** Provider-specific config values (e.g., cloudflareAccountId, azureEndpoint) */
-	extra?: Record<string, string>;
 }
 
 /** Tool call info returned by LLM function calling */

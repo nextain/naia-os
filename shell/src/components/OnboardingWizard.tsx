@@ -7,7 +7,6 @@ import {
 	DEFAULT_OLLAMA_HOST,
 	fetchOllamaModels,
 	getDefaultModel,
-	isApiKeyOptional,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
@@ -21,7 +20,6 @@ import { syncToOpenClaw } from "../lib/openclaw-sync";
 import { persistDiscordDefaults } from "../lib/discord-auth";
 import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
 import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
-import { listProviders } from "../lib/providers/registry";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
 import { VrmPreview } from "./VrmPreview";
@@ -119,17 +117,48 @@ Personality:
 	},
 ];
 
-/** Get i18n description key based on provider capabilities */
-function providerDescKey(p: { id: string; capabilities?: { requiresApiKey?: boolean } }): string {
-	if (p.id === "claude-code-cli") return "provider.claudeCodeCli.desc";
-	if (!p.capabilities?.requiresApiKey) return "provider.localRequired";
-	return "provider.apiKeyRequired";
-}
-
-/** Onboarding provider list — all LLM providers except "nextain" (has its own Lab login flow). */
-function getOnboardingProviders() {
-	return listProviders("llm").filter((p) => p.id !== "nextain");
-}
+const PROVIDERS: {
+	id: ProviderId;
+	label: string;
+	descKey: string;
+	disabled?: boolean;
+}[] = [
+	{
+		id: "claude-code-cli",
+		label: "Claude Code CLI (Local)",
+		descKey: "provider.claudeCodeCli.desc",
+	},
+	{
+		id: "gemini",
+		label: "Google Gemini",
+		descKey: "provider.apiKeyRequired",
+	},
+	{
+		id: "openai",
+		label: "OpenAI (ChatGPT)",
+		descKey: "provider.apiKeyRequired",
+	},
+	{
+		id: "anthropic",
+		label: "Anthropic (Claude)",
+		descKey: "provider.apiKeyRequired",
+	},
+	{
+		id: "xai",
+		label: "xAI (Grok)",
+		descKey: "provider.apiKeyRequired",
+	},
+	{
+		id: "zai",
+		label: "zAI (GLM)",
+		descKey: "provider.apiKeyRequired",
+	},
+	{
+		id: "ollama",
+		label: "Ollama",
+		descKey: "provider.localRequired",
+	},
+];
 
 function getNaiaWebBaseUrl() {
 	return (
@@ -331,7 +360,7 @@ export function OnboardingWizard({
 	}
 
 	function goNext() {
-		const skipApiKey = naiaKey || isApiKeyOptional(provider);
+		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
 		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex < STEPS.length - 1) {
@@ -344,7 +373,7 @@ export function OnboardingWizard({
 	}
 
 	function goBack() {
-		const skipApiKey = naiaKey || isApiKeyOptional(provider);
+		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
 		const skipOllamaConfig = provider !== "ollama";
 		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex > 0) {
@@ -373,7 +402,7 @@ export function OnboardingWizard({
 	}
 
 	async function handleValidate() {
-		if (isApiKeyOptional(provider)) {
+		if (provider === "claude-code-cli" || provider === "ollama") {
 			setValidationResult("success");
 			return;
 		}
@@ -410,7 +439,7 @@ export function OnboardingWizard({
 			provider: effectiveProvider,
 			model: effectiveProvider === "ollama" ? selectedOllamaModel : getDefaultModel(effectiveProvider),
 			apiKey:
-				naiaKey || isApiKeyOptional(provider)
+				naiaKey || provider === "claude-code-cli" || provider === "ollama"
 					? ""
 					: apiKey.trim(),
 			userName: userName.trim() || undefined,
@@ -534,7 +563,7 @@ export function OnboardingWizard({
 						</div>
 
 						<div className="onboarding-provider-cards">
-							{getOnboardingProviders().map((p) => (
+							{PROVIDERS.map((p) => (
 								<button
 									key={p.id}
 									type="button"
@@ -548,8 +577,8 @@ export function OnboardingWizard({
 										setLabTimeout(false);
 									}}
 								>
-									<span className="provider-card-label">{p.name}</span>
-									<span className="provider-card-desc">{t(providerDescKey(p) as any)}</span>
+									<span className="provider-card-label">{p.label}</span>
+									<span className="provider-card-desc">{t(p.descKey as any)}</span>
 								</button>
 							))}
 						</div>

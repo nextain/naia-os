@@ -1,5 +1,4 @@
 import { Logger } from "./logger";
-import { getProvider } from "./providers/registry";
 import type { ProviderId } from "./types";
 
 /** Minimal message shape for summarization/fact extraction */
@@ -73,31 +72,6 @@ const DEFAULT_MEMORY_MODELS: Record<string, string> = {
 	gemini: "gemini-2.5-flash",
 	xai: "grok-3-mini",
 	anthropic: "claude-sonnet-4-5-20250929",
-	openai: "gpt-4o-mini",
-	deepseek: "deepseek-chat",
-	groq: "llama-3.3-70b-versatile",
-	mistral: "mistral-small-latest",
-};
-
-/** Base URLs for OpenAI-compatible providers (used by memory processor). */
-const OPENAI_COMPAT_URLS: Record<string, string> = {
-	xai: "https://api.x.ai/v1/chat/completions",
-	zai: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-	openai: "https://api.openai.com/v1/chat/completions",
-	deepseek: "https://api.deepseek.com/chat/completions",
-	groq: "https://api.groq.com/openai/v1/chat/completions",
-	mistral: "https://api.mistral.ai/v1/chat/completions",
-	openrouter: "https://openrouter.ai/api/v1/chat/completions",
-	perplexity: "https://api.perplexity.ai/chat/completions",
-	together: "https://api.together.xyz/v1/chat/completions",
-	fireworks: "https://api.fireworks.ai/inference/v1/chat/completions",
-	cerebras: "https://api.cerebras.ai/v1/chat/completions",
-	nvidia: "https://integrate.api.nvidia.com/v1/chat/completions",
-	cohere: "https://api.cohere.com/compatibility/v1/chat/completions",
-	sambanova: "https://api.sambanova.ai/v1/chat/completions",
-	novita: "https://api.novita.ai/v3/openai/chat/completions",
-	hyperbolic: "https://api.hyperbolic.xyz/v1/chat/completions",
-	"github-models": "https://models.inference.ai.azure.com/chat/completions",
 };
 
 /** Gemini 3 series requires temperature 1.0 (lower values cause looping) */
@@ -105,28 +79,31 @@ function geminiTemperature(model: string): number {
 	return model.startsWith("gemini-3") ? 1.0 : 0.3;
 }
 
-/** Generic LLM API call — supports gemini, anthropic native APIs, plus all OpenAI-compatible providers. */
+/** Generic LLM API call (supports gemini, xai, anthropic) */
 async function callLlmApi(
 	prompt: string,
 	apiKey: string,
 	provider: ProviderId,
 	model?: string,
 ): Promise<string> {
-	const defaultModel = model || DEFAULT_MEMORY_MODELS[provider] || getProvider(provider, "llm")?.defaultModel || "gpt-4o-mini";
 	switch (provider) {
 		case "gemini":
-		case "nextain":
-			return callGemini(prompt, apiKey, defaultModel);
+			return callGemini(prompt, apiKey, model || DEFAULT_MEMORY_MODELS.gemini);
+		case "xai":
+			return callOpenAICompat(
+				prompt,
+				apiKey,
+				"https://api.x.ai/v1/chat/completions",
+				model || DEFAULT_MEMORY_MODELS.xai,
+			);
 		case "anthropic":
-			return callAnthropic(prompt, apiKey, defaultModel);
-		default: {
-			const baseUrl = OPENAI_COMPAT_URLS[provider];
-			if (baseUrl) {
-				return callOpenAICompat(prompt, apiKey, baseUrl, defaultModel);
-			}
-			Logger.warn("memory-processor", `No API URL for provider "${provider}", skipping memory processing`);
-			return "";
-		}
+			return callAnthropic(
+				prompt,
+				apiKey,
+				model || DEFAULT_MEMORY_MODELS.anthropic,
+			);
+		default:
+			throw new Error(`Unsupported provider: ${provider}`);
 	}
 }
 
