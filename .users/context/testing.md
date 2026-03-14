@@ -24,6 +24,19 @@ Integration-first TDD. Test real I/O, not mocked internals.
 
 ---
 
+## Test Code Review Rule
+
+Test code MUST be iteratively reviewed before trusting results. Faulty test logic masks real bugs.
+
+1. Write test → review test code (assertions correct? target accurate? edge cases covered?)
+2. Fix issues → re-review → repeat until TWO consecutive clean passes
+3. Only then run the test
+4. After pass: re-confirm "does this test actually validate the intended behavior?"
+
+**Why:** Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem.
+
+---
+
 ## Agent Testing
 
 Spawn agent as child process, pipe stdin, assert stdout.

@@ -92,6 +92,16 @@
 	},
 	"testing": {
 		"philosophy": "Integration-first TDD. Test real usage, not isolated units.",
+		"test_code_review": {
+			"rule": "Test code MUST be iteratively reviewed before trusting results. Faulty test logic masks real bugs.",
+			"process": [
+				"Write test → review test code (assertions correct? target accurate? edge cases covered?)",
+				"Fix issues → re-review → repeat until TWO consecutive clean passes",
+				"Only then run the test",
+				"After pass: re-confirm 'does this test actually validate the intended behavior?'"
+			],
+			"why": "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem."
+		},
 		"framework": {
 			"unit_integration": "Vitest",
 			"e2e_shell": "@tauri-apps/cli (tauri-driver) + WebDriver",

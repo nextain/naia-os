@@ -95,6 +95,12 @@ Wrong: unit test helpers -> implement -> integrate later
 Right: write integration/E2E test (RED) -> minimal code (GREEN) -> REFACTOR
 ```
 
+### Test Code Review Rule
+Test code MUST be iteratively reviewed before trusting results. Faulty test logic masks real bugs.
+- Write test → review test code (assertions correct? target accurate? edge cases?) → fix → re-review → TWO consecutive clean passes → run
+- After pass: re-confirm "does this test actually validate the intended behavior?"
+- Why: Incorrect test logic causes tests to pass while real bugs remain hidden.
+
 ### Frameworks
 
 | Type | Framework |
