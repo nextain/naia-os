@@ -506,7 +506,7 @@ voice_architecture:
   # ── TTS Providers (independent, pipeline mode) ─────────────────
 
   tts_providers:
-    description: "Independent TTS provider registry — used in pipeline mode and chat auto-TTS"
+    description: "Independent TTS provider registry — Shell handles all TTS via SentenceChunker (both chat and pipeline)"
     note: "Omni models produce voice output directly and do NOT use these providers"
     default_provider: "edge (free, no login required)"
     registry:
@@ -527,21 +527,19 @@ voice_architecture:
       5. Add TtsProviderMeta in shell/src/lib/tts/registry.ts (for Settings UI)
     providers:
       edge:
-        route: "ChatPanel → agent → OpenClaw gateway → Edge TTS (free)"
+        route: "Shell SentenceChunker → requestTts IPC → agent → msedge-tts (direct)"
         auth: "none"
       nextain:
-        route: "ChatPanel → agent → nextain-tts.ts → any-llm gateway /v1/audio/speech → Google Cloud TTS"
-        voice_derivation: "config.liveVoice → 'ko-KR-Chirp3-HD-{name}'"
+        route: "Shell SentenceChunker → requestTts IPC → agent → any-llm gateway /v1/audio/speech"
         auth: "naiaKey via X-AnyLLM-Key header"
       google:
-        route: "ChatPanel → agent → OpenClaw gateway → Google Cloud TTS"
-        voices: "Neural2 series (ko-KR-Neural2-A, etc.)"
+        route: "Shell SentenceChunker → requestTts IPC → agent → Google Cloud TTS API (direct)"
         auth: "Google API key"
       openai:
-        route: "ChatPanel → agent → OpenClaw gateway → OpenAI TTS API"
+        route: "Shell SentenceChunker → requestTts IPC → agent → OpenAI TTS API (direct)"
         auth: "OpenAI API key"
       elevenlabs:
-        route: "ChatPanel → agent → OpenClaw gateway → ElevenLabs API"
+        route: "Shell SentenceChunker → requestTts IPC → agent → ElevenLabs API (direct)"
         auth: "ElevenLabs API key"
     naiaKey_routing: |
       TTS auth (naiaKey) is independent of LLM provider selection.
@@ -628,7 +626,7 @@ voice_architecture:
       - Tools DISABLED in pipeline mode (prevents tool loops blocking TTS)
       - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
       - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
-    openclaw_separation: "STT/TTS handled independently. OpenClaw only for LLM routing + skills/tools."
+    openclaw_separation: "STT/TTS fully decoupled from OpenClaw Gateway. Shell handles all STT/TTS directly via agent IPC. Gateway used only for LLM routing + skills/tools."
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
       - "shell/src/lib/voice/sentence-chunker.ts"
