@@ -77,7 +77,7 @@ What OpenClaw provides:
 ### Pillar 2: project-careti (Agent Intelligence)
 
 What Careti provides:
-- **Multi-LLM**: Gemini (default), xAI (Grok), Claude
+- **Multi-LLM via registry**: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama
 - **Tool definitions**: GATEWAY_TOOLS (8 tools)
 - **Function calling**: Gemini native (xAI/Claude = tech debt)
 - **Alpha persona**: System prompt, emotion mapping
@@ -88,7 +88,7 @@ What Careti provides:
 
 What OpenCode provides:
 - **Client/server separation**: Shell (client) / Agent (server)
-- **Provider abstraction**: buildProvider factory pattern
+- **Provider registry pattern**: registerLlmProvider → buildProvider (extensible)
 - **Module boundaries**: shell / agent / gateway separation
 
 ---
