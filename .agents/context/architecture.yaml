@@ -374,34 +374,22 @@ gateway_client_protocol:
     max_protocol: 3
 
 voice_architecture:
-  description: "Real-time voice conversation (provider pattern) + TTS unified voice system"
-  updated: "2026-03-10"
+  description: "Voice I/O via two modes: omni LLM (built-in voice) or STT→LLM→TTS pipeline"
+  updated: "2026-03-14"
 
   overview: |
-    Naia supports two voice output modes that share a single voice setting:
-    1. Live Voice Conversation — real-time bidirectional audio via provider pattern (Naia/Gemini/OpenAI)
-    2. TTS (Text-to-Speech) — text chat responses read aloud
-    Both use the same Chirp 3 HD voice (e.g., "Kore") for Naia account users.
+    Voice interaction depends on the LLM model type:
+    - Omni models (Gemini Live, OpenAI Realtime): Voice I/O is built into the LLM.
+      No separate STT/TTS needed — the model handles speech input and output natively.
+    - Standard LLM models: Voice via independent STT → LLM → TTS pipeline.
+      STT and TTS are separate, independently selectable providers.
+    When an omni model is active, STT/TTS provider settings are disabled.
+    STT providers, TTS providers, and LLM providers are three independent categories.
 
-  voice_setting_unification:
-    config_field: "liveVoice"
-    stored_value: "short name (e.g., 'Kore', 'Puck')"
-    live_api_usage: "passed directly as voice parameter"
-    tts_usage: "ChatPanel derives full name: 'ko-KR-Chirp3-HD-{liveVoice}'"
-    available_voices:
-      - "Kore (여성, 차분)"
-      - "Puck (남성, 활발)"
-      - "Charon (남성, 깊은)"
-      - "Aoede (여성, 밝은)"
-      - "Fenrir (남성, 낮은)"
-      - "Leda (여성, 부드러운)"
-      - "Orus (남성, 단단한)"
-      - "Zephyr (중성)"
-      - "Achernar, Gacrux, Sulafat, Umbriel"
-    non_naia_providers: "google, edge, openai, elevenlabs use separate ttsVoice field"
+  # ── Omni Models (LLM with built-in voice) ──────────────────────
 
-  live_conversation:
-    description: "Real-time bidirectional voice via provider pattern"
+  omni_models:
+    description: "LLM models with built-in bidirectional voice I/O — voice is an LLM capability, not a separate STT/TTS concern"
     provider_pattern:
       type_definition: "LiveProviderId = 'naia' | 'gemini-live' | 'openai-realtime'"
       factory: "createVoiceSession(provider: LiveProviderId, options?) → VoiceSession"
@@ -435,6 +423,13 @@ voice_architecture:
       name: "VoiceSession"
       methods: "connect(), sendAudio(base64), sendText(text), sendToolResponse(id, result), disconnect()"
       events: "onAudio, onInputTranscript, onOutputTranscript, onTurnEnd, onInterrupted, onToolCall, onError, onDisconnect"
+    voice_setting:
+      config_field: "liveVoice"
+      stored_value: "short name (e.g., 'Kore', 'Puck')"
+      available_voices:
+        - "Kore (여성, 차분), Puck (남성, 활발), Charon (남성, 깊은), Aoede (여성, 밝은)"
+        - "Fenrir (남성, 낮은), Leda (여성, 부드러운), Orus (남성, 단단한), Zephyr (중성)"
+        - "Achernar, Gacrux, Sulafat, Umbriel"
     components:
       shell_chatpanel:
         file: "shell/src/components/ChatPanel.tsx"
@@ -444,88 +439,139 @@ voice_architecture:
       audio_player:
         file: "shell/src/lib/audio-player.ts"
         role: "Continuous PCM playback (24kHz Int16 mono → AudioContext)"
-        features:
-          - "ctx.resume() on enqueue to prevent webkit2gtk silent playback"
-          - "Idle guard: clear() only fires onPlaybackEnd if wasPlaying"
-          - "Seamless chunk scheduling via nextStartTime"
       mic_stream:
         file: "shell/src/lib/mic-stream.ts"
         role: "Capture mic audio, downsample to 16kHz PCM, emit base64 chunks"
       gateway_live_proxy:
         file: "project-any-llm/src/any_llm/gateway/routes/live.py"
         role: "WebSocket proxy: client ↔ Gemini Live SDK session (used by naia provider)"
-        key_detail: |
-          session.receive() iterator breaks after each turnComplete (SDK behavior).
-          Wrapped in `while True` to support multi-turn conversations.
-          Token usage accumulated with += across turns for correct billing.
     model: "configurable via config.liveModel (per-provider defaults exist)"
 
-  provider_registry:
-    description: "Extensible provider registry pattern for TTS (and STT metadata)"
-    updated: "2026-03-14"
+  # ── STT Providers (independent, pipeline mode) ─────────────────
+
+  stt_providers:
+    description: "Independent STT provider registry — used only in pipeline mode (standard LLM models)"
+    note: "Omni models have built-in speech recognition (inputTranscription) and do NOT use these providers"
+    registry:
+      shell_types: "shell/src/lib/stt/types.ts — SttProviderMeta, SttModelMeta"
+      shell_registry: "shell/src/lib/stt/registry.ts — registerSttProvider(), getSttProvider(), listSttProviders()"
+      shell_barrel: "shell/src/lib/stt/index.ts — built-in provider registration"
+    providers:
+      vosk:
+        engine: "vosk"
+        type: "offline, streaming"
+        description: "Lightweight offline STT, ~40-80MB models per language, real-time streaming"
+        models:
+          - {id: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%"}
+          - {id: "vosk-model-small-en-us-0.15", size: "40MB", wer: "9.85%"}
+          - {id: "vosk-model-small-ja-0.22", size: "48MB", wer: "—"}
+      whisper:
+        engine: "whisper"
+        type: "offline, batch (inference every 2s or 1.5s silence)"
+        description: "OpenAI Whisper via whisper-rs (whisper.cpp bindings), higher accuracy, GPU-accelerated"
+        models:
+          - {id: "whisper-tiny", size: "75MB", wer: "~40%"}
+          - {id: "whisper-base", size: "142MB", wer: "~30%"}
+          - {id: "whisper-small", size: "466MB", wer: "~20%"}
+          - {id: "whisper-medium", size: "1.5GB", wer: "~12%"}
+          - {id: "whisper-large-v3", size: "3GB", wer: "~8%"}
+        cuda_dynamic:
+          description: "Runtime CUDA backend loading — single binary works on both NVIDIA and non-NVIDIA systems"
+          feature_flag: "cuda-dynamic (Cargo feature on naia-shell → tauri-plugin-stt → whisper-rs)"
+          mechanism: "2-pass CMake build: Pass 1 = static CPU-only binary, Pass 2 = libggml-cuda.so/.dll MODULE"
+          runtime_behavior: |
+            libggml-cuda.so/.dll + libggml-base.so/.dll placed next to executable → GPU acceleration
+            Shared libs absent → graceful CPU-only fallback, no crash
+            ggml_backend_load_all() called via std::sync::Once before first WhisperContext creation
+          build_requirement: "CUDA toolkit (nvcc) required at build time only; runtime CUDA auto-detected via dlopen/LoadLibrary"
+          platform_support:
+            linux: "Tested — CPU fallback verified in CUDA-free distrobox (2026-03-14)"
+            windows: "Untested — build.rs .dll patterns added but not verified on MSVC builds"
+          fork_repo: "https://github.com/nextain/whisper-rs-fork (cuda-dynamic branch on master)"
+          upstream_pr: "Planned for codeberg.org/tazz4843/whisper-rs"
+      google: {status: "disabled in UI (future)"}
+      elevenlabs: {status: "disabled in UI (future)"}
+    runtime:
+      backend: "tauri-plugin-stt (Rust) — Vosk streaming + Whisper batch engine"
+      files:
+        - "shell/src-tauri/plugins/tauri-plugin-stt/src/desktop.rs — Vosk streaming + Whisper batch"
+        - "shell/src-tauri/plugins/tauri-plugin-stt/src/models.rs — ListenConfig with engine/modelId"
+        - "shell/src-tauri/src/stt_models.rs — model catalog, download, delete, migration"
+      models_dir: "~/.local/share/com.naia.shell/stt-models/"
+      build_deps: "cmake. .cargo/config.toml sets WHISPER_DONT_GENERATE_BINDINGS=1"
+    config_fields: "sttProvider ('vosk'|'whisper'), sttModel (model_id string)"
+    settings_ui: "STT provider dropdown + model list with size/WER/download/delete buttons"
+    first_install: "no sttProvider set → voice button shows popup → navigate to settings"
+
+  # ── TTS Providers (independent, pipeline mode) ─────────────────
+
+  tts_providers:
+    description: "Independent TTS provider registry — used in pipeline mode and chat auto-TTS"
+    note: "Omni models produce voice output directly and do NOT use these providers"
+    default_provider: "edge (free, no login required)"
+    registry:
+      agent_types: "agent/src/tts/types.ts — TtsProviderDefinition, TtsSynthesizeOptions"
+      agent_registry: "agent/src/tts/registry.ts — registerTtsProvider(), synthesize(), listTtsProviders()"
+      agent_barrel: "agent/src/tts/index.ts — side-effect imports + re-exports"
+      shell_types: "shell/src/lib/tts/types.ts — TtsProviderMeta"
+      shell_registry: "shell/src/lib/tts/registry.ts — shell-side metadata for Settings UI"
     pattern: |
       Map-based registry with self-registration at module load.
       Each provider file calls registerTtsProvider() at top level.
       Barrel file (tts/index.ts) imports all providers to trigger registration.
-    adding_tts_provider: |
+    adding_provider: |
       1. Create agent/src/tts/{name}.ts
       2. Implement TtsProviderDefinition interface (synthesize + metadata)
       3. Call registerTtsProvider({...}) at module scope
       4. Add import in agent/src/tts/index.ts
       5. Add TtsProviderMeta in shell/src/lib/tts/registry.ts (for Settings UI)
-    files:
-      agent_types: "agent/src/tts/types.ts — TtsProviderDefinition, TtsSynthesizeOptions"
-      agent_registry: "agent/src/tts/registry.ts — registerTtsProvider(), synthesize(), listTtsProviders()"
-      agent_barrel: "agent/src/tts/index.ts — side-effect imports + re-exports"
-      shell_stt_registry: "shell/src/lib/stt/registry.ts — SttProviderMeta (vosk, whisper)"
-      shell_tts_registry: "shell/src/lib/tts/registry.ts — TtsProviderMeta (edge, google, openai, elevenlabs, nextain)"
-
-  tts:
-    description: "Text-to-speech for chat responses (via provider registry)"
-    default_provider: "edge (free, no login required)"
-    naiaKey_routing: |
-      TTS auth (naiaKey) is independent of LLM provider selection.
-      ChatRequest carries naiaKey as top-level field, so Naia Cloud TTS works
-      even when LLM is set to gemini/openai/xai/anthropic.
-      Agent resolves: effectiveNaiaKey = request.naiaKey || provider.naiaKey
     providers:
+      edge:
+        route: "ChatPanel → agent → OpenClaw gateway → Edge TTS (free)"
+        auth: "none"
       nextain:
-        route: "ChatPanel → agent (IPC) → nextain-tts.ts → any-llm gateway /v1/audio/speech → Google Cloud TTS"
-        voice_derivation: "config.liveVoice → 'ko-KR-Chirp3-HD-{name}' (same voice as live conversation)"
+        route: "ChatPanel → agent → nextain-tts.ts → any-llm gateway /v1/audio/speech → Google Cloud TTS"
+        voice_derivation: "config.liveVoice → 'ko-KR-Chirp3-HD-{name}'"
         auth: "naiaKey via X-AnyLLM-Key header"
       google:
         route: "ChatPanel → agent → OpenClaw gateway → Google Cloud TTS"
         voices: "Neural2 series (ko-KR-Neural2-A, etc.)"
         auth: "Google API key"
-      edge:
-        route: "ChatPanel → agent → OpenClaw gateway → Edge TTS (free)"
       openai:
         route: "ChatPanel → agent → OpenClaw gateway → OpenAI TTS API"
+        auth: "OpenAI API key"
       elevenlabs:
         route: "ChatPanel → agent → OpenClaw gateway → ElevenLabs API"
+        auth: "ElevenLabs API key"
+    naiaKey_routing: |
+      TTS auth (naiaKey) is independent of LLM provider selection.
+      ChatRequest carries naiaKey as top-level field, so Naia Cloud TTS works
+      even when LLM is set to gemini/openai/xai/anthropic.
     engine_selection: |
       ttsEngine is derived from ttsProvider:
       - google, nextain → "google" engine (direct Google Cloud TTS)
       - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
+    settings_ui_status: "TTS provider dropdown NOT yet implemented — currently Edge TTS hardcoded in UI"
+
+  # ── Pipeline Voice (STT → LLM → TTS) ──────────────────────────
 
   pipeline_voice:
-    description: "Pipeline voice mode for LLM models (non-omni): STT → LLM → sentence TTS → audio playback"
-    updated: "2026-03-11"
-    status: "implemented — TTS pipeline working, STT Whisper planned"
+    description: "Voice conversation for standard (non-omni) LLM models via independent STT → LLM → TTS pipeline"
+    updated: "2026-03-14"
+    status: "implemented — TTS pipeline working, STT (Vosk + Whisper) working"
     architecture: |
-      User speaks → STT (Vosk offline) → recognized text
+      User speaks → STT provider (Vosk/Whisper, offline) → recognized text
       → sendChatMessage (normal LLM path, tools disabled, Agent auto-TTS disabled)
       → LLM streams text → SentenceChunker (sentence boundary detection)
-      → emotion tag/emoji stripped → per-sentence tts_request → Agent handleTtsRequest → Edge TTS (default)
+      → emotion tag/emoji stripped → per-sentence tts_request → TTS provider (Edge default)
       → MP3 base64 → AudioQueue (sequential playback with error logging)
     components:
-      stt: "tauri-plugin-stt (Vosk, offline, auto-downloads ~50MB model per language)"
       sentence_chunker:
         file: "shell/src/lib/voice/sentence-chunker.ts"
-        description: "Korean+English mixed text, hard punct split (.!?。！？~), min 10 / max 120 chars, searchFrom skip for short sentences"
+        description: "Korean+English mixed text, hard punct split (.!?。！？~), min 10 / max 120 chars"
       audio_queue:
         file: "shell/src/lib/voice/audio-queue.ts"
-        description: "Sequential MP3 base64 playback, interrupt support, avatar speaking state, play failure logging"
+        description: "Sequential MP3 base64 playback, interrupt support, avatar speaking state"
       tts_request:
         agent: "agent/src/index.ts handleTtsRequest() + agent/src/protocol.ts TtsRequest"
         shell: "shell/src/lib/chat-service.ts requestTts()"
@@ -534,76 +580,20 @@ voice_architecture:
         files: ["shell/src/lib/logger.ts", "shell/src-tauri/src/lib.rs"]
     state_flow: "LISTENING → PROCESSING → SPEAKING → LISTENING"
     interrupt: "STT active during playback — user speech clears AudioQueue + cancels LLM stream"
-    debounce: "1000ms for multi-utterance merging (accumulate final results before sending)"
-    voice_prompt: "Prepends brief conversational system prompt for natural voice responses"
-    tts_providers: "edge (default, free), google, openai, elevenlabs, nextain"
-    stt_languages: "ko-KR (default based on locale), en-US, + 7 more (auto-download)"
-    pipeline_voice_rules: |
+    debounce: "1000ms for multi-utterance merging"
+    rules: |
       - Tools DISABLED in pipeline mode (prevents tool loops blocking TTS)
       - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
       - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
-      - SentenceChunker flush on both finish AND error events
-    openclaw_separation: |
-      Pipeline voice handles STT/TTS independently. OpenClaw used ONLY for LLM routing + skills/tools.
-      Agent auto-TTS is disabled in pipeline mode (ttsEnabled=false in ChatRequest).
+    openclaw_separation: "STT/TTS handled independently. OpenClaw only for LLM routing + skills/tools."
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
       - "shell/src/lib/voice/sentence-chunker.ts"
       - "shell/src/lib/voice/audio-queue.ts"
       - "shell/src/lib/chat-service.ts — requestTts()"
       - "agent/src/index.ts — handleTtsRequest()"
-      - "agent/src/protocol.ts — TtsRequest interface"
-      - "shell/src-tauri/Cargo.toml — tauri-plugin-stt dependency"
-      - "shell/src-tauri/src/lib.rs — tauri_plugin_stt::init(), frontend_log"
 
-  stt_status: |
-    Two STT modes exist:
-    1. Live voice providers (Gemini/OpenAI) use built-in speech recognition (inputTranscription)
-    2. Pipeline voice mode uses offline STT (Vosk or Whisper) for LLM models
-    Legacy STT (stt.ts, audio-recorder.ts) and the sttEnabled config toggle have been removed.
-    Unified model catalog: stt_models.rs (Rust) serves Vosk + Whisper models.
-    Settings UI: STT provider selector + model list with size/WER/download/delete.
-    First install: no sttProvider set → voice button shows popup → navigate to settings.
-    Config fields: sttProvider ("vosk"|"whisper"), sttModel (model_id string).
-
-  stt_model_management:
-    description: "Unified STT model catalog with Vosk (streaming) and Whisper (batch) engines"
-    status: "implemented (both Vosk and Whisper backends functional)"
-    files:
-      - "shell/src-tauri/src/stt_models.rs — model catalog, download, delete, migration"
-      - "shell/src-tauri/src/lib.rs — list_stt_models, download_stt_model, delete_stt_model commands"
-      - "shell/src-tauri/plugins/tauri-plugin-stt/src/desktop.rs — Vosk streaming + Whisper batch engine"
-      - "shell/src-tauri/plugins/tauri-plugin-stt/src/models.rs — ListenConfig with engine/modelId fields"
-      - "shell/src/components/SettingsTab.tsx — model management UI"
-      - "shell/src/components/ChatPanel.tsx — voice button guard + engine/modelId dispatch"
-    models_dir: "~/.local/share/com.naia.shell/stt-models/"
-    vosk_models:
-      - {id: "vosk-model-small-ko-0.22", size: "82MB", wer: "28.1%", ready: true}
-      - {id: "vosk-model-small-en-us-0.15", size: "40MB", wer: "9.85%", ready: true}
-      - {id: "vosk-model-small-ja-0.22", size: "48MB", wer: "—", ready: true}
-    whisper_models:
-      - {id: "whisper-tiny", size: "75MB", wer: "~40%", ready: true}
-      - {id: "whisper-base", size: "142MB", wer: "~30%", ready: true}
-      - {id: "whisper-small", size: "466MB", wer: "~20%", ready: true}
-      - {id: "whisper-medium", size: "1.5GB", wer: "~12%", ready: true}
-      - {id: "whisper-large-v3", size: "3GB", wer: "~8%", ready: true}
-    whisper_backend:
-      library: "whisper-rs 0.15 (whisper.cpp Rust bindings, nextain/whisper-rs-fork)"
-      build_deps: "cmake (whisper.cpp compile). .cargo/config.toml sets WHISPER_DONT_GENERATE_BINDINGS=1 to skip bindgen (no libclang needed)."
-      model_format: "ggml .bin files stored in stt-models/{model_id}/model.bin"
-      inference: "batch mode — accumulates audio, runs inference every 2s or on 1.5s silence"
-      events: "same as Vosk — plugin:stt:result, plugin:stt:stateChange"
-      cuda_dynamic:
-        description: "Runtime CUDA backend loading — single binary works on both NVIDIA and non-NVIDIA systems"
-        feature_flag: "cuda-dynamic (Cargo feature on naia-shell → tauri-plugin-stt → whisper-rs)"
-        mechanism: "2-pass CMake build: Pass 1 = static CPU-only binary, Pass 2 = libggml-cuda.so MODULE"
-        runtime_behavior: |
-          libggml-cuda.so + libggml-base.so placed next to executable → GPU acceleration
-          .so files absent → graceful CPU-only fallback, no crash
-          ggml_backend_load_all() called via std::sync::Once before first WhisperContext creation
-        build_requirement: "CUDA toolkit (nvcc) required at build time only; runtime CUDA auto-detected via dlopen"
-        fork_repo: "https://github.com/nextain/whisper-rs-fork (cuda-dynamic branch on master)"
-        upstream_pr: "Planned for codeberg.org/tazz4843/whisper-rs"
+  # ── Shared ─────────────────────────────────────────────────────
 
   voice_gender_defaults: |
     Default voice is automatically set based on VRM avatar gender:
@@ -613,7 +603,7 @@ voice_architecture:
     On Naia login: if Lab has saved liveVoice, use it; otherwise auto-set from VRM gender.
 
   billing:
-    live_conversation:
+    omni_models:
       pricing: "Varies by provider (Gemini: $0.10/M input + $0.40/M output, OpenAI: ~$0.10/min)"
       tracking: "usage_metadata accumulated per turn, charged on session disconnect"
       file: "project-any-llm/src/any_llm/gateway/routes/live.py (_log_live_usage)"
