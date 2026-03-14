@@ -6,6 +6,7 @@ import {
 	saveSecretKey,
 } from "./secure-store";
 import type { ProviderId } from "./types";
+// LiveProviderId kept for migration only — will be removed after migration period
 import type { LiveProviderId } from "./voice/types";
 
 const STORAGE_KEY = "naia-config";
@@ -21,6 +22,31 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
+export type SttProviderId = "" | "vosk" | "whisper" | "google" | "elevenlabs" | "nextain";
+
+/** Map app locale to Vosk STT language code. */
+const LOCALE_TO_STT: Record<string, string> = {
+	ko: "ko-KR",
+	en: "en-US",
+	ja: "ja-JP",
+	zh: "zh-CN",
+	fr: "fr-FR",
+	de: "de-DE",
+	ru: "ru-RU",
+	es: "es-ES",
+	pt: "pt-BR",
+	hi: "hi-IN",
+	ar: "ar-SA",
+	vi: "vi-VN",
+	id: "id-ID",
+	bn: "bn-IN",
+};
+
+/** Convert app locale to STT language code. Falls back to en-US. */
+export function localeToSttLanguage(locale: string): string {
+	return LOCALE_TO_STT[locale] ?? LOCALE_TO_STT[locale.slice(0, 2)] ?? "en-US";
+}
+
 export type TtsProviderId =
 	| "google"
 	| "edge"
@@ -29,6 +55,48 @@ export type TtsProviderId =
 	| "nextain";
 
 export type PanelPosition = "left" | "right" | "bottom";
+
+// ── Model Type (LLM vs Omni) ──
+
+export type ModelType = "llm" | "omni";
+
+export interface ModelOption {
+	id: string;
+	label: string;
+	type: ModelType;
+	/** Whether user can select a voice for this model */
+	voiceSelectable?: boolean;
+	/** Available voices (omni models only) */
+	voices?: { id: string; label: string }[];
+	/** Whether the model provides its own input transcript (omni models) */
+	transcriptProvided?: boolean;
+}
+
+/** Gemini Live voice options */
+export const GEMINI_LIVE_VOICES = [
+	{ id: "Kore", label: "Kore (여성, 차분)" },
+	{ id: "Puck", label: "Puck (남성, 활발)" },
+	{ id: "Charon", label: "Charon (남성)" },
+	{ id: "Aoede", label: "Aoede (여성)" },
+	{ id: "Fenrir", label: "Fenrir (남성)" },
+	{ id: "Leda", label: "Leda (여성)" },
+	{ id: "Orus", label: "Orus (남성)" },
+	{ id: "Zephyr", label: "Zephyr (중성)" },
+] as const;
+
+/** OpenAI Realtime voice options */
+export const OPENAI_REALTIME_VOICES = [
+	{ id: "alloy", label: "Alloy (중성)" },
+	{ id: "ash", label: "Ash (남성)" },
+	{ id: "ballad", label: "Ballad (남성)" },
+	{ id: "coral", label: "Coral (여성)" },
+	{ id: "echo", label: "Echo (남성)" },
+	{ id: "sage", label: "Sage (여성)" },
+	{ id: "shimmer", label: "Shimmer (여성)" },
+	{ id: "verse", label: "Verse (남성)" },
+	{ id: "marin", label: "Marin (추천)" },
+	{ id: "cedar", label: "Cedar (추천)" },
+] as const;
 
 export interface AppConfig {
 	provider: ProviderId;
@@ -40,10 +108,16 @@ export interface AppConfig {
 	vrmModel?: string;
 	customVrms?: string[];
 	customBgs?: string[];
+	sttProvider?: SttProviderId;
+	sttModel?: string;
+	/** Naia Cloud STT backend engine (e.g. "google-cloud-stt"). */
+	naiaCloudSttBackend?: string;
 	ttsEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;
 	ttsProvider?: TtsProviderId;
+	/** Naia Cloud TTS backend engine (e.g. "google-chirp3-hd"). */
+	naiaCloudTtsBackend?: string;
 	ttsEngine?: "auto" | "openclaw" | "google";
 	persona?: string;
 	enableTools?: boolean;
@@ -80,6 +154,9 @@ export interface AppConfig {
 	liveModel?: string;
 	openaiRealtimeApiKey?: string;
 	openaiRealtimeVoice?: string;
+	minicpmOServerUrl?: string;
+	/** Unified voice selection (replaces liveVoice/openaiRealtimeVoice after migration) */
+	voice?: string;
 }
 
 const DEFAULT_MODELS: Record<ProviderId, string> = {
@@ -93,46 +170,77 @@ const DEFAULT_MODELS: Record<ProviderId, string> = {
 	ollama: "",
 };
 
-export const MODEL_OPTIONS: Record<
-	ProviderId,
-	{ id: string; label: string }[]
-> = {
+export const MODEL_OPTIONS: Record<ProviderId, ModelOption[]> = {
 	nextain: [
-		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", type: "llm" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", type: "llm" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", type: "llm" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", type: "llm" },
+		{
+			id: "gemini-2.5-flash-live",
+			label: "Gemini 2.5 Flash Live 🗣️",
+			type: "omni",
+			voiceSelectable: true,
+			voices: [...GEMINI_LIVE_VOICES],
+			transcriptProvided: true,
+		},
 	],
 	"claude-code-cli": [
-		{ id: "claude-opus-4-6", label: "Claude Opus 4.6" },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", type: "llm" },
+		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", type: "llm" },
+		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", type: "llm" },
 	],
 	gemini: [
-		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)" },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($1.25 / $10.00)" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)" },
+		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)", type: "llm" },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)", type: "llm" },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($1.25 / $10.00)", type: "llm" },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)", type: "llm" },
+		{
+			id: "gemini-2.5-flash-live",
+			label: "Gemini 2.5 Flash Live 🗣️ (~$0.03/min)",
+			type: "omni",
+			voiceSelectable: true,
+			voices: [...GEMINI_LIVE_VOICES],
+			transcriptProvided: true,
+		},
 	],
-	openai: [{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)" }],
+	openai: [
+		{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)", type: "llm" },
+		{
+			id: "gpt-4o-realtime",
+			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
+			type: "omni",
+			voiceSelectable: true,
+			voices: [...OPENAI_REALTIME_VOICES],
+			transcriptProvided: true,
+		},
+	],
 	anthropic: [
-		{
-			id: "claude-opus-4-6",
-			label: "Claude Opus 4.6 ($15.00 / $75.00)",
-		},
-		{
-			id: "claude-sonnet-4-6",
-			label: "Claude Sonnet 4.6 ($3.00 / $15.00)",
-		},
-		{
-			id: "claude-haiku-4-5-20251001",
-			label: "Claude Haiku 4.5 ($0.80 / $4.00)",
-		},
+		{ id: "claude-opus-4-6", label: "Claude Opus 4.6 ($15.00 / $75.00)", type: "llm" },
+		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 ($3.00 / $15.00)", type: "llm" },
+		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 ($0.80 / $4.00)", type: "llm" },
 	],
-	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini ($0.30 / $0.50)" }],
-	zai: [{ id: "glm-4.7", label: "GLM 4.7 ($0.60 / $2.20)" }],
+	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini ($0.30 / $0.50)", type: "llm" }],
+	zai: [{ id: "glm-4.7", label: "GLM 4.7 ($0.60 / $2.20)", type: "llm" }],
 	ollama: [],
 };
+
+// ── Model type helpers ──
+
+/** Get the ModelOption for a given provider + model ID */
+export function getModelOption(provider: ProviderId, modelId: string): ModelOption | undefined {
+	return MODEL_OPTIONS[provider]?.find((m) => m.id === modelId);
+}
+
+/** Get the model type for a given provider + model ID (defaults to "llm") */
+export function getModelType(provider: ProviderId, modelId: string): ModelType {
+	return getModelOption(provider, modelId)?.type ?? "llm";
+}
+
+/** Check if a model is an omni (voice-integrated) model */
+export function isOmniModel(provider: ProviderId, modelId: string): boolean {
+	return getModelType(provider, modelId) === "omni";
+}
 
 // ── Sync API (localStorage only, backwards compatible) ──
 
@@ -333,6 +441,66 @@ export function migrateSpeechStyleValues(): void {
 	}
 }
 
+// ── Live provider → unified model migration ──
+
+/**
+ * Migrate legacy liveProvider settings to unified model selection.
+ * Call once on app startup after other migrations. Idempotent.
+ *
+ * liveProvider: "naia" → provider: "nextain", model: "gemini-2.5-flash-live"
+ * liveProvider: "gemini-live" → provider: "gemini", model: "gemini-2.5-flash-live"
+ * liveProvider: "openai-realtime" → provider: "openai", model: "gpt-4o-realtime"
+ * liveProvider: "edge-tts" → ttsProvider: "edge" (pipeline TTS)
+ * liveProvider: "minicpm-o" → preserved in config (backlog #33), UI hidden
+ */
+export function migrateLiveProviderToUnifiedModel(): void {
+	const config = loadConfig();
+	if (!config) return;
+	const raw = config as any;
+
+	// Skip if already migrated (no liveProvider field)
+	if (!raw.liveProvider) return;
+
+	let changed = false;
+
+	switch (raw.liveProvider) {
+		case "naia":
+			raw.voice = raw.liveVoice;
+			raw.provider = "nextain";
+			raw.model = "gemini-2.5-flash-live";
+			changed = true;
+			break;
+		case "gemini-live":
+			raw.voice = raw.liveVoice;
+			raw.provider = "gemini";
+			raw.model = "gemini-2.5-flash-live";
+			changed = true;
+			break;
+		case "openai-realtime":
+			raw.voice = raw.openaiRealtimeVoice;
+			raw.provider = "openai";
+			raw.model = "gpt-4o-realtime";
+			changed = true;
+			break;
+		case "edge-tts":
+			// Edge TTS moves to pipeline TTS provider
+			if (!raw.ttsProvider) raw.ttsProvider = "edge";
+			changed = true;
+			break;
+		case "minicpm-o":
+			// Keep minicpmOServerUrl, just clear liveProvider
+			changed = true;
+			break;
+	}
+
+	if (changed) {
+		delete raw.liveProvider;
+		delete raw.liveVoice;
+		delete raw.liveModel;
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+	}
+}
+
 // ── Utility functions (sync, unchanged) ──
 
 export function getDefaultModel(provider: ProviderId): string {
@@ -398,13 +566,13 @@ export const DEFAULT_OLLAMA_HOST = "http://localhost:11434";
 
 export async function fetchOllamaModels(
 	host?: string,
-): Promise<{ models: { id: string; label: string }[]; connected: boolean }> {
+): Promise<{ models: ModelOption[]; connected: boolean }> {
 	const base = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
 	try {
 		const res = await fetch(`${base}/api/tags`);
 		if (!res.ok) return { models: [], connected: false };
 		const data = await res.json();
-		const models = (data.models ?? []).map((m: any) => {
+		const models: ModelOption[] = (data.models ?? []).map((m: any) => {
 			const sizeGB = m.size ? `${(m.size / 1e9).toFixed(1)}GB` : "";
 			const quant = m.details?.quantization_level ?? "";
 			const params = m.details?.parameter_size ?? "";
@@ -412,6 +580,7 @@ export async function fetchOllamaModels(
 			return {
 				id: m.name,
 				label: extra ? `${m.name} (${extra})` : m.name,
+				type: "llm" as const,
 			};
 		});
 		return { models, connected: true };

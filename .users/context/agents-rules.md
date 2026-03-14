@@ -95,6 +95,12 @@ Wrong: unit test helpers -> implement -> integrate later
 Right: write integration/E2E test (RED) -> minimal code (GREEN) -> REFACTOR
 ```
 
+### Test Code Review Rule
+Test code MUST be iteratively reviewed before trusting results. Faulty test logic masks real bugs.
+- Write test → review test code (assertions correct? target accurate? edge cases?) → fix → re-review → TWO consecutive clean passes → run
+- After pass: re-confirm "does this test actually validate the intended behavior?"
+- Why: Incorrect test logic causes tests to pass while real bugs remain hidden.
+
 ### Frameworks
 
 | Type | Framework |
@@ -241,8 +247,15 @@ Logger.error("[Shell] Avatar render failed", error);
 ```
 main <- Stable, always deployable (BlueBuild builds from main)
   └── dev <- Integration branch
-        └── feature/<name> <- Feature branches (short-lived, PR to dev)
+        └── issue-{N}-{desc} <- Feature branches (short-lived, PR to dev)
 ```
+
+**Workspace Isolation:**
+
+| Mode | When | Command |
+|------|------|---------|
+| **Worktree** (default) | Concurrent work — multiple issues active simultaneously | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` |
+| **Branch only** | Solo work — only one issue at a time | `git checkout -b issue-{N}-{desc} dev` |
 
 ### Commit Convention
 
@@ -264,7 +277,8 @@ ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR Process
-1. Create feature branch from dev
+1. Concurrent work: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (worktree + branch from dev)
+   Solo work: `git checkout -b issue-{N}-{desc} dev` (simple branch from dev)
 2. Write tests first (TDD)
 3. Implement minimal code
 4. Ensure all tests pass
@@ -327,6 +341,28 @@ AI review encouraged; human review required for security-critical changes.
 - Module added -> update parent index
 - Rule change -> propagate to all dependent contexts
 - **Order**: self -> parent -> siblings -> children -> mirror
+
+### Harness Engineering
+
+Mechanical enforcement of project rules via Claude Code hooks.
+Text rules get forgotten; mechanical enforcement doesn't.
+
+**Hooks** (`.claude/hooks/`):
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| `sync-entry-points.js` | Edit\|Write on entry points | Auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md |
+| `cascade-check.js` | Edit\|Write on context files | Remind triple-mirror updates |
+| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify phase |
+
+**Progress Files** (`.agents/progress/*.json`):
+- Session handoff JSON — survives context compaction and session boundaries
+- Gitignored (session-local only, not committed)
+- Schema: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers
+
+**Tests**: `bash .agents/tests/harness/run-all.sh` (28 tests)
+
+Detail: `.agents/context/harness.yaml`
 
 ---
 

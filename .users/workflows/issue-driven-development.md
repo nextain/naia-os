@@ -30,7 +30,7 @@ For non-feature changes (typos, config values, simple directives), use `developm
 |---|-------|-------------|
 | 6 | **Build** | Implement per plan, one phase at a time |
 | 7 | **Review** | Per-phase + full iterative review (2 consecutive clean passes) |
-| 8 | **E2E Test** | End-to-end test through real user path |
+| 8 | **E2E Test** | Run actual app/server, targeted tests first then full suite |
 | 9 | **Post-test Review** | Re-review after tests pass (2 consecutive clean passes) |
 | 10 | **Sync** | Update context + reflect lessons → user confirmation (gate) |
 | 11 | **Sync Verify** | Verify context accuracy (2 consecutive clean passes) |
@@ -62,6 +62,41 @@ All review loops terminate after **two consecutive clean passes** (not just one)
 
 ---
 
+## Progress File (Session Handoff)
+
+Progress files (`.agents/progress/*.json`) survive context compaction and session boundaries. They allow the next AI session to resume work without losing state.
+
+**Gitignored** — session-local only, not committed.
+
+### When to Update
+
+| Trigger | What to Update |
+|---------|---------------|
+| Gate approved (understand, scope, plan, sync) | `current_phase`, `gate_approvals.{phase}` |
+| Build phase start / sub-phase completion | `current_phase`, `decisions[]` |
+| Session end (mandatory) | Snapshot current state |
+| Surprise or blocker discovered | Append to `surprises[]` or `blockers[]` |
+
+### Schema
+
+```json
+{
+  "issue": "#42",
+  "title": "Feature description",
+  "project": "naia-os",
+  "current_phase": "build",
+  "gate_approvals": { "understand": "ISO-timestamp", ... },
+  "decisions": [{ "decision": "...", "rationale": "...", "date": "..." }],
+  "surprises": [],
+  "blockers": [],
+  "updated_at": "ISO-timestamp"
+}
+```
+
+Detail: `.agents/context/harness.yaml`
+
+---
+
 ## Artifact Storage
 
 | Type | Location | Language |
@@ -88,6 +123,21 @@ All review loops terminate after **two consecutive clean passes** (not just one)
 | Git commits, Issue comments, PR titles | English |
 | Work-logs, personal notes | Contributor's preferred |
 | AI responses | Contributor's preferred |
+
+---
+
+## Git Integration
+
+### Workspace Isolation
+
+| Mode | When | Command |
+|------|------|---------|
+| **Worktree** (default) | Concurrent work — multiple issues active simultaneously | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc}` |
+| **Branch only** | Solo work — only one issue at a time | `git checkout -b issue-{N}-{desc}` |
+
+- Branch naming: `issue-{number}-{short-description}`
+- Investigation results, scope, plan posted as Issue comments (English)
+- PR links back to Issue on completion
 
 ---
 

@@ -1,0 +1,8 @@
+[env]
+# whisper-rs-sys: use pre-generated bindings instead of running bindgen.
+# This avoids requiring libclang at build time.
+WHISPER_DONT_GENERATE_BINDINGS = "1"
+# CUDA paths — only needed when building with `--features cuda`.
+# Set via environment variables instead of hardcoding:
+#   export CUDA_PATH=/usr/local/cuda-12.8
+#   export CUDACXX=/usr/local/cuda-12.8/bin/nvcc

@@ -92,6 +92,16 @@
 	},
 	"testing": {
 		"philosophy": "Integration-first TDD. Test real usage, not isolated units.",
+		"test_code_review": {
+			"rule": "Test code MUST be iteratively reviewed before trusting results. Faulty test logic masks real bugs.",
+			"process": [
+				"Write test → review test code (assertions correct? target accurate? edge cases covered?)",
+				"Fix issues → re-review → repeat until TWO consecutive clean passes",
+				"Only then run the test",
+				"After pass: re-confirm 'does this test actually validate the intended behavior?'"
+			],
+			"why": "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem."
+		},
 		"framework": {
 			"unit_integration": "Vitest",
 			"e2e_shell": "@tauri-apps/cli (tauri-driver) + WebDriver",
@@ -245,8 +255,12 @@
 		"branch_strategy": {
 			"main": "Stable, always deployable (BlueBuild builds from main)",
 			"dev": "Integration branch for ongoing work",
-			"feature": "feature/<name> (short-lived, PR to dev)",
-			"release": "Automatic via BlueBuild on main push"
+			"feature": "issue-{N}-{desc} (short-lived, PR to dev)",
+			"release": "Automatic via BlueBuild on main push",
+			"isolation": {
+				"worktree": "Default for concurrent work — git worktree add when multiple issues are active simultaneously",
+				"branch_only": "For solo work — standard git checkout -b when only one issue is being worked on"
+			}
 		},
 		"commit_convention": {
 			"format": "<type>(<scope>): <description> (#<issue>)",
@@ -267,7 +281,8 @@
 			]
 		},
 		"pr_process": [
-			"Create feature branch from dev",
+			"Concurrent work: git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev (worktree + branch from dev)",
+			"Solo work: git checkout -b issue-{N}-{desc} dev (simple branch from dev)",
 			"Write tests first (TDD)",
 			"Implement minimal code",
 			"Ensure all tests pass",
@@ -344,6 +359,27 @@
 			"rule": "Read workflow files only when performing specific tasks",
 			"always_read": ["agents-rules.json"],
 			"on_demand": ["workflows/*", "skills/*"]
+		},
+		"harness_engineering": {
+			"principle": "Text rules get forgotten; mechanical enforcement doesn't",
+			"hooks": {
+				"location": ".claude/hooks/",
+				"registration": ".claude/settings.json",
+				"sync_entry_points": "PostToolUse Edit|Write — auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md",
+				"cascade_check": "PostToolUse Edit|Write — remind triple-mirror updates on context file edits",
+				"commit_guard": "PostToolUse Bash — warn when committing before sync_verify phase"
+			},
+			"progress_files": {
+				"location": ".agents/progress/",
+				"format": "JSON",
+				"gitignored": true,
+				"purpose": "Session handoff — survives context compaction and session boundaries"
+			},
+			"tests": {
+				"location": ".agents/tests/harness/",
+				"command": "bash .agents/tests/harness/run-all.sh"
+			},
+			"detail": ".agents/context/harness.yaml"
 		}
 	},
 	"ai_workflow": {

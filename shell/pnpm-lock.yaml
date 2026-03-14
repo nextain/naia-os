@@ -47,6 +47,9 @@ importers:
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@18.3.28)(react@18.3.1)
+      tauri-plugin-stt-api:
+        specifier: ^0.1.1
+        version: 0.1.1
       three:
         specifier: ^0.172.0
         version: 0.172.0
@@ -3087,6 +3090,9 @@ packages:
 
   tar-stream@3.1.7:
     resolution: {integrity: sha512-qJj60CXt7IU1Ffyc3NJMjh6EkuCFej46zUqJ4J7pqYlThyd9bO0XBTmcOIhSzZJVWfsLks0+nle/j538YAW9RQ==}
+
+  tauri-plugin-stt-api@0.1.1:
+    resolution: {integrity: sha512-+fzzdI3q4Qv9EOUKYMVZCDnii9z+wDMP8NV0YSBcOBN4VcScb2IFB596Cz3OZ+ji/MbTS6Xapt4aR248Fudn8Q==}
 
   teex@1.0.1:
     resolution: {integrity: sha512-eYE6iEI62Ni1H8oIa7KlDU6uQBtqr4Eajni3wX7rpfXD8ysFx8z0+dri+KWEPWpBsxXfxu58x/0jvTVT1ekOSg==}
@@ -6624,6 +6630,10 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
       - react-native-b4a
+
+  tauri-plugin-stt-api@0.1.1:
+    dependencies:
+      '@tauri-apps/api': 2.10.1
 
   teex@1.0.1:
     dependencies:

@@ -178,10 +178,12 @@ async function setTextareaAndSend(
 		text,
 	);
 
-	// Wait for React state to settle, then click send button
+	// Wait for React state to settle, then click send button via JS (WebDriver click unsupported in some Tauri versions)
 	await browser.pause(100);
-	const sendBtn = await $(S.chatSendBtn);
-	await sendBtn.click();
+	await browser.execute((sel: string) => {
+		const btn = document.querySelector(sel) as HTMLButtonElement | null;
+		if (btn) btn.click();
+	}, S.chatSendBtn);
 }
 
 /**

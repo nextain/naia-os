@@ -1,4 +1,5 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+import { registerTtsProvider } from "./registry.js";
 
 const DEFAULT_VOICE = "ko-KR-SunHiNeural";
 
@@ -37,3 +38,10 @@ export async function synthesizeEdgeSpeech(
 		return null;
 	}
 }
+
+registerTtsProvider({
+	id: "edge",
+	name: "Microsoft Edge TTS",
+	requiresApiKey: false,
+	synthesize: (opts) => synthesizeEdgeSpeech(opts.text, opts.voice),
+});

@@ -16,8 +16,14 @@ build-dir/
 .flatpak-builder/
 *.flatpak
 
-# Claude Code
-.claude/
+# Claude Code (track settings + hooks, ignore the rest)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
+
+# Progress files (session-local, not committed)
+.agents/progress/*.json
 
 # Windows build resources (downloaded at build time)
 shell/src-tauri/resources/

@@ -93,6 +93,12 @@ naia-os/
 ✅ 올바름: 통합/E2E 테스트 작성(RED) → 최소 구현(GREEN) → 리팩터(REFACTOR)
 ```
 
+### 테스트 코드 리뷰 규칙
+테스트 코드는 결과를 맹신하기 전에 반드시 반복 리뷰해야 합니다. 잘못된 테스트 로직은 실제 버그를 숨깁니다.
+- 테스트 작성 → 테스트 코드 리뷰 (assertion 정확? 대상 정확? 엣지 케이스?) → 수정 → 재리뷰 → 연속 2회 클린 패스 → 실행
+- 통과 후: "이 테스트가 진짜 의도한 동작을 검증하는가?" 재확인
+- 이유: 잘못된 테스트 로직으로 테스트가 통과하면 실제 버그에 접근조차 못함
+
 ### 테스트 프레임워크
 
 | 종류 | 프레임워크 |
@@ -242,8 +248,15 @@ eprintln!("[Naia] some debug info");  // raw eprintln 금지
 ```
 main ← 항상 배포 가능 (BlueBuild가 main에서 빌드)
   └── dev ← 통합 브랜치
-        └── feature/<name> ← 기능 브랜치 (짧은 수명, PR to dev)
+        └── issue-{N}-{desc} ← 기능 브랜치 (짧은 수명, PR to dev)
 ```
+
+**작업 공간 격리:**
+
+| 모드 | 사용 시점 | 명령어 |
+|------|----------|--------|
+| **워크트리** (기본값) | 동시 작업 — 같은 프로젝트에서 여러 이슈를 병렬 진행 | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` |
+| **브랜치만** | 단독 작업 — 해당 레포에서 이슈 하나만 진행 | `git checkout -b issue-{N}-{desc} dev` |
 
 ### 커밋 컨벤션
 
@@ -265,7 +278,8 @@ ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR 프로세스
-1. dev에서 feature 브랜치 생성
+1. 동시 작업: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (워크트리 + 브랜치 from dev)
+   단독 작업: `git checkout -b issue-{N}-{desc} dev` (단순 브랜치 from dev)
 2. 테스트 먼저 작성 (TDD)
 3. 최소 코드 구현
 4. 모든 테스트 통과 확인
@@ -328,6 +342,28 @@ AI 리뷰 권장, 보안 관련은 사람 리뷰 필수.
 - 모듈 추가 → parent 인덱스 업데이트
 - 규칙 변경 → 모든 의존 컨텍스트에 전파
 - **순서**: self → parent → siblings → children → mirror
+
+### Harness Engineering (하네스 엔지니어링)
+
+Claude Code 훅을 통한 프로젝트 규칙의 기계적 시행.
+텍스트 규칙은 잊혀짐; 기계적 시행은 잊혀지지 않음.
+
+**훅** (`.claude/hooks/`):
+
+| 훅 | 트리거 | 목적 |
+|----|--------|------|
+| `sync-entry-points.js` | 엔트리포인트 편집 시 | CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md 자동 동기화 |
+| `cascade-check.js` | 컨텍스트 파일 편집 시 | 삼중 미러링 업데이트 알림 |
+| `commit-guard.js` | `git commit` 실행 시 | sync_verify 이전 커밋 경고 |
+
+**진행 파일** (`.agents/progress/*.json`):
+- 세션 핸드오프용 JSON — 컨텍스트 압축과 세션 경계를 넘어 상태 보존
+- Gitignored (세션 로컬 전용, 커밋 안 됨)
+- 스키마: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers
+
+**테스트**: `bash .agents/tests/harness/run-all.sh` (28개 테스트)
+
+상세: `.agents/context/harness.yaml`
 
 ---
 

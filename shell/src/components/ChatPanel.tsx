@@ -2,13 +2,27 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
-import { cancelChat, directToolCall, sendChatMessage } from "../lib/chat-service";
+import { cancelChat, directToolCall, requestTts, sendChatMessage } from "../lib/chat-service";
+import { estimateTtsCost } from "../lib/tts/cost";
+import { AudioQueue } from "../lib/voice/audio-queue";
+import { SentenceChunker } from "../lib/voice/sentence-chunker";
+import {
+	startListening as sttStart,
+	stopListening as sttStop,
+	onResult as sttOnResult,
+	onStateChange as sttOnStateChange,
+	onError as sttOnError,
+	type RecognitionResult,
+} from "tauri-plugin-stt-api";
+import { createApiSttSession, getSttProvider } from "../lib/stt";
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
+	getModelOption,
 	isToolAllowed,
 	loadConfig,
 	loadConfigWithSecrets,
+	localeToSttLanguage,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
@@ -312,6 +326,21 @@ export function ChatPanel() {
 	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
 	const lastExtractedIdx = useRef(0);
 
+	// Pipeline voice state (Vosk STT → LLM → sentence TTS → audio queue)
+	const pipelineActiveRef = useRef(false);
+	const audioQueueRef = useRef<AudioQueue | null>(null);
+	const sentenceChunkerRef = useRef<SentenceChunker | null>(null);
+	const activeTtsRequestsRef = useRef<Set<string>>(new Set());
+	const pipelineVoiceConfigRef = useRef<{ voice?: string; ttsProvider?: string; ttsApiKey?: string; naiaKey?: string } | null>(null);
+	const sttCleanupRef = useRef<(() => void)[]>([]);
+	const sttDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const sttBufferRef = useRef("");
+	const ttsPlayingRef = useRef(false);
+	const ttsCooldownUntilRef = useRef(0);
+	const [ttsPlaying, setTtsPlaying] = useState(false);
+	const [sttPartial, setSttPartial] = useState("");
+	const [sttState, setSttState] = useState<"idle" | "initializing" | "listening">("idle");
+
 	const messages = useChatStore((s) => s.messages);
 	const isStreaming = useChatStore((s) => s.isStreaming);
 	const streamingContent = useChatStore((s) => s.streamingContent);
@@ -452,16 +481,18 @@ export function ChatPanel() {
 		}
 	}
 
-	async function handleSend() {
-		const text = input.trim();
+	async function handleSend(overrideText?: string) {
+		const text = (overrideText ?? input).trim();
 		if (!text) return;
 
-		// Voice mode: send text via Live session
-		if (voiceMode === "active" && voiceSessionRef.current?.isConnected) {
+		// Omni voice mode: send text via Live session
+		if (voiceMode === "active" && !pipelineActiveRef.current && voiceSessionRef.current?.isConnected) {
 			setInput("");
 			voiceSessionRef.current.sendText(text);
 			return;
 		}
+		// Pipeline voice mode: send via normal chat path (TTS handled by handleChunk)
+		// Falls through to the normal sendChatMessage flow below
 
 		// If streaming, queue the message instead
 		if (isStreaming) {
@@ -474,6 +505,8 @@ export function ChatPanel() {
 		useChatStore.getState().addMessage({ role: "user", content: text });
 
 		useChatStore.getState().startStreaming();
+		// Reset TTS sequence for new response ordering
+		audioQueueRef.current?.resetSeq();
 
 		const requestId = generateRequestId();
 		currentRequestId.current = requestId;
@@ -500,17 +533,51 @@ export function ChatPanel() {
 			.filter((m) => m.role === "user" || m.role === "assistant")
 			.map((m) => ({ role: m.role, content: m.content }));
 
-		const ttsEnabled = config.ttsEnabled !== false;
+		// TTS is handled by Shell via SentenceChunker (both chat and pipeline mode).
+		// Agent auto-TTS disabled — Shell controls TTS directly via requestTts IPC.
+		const chatTtsEnabled = !pipelineActiveRef.current && config.ttsEnabled === true;
 		const activeProvider = config.provider || provider;
-		// Derive ttsEngine from ttsProvider (new) or fall back to legacy ttsEngine
-		// Only "google" provider uses direct Google TTS; all others use Gateway
-		const cfgTtsProvider = config.ttsProvider;
-		const ttsEngine: "google" | "openclaw" = cfgTtsProvider
-			? (cfgTtsProvider === "google" || cfgTtsProvider === "nextain" ? "google" : "openclaw")
-			: ((config.ttsEngine ?? "auto") === "google" ? "google" : "openclaw");
-		const wantsGatewayForTts =
-			ttsEnabled && ttsEngine === "openclaw";
+
+		// Initialize SentenceChunker + AudioQueue for chat TTS (same path as pipeline)
+		if (chatTtsEnabled && !sentenceChunkerRef.current) {
+			const queue = new AudioQueue({
+				onPlaybackStart: () => {
+					useAvatarStore.getState().setSpeaking(true);
+					ttsPlayingRef.current = true;
+					setTtsPlaying(true);
+				},
+				onPlaybackEnd: () => {
+					useAvatarStore.getState().setSpeaking(false);
+					ttsPlayingRef.current = false;
+					setTtsPlaying(false);
+				},
+			});
+			audioQueueRef.current = queue;
+			sentenceChunkerRef.current = new SentenceChunker();
+			pipelineVoiceConfigRef.current = {
+				voice: config.ttsProvider === "nextain"
+					? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
+					: config.ttsVoice,
+				ttsProvider: config.ttsProvider || "edge",
+				ttsApiKey: config.ttsProvider === "google"
+					? (config.googleApiKey || config.apiKey)
+					: config.ttsProvider === "openai"
+					? config.openaiTtsApiKey
+					: config.ttsProvider === "elevenlabs"
+					? config.elevenlabsApiKey
+					: undefined,
+				naiaKey: config.naiaKey,
+			};
+		}
+
 		const memoryCtx = await buildMemoryContext();
+		Logger.info("ChatPanel", "handleSend → sendChatMessage", {
+			pipelineActive: pipelineActiveRef.current,
+			chatTtsEnabled,
+			hasChunker: !!sentenceChunkerRef.current,
+			requestId,
+			textPreview: text.slice(0, 40),
+		});
 		try {
 			await sendChatMessage({
 				message: text,
@@ -522,40 +589,29 @@ export function ChatPanel() {
 					ollamaHost: activeProvider === "ollama" ? config.ollamaHost : undefined,
 				},
 				naiaKey: config.naiaKey || undefined,
-				history: history.slice(0, -1), // exclude last (just added) user msg
+				history: history.slice(0, -1),
 				onChunk: (chunk) => handleChunk(chunk, activeProvider),
 				requestId,
-				ttsVoice: ttsEnabled
-					? (cfgTtsProvider === "nextain"
-						? `ko-KR-Chirp3-HD-${config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
-						: config.ttsVoice)
-					: undefined,
-				ttsApiKey: ttsEnabled
-					? (cfgTtsProvider === "google"
-						? (config.googleApiKey || (activeProvider === "gemini" ? config.apiKey : ""))
-						: cfgTtsProvider === "openai"
-						? (config.openaiTtsApiKey || undefined)
-						: cfgTtsProvider === "elevenlabs"
-						? (config.elevenlabsApiKey || undefined)
-						: undefined)
-					: undefined,
-				ttsEngine: ttsEnabled ? ttsEngine : undefined,
-				ttsProvider: ttsEnabled ? cfgTtsProvider : undefined,
-				systemPrompt: buildSystemPrompt(config.persona, memoryCtx),
-				enableTools: config.enableTools,
+				// TTS handled by Shell — don't send TTS params to agent
+				systemPrompt: pipelineActiveRef.current
+					? `You are in a voice conversation. Keep responses brief and conversational (2-3 sentences max). Speak naturally as if talking to a friend.\n\n${buildSystemPrompt(config.persona, memoryCtx)}`
+					: buildSystemPrompt(config.persona, memoryCtx),
+				enableTools: pipelineActiveRef.current ? false : config.enableTools,
 				gatewayUrl:
-					config.enableTools || wantsGatewayForTts
+					!pipelineActiveRef.current && config.enableTools
 						? config.gatewayUrl || "ws://localhost:18789"
 						: undefined,
 				gatewayToken:
-					config.enableTools || wantsGatewayForTts
+					!pipelineActiveRef.current && config.enableTools
 						? config.gatewayToken
 						: undefined,
-				disabledSkills: config.enableTools
-					? sanitizeDisabledSkills(config.disabledSkills)
+				disabledSkills: !pipelineActiveRef.current && config.enableTools
+					? [
+						...(sanitizeDisabledSkills(config.disabledSkills) ?? []),
+					]
 					: undefined,
 				routeViaGateway:
-					config.enableTools && (config.chatRouting ?? "auto") !== "direct"
+					!pipelineActiveRef.current && config.enableTools && (config.chatRouting ?? "auto") !== "direct"
 						? true
 						: undefined,
 				slackWebhookUrl: config.slackWebhookUrl,
@@ -576,6 +632,15 @@ export function ChatPanel() {
 	function handleChunk(chunk: AgentResponseChunk, activeProvider: ProviderId) {
 		const store = useChatStore.getState();
 
+		if (chunk.type === "text" || chunk.type === "finish" || chunk.type === "usage") {
+			Logger.info("ChatPanel", "handleChunk", {
+				type: chunk.type,
+				pipelineActive: pipelineActiveRef.current,
+				hasChunker: !!sentenceChunkerRef.current,
+				...(chunk.type === "text" ? { textLen: chunk.text.length, textPreview: chunk.text.slice(0, 60) } : {}),
+			});
+		}
+
 		switch (chunk.type) {
 			case "text": {
 				store.appendStreamChunk(chunk.text);
@@ -585,13 +650,27 @@ export function ChatPanel() {
 					const { emotion } = parseEmotion(accumulated);
 					setEmotion(emotion);
 				}
+				// Sentence-level TTS — same path for both pipeline and chat mode
+				if (sentenceChunkerRef.current) {
+					const sentences = sentenceChunkerRef.current.feed(chunk.text);
+					if (sentences.length > 0) {
+						Logger.info("ChatPanel", "SentenceChunker produced sentences", { count: sentences.length, sentences });
+					}
+					for (const sentence of sentences) {
+						sendSentenceToTts(sentence);
+					}
+				}
 				break;
 			}
 			case "thinking":
 				store.appendThinkingChunk(chunk.text);
 				break;
 			case "audio":
-				playBase64Audio(chunk.data);
+				// Agent auto-TTS disabled — Shell handles TTS via SentenceChunker.
+				// This case handles legacy audio events if any.
+				if (!sentenceChunkerRef.current) {
+					playBase64Audio(chunk.data);
+				}
 				break;
 			case "tool_use":
 				store.addStreamingToolUse(chunk.toolCallId, chunk.toolName, chunk.args);
@@ -644,6 +723,18 @@ export function ChatPanel() {
 				break;
 			}
 			case "finish":
+				// Flush remaining text to TTS (both pipeline and chat mode)
+				if (sentenceChunkerRef.current) {
+					const remaining = sentenceChunkerRef.current.flush();
+					if (remaining) {
+						Logger.info("ChatPanel", "SentenceChunker flush on finish", { remaining: remaining.slice(0, 60) });
+						sendSentenceToTts(remaining);
+					}
+					// Chat mode: clean up chunker after message complete (pipeline keeps it)
+					if (!pipelineActiveRef.current) {
+						sentenceChunkerRef.current = null;
+					}
+				}
 				if (store.isStreaming) {
 					store.finishStreaming();
 					setEmotion("neutral");
@@ -700,6 +791,15 @@ export function ChatPanel() {
 				// Ignore them here to keep the main chat clean.
 				break;
 			case "error":
+				Logger.warn("ChatPanel", "Agent error chunk", { message: chunk.message });
+				// Pipeline voice: flush remaining text to TTS before finishing
+				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+					const remaining = sentenceChunkerRef.current.flush();
+					if (remaining) {
+						Logger.info("ChatPanel", "Pipeline voice flush on error", { remainingLen: remaining.length });
+						sendSentenceToTts(remaining);
+					}
+				}
 				store.appendStreamChunk(`\n[${t("chat.error")}] ${chunk.message}`);
 				store.finishStreaming();
 				setEmotion("neutral");
@@ -783,16 +883,96 @@ export function ChatPanel() {
 		});
 	}
 
+	/** Send a sentence to TTS via Agent and enqueue the resulting audio. */
+	function sendSentenceToTts(sentence: string): void {
+		// Strip emotion tags and emoji before TTS
+		const clean = sentence
+			.replace(/\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/gi, "")
+			.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
+			.trim();
+		if (!clean) return;
+
+		const reqId = generateRequestId();
+		// Reserve sequence number BEFORE async request to guarantee order
+		const seq = audioQueueRef.current?.reserveSeq() ?? 0;
+		activeTtsRequestsRef.current.add(reqId);
+		const voiceCfg = pipelineVoiceConfigRef.current;
+		Logger.info("ChatPanel", "Sending TTS request", { reqId, seq, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
+		const ttsProviderForCost = voiceCfg?.ttsProvider ?? "edge";
+		requestTts({
+			text: clean,
+			voice: voiceCfg?.voice,
+			ttsProvider: voiceCfg?.ttsProvider as "edge" | "google" | "openai" | "elevenlabs" | "nextain" | undefined,
+			ttsApiKey: voiceCfg?.ttsApiKey,
+			naiaKey: voiceCfg?.naiaKey,
+			requestId: reqId,
+			onAudio: (mp3Base64) => {
+				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length });
+				audioQueueRef.current?.enqueueOrdered(seq, mp3Base64);
+				activeTtsRequestsRef.current.delete(reqId);
+				// Track TTS cost
+				const ttsCost = estimateTtsCost(ttsProviderForCost, clean.length);
+				if (ttsCost > 0) {
+					useChatStore.getState().addCostEntry({
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: ttsCost,
+						provider: "nextain" as ProviderId,
+						model: `tts:${ttsProviderForCost}`,
+					});
+				}
+			},
+		});
+	}
+
+	/** Clean up pipeline voice resources. */
+	function cleanupPipeline(): void {
+		pipelineActiveRef.current = false;
+		audioQueueRef.current?.destroy();
+		audioQueueRef.current = null;
+		sentenceChunkerRef.current?.clear();
+		sentenceChunkerRef.current = null;
+		pipelineVoiceConfigRef.current = null;
+		activeTtsRequestsRef.current.clear();
+		// Stop Vosk STT
+		for (const fn of sttCleanupRef.current) fn();
+		sttCleanupRef.current = [];
+		if (sttDebounceRef.current) {
+			clearTimeout(sttDebounceRef.current);
+			sttDebounceRef.current = null;
+		}
+		sttBufferRef.current = "";
+		setSttPartial("");
+		setSttState("idle");
+		sttStop().catch(() => {});
+	}
+
 	async function handleVoiceToggle() {
+		// Barge-in: if TTS is playing, stop TTS + cancel stream, stay in voice mode
+		if (voiceMode === "active" && ttsPlayingRef.current) {
+			Logger.info("ChatPanel", "Barge-in via button: stopping TTS");
+			audioQueueRef.current?.clear();
+			ttsPlayingRef.current = false;
+			setTtsPlaying(false);
+			handleCancelStreaming();
+			sentenceChunkerRef.current?.clear();
+			ttsCooldownUntilRef.current = Date.now() + 300;
+			return;
+		}
+
 		if (voiceMode !== "off") {
 			// Stop voice session — show cost summary before cleanup
-			showVoiceCostSummary();
-			voiceSessionRef.current?.disconnect();
-			micStreamRef.current?.stop();
-			audioPlayerRef.current?.destroy();
-			voiceSessionRef.current = null;
-			micStreamRef.current = null;
-			audioPlayerRef.current = null;
+			if (pipelineActiveRef.current) {
+				cleanupPipeline();
+			} else {
+				showVoiceCostSummary();
+				voiceSessionRef.current?.disconnect();
+				micStreamRef.current?.stop();
+				audioPlayerRef.current?.destroy();
+				voiceSessionRef.current = null;
+				micStreamRef.current = null;
+				audioPlayerRef.current = null;
+			}
 			setVoiceMode("off");
 			return;
 		}
@@ -806,21 +986,193 @@ export function ChatPanel() {
 				return;
 			}
 			const naiaKey = config?.naiaKey;
-			const liveProvider = config.liveProvider ?? (naiaKey ? "naia" : "edge-tts");
+			const modelMeta = getModelOption(config.provider, config.model);
+			const isOmni = modelMeta?.type === "omni";
 
-			// edge-tts is not a live provider
-			if (liveProvider === "edge-tts") {
-				useChatStore.getState().addMessage({ role: "assistant", content: "Edge는 TTS 전용입니다. 라이브 대화를 사용하려면 설정에서 Naia OS, Gemini, 또는 OpenAI를 선택하세요." });
-				setVoiceMode("off");
+			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
+			if (!isOmni) {
+				// Guard: STT provider must be configured; model required only for offline engines
+				const sttProviderMeta = getSttProvider(config.sttProvider || "");
+				const needsModel = sttProviderMeta?.engineType === "tauri";
+				if (!config.sttProvider || (needsModel && !config.sttModel)) {
+					setVoiceMode("off");
+					if (globalThis.confirm(t("voice.setupRequired") + "\n\n" + t("voice.goToSettings") + "?")) {
+						setActiveTab("settings");
+					}
+					return;
+				}
+
+				const queue = new AudioQueue({
+					onPlaybackStart: () => {
+						useAvatarStore.getState().setSpeaking(true);
+						ttsPlayingRef.current = true;
+						setTtsPlaying(true);
+					},
+					onPlaybackEnd: () => {
+						useAvatarStore.getState().setSpeaking(false);
+						ttsPlayingRef.current = false;
+						setTtsPlaying(false);
+						// Cooldown: suppress STT for 1.5s after TTS ends
+						// to prevent mic echo from final TTS audio
+						ttsCooldownUntilRef.current = Date.now() + 800;
+						// Brief "waiting" state during cooldown, then back to listening
+						setSttState("initializing");
+						setTimeout(() => setSttState("listening"), 800);
+					},
+				});
+				audioQueueRef.current = queue;
+				sentenceChunkerRef.current = new SentenceChunker();
+				pipelineActiveRef.current = true;
+				pipelineVoiceConfigRef.current = {
+					voice: config.ttsVoice || config.voice,
+					ttsProvider: config.ttsProvider || "edge",
+					ttsApiKey: config.ttsProvider === "google"
+						? (config.googleApiKey || config.apiKey)
+						: config.ttsProvider === "openai"
+						? config.openaiTtsApiKey
+						: config.ttsProvider === "elevenlabs"
+						? config.elevenlabsApiKey
+						: undefined,
+					naiaKey: config.naiaKey,
+				};
+
+				// Start STT engine — route to Tauri plugin (offline) or API-based
+				setSttState("initializing");
+				try {
+					const sttLang = localeToSttLanguage(getLocale());
+					const sttEngine = config.sttProvider || "vosk";
+					const sttMeta = getSttProvider(sttEngine);
+					const isApiBased = sttMeta?.engineType === "api";
+
+					// Shared result handler for both offline and API-based STT
+					const handleSttResult = (result: { transcript: string; isFinal: boolean; confidence?: number }) => {
+						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
+						if (!pipelineActiveRef.current) return;
+
+						if (ttsPlayingRef.current || Date.now() < ttsCooldownUntilRef.current) {
+							Logger.info("ChatPanel", "STT result suppressed (TTS playing/cooldown)");
+							return;
+						}
+
+						if (!result.isFinal) {
+							setSttPartial(result.transcript);
+						}
+
+						if (result.isFinal && result.transcript.trim()) {
+							setSttPartial("");
+							sttBufferRef.current += (sttBufferRef.current ? " " : "") + result.transcript.trim();
+							if (sttDebounceRef.current) clearTimeout(sttDebounceRef.current);
+							sttDebounceRef.current = setTimeout(() => {
+								const text = sttBufferRef.current.trim();
+								sttBufferRef.current = "";
+								if (text && pipelineActiveRef.current) {
+									if (useChatStore.getState().isStreaming) {
+										Logger.info("ChatPanel", "Skipping duplicate send (already streaming)", { text });
+										return;
+									}
+									handleSend(text);
+								}
+							}, 300);
+						}
+					};
+
+					if (isApiBased) {
+						// API-based STT — browser MediaStream + cloud API
+						const apiKey = sttMeta?.requiresNaiaKey
+							? config.naiaKey
+							: sttMeta?.apiKeyConfigField === "googleApiKey"
+								? config.googleApiKey
+								: sttMeta?.apiKeyConfigField === "elevenlabsApiKey"
+									? config.elevenlabsApiKey
+									: "";
+						if (!apiKey) {
+							Logger.warn("ChatPanel", "API STT requires API key", { provider: sttEngine });
+							setSttState("idle");
+							return;
+						}
+						const session = createApiSttSession({
+							provider: sttEngine as "google" | "elevenlabs" | "nextain",
+							apiKey,
+							language: sttLang,
+						});
+						const cleanupResult = session.onResult(handleSttResult);
+						sttCleanupRef.current.push(cleanupResult);
+						if (session.onError) {
+							const cleanupError = session.onError((err) => {
+								Logger.warn("ChatPanel", "API STT error", { code: err.code, message: err.message });
+							});
+							sttCleanupRef.current.push(cleanupError);
+						}
+						sttCleanupRef.current.push(() => session.stop());
+						await session.start();
+						setSttState("listening");
+					} else {
+						// Tauri plugin (offline: Vosk/Whisper)
+						const unlistenResult = await sttOnResult((result: RecognitionResult) => {
+							handleSttResult(result);
+						});
+						const resultCleanup = typeof unlistenResult === "function"
+							? unlistenResult
+							: () => unlistenResult.unregister();
+						sttCleanupRef.current.push(resultCleanup);
+
+						const unlistenState = await sttOnStateChange((event) => {
+							Logger.info("ChatPanel", "STT state change", { state: event.state });
+							if (event.state === "listening") setSttState("listening");
+						});
+						const stateCleanup = typeof unlistenState === "function"
+							? unlistenState
+							: () => unlistenState.unregister();
+						sttCleanupRef.current.push(stateCleanup);
+
+						const unlistenError = await sttOnError((err) => {
+							Logger.warn("ChatPanel", "STT error", { code: err.code, message: err.message });
+						});
+						const errorCleanup = typeof unlistenError === "function"
+							? unlistenError
+							: () => unlistenError.unregister();
+						sttCleanupRef.current.push(errorCleanup);
+
+						Logger.info("ChatPanel", "Starting STT", { engine: sttEngine, model: config.sttModel, language: sttLang });
+						await sttStart({
+							engine: sttEngine,
+							modelId: config.sttModel,
+							language: sttLang,
+							continuous: true,
+							interimResults: true,
+						} as Record<string, unknown> & Parameters<typeof sttStart>[0]);
+					}
+					Logger.info("ChatPanel", "STT started successfully", { engine: sttEngine, apiMode: isApiBased });
+				} catch (sttErr) {
+					Logger.warn("ChatPanel", "STT start failed — falling back to text input", { error: String(sttErr) });
+					setSttState("idle");
+				}
+
+				Logger.info("ChatPanel", "Pipeline voice mode started", {
+					provider: config.provider,
+					model: config.model,
+					ttsProvider: config.ttsProvider || "edge",
+				});
+
+				setVoiceMode("active");
+				useChatStore.getState().addMessage({
+					role: "assistant",
+					content: "🎤 음성 대화 모드가 시작되었습니다.",
+				});
 				return;
 			}
 
+			// Determine the live provider from the current model/provider
+			const liveProvider = config.provider === "openai" ? "openai-realtime" as const
+				: naiaKey ? "naia" as const : "gemini-live" as const;
+
 			Logger.info("ChatPanel", "Voice config", {
+				provider: config.provider,
+				model: config.model,
 				liveProvider,
 				hasNaiaKey: !!naiaKey,
 				hasGoogleApiKey: !!config.googleApiKey,
 				hasOpenaiKey: !!(config.openaiRealtimeApiKey ?? config.apiKey),
-				liveModel: config.liveModel ?? "(default)",
 			});
 
 			// Validate credentials per provider
@@ -932,27 +1284,26 @@ export function ChatPanel() {
 			};
 
 			// Build provider-specific config and connect
+			const selectedVoice = config.voice ?? getDefaultVoiceForAvatar(config.vrmModel);
 			if (liveProvider === "openai-realtime") {
 				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
-				const openaiVoice = config.openaiRealtimeVoice ?? "alloy";
 				await session.connect({
 					provider: "openai-realtime",
 					apiKey: openaiKey!,
-					voice: openaiVoice,
+					voice: selectedVoice,
+					locale: getLocale(),
 					systemInstruction: systemPrompt,
-					model: config.liveModel,
 				});
 			} else {
 				// Gemini Live: naia (gateway) or gemini-live (direct via Rust proxy)
-				const geminiVoice = config.liveVoice ?? getDefaultVoiceForAvatar(config.vrmModel);
 				await session.connect({
 					provider: "gemini-live",
 					gatewayUrl: useDirectMode ? undefined : LAB_GATEWAY_URL,
 					naiaKey: useDirectMode ? undefined : naiaKey,
 					googleApiKey: useDirectMode ? config.googleApiKey : undefined,
-					voice: geminiVoice,
+					voice: selectedVoice,
+					locale: getLocale(),
 					systemInstruction: systemPrompt,
-					model: config.liveModel,
 				});
 			}
 
@@ -1269,24 +1620,31 @@ export function ChatPanel() {
 			>
 				<button
 					type="button"
-					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}`}
+					className={`chat-voice-btn${voiceMode === "connecting" ? " connecting" : voiceMode === "active" ? " active" : ""}${sttPartial ? " hearing" : ""}${ttsPlaying ? " speaking" : ""}${sttState === "initializing" && !ttsPlaying ? " preparing" : ""}`}
 					onClick={handleVoiceToggle}
-					disabled={isStreaming}
-					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : t("chat.voiceEnd")}
+					disabled={voiceMode === "connecting"}
+					title={voiceMode === "off" ? t("chat.voiceStart") : voiceMode === "connecting" ? t("chat.voiceConnecting") : ttsPlaying ? "끼어들기 (TTS 중단)" : t("chat.voiceEnd")}
 				>
 					<span className="voice-bar" />
 				<span className="voice-bar" />
 				<span className="voice-bar" />
 				<span className="voice-bar" />
 				</button>
-				<textarea
+				{pipelineActiveRef.current && sttPartial && (
+					<div className="stt-partial">{sttPartial}</div>
+				)}
+					<textarea
 					ref={inputRef}
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder={t("chat.placeholder")}
+					placeholder={
+						pipelineActiveRef.current
+							? (ttsPlaying ? "나이아가 말하는 중... (버튼을 눌러 끊기)" : sttState === "initializing" ? "음성 인식 준비 중..." : sttState === "listening" ? "듣고 있어요... (텍스트 입력도 가능)" : t("chat.placeholder"))
+							: t("chat.placeholder")
+					}
 					rows={1}
-					disabled={voiceMode !== "off"}
+					disabled={voiceMode !== "off" && !pipelineActiveRef.current}
 					className="chat-input"
 				/>
 				{messageQueue.length > 0 && (
@@ -1306,7 +1664,7 @@ export function ChatPanel() {
 				) : (
 					<button
 						type="button"
-						onClick={handleSend}
+						onClick={() => handleSend()}
 						disabled={!input.trim()}
 						className="chat-send-btn"
 					>

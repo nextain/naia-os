@@ -120,6 +120,64 @@ export async function cancelChat(requestId: string): Promise<void> {
 	await invoke("cancel_stream", { requestId });
 }
 
+/** Pipeline TTS: synthesize a single sentence → returns MP3 base64 via callback */
+export async function requestTts(opts: {
+	text: string;
+	voice?: string;
+	ttsProvider?: "edge" | "google" | "openai" | "elevenlabs" | "nextain";
+	ttsApiKey?: string;
+	naiaKey?: string;
+	requestId: string;
+	onAudio: (mp3Base64: string) => void;
+}): Promise<void> {
+	const { text, voice, ttsProvider, ttsApiKey, naiaKey, requestId, onAudio } =
+		opts;
+
+	const request = {
+		type: "tts_request",
+		requestId,
+		text,
+		...(voice && { voice }),
+		...(ttsProvider && { ttsProvider }),
+		...(ttsApiKey && { ttsApiKey }),
+		...(naiaKey && { naiaKey }),
+	};
+
+	const unlisten = await listen<string>("agent_response", (event) => {
+		try {
+			const raw =
+				typeof event.payload === "string"
+					? event.payload
+					: JSON.stringify(event.payload);
+			const chunk = JSON.parse(raw) as { type: string; requestId: string; data?: string };
+			if (chunk.requestId !== requestId) return;
+
+			if (chunk.type === "audio" && chunk.data) {
+				onAudio(chunk.data);
+			}
+			if (chunk.type === "finish" || chunk.type === "error") {
+				clearTimeout(timeoutId);
+				unlisten();
+			}
+		} catch {
+			// Ignore malformed events
+		}
+	});
+
+	const timeoutId = setTimeout(() => {
+		unlisten();
+	}, 30_000);
+
+	try {
+		await invoke("send_to_agent_command", {
+			message: JSON.stringify(request),
+		});
+	} catch {
+		clearTimeout(timeoutId);
+		unlisten();
+	}
+}
+
 /** Direct tool call — bypasses LLM, no token cost */
 export async function directToolCall(opts: {
 	toolName: string;

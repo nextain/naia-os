@@ -165,6 +165,8 @@ export const S = {
 	ttsToggle: "#tts-toggle",
 	sttToggle: "#stt-toggle",
 	googleApiKeyInput: "#google-apikey-input",
+	ttsProviderSelect: "#tts-provider-select",
+	ttsApiKeyInput: "#tts-api-key",
 	ttsVoiceSelect: "#tts-voice-select",
 	voicePreviewBtn: ".voice-preview-btn",
 	settingsResetBtn: ".settings-reset-btn",
