@@ -368,10 +368,17 @@ gateway_client_protocol:
   auth_params:
     token: "gateway.auth.token from config (shared secret)"
     client_id: "cli (matches paired device clientId)"
-    platform: "linux"
+    platform: "linux (Windows: Gateway runs inside WSL, so platform is still linux)"
     mode: "cli"
     min_protocol: 3
     max_protocol: 3
+
+  windows_notes:
+    description: "On Windows, Gateway runs inside WSL2 NaiaEnv distro"
+    connection: "ws://127.0.0.1:18789 (mirrored networking allows localhost access from host)"
+    spawn: "wsl.exe -d NaiaEnv -- node /opt/naia/openclaw/node_modules/openclaw/openclaw.mjs gateway run"
+    config_requirement: "gateway.mode=local must be set in /root/.openclaw/openclaw.json"
+    race_condition_guard: "restart_gateway uses AtomicBool compare_exchange to prevent concurrent restarts"
 
 voice_architecture:
   description: "Voice I/O via two modes: omni LLM (built-in voice) or STT→LLM→TTS pipeline"

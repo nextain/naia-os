@@ -3934,3 +3934,147 @@ body.resizing-row {
 	font-size: 11px;
 	opacity: 0.8;
 }
+
+/* WSL Setup Screen (pre-onboarding) */
+.wsl-setup-screen {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--espresso);
+	padding: 20px;
+}
+
+.wsl-setup-card {
+	width: 100%;
+	max-width: 400px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	text-align: center;
+}
+
+.wsl-setup-card h1 {
+	font-size: 28px;
+	color: var(--cream);
+	margin: 0;
+}
+
+.wsl-setup-desc {
+	color: var(--text-secondary);
+	font-size: 13px;
+	margin: 0;
+}
+
+.wsl-setup-tiers {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 8px 0;
+}
+
+.wsl-tier-box {
+	border: 1px solid var(--espresso-light);
+	border-radius: 8px;
+	padding: 12px;
+	text-align: left;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.wsl-tier-box strong {
+	color: var(--cream);
+	font-size: 13px;
+}
+
+.wsl-tier-box span {
+	color: var(--text-secondary);
+	font-size: 12px;
+}
+
+.wsl-tier-box.tier-1 {
+	opacity: 0.6;
+}
+
+.wsl-setup-error {
+	color: var(--error, #e74c3c);
+	font-size: 12px;
+	margin: 0;
+	padding: 8px;
+	background: rgba(231, 76, 60, 0.1);
+	border-radius: 6px;
+}
+
+.wsl-setup-progress {
+	text-align: center;
+	margin: 8px 0;
+}
+
+.wsl-setup-status {
+	color: var(--text-secondary);
+	font-size: 12px;
+	margin: 0;
+}
+
+.wsl-setup-detail {
+	color: var(--text-secondary);
+	font-size: 11px;
+	margin: 4px 0 0;
+	opacity: 0.7;
+}
+
+.wsl-setup-elapsed {
+	color: var(--text-secondary);
+	font-size: 11px;
+	margin: 4px 0 0;
+	opacity: 0.5;
+	font-variant-numeric: tabular-nums;
+}
+
+.wsl-setup-spinner {
+	width: 28px;
+	height: 28px;
+	border: 3px solid rgba(201, 169, 110, 0.25);
+	border-top-color: var(--accent, #c9a96e);
+	border-radius: 50%;
+	animation: wsl-spin 0.8s linear infinite;
+	margin: 0 auto 8px;
+}
+
+@keyframes wsl-spin {
+	to { transform: rotate(360deg); }
+}
+
+.wsl-setup-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.wsl-setup-btn {
+	padding: 10px 16px;
+	border-radius: 8px;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	transition: opacity 0.15s;
+}
+
+.wsl-setup-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.wsl-setup-btn.primary {
+	background: var(--accent, #c9a96e);
+	color: var(--espresso);
+	font-weight: 600;
+}
+
+.wsl-setup-btn.secondary {
+	background: transparent;
+	color: var(--text-secondary);
+	border: 1px solid var(--espresso-light);
+}

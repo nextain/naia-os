@@ -13,12 +13,13 @@ fn main() {
         .ios_path("ios")
         .build();
 
-    // On desktop, ensure libvosk is available for linking and bundled for runtime
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    // On Linux, ensure libvosk is available for linking and bundled for runtime
+    // STT native deps (vosk, whisper) are Linux-only until whisper-rs Windows bindings are fixed (#63)
+    #[cfg(target_os = "linux")]
     setup_vosk();
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(target_os = "linux")]
 fn setup_vosk() {
     use std::path::PathBuf;
 

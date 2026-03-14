@@ -1,0 +1,20 @@
+{
+	"build": {
+		"beforeBuildCommand": "cd ../agent && npm install && npm run build && cd ../shell && pnpm build"
+	},
+	"bundle": {
+		"targets": ["nsis"],
+		"resources": {
+			"resources/node.exe": "node.exe"
+		},
+		"windows": {
+			"certificateThumbprint": null,
+			"digestAlgorithm": "sha256",
+			"nsis": {
+				"installMode": "currentUser",
+				"languages": ["English", "Korean", "Japanese"],
+				"startMenuFolder": "Naia"
+			}
+		}
+	}
+}

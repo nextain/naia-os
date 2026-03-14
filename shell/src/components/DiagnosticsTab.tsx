@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { directToolCall } from "../lib/chat-service";
-import { loadConfig, resolveGatewayUrl } from "../lib/config";
+import {
+	DEFAULT_GATEWAY_URL,
+	loadConfig,
+	resolveGatewayUrl,
+} from "../lib/config";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import type { GatewayStatus } from "../lib/types";
@@ -28,55 +32,85 @@ function parseLogLine(
 	}
 }
 
+const RETRY_INTERVAL_MS = 5000;
+const MAX_AUTO_RETRIES = 12; // 60s max auto-retry
+
 export function DiagnosticsTab() {
 	const [status, setStatus] = useState<GatewayStatus | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const retryCountRef = useRef(0);
+	const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
 	const entries = useLogsStore((s) => s.entries);
 	const isTailing = useLogsStore((s) => s.isTailing);
 	const logsEndRef = useRef<HTMLDivElement>(null);
 	const cursorRef = useRef<number | undefined>(undefined);
 
-	const fetchStatus = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-
-		const config = loadConfig();
-		const gatewayUrl = resolveGatewayUrl(config);
-		if (!gatewayUrl || !config?.enableTools) {
-			setLoading(false);
-			setError(t("diagnostics.error"));
-			return;
-		}
-
-		try {
-			const res = await directToolCall({
-				toolName: "skill_diagnostics",
-				args: { action: "status" },
-				requestId: `diag-status-${Date.now()}`,
-				gatewayUrl,
-				gatewayToken: config.gatewayToken,
-			});
-
-			if (res.success && res.output) {
-				const parsed = JSON.parse(res.output);
-				setStatus(parsed);
-			} else {
-				setError(t("diagnostics.error"));
+	const fetchStatus = useCallback(
+		async (isRetry = false) => {
+			if (!isRetry) {
+				retryCountRef.current = 0;
 			}
-		} catch (err) {
-			Logger.warn("DiagnosticsTab", "Failed to fetch status", {
-				error: String(err),
-			});
-			setError(t("diagnostics.error"));
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+			setLoading(true);
+			setError(null);
+
+			const config = loadConfig();
+			// Diagnostics always attempts to reach the Gateway so users can debug
+			// connectivity even before onboarding sets enableTools=true.
+			const gatewayUrl =
+				resolveGatewayUrl(config) || DEFAULT_GATEWAY_URL;
+
+			try {
+				const res = await directToolCall({
+					toolName: "skill_diagnostics",
+					args: { action: "status" },
+					requestId: `diag-status-${Date.now()}`,
+					gatewayUrl,
+					gatewayToken: config?.gatewayToken,
+				});
+
+				if (res.success && res.output) {
+					const parsed = JSON.parse(res.output);
+					setStatus(parsed);
+					retryCountRef.current = 0;
+				} else {
+					// Connection failed — auto-retry if Gateway may still be starting
+					if (retryCountRef.current < MAX_AUTO_RETRIES) {
+						retryCountRef.current++;
+						setError(t("diagnostics.gatewayStarting"));
+						retryTimerRef.current = setTimeout(
+							() => fetchStatus(true),
+							RETRY_INTERVAL_MS,
+						);
+					} else {
+						setError(t("diagnostics.errorConnection"));
+					}
+				}
+			} catch (err) {
+				Logger.warn("DiagnosticsTab", "Failed to fetch status", {
+					error: String(err),
+				});
+				if (retryCountRef.current < MAX_AUTO_RETRIES) {
+					retryCountRef.current++;
+					setError(t("diagnostics.gatewayStarting"));
+					retryTimerRef.current = setTimeout(
+						() => fetchStatus(true),
+						RETRY_INTERVAL_MS,
+					);
+				} else {
+					setError(t("diagnostics.errorConnection"));
+				}
+			} finally {
+				setLoading(false);
+			}
+		},
+		[],
+	);
 
 	useEffect(() => {
 		fetchStatus();
+		return () => clearTimeout(retryTimerRef.current);
 	}, [fetchStatus]);
 
 	// Poll logs while tailing
@@ -87,8 +121,8 @@ export function DiagnosticsTab() {
 
 		const poll = async () => {
 			const config = loadConfig();
-			const gatewayUrl = resolveGatewayUrl(config);
-			if (!gatewayUrl || !config?.enableTools) return;
+			const gatewayUrl =
+				resolveGatewayUrl(config) || DEFAULT_GATEWAY_URL;
 
 			try {
 				const res = await directToolCall({
@@ -99,7 +133,7 @@ export function DiagnosticsTab() {
 					},
 					requestId: `diag-logs-poll-${Date.now()}`,
 					gatewayUrl,
-					gatewayToken: config.gatewayToken,
+					gatewayToken: config?.gatewayToken,
 				});
 
 				if (res.success && res.output) {
@@ -186,7 +220,7 @@ export function DiagnosticsTab() {
 					<button
 						type="button"
 						className="diagnostics-refresh-btn"
-						onClick={fetchStatus}
+						onClick={() => fetchStatus()}
 					>
 						{t("diagnostics.refresh")}
 					</button>

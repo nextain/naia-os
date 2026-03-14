@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarCanvas } from "./components/AvatarCanvas";
@@ -5,6 +6,7 @@ import { ChatPanel } from "./components/ChatPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { WslSetupScreen } from "./components/WslSetupScreen";
 import {
 	type PanelPosition,
 	type ThemeId,
@@ -15,6 +17,7 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
+import { restartGateway } from "./lib/openclaw-sync";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { syncLinkedChannels } from "./lib/channel-sync";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
@@ -24,6 +27,7 @@ function applyTheme(theme: ThemeId) {
 }
 
 export function App() {
+	const [showWslSetup, setShowWslSetup] = useState(false);
 	const [showOnboarding, setShowOnboarding] = useState(false);
 	const [panelPosition, setPanelPosition] = useState<PanelPosition>("bottom");
 	const [panelVisible, setPanelVisible] = useState(true);
@@ -43,9 +47,28 @@ export function App() {
 		if (config?.panelVisible === false) setPanelVisible(false);
 		if (config?.panelSize)
 			setPanelSize(Math.max(15, Math.min(80, config.panelSize)));
-		if (!isOnboardingComplete()) {
-			setShowOnboarding(true);
-		}
+
+		const needsOnboarding = !isOnboardingComplete();
+
+		// Always check platform tier on startup.
+		// On Windows Tier 1 (WSL/NaiaEnv missing): show WSL setup screen,
+		// even if onboarding was previously completed (install may have been
+		// interrupted, or user reinstalled without WSL).
+		invoke("get_platform_tier")
+			.then((tier) => {
+				const info = tier as { platform: string; tier: number };
+				if (info.platform === "windows" && info.tier === 1) {
+					setShowWslSetup(true);
+				} else if (needsOnboarding) {
+					setShowOnboarding(true);
+				}
+			})
+			.catch(() => {
+				// Non-Windows or invoke failed — show onboarding if needed
+				if (needsOnboarding) {
+					setShowOnboarding(true);
+				}
+			});
 	}, []);
 
 	// Check for updates after onboarding is complete
@@ -150,6 +173,27 @@ export function App() {
 			unlisten.then((fn) => fn());
 		};
 	}, []);
+
+	if (showWslSetup) {
+		return (
+			<div className="app-root">
+				<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+				<WslSetupScreen
+					onComplete={() => {
+						setShowWslSetup(false);
+						// Always start Gateway after WSL setup completes.
+						// During initial app startup, Gateway spawn was skipped
+						// because NaiaEnv didn't exist yet.
+						restartGateway().catch(() => {});
+						if (!isOnboardingComplete()) {
+							// First install: proceed to onboarding
+							setShowOnboarding(true);
+						}
+					}}
+				/>
+			</div>
+		);
+	}
 
 	if (showOnboarding) {
 		return (

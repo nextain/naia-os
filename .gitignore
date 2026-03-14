@@ -25,6 +25,9 @@ build-dir/
 # Progress files (session-local, not committed)
 .agents/progress/*.json
 
+# Windows build resources (downloaded at build time)
+shell/src-tauri/resources/
+
 # Temporary / local-only
 errors/
 iso-download/

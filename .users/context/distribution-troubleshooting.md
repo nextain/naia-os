@@ -59,3 +59,51 @@ CI=true pnpm install --shamefully-hoist
 **Cause**: Used `cargo build --release` instead of `npx tauri build --no-bundle`.
 
 **Fix**: ALWAYS use `npx tauri build --no-bundle` (WebKitGTK asset protocol requires Tauri's build pipeline).
+
+---
+
+## Windows: Gateway Mode Not Set
+
+**Symptom**: `Gateway start blocked: set gateway.mode=local (current: unset)` after fresh WSL provisioning.
+
+**Cause**: OpenClaw provisioning did not set `gateway.mode=local` in `/root/.openclaw/openclaw.json`.
+
+**Fix**: Step 5 added to `provision_distro()` in `wsl.rs` — sets `gateway.mode=local` via node script during provisioning.
+
+**Incident**: 2026-03-11
+
+---
+
+## Windows: restart_gateway Race Condition
+
+**Symptom**: Gateway connection fails after Naia login — Gateway process killed mid-spawn.
+
+**Cause**: Deep link auth triggers multiple `restartGateway()` calls without re-entrancy guard on the Rust side.
+
+**Fix**: `compare_exchange` atomic guard on `restarting_gateway` AtomicBool (SeqCst). Guard released AFTER agent restart completes.
+
+**Incident**: 2026-03-11
+
+---
+
+## Windows: Git Bash Path Conversion
+
+**Symptom**: MSYS translates `/opt/naia/...` to `C:/Program Files/Git/opt/naia/...`.
+
+**Fix**: Prefix commands with `MSYS_NO_PATHCONV=1`.
+
+---
+
+## Windows: pnpm Non-TTY Error
+
+**Symptom**: `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` when running `pnpm install` in WSL.
+
+**Fix**: `CI=true pnpm install`.
+
+---
+
+## Windows: .wslconfig localhostForwarding Deprecated
+
+**Symptom**: Warning about `localhostForwarding` not applicable with `networkingMode=mirrored`.
+
+**Fix**: Removed `localhostForwarding=true` from `config/defaults/wslconfig-template`.

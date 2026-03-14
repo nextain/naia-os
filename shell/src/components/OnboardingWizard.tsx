@@ -16,7 +16,7 @@ import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
 import { getLocale, t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
-import { syncToOpenClaw } from "../lib/openclaw-sync";
+import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { persistDiscordDefaults } from "../lib/discord-auth";
 import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
 import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
@@ -283,6 +283,8 @@ export function OnboardingWizard({
 					if (restored.vrmModel) {
 						setAvatarModelPath(restored.vrmModel);
 					}
+					// Restart Gateway + agent to pick up new config
+					restartGateway().catch(() => {});
 					onComplete();
 				} else {
 					setStep("agentName");
@@ -476,6 +478,11 @@ export function OnboardingWizard({
 
 		setAvatarModelPath(selectedVrm);
 		onComplete();
+
+		// Restart Gateway + agent so they pick up the new config.
+		// On Windows Tier 2 this spawns the Gateway in WSL and reconnects the agent.
+		// On other platforms this is a safe no-op / refresh.
+		restartGateway().catch(() => {});
 	}
 
 	function canProceed(): boolean {

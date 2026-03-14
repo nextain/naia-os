@@ -591,6 +591,17 @@ const THEMES: { id: ThemeId; label: string; preview: string }[] = [
 	{ id: "cloud", label: "Cloud", preview: "#f1f5f9" },
 ];
 
+/** Map known Rust WSL error strings to i18n-translated messages. */
+function mapWslError(error: string): string {
+	if (error.includes("not yet active") || error.includes("reopen Naia")) {
+		return t("settings.wslNeedsReboot");
+	}
+	if (error.includes("system restart") || error.includes("HCS_E_SERVICE_NOT_AVAILABLE") || error.includes("0x80070422")) {
+		return t("settings.wslRebootRequired");
+	}
+	return error;
+}
+
 interface SttModelInfo {
 	engine: string;
 	modelId: string;
@@ -704,6 +715,9 @@ export function SettingsTab() {
 	const [sttModelModalOpen, setSttModelModalOpen] = useState(false);
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
+	const [platformTier, setPlatformTier] = useState<{ platform: string; tier: number; wsl: boolean; distro: boolean } | null>(null);
+	const [wslSetupRunning, setWslSetupRunning] = useState(false);
+	const [wslSetupError, setWslSetupError] = useState<string | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Load STT model catalog on mount
@@ -894,6 +908,12 @@ export function SettingsTab() {
 			}
 		});
 	}, [naiaKey]);
+	useEffect(() => {
+		invoke("get_platform_tier").then((result) => {
+			setPlatformTier(result as { platform: string; tier: number; wsl: boolean; distro: boolean });
+		}).catch(() => {});
+	}, []);
+
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labBalance, setLabBalance] = useState<number | null>(null);
 	const [labBalanceLoading, setLabBalanceLoading] = useState(false);
@@ -2949,6 +2969,56 @@ export function SettingsTab() {
 			)}
 
 			{enableTools && <DevicePairingSection />}
+
+			{platformTier?.platform === "windows" && (
+				<>
+					<div className="settings-section-divider">
+						<span>{t("settings.platformSection")}</span>
+					</div>
+					<div className="settings-field">
+						<span className="settings-hint">
+							{platformTier.tier === 1
+								? t("settings.platformTier1")
+								: t("settings.platformTier2")}
+						</span>
+					</div>
+					{platformTier.tier === 1 && (
+						<div className="settings-field">
+							<button
+								type="button"
+								className="voice-preview-btn"
+								disabled={wslSetupRunning}
+								onClick={async () => {
+									setWslSetupRunning(true);
+									setWslSetupError(null);
+									try {
+										const result = await invoke("setup_wsl");
+										setPlatformTier(JSON.parse(result as string));
+									} catch (e) {
+										setWslSetupError(mapWslError(String(e)));
+									} finally {
+										setWslSetupRunning(false);
+									}
+								}}
+							>
+								{wslSetupRunning ? t("settings.wslSetupRunning") : t("settings.wslSetupButton")}
+							</button>
+							{wslSetupError && (
+								<span className="settings-hint" style={{ color: "#e57373", fontSize: "0.8em" }}>
+									{wslSetupError}
+								</span>
+							)}
+							{!wslSetupError && (
+								<span className="settings-hint" style={{ fontSize: "0.8em", opacity: 0.7 }}>
+									{!platformTier.wsl
+										? t("settings.wslHintInstall")
+										: t("settings.wslHintImport")}
+								</span>
+							)}
+						</div>
+					)}
+				</>
+			)}
 
 			<div className="settings-section-divider">
 				<span>{t("settings.memorySection")}</span>
