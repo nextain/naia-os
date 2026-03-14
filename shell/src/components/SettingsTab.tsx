@@ -41,6 +41,8 @@ import { resetGatewaySession } from "../lib/gateway-sessions";
 import type { ProviderId } from "../lib/types";
 import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
+import { listSttProviders } from "../lib/stt/registry";
+import { listTtsProviderMetas } from "../lib/tts/registry";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
@@ -894,6 +896,7 @@ export function SettingsTab() {
 	const [labWaiting, setLabWaiting] = useState(false);
 	const [labBalance, setLabBalance] = useState<number | null>(null);
 	const [labBalanceLoading, setLabBalanceLoading] = useState(false);
+	const [labBalanceError, setLabBalanceError] = useState(false);
 
 	const startLabLogin = () => {
 		setLabWaiting(true);
@@ -912,10 +915,11 @@ export function SettingsTab() {
 	const [gatewayTtsAuto, setGatewayTtsAuto] = useState<GatewayTtsAuto>("off");
 	const [gatewayTtsMode, setGatewayTtsMode] = useState<GatewayTtsMode>("final");
 	const [, setGatewayTtsLoading] = useState(false);
-	const [gatewayTtsApiKey] = useState(() => {
+	const [gatewayTtsApiKey, setGatewayTtsApiKey] = useState(() => {
 		const p = existing?.ttsProvider ?? "edge";
 		if (p === "openai") return existing?.openaiTtsApiKey ?? "";
 		if (p === "elevenlabs") return existing?.elevenlabsApiKey ?? "";
+		if (p === "google") return existing?.googleApiKey ?? "";
 		return "";
 	});
 
@@ -1062,12 +1066,16 @@ export function SettingsTab() {
 			});
 	}, []);
 
-	// Fetch Lab balance when naiaKey is available
-	useEffect(() => {
-		if (!naiaKey) return;
+	// Fetch Lab balance for a given key
+	function fetchLabBalance(key: string) {
+		Logger.debug("SettingsTab", "fetchLabBalance called", {
+			keyPrefix: key.slice(0, 8),
+			keyLength: key.length,
+		});
 		setLabBalanceLoading(true);
+		setLabBalanceError(false);
 		fetch(`${LAB_GATEWAY_URL}/v1/profile/balance`, {
-			headers: { "X-AnyLLM-Key": `Bearer ${naiaKey}` },
+			headers: { "X-AnyLLM-Key": `Bearer ${key}` },
 		})
 			.then((res) => {
 				if (!res.ok) {
@@ -1080,13 +1088,21 @@ export function SettingsTab() {
 			.then((data: unknown) => {
 				const credits = parseLabCredits(data);
 				setLabBalance(credits ?? 0);
+				setLabBalanceError(false);
 			})
 			.catch((err) => {
 				Logger.warn("SettingsTab", "Lab balance fetch failed", {
 					error: String(err),
 				});
+				setLabBalanceError(true);
 			})
 			.finally(() => setLabBalanceLoading(false));
+	}
+
+	// Fetch Lab balance when naiaKey is available
+	useEffect(() => {
+		if (!naiaKey) return;
+		fetchLabBalance(naiaKey);
 	}, [naiaKey]);
 
 	// Listen for Lab auth deep-link callback
@@ -1104,6 +1120,9 @@ export function SettingsTab() {
 				// In Lab mode, clear direct API key input to avoid confusion.
 				setApiKey("");
 				setLabWaiting(false);
+
+				// Fetch balance immediately with the new key
+				fetchLabBalance(nextNaiaKey);
 
 				// Persist to both secure store and localStorage
 				await saveSecretKey("naiaKey", nextNaiaKey);
@@ -1578,7 +1597,9 @@ export function SettingsTab() {
 			ttsVoice,
 			ttsProvider,
 			ttsEngine: derivedTtsEngine as "google" | "openclaw",
-			googleApiKey: googleApiKey.trim() || undefined,
+			googleApiKey: (ttsProvider === "google" && gatewayTtsApiKey.trim())
+				? gatewayTtsApiKey.trim()
+				: (googleApiKey.trim() || existing?.googleApiKey || undefined),
 			openaiTtsApiKey: (ttsProvider === "openai" && gatewayTtsApiKey.trim())
 				? gatewayTtsApiKey.trim()
 				: (existing?.openaiTtsApiKey || undefined),
@@ -1928,9 +1949,11 @@ export function SettingsTab() {
 							<span className="lab-balance-value">
 								{labBalanceLoading
 									? t("settings.labBalanceLoading")
-									: labBalance !== null
-										? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
-										: "-"}
+									: labBalanceError
+										? t("cost.labError")
+										: labBalance !== null
+											? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
+											: "-"}
 							</span>
 						</div>
 						<div className="lab-actions-row">
@@ -2186,9 +2209,11 @@ export function SettingsTab() {
 									<span className="lab-balance-value">
 										{labBalanceLoading
 											? t("settings.labBalanceLoading")
-											: labBalance !== null
-												? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
-												: "-"}
+											: labBalanceError
+												? t("cost.labError")
+												: labBalance !== null
+													? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
+													: "-"}
 									</span>
 								</div>
 								<div className="lab-actions-row">
@@ -2422,19 +2447,34 @@ export function SettingsTab() {
 							onChange={(e) => {
 								const next = e.target.value as SttProviderId;
 								setSttProvider(next);
-								// Clear model selection when switching engine
+								// Clear model selection when switching engine type
 								setSttModel("");
 							}}
 						>
 							<option value="">{t("settings.sttNone")}</option>
-							<option value="vosk">{t("settings.sttVosk")}</option>
-							<option value="whisper">{t("settings.sttWhisper")}</option>
-							<option value="google" disabled>{t("settings.sttGoogle")}</option>
-							<option value="elevenlabs" disabled>{t("settings.sttElevenlabs")}</option>
+							{listSttProviders().map((p) => (
+								<option key={p.id} value={p.id}>
+									{p.name}{p.isOffline ? "" : p.requiresApiKey ? " (API key)" : ""}
+								</option>
+							))}
 						</select>
 					</div>
+					{/* STT API key hint — API-based providers share key with TTS config */}
+					{(() => {
+						const sttMeta = listSttProviders().find((p) => p.id === sttProvider);
+						if (sttMeta?.requiresApiKey) {
+							return (
+								<div className="settings-field">
+									<span className="settings-hint">
+										{sttMeta.name} — uses {sttMeta.apiKeyConfigField === "googleApiKey" ? "Google" : "ElevenLabs"} API key from TTS settings
+									</span>
+								</div>
+							);
+						}
+						return null;
+					})()}
 
-					{/* STT Model — current selection + manage button */}
+					{/* STT Model — current selection + manage button (offline engines only) */}
 					{(sttProvider === "vosk" || sttProvider === "whisper") && (
 						<div className="settings-field">
 							<label>{t("settings.sttCurrentModel")}</label>
@@ -2472,49 +2512,133 @@ export function SettingsTab() {
 							}}
 						/>
 					</div>
+					{/* TTS Provider selector */}
+					<div className="settings-field">
+						<label htmlFor="tts-provider-select">{t("settings.ttsProvider")}</label>
+						<select
+							id="tts-provider-select"
+							data-testid="gateway-tts-provider"
+							value={ttsProvider}
+							onChange={(e) => {
+								const next = e.target.value as TtsProviderId;
+								setTtsProvider(next);
+								// Load API key for the selected provider
+								if (next === "openai") setGatewayTtsApiKey(existing?.openaiTtsApiKey ?? "");
+								else if (next === "elevenlabs") setGatewayTtsApiKey(existing?.elevenlabsApiKey ?? "");
+								else if (next === "google") setGatewayTtsApiKey(existing?.googleApiKey ?? "");
+								else setGatewayTtsApiKey("");
+								// Reset voice to provider default
+								const meta = listTtsProviderMetas().find((p) => p.id === next);
+								if (meta?.voices?.[0]) {
+									persistTtsVoice(meta.voices[0].id);
+								}
+							}}
+						>
+							{listTtsProviderMetas().map((p) => (
+								<option key={p.id} value={p.id}>
+									{p.name}{p.isFree ? "" : p.requiresNaiaKey ? " (Naia)" : " (API key)"}
+								</option>
+							))}
+						</select>
+					</div>
+					{/* TTS API key input — shown when provider requires it */}
 					{(() => {
-						const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
-						let gwVoices = gwProvider?.voices ?? [];
-						if (gwVoices.length > 0) {
-							const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
-							gwVoices = gwVoices.filter(
-								(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
+						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+						if (providerMeta?.requiresApiKey) {
+							return (
+								<div className="settings-field">
+									<label htmlFor="tts-api-key">{t("settings.ttsApiKey")}</label>
+									<input
+										id="tts-api-key"
+										type="password"
+										value={gatewayTtsApiKey}
+										onChange={(e) => setGatewayTtsApiKey(e.target.value)}
+										placeholder={`${providerMeta.name} API Key`}
+									/>
+								</div>
 							);
 						}
-						const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
-						return voices.length > 0 ? (
-							<div className="settings-field">
-								<label htmlFor="edge-tts-voice">{t("settings.ttsVoice")}</label>
-								<div className="voice-picker">
-									<select
-										id="edge-tts-voice"
-										data-testid="gateway-tts-voice"
-										value={ttsVoice}
-										onChange={(e) => persistTtsVoice(e.target.value)}
-									>
-										{voices.map((v) => (
-											<option key={v} value={v}>{v}</option>
-										))}
-									</select>
-									<button
-										type="button"
-										className="voice-preview-btn"
-										onClick={handleVoicePreview}
-										disabled={isPreviewing}
-									>
-										{isPreviewing
-											? t("settings.voicePreviewing")
-											: t("settings.voicePreview")}
-									</button>
+						if (providerMeta?.requiresNaiaKey && !naiaKey) {
+							return (
+								<div className="settings-field">
+									<span className="settings-hint">{t("settings.ttsNaiaRequired")}</span>
 								</div>
-							</div>
-						) : (
-							<div className="settings-field">
-								<span className="settings-hint">
-									Gateway에 연결할 수 없습니다.
-								</span>
-							</div>
-						);
+							);
+						}
+						return null;
+					})()}
+					{/* TTS Voice picker — dynamic based on provider */}
+					{(() => {
+						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+						// Edge: prefer gateway voices, fallback to hardcoded
+						if (ttsProvider === "edge") {
+							const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
+							let gwVoices = gwProvider?.voices ?? [];
+							if (gwVoices.length > 0) {
+								const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
+								gwVoices = gwVoices.filter(
+									(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
+								);
+							}
+							const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
+							return voices.length > 0 ? (
+								<div className="settings-field">
+									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+									<div className="voice-picker">
+										<select
+											id="tts-voice-select"
+											data-testid="gateway-tts-voice"
+											value={ttsVoice}
+											onChange={(e) => persistTtsVoice(e.target.value)}
+										>
+											{voices.map((v) => (
+												<option key={v} value={v}>{v}</option>
+											))}
+										</select>
+										<button
+											type="button"
+											className="voice-preview-btn"
+											onClick={handleVoicePreview}
+											disabled={isPreviewing}
+										>
+											{isPreviewing
+												? t("settings.voicePreviewing")
+												: t("settings.voicePreview")}
+										</button>
+									</div>
+								</div>
+							) : null;
+						}
+						// Other providers: use registry voices
+						if (providerMeta?.voices && providerMeta.voices.length > 0) {
+							return (
+								<div className="settings-field">
+									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+									<div className="voice-picker">
+										<select
+											id="tts-voice-select"
+											value={ttsVoice}
+											onChange={(e) => persistTtsVoice(e.target.value)}
+										>
+											{providerMeta.voices.map((v) => (
+												<option key={v.id} value={v.id}>{v.label}</option>
+											))}
+										</select>
+										<button
+											type="button"
+											className="voice-preview-btn"
+											onClick={handleVoicePreview}
+											disabled={isPreviewing}
+										>
+											{isPreviewing
+												? t("settings.voicePreviewing")
+												: t("settings.voicePreview")}
+										</button>
+									</div>
+								</div>
+							);
+						}
+						return null;
 					})()}
 				</>
 			)}
