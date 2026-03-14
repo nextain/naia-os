@@ -32,11 +32,16 @@ export async function synthesizeSpeech(
 			}),
 		});
 
-		if (!response.ok) return null;
+		if (!response.ok) {
+			const errBody = await response.text().catch(() => "");
+			console.error(`[google-tts] HTTP ${response.status}: ${errBody.slice(0, 200)}`);
+			return null;
+		}
 
 		const data = (await response.json()) as { audioContent?: string };
 		return data.audioContent ?? null;
-	} catch {
+	} catch (err) {
+		console.error("[google-tts] error:", err);
 		return null;
 	}
 }
