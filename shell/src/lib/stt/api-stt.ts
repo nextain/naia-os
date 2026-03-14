@@ -56,13 +56,19 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 			const chunks: Blob[] = [];
 
 			function createRecorder(stream: MediaStream): MediaRecorder {
-				const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+				// WebKitGTK doesn't support audio/webm — fallback to supported format
+				const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+					? "audio/webm;codecs=opus"
+					: MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+						? "audio/ogg;codecs=opus"
+						: ""; // browser default
+				const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 				recorder.ondataavailable = (e) => {
 					if (e.data.size > 0) chunks.push(e.data);
 				};
 				recorder.onstop = async () => {
 					if (chunks.length === 0 || stopped) return;
-					const blob = new Blob(chunks, { type: "audio/webm" });
+					const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
 					chunks.length = 0;
 					const transcript = await transcribeChunk(blob);
 					if (transcript && transcript.trim()) {
@@ -129,6 +135,9 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 
 async function transcribeGoogle(audio: Blob, apiKey: string, language: string): Promise<string | null> {
 	const base64 = await blobToBase64(audio);
+	const encoding = audio.type.includes("ogg") ? "OGG_OPUS"
+		: audio.type.includes("webm") ? "WEBM_OPUS"
+		: "ENCODING_UNSPECIFIED";
 
 	const response = await fetch(
 		`https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
@@ -137,7 +146,7 @@ async function transcribeGoogle(audio: Blob, apiKey: string, language: string): 
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				config: {
-					encoding: "WEBM_OPUS",
+					encoding,
 					sampleRateHertz: 48000,
 					languageCode: language,
 					model: "latest_long",
