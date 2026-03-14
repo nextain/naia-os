@@ -42,6 +42,7 @@ registerTtsProviderMeta({
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
 	voices: [
+		// Chirp 3 HD (최신, 고품질)
 		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", language: "ko-KR", gender: "male" },
 		{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", language: "ko-KR", gender: "male" },
@@ -50,6 +51,10 @@ registerTtsProviderMeta({
 		{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", language: "ko-KR", gender: "male" },
 		{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", language: "ko-KR", gender: "neutral" },
+		// Neural2 (안정적)
+		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
 	],
 });
 
@@ -59,7 +64,7 @@ registerTtsProviderMeta({
 	description: "High-quality Neural2 voices. Requires Google API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
-	pricing: "$16/1M chars",
+	pricing: "$0.016/1K 글자",
 	voices: [
 		// Chirp 3 HD (최신, 고품질)
 		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
@@ -102,7 +107,7 @@ registerTtsProviderMeta({
 	description: "OpenAI text-to-speech. Requires OpenAI API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "openaiTtsApiKey",
-	pricing: "$15/1M chars",
+	pricing: "$0.015/1K 글자",
 	voices: [
 		// All models (tts-1, tts-1-hd, gpt-4o-mini-tts)
 		{ id: "alloy", label: "Alloy", gender: "neutral" },
@@ -128,7 +133,7 @@ registerTtsProviderMeta({
 	description: "Premium AI voices. Requires ElevenLabs API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
-	pricing: "$0.30/1K chars",
+	pricing: "$0.30/1K 글자",
 	async fetchVoices(apiKey) {
 		try {
 			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=50", {

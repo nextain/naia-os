@@ -75,7 +75,7 @@ registerSttProvider({
 	isOffline: false,
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
-	pricing: "$0.006/15s",
+	pricing: "$0.024/분",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
@@ -91,7 +91,7 @@ registerSttProvider({
 	isOffline: false,
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
-	pricing: "$0.40/hr",
+	pricing: "$0.007/분",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU",
