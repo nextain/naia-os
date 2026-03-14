@@ -25,6 +25,7 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 	const { provider, apiKey, language } = options;
 	let resultCallbacks: ((result: SttResult) => void)[] = [];
 	let errorCallbacks: ((error: { code: string; message: string }) => void)[] = [];
+	let costCallbacks: ((cost: { durationSeconds: number }) => void)[] = [];
 	let stopped = false;
 	let mediaStream: MediaStream | null = null;
 	let audioCtx: AudioContext | null = null;
@@ -67,17 +68,21 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 		const pcm = mergePcmChunks();
 		pcmChunks = [];
 
-		// Skip silence (RMS below threshold)
+		// Skip silence (RMS below threshold — higher = fewer unnecessary API calls)
 		let sumSq = 0;
 		for (let i = 0; i < pcm.length; i++) sumSq += pcm[i] * pcm[i];
 		const rms = Math.sqrt(sumSq / pcm.length);
-		if (rms < 100) {
+		if (rms < 500) {
 			Logger.info("api-stt", "Skipping silence", { rms: Math.round(rms), samples: pcm.length });
 			return;
 		}
 
+		const durationSeconds = pcm.length / SAMPLE_RATE;
 		const base64 = int16ToBase64(pcm);
-		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, base64Len: base64.length });
+		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, durationSeconds: Math.round(durationSeconds) });
+
+		// Notify cost BEFORE API call (API call = billing)
+		for (const cb of costCallbacks) cb({ durationSeconds });
 
 		try {
 			let result: string | null = null;
@@ -163,6 +168,11 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 		onError(callback) {
 			errorCallbacks.push(callback);
 			return () => { errorCallbacks = errorCallbacks.filter((cb) => cb !== callback); };
+		},
+
+		onCost(callback: (cost: { durationSeconds: number }) => void) {
+			costCallbacks.push(callback);
+			return () => { costCallbacks = costCallbacks.filter((cb) => cb !== callback); };
 		},
 	};
 }

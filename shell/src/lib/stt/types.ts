@@ -65,4 +65,6 @@ export interface SttSession {
 	onResult(callback: (result: SttResult) => void): () => void;
 	/** Register callback for errors. Returns cleanup function. */
 	onError?(callback: (error: { code: string; message: string }) => void): () => void;
+	/** Register callback for cost tracking (called per API call). Returns cleanup function. */
+	onCost?(callback: (cost: { durationSeconds: number }) => void): () => void;
 }

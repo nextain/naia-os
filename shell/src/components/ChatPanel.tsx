@@ -1104,25 +1104,28 @@ export function ChatPanel() {
 							apiKey,
 							language: sttLang,
 						});
-						const cleanupResult = session.onResult((result) => {
-							handleSttResult(result);
-							// Track STT cost (3s chunk)
-							const sttCost = estimateSttCost(sttEngine, 3);
-							if (sttCost > 0) {
-								useChatStore.getState().addCostEntry({
-									inputTokens: 0, outputTokens: 0,
-									cost: sttCost,
-									provider: "nextain" as ProviderId,
-									model: `stt:${sttEngine}`,
-								});
-							}
-						});
+						const cleanupResult = session.onResult(handleSttResult);
 						sttCleanupRef.current.push(cleanupResult);
 						if (session.onError) {
 							const cleanupError = session.onError((err) => {
 								Logger.warn("ChatPanel", "API STT error", { code: err.code, message: err.message });
 							});
 							sttCleanupRef.current.push(cleanupError);
+						}
+						// Track STT cost per API call (not per result — silence also costs)
+						if (session.onCost) {
+							const cleanupCost = session.onCost((cost: { durationSeconds: number }) => {
+								const sttCost = estimateSttCost(sttEngine, cost.durationSeconds);
+								if (sttCost > 0) {
+									useChatStore.getState().addCostEntry({
+										inputTokens: 0, outputTokens: 0,
+										cost: sttCost,
+										provider: "nextain" as ProviderId,
+										model: `stt:${sttEngine}`,
+									});
+								}
+							});
+							sttCleanupRef.current.push(cleanupCost);
 						}
 						sttCleanupRef.current.push(() => session.stop());
 						await session.start();
