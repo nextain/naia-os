@@ -56,14 +56,14 @@ three_pillars:
   pillar_2_careti:
     role: "Agent intelligence (LLM + tools + persona)"
     provides:
-      - "Multi-provider LLM: Gemini (default), xAI (Grok), Claude"
+      - "Multi-provider LLM via registry: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama"
       - "Tool definitions: GATEWAY_TOOLS (8 tools)"
       - "Function calling: Gemini native (xAI/Claude = tech debt)"
       - "Alpha persona: system prompt, emotion mapping"
       - "Cost tracking: per-request cost display"
       - "stdio JSON lines protocol: Shell ↔ Agent"
     what_naia_uses:
-      - "LLM providers (gemini.ts, xai.ts, anthropic.ts)"
+      - "LLM provider registry (shell/src/lib/llm/ + agent/src/providers/registry.ts)"
       - "Tool loop (max 10 iterations, abort support)"
       - "Permission tiers 0-3"
       - "stdio protocol (chat_request/text/tool_use/tool_result/etc.)"
@@ -76,7 +76,7 @@ three_pillars:
       - "LSP-style communication pattern"
     what_naia_uses:
       - "Shell (client) / Agent (server) separation via stdio"
-      - "Provider factory pattern (buildProvider)"
+      - "Provider registry pattern (registerLlmProvider → buildProvider)"
       - "Clean module boundaries (shell/agent/gateway)"
 
 runtime_architecture:
@@ -447,6 +447,28 @@ voice_architecture:
         role: "WebSocket proxy: client ↔ Gemini Live SDK session (used by naia provider)"
     model: "configurable via config.liveModel (per-provider defaults exist)"
 
+  # ── LLM Providers (registry pattern) ──────────────────────────
+
+  llm_providers:
+    description: "Extensible LLM provider registry — Settings UI and Agent factory auto-discover from registry"
+    registry:
+      shell_types: "shell/src/lib/llm/types.ts — LlmProviderMeta, LlmModelMeta, LlmVoiceMeta"
+      shell_registry: "shell/src/lib/llm/registry.ts — registerLlmProvider(), listLlmProviders(), isOmniModel(), formatModelLabel()"
+      shell_barrel: "shell/src/lib/llm/index.ts"
+      agent_types: "agent/src/providers/registry.ts — LlmProviderDefinition, registerLlmProvider()"
+      agent_factory: "agent/src/providers/factory.ts — provider registrations + buildProvider()"
+    providers:
+      - "nextain (Naia Cloud — naiaKey, Gemini models via gateway)"
+      - "claude-code-cli (local Claude CLI subscription — no API key)"
+      - "gemini (Google Gemini API — GEMINI_API_KEY)"
+      - "openai (OpenAI GPT — OPENAI_API_KEY, includes GPT-4o Realtime omni)"
+      - "anthropic (Anthropic Claude API — ANTHROPIC_API_KEY)"
+      - "xai (xAI Grok — XAI_API_KEY)"
+      - "zai (Zhipu GLM — ZHIPU_API_KEY)"
+      - "ollama (local, no API key)"
+    adding_provider: "See CONTRIBUTING.md 'Adding an LLM provider' section"
+    type_system: "ProviderId = string (extensible via registry, no hardcoded union)"
+
   # ── STT Providers (independent, pipeline mode) ─────────────────
 
   stt_providers:
@@ -634,6 +656,11 @@ voice_architecture:
       pricing_tts: "$0.000016/char (Neural2)"
       pricing_stt: "$0.006/15s"
       test_key_env: "NAIA_API_KEY in shell/.env"
+    cost_tracking:
+      llm: "agent calculateCost() — client-side estimation from model pricing table"
+      tts: "Shell estimateTtsCost() — per-char estimation, accumulated on assistant message"
+      stt: "Shell estimateSttCost() — per-API-call, session total only (not per message)"
+      note: "Client estimates may differ from gateway actual (e.g. Gemini free tier = $0)"
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
       - "shell/src/lib/voice/sentence-chunker.ts"

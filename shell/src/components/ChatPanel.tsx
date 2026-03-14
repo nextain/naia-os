@@ -1112,17 +1112,12 @@ export function ChatPanel() {
 							});
 							sttCleanupRef.current.push(cleanupError);
 						}
-						// Track STT cost per API call (not per result — silence also costs)
+					// Track STT cost per API call — session total only (not per message)
 						if (session.onCost) {
 							const cleanupCost = session.onCost((cost: { durationSeconds: number }) => {
 								const sttCost = estimateSttCost(sttEngine, cost.durationSeconds);
 								if (sttCost > 0) {
-									useChatStore.getState().addCostEntry({
-										inputTokens: 0, outputTokens: 0,
-										cost: sttCost,
-										provider: "nextain" as ProviderId,
-										model: `stt:${sttEngine}`,
-									});
+									useChatStore.getState().addSessionCost(sttCost);
 								}
 							});
 							sttCleanupRef.current.push(cleanupCost);

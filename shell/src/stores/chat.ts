@@ -47,6 +47,8 @@ interface ChatState {
 	) => void;
 	finishStreaming: () => void;
 	addCostEntry: (entry: CostEntry) => void;
+	/** Add cost to session total only (not attached to any message). Used for STT costs. */
+	addSessionCost: (cost: number) => void;
 	setProvider: (provider: ProviderId) => void;
 	setPendingApproval: (approval: PendingApproval) => void;
 	clearPendingApproval: () => void;
@@ -215,6 +217,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 				totalSessionCost: s.totalSessionCost + entry.cost,
 			};
 		}),
+
+	addSessionCost: (cost) =>
+		set((s) => ({ totalSessionCost: s.totalSessionCost + cost })),
 
 	setProvider: (provider) => set({ provider }),
 
