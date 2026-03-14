@@ -20,8 +20,8 @@ import type { LiveProviderId, VoiceSession } from "./types";
 
 export { type LiveProviderId, type LiveProviderConfig, type VoiceSession, LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS } from "./types";
 export type { GeminiLiveConfig, MiniCpmOConfig, OpenAIRealtimeConfig, ToolDeclaration } from "./types";
-// Re-export voice options from config.ts for backward compatibility
-export { OPENAI_REALTIME_VOICES, GEMINI_LIVE_VOICES } from "../config";
+// Re-export voice options from LLM registry
+export { OPENAI_REALTIME_VOICES, GEMINI_LIVE_VOICES } from "../llm/registry";
 
 interface CreateOptions {
 	/** Use Rust WebSocket proxy for Gemini Direct (bypasses WebKitGTK limitation). */

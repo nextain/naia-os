@@ -185,6 +185,39 @@ Two types of STT providers:
 2. Register metadata in `shell/src/lib/stt/registry.ts` with `engineType: "api"`
 3. Add route in `ChatPanel.tsx` API STT branch
 
+### Adding an LLM provider (3 steps)
+
+1. **Register in agent factory** — In `agent/src/providers/factory.ts`, import your creator and register:
+
+```typescript
+import { createMyProvider } from "./my-provider.js";
+
+registerLlmProvider({
+  id: "my-provider",
+  name: "My LLM Provider",
+  envVar: "MY_PROVIDER_API_KEY",  // fallback env var (optional)
+  create: (apiKey, model) => createMyProvider(apiKey, model),
+});
+```
+
+2. **Register in shell UI** — In `shell/src/lib/llm/registry.ts`:
+
+```typescript
+registerLlmProvider({
+  id: "my-provider",
+  name: "My LLM Provider",
+  description: "Description for settings UI.",
+  descKey: "provider.apiKeyRequired",  // i18n key
+  requiresApiKey: true,
+  defaultModel: "my-model-v1",
+  models: [
+    { id: "my-model-v1", label: "My Model v1", type: "llm", pricing: [1.00, 5.00] },
+  ],
+});
+```
+
+3. **Create provider file** — `agent/src/providers/my-provider.ts` implementing `LLMProvider` interface (see existing providers for reference).
+
 ### Testing your provider
 
 After adding a provider, run the full test suite to verify it works end-to-end.

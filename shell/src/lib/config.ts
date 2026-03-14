@@ -56,48 +56,6 @@ export type TtsProviderId =
 
 export type PanelPosition = "left" | "right" | "bottom";
 
-// ── Model Type (LLM vs Omni) ──
-
-export type ModelType = "llm" | "omni";
-
-export interface ModelOption {
-	id: string;
-	label: string;
-	type: ModelType;
-	/** Whether user can select a voice for this model */
-	voiceSelectable?: boolean;
-	/** Available voices (omni models only) */
-	voices?: { id: string; label: string }[];
-	/** Whether the model provides its own input transcript (omni models) */
-	transcriptProvided?: boolean;
-}
-
-/** Gemini Live voice options */
-export const GEMINI_LIVE_VOICES = [
-	{ id: "Kore", label: "Kore (여성, 차분)" },
-	{ id: "Puck", label: "Puck (남성, 활발)" },
-	{ id: "Charon", label: "Charon (남성)" },
-	{ id: "Aoede", label: "Aoede (여성)" },
-	{ id: "Fenrir", label: "Fenrir (남성)" },
-	{ id: "Leda", label: "Leda (여성)" },
-	{ id: "Orus", label: "Orus (남성)" },
-	{ id: "Zephyr", label: "Zephyr (중성)" },
-] as const;
-
-/** OpenAI Realtime voice options */
-export const OPENAI_REALTIME_VOICES = [
-	{ id: "alloy", label: "Alloy (중성)" },
-	{ id: "ash", label: "Ash (남성)" },
-	{ id: "ballad", label: "Ballad (남성)" },
-	{ id: "coral", label: "Coral (여성)" },
-	{ id: "echo", label: "Echo (남성)" },
-	{ id: "sage", label: "Sage (여성)" },
-	{ id: "shimmer", label: "Shimmer (여성)" },
-	{ id: "verse", label: "Verse (남성)" },
-	{ id: "marin", label: "Marin (추천)" },
-	{ id: "cedar", label: "Cedar (추천)" },
-] as const;
-
 export interface AppConfig {
 	provider: ProviderId;
 	model: string;
@@ -159,89 +117,6 @@ export interface AppConfig {
 	voice?: string;
 }
 
-const DEFAULT_MODELS: Record<ProviderId, string> = {
-	nextain: "gemini-3-flash-preview",
-	"claude-code-cli": "claude-sonnet-4-6",
-	gemini: "gemini-3-flash-preview",
-	openai: "gpt-4o",
-	anthropic: "claude-sonnet-4-6",
-	xai: "grok-3-mini",
-	zai: "glm-4.7",
-	ollama: "",
-};
-
-export const MODEL_OPTIONS: Record<ProviderId, ModelOption[]> = {
-	nextain: [
-		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", type: "llm" },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", type: "llm" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", type: "llm" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", type: "llm" },
-		{
-			id: "gemini-2.5-flash-live",
-			label: "Gemini 2.5 Flash Live 🗣️",
-			type: "omni",
-			voiceSelectable: true,
-			voices: [...GEMINI_LIVE_VOICES],
-			transcriptProvided: true,
-		},
-	],
-	"claude-code-cli": [
-		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", type: "llm" },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", type: "llm" },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", type: "llm" },
-	],
-	gemini: [
-		{ id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro ($2.00 / $12.00)", type: "llm" },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash ($0.50 / $3.00)", type: "llm" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro ($1.25 / $10.00)", type: "llm" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)", type: "llm" },
-		{
-			id: "gemini-2.5-flash-live",
-			label: "Gemini 2.5 Flash Live 🗣️ (~$0.03/min)",
-			type: "omni",
-			voiceSelectable: true,
-			voices: [...GEMINI_LIVE_VOICES],
-			transcriptProvided: true,
-		},
-	],
-	openai: [
-		{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)", type: "llm" },
-		{
-			id: "gpt-4o-realtime",
-			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
-			type: "omni",
-			voiceSelectable: true,
-			voices: [...OPENAI_REALTIME_VOICES],
-			transcriptProvided: true,
-		},
-	],
-	anthropic: [
-		{ id: "claude-opus-4-6", label: "Claude Opus 4.6 ($15.00 / $75.00)", type: "llm" },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 ($3.00 / $15.00)", type: "llm" },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 ($0.80 / $4.00)", type: "llm" },
-	],
-	xai: [{ id: "grok-3-mini", label: "Grok 3 Mini ($0.30 / $0.50)", type: "llm" }],
-	zai: [{ id: "glm-4.7", label: "GLM 4.7 ($0.60 / $2.20)", type: "llm" }],
-	ollama: [],
-};
-
-// ── Model type helpers ──
-
-/** Get the ModelOption for a given provider + model ID */
-export function getModelOption(provider: ProviderId, modelId: string): ModelOption | undefined {
-	return MODEL_OPTIONS[provider]?.find((m) => m.id === modelId);
-}
-
-/** Get the model type for a given provider + model ID (defaults to "llm") */
-export function getModelType(provider: ProviderId, modelId: string): ModelType {
-	return getModelOption(provider, modelId)?.type ?? "llm";
-}
-
-/** Check if a model is an omni (voice-integrated) model */
-export function isOmniModel(provider: ProviderId, modelId: string): boolean {
-	return getModelType(provider, modelId) === "omni";
-}
-
 // ── Sync API (localStorage only, backwards compatible) ──
 
 export function loadConfig(): AppConfig | null {
@@ -258,10 +133,6 @@ export function saveConfig(config: AppConfig): void {
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
-export function isApiKeyOptional(provider: ProviderId | undefined): boolean {
-	return provider === "claude-code-cli" || provider === "ollama";
-}
-
 export function hasApiKey(): boolean {
 	const config = loadConfig();
 	return !!config?.apiKey || !!config?.naiaKey;
@@ -270,8 +141,10 @@ export function hasApiKey(): boolean {
 export function isReadyToChat(): boolean {
 	const config = loadConfig();
 	if (!config) return false;
+	// Import-free check: provider needs no key if it's claude-code-cli or ollama
+	const noKeyNeeded = config.provider === "claude-code-cli" || config.provider === "ollama";
 	return (
-		isApiKeyOptional(config.provider) || !!config.apiKey || !!config.naiaKey
+		noKeyNeeded || !!config.apiKey || !!config.naiaKey
 	);
 }
 
@@ -503,10 +376,6 @@ export function migrateLiveProviderToUnifiedModel(): void {
 
 // ── Utility functions (sync, unchanged) ──
 
-export function getDefaultModel(provider: ProviderId): string {
-	return DEFAULT_MODELS[provider];
-}
-
 export function getDisabledSkills(): string[] {
 	const config = loadConfig();
 	return config?.disabledSkills ?? [];
@@ -563,28 +432,3 @@ export const LAB_GATEWAY_URL =
 	"https://naia-gateway-181404717065.asia-northeast3.run.app";
 
 export const DEFAULT_OLLAMA_HOST = "http://localhost:11434";
-
-export async function fetchOllamaModels(
-	host?: string,
-): Promise<{ models: ModelOption[]; connected: boolean }> {
-	const base = (host || DEFAULT_OLLAMA_HOST).replace(/\/+$/, "");
-	try {
-		const res = await fetch(`${base}/api/tags`);
-		if (!res.ok) return { models: [], connected: false };
-		const data = await res.json();
-		const models: ModelOption[] = (data.models ?? []).map((m: any) => {
-			const sizeGB = m.size ? `${(m.size / 1e9).toFixed(1)}GB` : "";
-			const quant = m.details?.quantization_level ?? "";
-			const params = m.details?.parameter_size ?? "";
-			const extra = [params, sizeGB, quant].filter(Boolean).join(", ");
-			return {
-				id: m.name,
-				label: extra ? `${m.name} (${extra})` : m.name,
-				type: "llm" as const,
-			};
-		});
-		return { models, connected: true };
-	} catch {
-		return { models: [], connected: false };
-	}
-}

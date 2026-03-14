@@ -844,7 +844,13 @@ export function SettingsTab() {
 			const mappedProvider =
 				resolveProvider(m.provider) || resolveProviderFromId(m.id);
 			if (mappedProvider) pushModel(mappedProvider);
-			if (mappedProvider === "anthropic") pushModel("claude-code-cli");
+			// Claude Code CLI uses subscription — add models without pricing
+			if (mappedProvider === "anthropic") {
+				const nameOnly = m.name || modelId;
+				if (!grouped["claude-code-cli"]?.some((x) => x.id === modelId)) {
+					grouped["claude-code-cli"].push({ id: modelId, label: nameOnly, type: "llm" as const });
+				}
+			}
 			// Naia only supports curated Gemini models (from registry)
 			if (mappedProvider === "gemini") {
 				const nextainModelIds = getLlmProvider("nextain")?.models
