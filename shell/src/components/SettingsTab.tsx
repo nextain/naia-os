@@ -158,9 +158,6 @@ function getEdgeVoicesForLocale(loc: string): string[] {
 	);
 }
 
-type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
-type GatewayTtsMode = "final" | "all";
-
 
 const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "ko", label: "한국어" },
@@ -908,14 +905,7 @@ export function SettingsTab() {
 	};
 
 	// Gateway TTS state
-	const [gatewayTtsProviders, setGatewayTtsProviders] = useState<
-		{ id: string; label: string; configured: boolean; voices: string[] }[]
-	>([]);
-	// gatewayTtsActiveProvider tracks which provider the gateway is using (for API sync only)
-	const gatewayTtsActiveProviderRef = useRef("");
-	const [gatewayTtsAuto, setGatewayTtsAuto] = useState<GatewayTtsAuto>("off");
-	const [gatewayTtsMode, setGatewayTtsMode] = useState<GatewayTtsMode>("final");
-	const [, setGatewayTtsLoading] = useState(false);
+	// gatewayTtsApiKey: shared state for TTS API key input (used by multiple providers)
 	const [gatewayTtsApiKey, setGatewayTtsApiKey] = useState(() => {
 		const p = existing?.ttsProvider ?? "edge";
 		if (p === "openai") return existing?.openaiTtsApiKey ?? "";
@@ -937,65 +927,6 @@ export function SettingsTab() {
 	const [resetClearHistory, setResetClearHistory] = useState(false);
 	const [showLabDisconnect, setShowLabDisconnect] = useState(false);
 	const [showReOnboarding, setShowReOnboarding] = useState(false);
-
-	const fetchGatewayTts = useCallback(async () => {
-		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-		setGatewayTtsLoading(true);
-		try {
-			const [statusRes, providersRes] = await Promise.all([
-				directToolCall({
-					toolName: "skill_tts",
-					args: { action: "status" },
-					requestId: `tts-status-${Date.now()}`,
-					gatewayUrl: effectiveGatewayUrl,
-					gatewayToken,
-				}),
-				directToolCall({
-					toolName: "skill_tts",
-					args: { action: "providers" },
-					requestId: `tts-providers-${Date.now()}`,
-					gatewayUrl: effectiveGatewayUrl,
-					gatewayToken,
-				}),
-			]);
-			if (statusRes.success && statusRes.output) {
-				const status = JSON.parse(statusRes.output) as {
-					enabled?: boolean;
-					provider?: string;
-					auto?: GatewayTtsAuto;
-					mode?: GatewayTtsMode;
-				};
-				gatewayTtsActiveProviderRef.current = status.provider || "";
-				// Prefer localStorage values over gateway runtime (which may be stale)
-				const savedConfig = loadConfig();
-				setGatewayTtsAuto(savedConfig?.gatewayTtsAuto as GatewayTtsAuto ?? status.auto ?? "off");
-				setGatewayTtsMode(savedConfig?.gatewayTtsMode as GatewayTtsMode ?? status.mode ?? "final");
-			}
-			if (providersRes.success && providersRes.output) {
-				const raw = JSON.parse(providersRes.output);
-				// Gateway may return array or object with providers
-				const providers = Array.isArray(raw)
-					? raw
-					: Array.isArray(raw?.providers)
-						? raw.providers
-						: Object.entries(raw)
-								.filter(([k]) => k !== "current" && k !== "fallback")
-								.map(([id, v]) => ({
-									id,
-									label: id,
-									configured: (v as Record<string, unknown>)?.configured === true,
-									voices: ((v as Record<string, unknown>)?.voices as string[]) ?? [],
-								}));
-				setGatewayTtsProviders(providers);
-			}
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to load Gateway TTS", {
-				error: String(err),
-			});
-		} finally {
-			setGatewayTtsLoading(false);
-		}
-	}, [gatewayUrl, gatewayToken]);
 
 	const fetchVoiceWake = useCallback(async () => {
 		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
@@ -1052,10 +983,9 @@ export function SettingsTab() {
 	}, [gatewayUrl, gatewayToken]);
 
 	useEffect(() => {
-		fetchGatewayTts();
 		fetchVoiceWake();
 		fetchDiscordBotStatus();
-	}, [fetchGatewayTts, fetchVoiceWake, fetchDiscordBotStatus]);
+	}, [fetchVoiceWake, fetchDiscordBotStatus]);
 
 	useEffect(() => {
 		getAllFacts()
@@ -1318,7 +1248,7 @@ export function SettingsTab() {
 				cfg.provider, cfg.model,
 				undefined, undefined, undefined, undefined, undefined, undefined,
 				undefined, undefined,
-				cfg.ttsProvider, cfg.ttsVoice, gatewayTtsAuto, gatewayTtsMode,
+				undefined, undefined, undefined, undefined,
 				naiaKey || undefined,
 			);
 		}, 2000);
@@ -1468,22 +1398,6 @@ export function SettingsTab() {
 		}
 	}
 
-
-	async function handleGatewayTtsAutoChange(auto: GatewayTtsAuto) {
-		setGatewayTtsAuto(auto);
-		// Persist to localStorage so fetchGatewayTts doesn't revert it
-		const cfg = loadConfig();
-		if (cfg) saveConfig({ ...cfg, gatewayTtsAuto: auto });
-		// Write to openclaw.json then restart gateway to apply
-		await syncToOpenClaw(
-			cfg?.provider || provider, cfg?.model || model,
-			undefined, undefined, undefined, undefined, undefined, undefined,
-			undefined, undefined,
-			ttsProvider, ttsVoice, auto, gatewayTtsMode,
-			naiaKey || undefined,
-		);
-		await restartGateway();
-	}
 
 	function handleVoiceWakeAdd() {
 		const trimmed = voiceWakeInput.trim();
@@ -1647,9 +1561,7 @@ export function SettingsTab() {
 			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
 			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
 			discordDmChannelId: discordDmChannelId.trim() || undefined,
-			gatewayTtsAuto,
-			gatewayTtsMode,
-			ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
+				ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
 			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
 		};
@@ -1673,7 +1585,7 @@ export function SettingsTab() {
 			discordDefaultUserId: newConfig.discordDefaultUserId,
 			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, newConfig.ttsProvider, newConfig.ttsVoice, gatewayTtsAuto, gatewayTtsMode, naiaKey || undefined, newConfig.ollamaHost || undefined)
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, undefined, undefined, undefined, undefined, naiaKey || undefined, newConfig.ollamaHost || undefined)
 			.then(() => restartGateway());
 
 		// Auto-sync to Lab if connected
@@ -2565,13 +2477,7 @@ export function SettingsTab() {
 							id="tts-toggle"
 							type="checkbox"
 							checked={ttsEnabled}
-							onChange={(e) => {
-								const on = e.target.checked;
-								setTtsEnabled(on);
-								if (!on && gatewayTtsAuto !== "off") {
-									handleGatewayTtsAutoChange("off");
-								}
-							}}
+							onChange={(e) => setTtsEnabled(e.target.checked)}
 						/>
 					</div>
 					{/* TTS Provider selector */}
@@ -2685,17 +2591,9 @@ export function SettingsTab() {
 					{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
 						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
-						// Edge: prefer gateway voices, fallback to hardcoded
+						// Edge: use locale-based hardcoded voice list
 						if (ttsProvider === "edge") {
-							const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
-							let gwVoices = gwProvider?.voices ?? [];
-							if (gwVoices.length > 0) {
-								const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
-								gwVoices = gwVoices.filter(
-									(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
-								);
-							}
-							const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
+							const voices = getEdgeVoicesForLocale(locale);
 							return voices.length > 0 ? (
 								<div className="settings-field">
 									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
