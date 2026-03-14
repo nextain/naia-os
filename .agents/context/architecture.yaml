@@ -562,8 +562,8 @@ voice_architecture:
   # ── Testing ────────────────────────────────────────────────────
 
   testing:
-    description: "97 tests across 11 specs — real API keys, actual app UI, chat pipeline"
-    total: "97 tests (87 Tauri + 10 Playwright)"
+    description: "123+ tests — real API keys, actual audio verification, STT×TTS combos"
+    total: "123+ tests (103 Tauri + 10 Playwright + 10+ unit)"
     tauri_e2e:
       - "76-tts-provider-switching (12) — TTS dropdown, API key, voice, Edge preview"
       - "77-stt-provider-switching (7) — STT dropdown, order free→Naia→paid, API key"
@@ -574,21 +574,19 @@ voice_architecture:
       - "82-chat-tts-multi-model (6) — model switching preserves TTS"
       - "83-tts-per-model-verification (15) — 5 LLM providers × model: chat + TTS"
       - "84-chat-tts-per-provider (12) — 4 TTS providers: UI key input → save → chat → verify"
+      - "85-voice-actual-recording (7) — WebKitGTK MediaRecorder, mic, STT init"
+      - "86-stt-tts-full-pipeline (8) — Google STT × Edge/OpenAI/ElevenLabs TTS pipeline"
+      - "87-tts-audio-verification (5) — actual audio data received: 4 TTS providers"
+      - "88-stt-tts-combo-verification (6) — 5 STT×TTS combos: voice activation"
     playwright_e2e:
-      - "pipeline-voice (10) — STT mock → LLM → TTS, debounce, interrupt, Whisper engine"
-    unit_tests:
-      - "SettingsTab.test.tsx (15) — Settings UI rendering"
-      - "ChatPanel.test.tsx (15) — Chat panel rendering"
-      - "tts-voice-validity.test.ts (17+) — all registered voices produce audio"
+      - "pipeline-voice (10) — STT mock → LLM → TTS, debounce, interrupt, Whisper"
     e2e_principle: |
-      E2E = actual app UI. Every test:
-      1. Launches real Tauri app (WebDriver)
-      2. Selects provider in dropdown (UI)
-      3. Types API key in input field (UI)
-      4. Selects voice (UI)
-      5. Clicks preview / sends chat (UI)
-      6. Verifies actual result (no error, audio played, response received)
-      Never mock API calls in E2E — use real .env keys.
+      E2E = actual app UI with real API keys. Tests must verify:
+      1. Actual audio DATA received (not just "no error")
+      2. Audio.play() actually called
+      3. STT MediaRecorder actually creates chunks
+      4. All provider combos tested
+      Test code itself must be reviewed before trusting results.
     run_all: |
       cd shell && pnpm test                                          # Unit tests
       cd agent && pnpm test                                          # Agent tests

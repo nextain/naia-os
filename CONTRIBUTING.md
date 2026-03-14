@@ -230,7 +230,7 @@ voice button state transitions, and TTS audio in chat. Uses real microphone acce
 npx playwright test e2e/pipeline-voice.spec.ts
 ```
 
-### Full test suite (112+ tests)
+### Full test suite (123+ tests)
 
 | Test | Type | Count | What it covers |
 |------|------|-------|----------------|
@@ -245,6 +245,8 @@ npx playwright test e2e/pipeline-voice.spec.ts
 | `84-chat-tts-per-provider` | Tauri E2E | 12 | 4 TTS providers: UI key input → save → chat |
 | `85-voice-actual-recording` | Tauri E2E | 7 | Real MediaRecorder, mic access, STT init, voice button |
 | `86-stt-tts-full-pipeline` | Tauri E2E | 8 | Google STT × Edge/OpenAI/ElevenLabs TTS, full voice pipeline |
+| `87-tts-audio-verification` | Tauri E2E | 5 | Actual audio data received: Edge/OpenAI/Google/ElevenLabs |
+| `88-stt-tts-combo-verification` | Tauri E2E | 6 | 5 STT×TTS combos: voice activation verified |
 | `pipeline-voice` | Playwright | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
 | `tts-voice-validity` | Vitest | 17+ | All registered voices produce audio |
 
