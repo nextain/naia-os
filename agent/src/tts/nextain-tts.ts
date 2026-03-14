@@ -8,7 +8,7 @@ export async function synthesizeNextainSpeech(
 ): Promise<string | null> {
 	if (!text.trim() || !naiaKey) return null;
 
-	const selectedVoice = voice || "ko-KR-Neural2-A";
+	const selectedVoice = voice || "ko-KR-Chirp3-HD-Kore";
 
 	try {
 		const res = await fetch(`${GATEWAY_URL}/v1/audio/speech`, {

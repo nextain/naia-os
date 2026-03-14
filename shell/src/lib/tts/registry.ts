@@ -1,23 +1,62 @@
-import type { TtsProviderMeta } from "./types";
+import type { TtsProviderMeta, TtsVoiceMeta } from "./types";
 
 const providers = new Map<string, TtsProviderMeta>();
 
-/** Register a TTS provider's metadata. */
 export function registerTtsProviderMeta(meta: TtsProviderMeta): void {
 	providers.set(meta.id, meta);
 }
 
-/** Get a registered TTS provider by id. */
 export function getTtsProviderMeta(id: string): TtsProviderMeta | undefined {
 	return providers.get(id);
 }
 
-/** List all registered TTS providers. */
 export function listTtsProviderMetas(): TtsProviderMeta[] {
 	return Array.from(providers.values());
 }
 
-// ── Built-in providers (order: free → Naia → paid) ──
+// ── Shared: Google TTS voice fetcher (used by both Naia Cloud and Google direct) ──
+
+async function fetchGoogleVoices(apiKey: string): Promise<TtsVoiceMeta[] | null> {
+	try {
+		const locale = document.documentElement.lang || navigator.language || "ko-KR";
+		const langCode = locale.slice(0, 5);
+		const resp = await fetch(
+			`https://texttospeech.googleapis.com/v1/voices?languageCode=${langCode}&key=${apiKey}`,
+		);
+		if (!resp.ok) return null;
+		const data = await resp.json();
+		const genderLabel = (g?: string) => g === "FEMALE" ? "여성" : g === "MALE" ? "남성" : "";
+		const shortName = (name: string) => name.replace(new RegExp(`^${langCode}-`), "").replace(/^(Chirp3-HD-|Neural2-)/, "");
+		return (data.voices ?? [])
+			.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp") || v.name?.includes("Wavenet"))
+			.map((v: { name: string; ssmlGender?: string }) => ({
+				id: v.name,
+				label: `${shortName(v.name)}${genderLabel(v.ssmlGender) ? ` (${genderLabel(v.ssmlGender)})` : ""}`,
+				language: langCode,
+				gender: v.ssmlGender === "FEMALE" ? "female" as const : v.ssmlGender === "MALE" ? "male" as const : "neutral" as const,
+			}));
+	} catch {
+		return null;
+	}
+}
+
+// ── Shared: Google TTS static voice list (fallback when API unavailable) ──
+
+const GOOGLE_TTS_VOICES: TtsVoiceMeta[] = [
+	{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", gender: "female" },
+	{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", gender: "male" },
+	{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", gender: "male" },
+	{ id: "ko-KR-Chirp3-HD-Aoede", label: "Aoede (여성)", gender: "female" },
+	{ id: "ko-KR-Chirp3-HD-Fenrir", label: "Fenrir (남성)", gender: "male" },
+	{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", gender: "female" },
+	{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", gender: "male" },
+	{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", gender: "neutral" },
+	{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", gender: "female" },
+	{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", gender: "female" },
+	{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", gender: "male" },
+];
+
+// ── Providers (order: free → Naia → paid) ──
 
 registerTtsProviderMeta({
 	id: "edge",
@@ -26,26 +65,16 @@ registerTtsProviderMeta({
 	requiresApiKey: false,
 	isFree: true,
 	pricing: "Free",
-	// Edge voices are fetched dynamically from Gateway — no static list needed
 });
 
 registerTtsProviderMeta({
 	id: "nextain",
 	name: "Naia Cloud TTS",
-	description: "Cloud TTS without API key. Currently Google Chirp 3 HD, more providers coming.",
+	description: "Cloud TTS without API key. Currently Google Chirp 3 HD + Neural2.",
 	requiresApiKey: false,
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
-	voices: [
-		{ id: "Kore", label: "Kore (여성, 차분)", gender: "female" },
-		{ id: "Puck", label: "Puck (남성, 활발)", gender: "male" },
-		{ id: "Charon", label: "Charon (남성)", gender: "male" },
-		{ id: "Aoede", label: "Aoede (여성)", gender: "female" },
-		{ id: "Fenrir", label: "Fenrir (남성)", gender: "male" },
-		{ id: "Leda", label: "Leda (여성)", gender: "female" },
-		{ id: "Orus", label: "Orus (남성)", gender: "male" },
-		{ id: "Zephyr", label: "Zephyr (중성)", gender: "neutral" },
-	],
+	voices: GOOGLE_TTS_VOICES,
 });
 
 registerTtsProviderMeta({
@@ -55,30 +84,8 @@ registerTtsProviderMeta({
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
 	pricing: "$0.016/1K 글자",
-	// Voices fetched dynamically from Google API — supports all locales
-	async fetchVoices(apiKey) {
-		try {
-			const locale = document.documentElement.lang || navigator.language || "ko-KR";
-			const langCode = locale.slice(0, 5); // "ko-KR", "en-US", etc.
-			const resp = await fetch(
-				`https://texttospeech.googleapis.com/v1/voices?languageCode=${langCode}&key=${apiKey}`,
-			);
-			if (!resp.ok) return null;
-			const data = await resp.json();
-			const genderLabel = (g?: string) => g === "FEMALE" ? "여성" : g === "MALE" ? "남성" : "";
-			const shortName = (name: string) => name.replace(new RegExp(`^${langCode}-`), "").replace(/^(Chirp3-HD-|Neural2-)/, "");
-			return (data.voices ?? [])
-				.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp") || v.name?.includes("Wavenet"))
-				.map((v: { name: string; ssmlGender?: string }) => ({
-					id: v.name,
-					label: `${shortName(v.name)}${genderLabel(v.ssmlGender) ? ` (${genderLabel(v.ssmlGender)})` : ""}`,
-					language: langCode,
-					gender: v.ssmlGender === "FEMALE" ? "female" as const : v.ssmlGender === "MALE" ? "male" as const : "neutral" as const,
-				}));
-		} catch {
-			return null;
-		}
-	},
+	voices: GOOGLE_TTS_VOICES,
+	fetchVoices: fetchGoogleVoices,
 });
 
 registerTtsProviderMeta({
@@ -112,7 +119,6 @@ registerTtsProviderMeta({
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
 	pricing: "$0.30/1K 글자",
-	// Voices fetched dynamically from ElevenLabs API
 	async fetchVoices(apiKey) {
 		try {
 			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=50", {
