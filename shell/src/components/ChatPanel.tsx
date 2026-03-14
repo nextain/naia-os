@@ -533,22 +533,48 @@ export function ChatPanel() {
 			.filter((m) => m.role === "user" || m.role === "assistant")
 			.map((m) => ({ role: m.role, content: m.content }));
 
-		// In pipeline voice mode, disable Agent auto-TTS (we handle TTS via sentence chunking)
-		const ttsEnabled = pipelineActiveRef.current ? false : config.ttsEnabled !== false;
+		// TTS is handled by Shell via SentenceChunker (both chat and pipeline mode).
+		// Agent auto-TTS disabled — Shell controls TTS directly via requestTts IPC.
+		const chatTtsEnabled = !pipelineActiveRef.current && config.ttsEnabled === true;
 		const activeProvider = config.provider || provider;
-		// Derive ttsEngine from ttsProvider (new) or fall back to legacy ttsEngine
-		// Only "google" provider uses direct Google TTS; all others use Gateway
-		const cfgTtsProvider = config.ttsProvider;
-		const ttsEngine: "google" | "openclaw" = cfgTtsProvider
-			? (cfgTtsProvider === "google" || cfgTtsProvider === "nextain" ? "google" : "openclaw")
-			: ((config.ttsEngine ?? "auto") === "google" ? "google" : "openclaw");
-		const wantsGatewayForTts =
-			ttsEnabled && ttsEngine === "openclaw";
+
+		// Initialize SentenceChunker + AudioQueue for chat TTS (same path as pipeline)
+		if (chatTtsEnabled && !sentenceChunkerRef.current) {
+			const queue = new AudioQueue({
+				onPlaybackStart: () => {
+					useAvatarStore.getState().setSpeaking(true);
+					ttsPlayingRef.current = true;
+					setTtsPlaying(true);
+				},
+				onPlaybackEnd: () => {
+					useAvatarStore.getState().setSpeaking(false);
+					ttsPlayingRef.current = false;
+					setTtsPlaying(false);
+				},
+			});
+			audioQueueRef.current = queue;
+			sentenceChunkerRef.current = new SentenceChunker();
+			pipelineVoiceConfigRef.current = {
+				voice: config.ttsProvider === "nextain"
+					? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
+					: config.ttsVoice,
+				ttsProvider: config.ttsProvider || "edge",
+				ttsApiKey: config.ttsProvider === "google"
+					? (config.googleApiKey || config.apiKey)
+					: config.ttsProvider === "openai"
+					? config.openaiTtsApiKey
+					: config.ttsProvider === "elevenlabs"
+					? config.elevenlabsApiKey
+					: undefined,
+				naiaKey: config.naiaKey,
+			};
+		}
+
 		const memoryCtx = await buildMemoryContext();
 		Logger.info("ChatPanel", "handleSend → sendChatMessage", {
 			pipelineActive: pipelineActiveRef.current,
+			chatTtsEnabled,
 			hasChunker: !!sentenceChunkerRef.current,
-			ttsEnabled,
 			requestId,
 			textPreview: text.slice(0, 40),
 		});
@@ -563,36 +589,20 @@ export function ChatPanel() {
 					ollamaHost: activeProvider === "ollama" ? config.ollamaHost : undefined,
 				},
 				naiaKey: config.naiaKey || undefined,
-				history: history.slice(0, -1), // exclude last (just added) user msg
+				history: history.slice(0, -1),
 				onChunk: (chunk) => handleChunk(chunk, activeProvider),
 				requestId,
-				ttsVoice: ttsEnabled
-					? (cfgTtsProvider === "nextain"
-						? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
-						: config.ttsVoice)
-					: undefined,
-				ttsApiKey: ttsEnabled
-					? (cfgTtsProvider === "google"
-						? (config.googleApiKey || (activeProvider === "gemini" ? config.apiKey : ""))
-						: cfgTtsProvider === "openai"
-						? (config.openaiTtsApiKey || undefined)
-						: cfgTtsProvider === "elevenlabs"
-						? (config.elevenlabsApiKey || undefined)
-						: undefined)
-					: undefined,
-				ttsEngine: ttsEnabled ? ttsEngine : undefined,
-				ttsProvider: ttsEnabled ? cfgTtsProvider : undefined,
+				// TTS handled by Shell — don't send TTS params to agent
 				systemPrompt: pipelineActiveRef.current
 					? `You are in a voice conversation. Keep responses brief and conversational (2-3 sentences max). Speak naturally as if talking to a friend.\n\n${buildSystemPrompt(config.persona, memoryCtx)}`
 					: buildSystemPrompt(config.persona, memoryCtx),
-				// Pipeline voice: disable tools to prevent tool loops that block TTS
 				enableTools: pipelineActiveRef.current ? false : config.enableTools,
 				gatewayUrl:
-					!pipelineActiveRef.current && (config.enableTools || wantsGatewayForTts)
+					!pipelineActiveRef.current && config.enableTools
 						? config.gatewayUrl || "ws://localhost:18789"
 						: undefined,
 				gatewayToken:
-					!pipelineActiveRef.current && (config.enableTools || wantsGatewayForTts)
+					!pipelineActiveRef.current && config.enableTools
 						? config.gatewayToken
 						: undefined,
 				disabledSkills: !pipelineActiveRef.current && config.enableTools
@@ -640,8 +650,8 @@ export function ChatPanel() {
 					const { emotion } = parseEmotion(accumulated);
 					setEmotion(emotion);
 				}
-				// Pipeline voice: chunk text into sentences and send to TTS
-				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+				// Sentence-level TTS — same path for both pipeline and chat mode
+				if (sentenceChunkerRef.current) {
 					const sentences = sentenceChunkerRef.current.feed(chunk.text);
 					if (sentences.length > 0) {
 						Logger.info("ChatPanel", "SentenceChunker produced sentences", { count: sentences.length, sentences });
@@ -649,11 +659,6 @@ export function ChatPanel() {
 					for (const sentence of sentences) {
 						sendSentenceToTts(sentence);
 					}
-				} else {
-					Logger.debug("ChatPanel", "Pipeline voice TTS skipped", {
-						pipelineActive: pipelineActiveRef.current,
-						hasChunker: !!sentenceChunkerRef.current,
-					});
 				}
 				break;
 			}
@@ -661,8 +666,9 @@ export function ChatPanel() {
 				store.appendThinkingChunk(chunk.text);
 				break;
 			case "audio":
-				// In pipeline mode, ignore Agent auto-TTS audio (we handle TTS ourselves)
-				if (!pipelineActiveRef.current) {
+				// Agent auto-TTS disabled — Shell handles TTS via SentenceChunker.
+				// This case handles legacy audio events if any.
+				if (!sentenceChunkerRef.current) {
 					playBase64Audio(chunk.data);
 				}
 				break;
@@ -717,22 +723,17 @@ export function ChatPanel() {
 				break;
 			}
 			case "finish":
-				// Pipeline voice: flush remaining text to TTS
-				if (pipelineActiveRef.current && sentenceChunkerRef.current) {
+				// Flush remaining text to TTS (both pipeline and chat mode)
+				if (sentenceChunkerRef.current) {
 					const remaining = sentenceChunkerRef.current.flush();
-					Logger.info("ChatPanel", "Pipeline voice flush on finish", {
-						hasRemaining: !!remaining,
-						remainingLen: remaining?.length ?? 0,
-						remainingPreview: remaining?.slice(0, 60),
-					});
 					if (remaining) {
+						Logger.info("ChatPanel", "SentenceChunker flush on finish", { remaining: remaining.slice(0, 60) });
 						sendSentenceToTts(remaining);
 					}
-				} else {
-					Logger.debug("ChatPanel", "finish: pipeline TTS flush skipped", {
-						pipelineActive: pipelineActiveRef.current,
-						hasChunker: !!sentenceChunkerRef.current,
-					});
+					// Chat mode: clean up chunker after message complete (pipeline keeps it)
+					if (!pipelineActiveRef.current) {
+						sentenceChunkerRef.current = null;
+					}
 				}
 				if (store.isStreaming) {
 					store.finishStreaming();
