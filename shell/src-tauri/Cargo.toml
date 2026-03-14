@@ -5,6 +5,11 @@ description = "Naia Shell - AI Avatar Desktop"
 authors = ["Luke"]
 edition = "2021"
 
+[features]
+default = []
+cuda = ["tauri-plugin-stt/cuda"]
+cuda-dynamic = ["tauri-plugin-stt/cuda-dynamic"]
+
 [lib]
 name = "naia_shell_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
@@ -17,7 +22,7 @@ tauri = { version = "2", features = ["image-png"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking", "stream"] }
 tokio = { version = "1", features = ["sync", "macros"] }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
@@ -33,6 +38,10 @@ getrandom = "0.3"
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+tauri-plugin-stt = { path = "plugins/tauri-plugin-stt" }
+log = "0.4"
+env_logger = "0.11"
+zip = "2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt"] }

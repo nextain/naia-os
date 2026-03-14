@@ -12,6 +12,8 @@ export const LAB_SYNC_FIELDS = [
 	"theme",
 	"backgroundImage",
 	"vrmModel",
+	"sttProvider",
+	"sttModel",
 	"ttsEnabled",
 	"ttsVoice",
 	"ttsProvider",

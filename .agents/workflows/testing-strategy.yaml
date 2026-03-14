@@ -44,12 +44,20 @@ test_pyramid:
     scope: "Full Tauri binary launch, real LLM calls, real skill execution via Gateway"
     location: "shell/e2e-tauri/specs/*.spec.ts"
     run: "cd shell && pnpm run test:e2e:tauri"
+    principle: "MUST actually run the application — never just check integration flow"
     prerequisites:
       - "webkit2gtk-driver installed"
       - "tauri-driver installed (cargo install tauri-driver --locked)"
-      - "shell/.env with GEMINI_API_KEY"
+      - "shell/.env with GEMINI_API_KEY (if missing → ask user)"
       - "Gateway running on :18789"
       - "Debug binary built"
+    execution_order:
+      - "1. Check .env for required test data (API keys, tokens, URLs)"
+      - "2. If .env vars missing → ask user to provide them (never guess)"
+      - "3. Start dev server / app"
+      - "4. Run targeted tests first (only specs covering changed code) for fast feedback"
+      - "5. On pass → run full E2E suite"
+      - "6. On fail → fix and re-run targeted tests before full suite"
     scenarios:
       - "01 App launch → settings modal"
       - "02 Configure settings → API key, gateway, tool permissions"

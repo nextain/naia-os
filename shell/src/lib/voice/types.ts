@@ -10,12 +10,13 @@
 
 // ── Provider ID ──
 
-export type LiveProviderId = "naia" | "gemini-live" | "openai-realtime" | "edge-tts";
+export type LiveProviderId = "naia" | "gemini-live" | "openai-realtime" | "minicpm-o" | "edge-tts";
 
 export const LIVE_PROVIDER_LABELS: Record<LiveProviderId, string> = {
 	naia: "Naia OS",
 	"gemini-live": "Gemini",
 	"openai-realtime": "OpenAI",
+	"minicpm-o": "MiniCPM-o (Local)",
 	"edge-tts": "Edge (TTS 전용)",
 };
 
@@ -25,23 +26,13 @@ export const LIVE_PROVIDER_COST_HINTS: Record<LiveProviderId, { cost: string; no
 	naia: { cost: "~$0.03/min", note: "Naia credits" },
 	"gemini-live": { cost: "~$0.03/min", note: "Google API Key" },
 	"openai-realtime": { cost: "~$0.10/min", note: "OpenAI API Key" },
+	"minicpm-o": { cost: "Free*", note: "Local GPU / RunPod ~$0.22/hr" },
 	"edge-tts": { cost: "Free", note: "TTS only" },
 };
 
 // ── Provider Voice Options ──
-
-export const OPENAI_REALTIME_VOICES = [
-	{ id: "alloy", label: "Alloy (중성)" },
-	{ id: "ash", label: "Ash (남성)" },
-	{ id: "ballad", label: "Ballad (남성)" },
-	{ id: "coral", label: "Coral (여성)" },
-	{ id: "echo", label: "Echo (남성)" },
-	{ id: "sage", label: "Sage (여성)" },
-	{ id: "shimmer", label: "Shimmer (여성)" },
-	{ id: "verse", label: "Verse (남성)" },
-	{ id: "marin", label: "Marin (추천)" },
-	{ id: "cedar", label: "Cedar (추천)" },
-] as const;
+// Voice options are now defined in config.ts (OPENAI_REALTIME_VOICES, GEMINI_LIVE_VOICES)
+// and re-exported from voice/index.ts for backward compatibility.
 
 // ── Tool Declaration (shared across providers) ──
 
@@ -74,9 +65,16 @@ export interface OpenAIRealtimeConfig extends LiveProviderConfigBase {
 	apiKey: string;
 }
 
+export interface MiniCpmOConfig extends LiveProviderConfigBase {
+	provider: "minicpm-o";
+	/** Bridge server WebSocket URL (e.g. ws://localhost:8765). Provider appends /ws. */
+	serverUrl: string;
+}
+
 export type LiveProviderConfig =
 	| GeminiLiveConfig
-	| OpenAIRealtimeConfig;
+	| OpenAIRealtimeConfig
+	| MiniCpmOConfig;
 
 // ── Voice Session (provider-agnostic interface) ──
 

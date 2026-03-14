@@ -243,7 +243,8 @@ A dual documentation structure for AI agents and human developers. `.agents/` co
 - Linux (Bazzite, Ubuntu, Fedora, etc.)
 - Node.js 22+, pnpm 9+
 - Rust stable (for Tauri build)
-- System packages: `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel` (Fedora)
+- System packages (Fedora): `webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel`
+- cmake (for whisper.cpp build)
 
 ### Development Run
 

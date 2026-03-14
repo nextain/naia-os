@@ -355,6 +355,8 @@ describe("ChatPanel", () => {
 	// === Session loading from Gateway ===
 
 	it("loads session from Gateway on mount", async () => {
+		// Set discordSessionMigrated so it skips migration and loads history
+		localStorage.setItem("naia-config", JSON.stringify({ discordSessionMigrated: true }));
 		const { getGatewayHistory } = await import("../../lib/gateway-sessions");
 		(getGatewayHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{
@@ -379,6 +381,8 @@ describe("ChatPanel", () => {
 		expect(state.messages).toHaveLength(2);
 		expect(state.messages[0].content).toBe("이전 메시지");
 		expect(state.messages[1].content).toBe("이전 응답");
+
+		localStorage.removeItem("naia-config");
 	});
 
 	it("renders new conversation button", () => {

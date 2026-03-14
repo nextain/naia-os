@@ -407,50 +407,34 @@ How Naia Agent connects to OpenClaw Gateway:
 
 ## Voice Architecture
 
-> Last updated: 2026-03-10
+> Last updated: 2026-03-14
 
 ### Overview
 
-Naia supports two voice output modes that share a single voice setting:
+Voice interaction depends on the **LLM model type**:
 
-1. **Live Voice Conversation** — real-time bidirectional audio via provider pattern
-2. **TTS (Text-to-Speech)** — text chat responses read aloud
+- **Omni models** (Gemini Live, OpenAI Realtime): Voice I/O is built into the LLM. No separate STT/TTS needed — the model handles speech input and output natively.
+- **Standard LLM models**: Voice via independent **STT → LLM → TTS pipeline**. STT and TTS are separate, independently selectable providers.
 
-Naia account users use the same Chirp 3 HD voice (e.g., "Kore") for both modes.
+When an omni model is active, STT/TTS provider settings are disabled. **STT providers, TTS providers, and LLM providers are three independent categories.**
 
-### Voice Setting Unification
+---
 
-| Item | Value |
-|------|-------|
-| Config field | `liveVoice` |
-| Stored value | Short name (e.g., `"Kore"`, `"Puck"`) |
-| Live API usage | Passed directly as voice parameter |
-| TTS usage | ChatPanel derives full name: `ko-KR-Chirp3-HD-{liveVoice}` |
+### Omni Models (LLM with Built-in Voice)
 
-**Available voices (Naia/Gemini):**
-Kore (female, calm), Puck (male, lively), Charon (male, deep), Aoede (female, bright), Fenrir (male, low), Leda (female, soft), Orus (male, firm), Zephyr (neutral), Achernar, Gacrux, Sulafat, Umbriel
-
-Non-Naia providers (google, edge, openai, elevenlabs) use a separate `ttsVoice` field.
-
-### Live Voice Conversation (Provider Pattern)
-
-Live voice uses a **provider-based architecture** mirroring text LLM providers.
+LLM models with built-in bidirectional voice I/O — voice is an LLM capability, not a separate STT/TTS concern.
 
 **Type:** `LiveProviderId = "naia" | "gemini-live" | "openai-realtime"`
 
 **Factory:** `createVoiceSession(provider, options?) → VoiceSession` (`shell/src/lib/voice/index.ts`)
-
-**Config:** `liveProvider` field in localStorage config, selectable in Settings UI
 
 #### Providers
 
 | Provider | Route | Auth | File |
 |----------|-------|------|------|
 | **naia** | Browser WS → any-llm gateway `/v1/live` → Gemini Live API | naiaKey | `voice/gemini-live.ts` |
-| **gemini-live** | Tauri cmd → Rust WS proxy (tokio-tungstenite) → Gemini Live API | Google API key | `voice/gemini-live-proxy.ts` + `src-tauri/src/gemini_live.rs` |
+| **gemini-live** | Tauri cmd → Rust WS proxy → Gemini Live API | Google API key | `voice/gemini-live-proxy.ts` |
 | **openai-realtime** | Browser WS → `wss://api.openai.com/v1/realtime` | OpenAI API key | `voice/openai-realtime.ts` |
-
-**Gemini Direct (Rust proxy):** WebKitGTK cannot connect to `wss://generativelanguage.googleapis.com` (hangs silently). The Rust proxy (tokio-tungstenite) handles the WebSocket connection, relaying messages via Tauri events/commands. Google sends JSON as Binary WebSocket frames — `msg_to_text()` handles both Text and Binary.
 
 #### VoiceSession Interface
 
@@ -458,51 +442,110 @@ All providers implement a unified `VoiceSession` interface:
 - **Methods:** `connect()`, `sendAudio(base64)`, `sendText(text)`, `sendToolResponse(id, result)`, `disconnect()`
 - **Events:** `onAudio`, `onInputTranscript`, `onOutputTranscript`, `onTurnEnd`, `onInterrupted`, `onToolCall`, `onError`, `onDisconnect`
 
-#### Shared Components
+#### Voice Setting
 
-| File | Role |
-|------|------|
-| `shell/src/components/ChatPanel.tsx` | UI state (off/connecting/active), event wiring, transcript accumulation |
-| `shell/src/lib/voice/types.ts` | Provider types, config interfaces, voice option lists |
-| `shell/src/lib/audio-player.ts` | Continuous PCM playback (24kHz Int16 mono → AudioContext) |
-| `shell/src/lib/mic-stream.ts` | Mic capture, downsample to 16kHz PCM, emit base64 chunks |
-| `project-any-llm/.../routes/live.py` | WebSocket proxy for naia provider (client ↔ Gemini Live SDK session) |
+Config field: `liveVoice` (short name e.g., "Kore", "Puck")
 
-**Key technical details:**
-- `session.receive()` iterator breaks after `turnComplete` (SDK behavior) → wrapped in `while True` for multi-turn
-- Token usage accumulated with `+=` across turns for correct billing
-- AudioContext auto-suspends in webkit2gtk → requires `ctx.resume()` call
-- Transcripts arrive word-by-word → accumulated via `inputAccum`/`outputAccum` (not overwritten)
+Available voices: Kore (female, calm), Puck (male, lively), Charon (male, deep), Aoede (female, bright), Fenrir (male, low), Leda (female, soft), Orus (male, firm), Zephyr (neutral), + more
 
-**Model:** Configurable per provider via `config.liveModel` (each provider has its own default)
+**Gemini Direct note:** WebKitGTK cannot connect to Gemini WSS directly (hangs silently). Uses Rust tokio-tungstenite proxy via Tauri commands.
 
-### TTS (Text-to-Speech)
+---
+
+### STT Providers (Independent, Pipeline Mode)
+
+Independent STT provider registry — used only in pipeline mode for standard LLM models. Omni models have built-in speech recognition and do NOT use these providers.
+
+**Registry files:**
+- `shell/src/lib/stt/types.ts` — `SttProviderMeta`, `SttModelMeta`
+- `shell/src/lib/stt/registry.ts` — `registerSttProvider()`, `getSttProvider()`, `listSttProviders()`
+
+#### Providers
+
+| Provider | Engine | Type | Description |
+|----------|--------|------|-------------|
+| **vosk** | vosk | offline, streaming | Lightweight, ~40-80MB models per language |
+| **whisper** | whisper | offline, batch | Higher accuracy, GPU-accelerated (whisper-rs) |
+| google | — | disabled | Future API support |
+| elevenlabs | — | disabled | Future API support |
+
+**Config fields:** `sttProvider` ("vosk"|"whisper"), `sttModel` (model_id string)
+**Settings UI:** STT provider dropdown + model list with size/WER, download/delete buttons
+**First install:** No `sttProvider` set → voice button shows popup → navigate to settings
+
+**Vosk models:** ko-KR (82MB), en-US (40MB), ja-JP (48MB) — streaming, auto-download
+**Whisper models:** tiny (75MB) → large-v3 (3GB) — batch inference every 2s or 1.5s silence
+
+**CUDA Dynamic Loading:** Single binary works on both NVIDIA/non-NVIDIA. 2-pass CMake build, runtime dlopen/LoadLibrary detection. Fork: `nextain/whisper-rs-fork` (cuda-dynamic feature).
+- **Linux:** Tested — CPU fallback verified in CUDA-free distrobox
+- **Windows:** Untested — build.rs .dll patterns added but not verified on MSVC builds
+
+---
+
+### TTS Providers (Independent, Pipeline Mode + Chat Auto-TTS)
+
+Independent TTS provider registry — used in pipeline mode and chat auto-TTS. Omni models produce voice output directly and do NOT use these providers.
 
 **Default provider:** `edge` (free, no login required)
 
-**naiaKey routing:** TTS auth (`naiaKey`) is independent of LLM provider selection. `ChatRequest` carries `naiaKey` as a top-level field, so Naia Cloud TTS works even when LLM is set to gemini/openai/xai/anthropic.
+**Registry files:**
+- Agent: `agent/src/tts/types.ts`, `registry.ts`, `index.ts` — runtime dispatch
+- Shell: `shell/src/lib/tts/types.ts`, `registry.ts` — Settings UI metadata
 
-| Provider | Route | Voices |
-|----------|-------|--------|
-| nextain | ChatPanel → agent → nextain-tts.ts → any-llm gateway → Google Cloud TTS | Chirp 3 HD (derived from liveVoice) |
-| google | ChatPanel → agent → OpenClaw gateway → Google Cloud TTS | Neural2 series |
-| edge | ChatPanel → agent → OpenClaw gateway → Edge TTS | Free |
-| openai | ChatPanel → agent → OpenClaw gateway → OpenAI TTS | OpenAI voices |
-| elevenlabs | ChatPanel → agent → OpenClaw gateway → ElevenLabs | ElevenLabs voices |
+**Adding a new TTS provider:**
+1. Create `agent/src/tts/{name}.ts` — implement `TtsProviderDefinition`
+2. Call `registerTtsProvider({...})` at module scope
+3. Add import in `agent/src/tts/index.ts`
+4. Add `TtsProviderMeta` in `shell/src/lib/tts/registry.ts`
 
-### STT Status
+#### Providers
 
-Legacy STT (`stt.ts`, `audio-recorder.ts`) and the `sttEnabled` config toggle have been removed.
-Real-time speech input is handled by each live provider's built-in speech recognition (Gemini: `inputTranscription`, OpenAI: `input_audio_transcription.completed`).
+| Provider | Route | Auth |
+|----------|-------|------|
+| **edge** | agent → OpenClaw gateway → Edge TTS | none (free) |
+| **nextain** | agent → any-llm gateway → Google Cloud TTS | naiaKey |
+| **google** | agent → OpenClaw gateway → Google Cloud TTS | Google API key |
+| **openai** | agent → OpenClaw gateway → OpenAI TTS | OpenAI API key |
+| **elevenlabs** | agent → OpenClaw gateway → ElevenLabs | ElevenLabs API key |
+
+**naiaKey routing:** TTS auth is independent of LLM provider selection. `ChatRequest` carries `naiaKey` as top-level field.
+
+**Settings UI:** TTS provider dropdown + API key input + voice picker (auto-discovery from registry).
+
+---
+
+### Pipeline Voice (STT → LLM → TTS)
+
+Voice conversation for standard (non-omni) LLM models via independent STT → LLM → TTS pipeline.
+
+**Architecture:**
+```
+User speaks → STT provider (Vosk/Whisper) → recognized text
+→ sendChatMessage (normal LLM path, tools disabled)
+→ LLM text stream → SentenceChunker (sentence boundary detection)
+→ per-sentence tts_request → TTS provider (Edge default)
+→ MP3 base64 → AudioQueue (sequential playback)
+```
+
+| Component | File | Role |
+|-----------|------|------|
+| SentenceChunker | `voice/sentence-chunker.ts` | Korean+English sentence splitting (min 10, max 120 chars) |
+| AudioQueue | `voice/audio-queue.ts` | Sequential MP3 playback, interrupt, avatar speaking state |
+| TTS request | `agent/src/index.ts`, `chat-service.ts` | Per-sentence TTS synthesis |
+
+**State flow:** LISTENING → PROCESSING → SPEAKING → LISTENING
+**Interrupt:** User speech during playback clears AudioQueue + cancels LLM stream
+**Rules:** Tools disabled, Agent auto-TTS disabled, emotion tags stripped
+
+---
 
 ### Voice Gender Defaults
 
 Default voice is automatically set based on VRM avatar gender:
 - VRM models 1,3 (female) → liveVoice: "Kore", Edge TTS: "ko-KR-SunHiNeural", Google TTS: "ko-KR-Neural2-A"
 - VRM models 2,4 (male) → liveVoice: "Puck", Edge TTS: "ko-KR-InJoonNeural", Google TTS: "ko-KR-Neural2-C"
-- On Naia login: if Lab has saved liveVoice, use it; otherwise auto-set from VRM gender.
 
 ### Billing
 
-- **Live conversation:** Varies by provider (Gemini: $0.10/M input + $0.40/M output, OpenAI: ~$0.10/min)
+- **Omni models:** Varies by provider (Gemini: $0.10/M input + $0.40/M output, OpenAI: ~$0.10/min)
 - **TTS:** Varies by provider (Chirp 3 HD, Neural2, Edge free, OpenAI, ElevenLabs)

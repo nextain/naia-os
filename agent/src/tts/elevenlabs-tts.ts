@@ -1,3 +1,5 @@
+import { registerTtsProvider } from "./registry.js";
+
 const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
 
 /**
@@ -75,3 +77,10 @@ async function resolveVoiceName(
 	);
 	return match?.voice_id ?? null;
 }
+
+registerTtsProvider({
+	id: "elevenlabs",
+	name: "ElevenLabs",
+	requiresApiKey: true,
+	synthesize: (opts) => synthesizeElevenLabsSpeech(opts.text, opts.apiKey!, opts.voice),
+});

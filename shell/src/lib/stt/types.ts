@@ -1,0 +1,66 @@
+/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based. */
+export type SttEngineType = "tauri" | "api";
+
+/** STT provider metadata for settings UI and runtime selection. */
+export interface SttProviderMeta {
+	/** Unique identifier (same as SttProviderId in config.ts). */
+	id: string;
+	/** Human-readable name. */
+	name: string;
+	/** Brief description for settings UI. */
+	description: string;
+	/** Engine type: "tauri" (offline Rust) or "api" (cloud API). */
+	engineType: SttEngineType;
+	/** Rust engine name for tauri-based providers (vosk/whisper). */
+	engine?: string;
+	/** Whether this runs entirely offline. */
+	isOffline: boolean;
+	/** Whether GPU acceleration is available/beneficial. */
+	gpuAccelerated?: boolean;
+	/** Whether this provider requires an API key. */
+	requiresApiKey?: boolean;
+	/** Config field name for the API key. */
+	apiKeyConfigField?: string;
+	/** Whether this provider requires a Naia Lab key. */
+	requiresNaiaKey?: boolean;
+	/** Supported language codes (BCP-47). */
+	supportedLanguages: string[];
+}
+
+/** STT model metadata for download/selection UI. */
+export interface SttModelMeta {
+	/** Model identifier (e.g. "vosk-model-small-ko-0.22", "whisper-base"). */
+	id: string;
+	/** Which provider owns this model. */
+	providerId: string;
+	/** Human-readable name. */
+	name: string;
+	/** Download size (human-readable, e.g. "82MB"). */
+	size: string;
+	/** Word Error Rate (approximate). */
+	wer?: string;
+	/** Languages this model supports. */
+	languages: string[];
+	/** Whether GPU is recommended for real-time performance. */
+	gpuRecommended?: boolean;
+}
+
+/** Recognition result from any STT engine. */
+export interface SttResult {
+	transcript: string;
+	isFinal: boolean;
+	confidence?: number;
+}
+
+/**
+ * Unified STT session interface.
+ * Both Tauri (offline) and API-based providers implement this.
+ */
+export interface SttSession {
+	start(): Promise<void>;
+	stop(): Promise<void>;
+	/** Register callback for recognition results. Returns cleanup function. */
+	onResult(callback: (result: SttResult) => void): () => void;
+	/** Register callback for errors. Returns cleanup function. */
+	onError?(callback: (error: { code: string; message: string }) => void): () => void;
+}

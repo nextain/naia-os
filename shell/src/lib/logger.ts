@@ -1,8 +1,11 @@
 /**
  * Minimal structured logger for Phase 1.
  * Replaces forbidden console.log/warn/error.
+ * Bridges to Rust stderr via `frontend_log` command for terminal visibility.
  * TODO: Replace with @naia/shared/logger in Phase 2.
  */
+
+import { invoke } from "@tauri-apps/api/core";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -33,6 +36,11 @@ function formatMessage(
 	return base;
 }
 
+/** Send log to Rust stderr (fire-and-forget, never blocks) */
+function bridgeToRust(level: LogLevel, formatted: string): void {
+	invoke("frontend_log", { level, message: formatted }).catch(() => {});
+}
+
 // biome-ignore lint/complexity/noStaticOnlyClass: Logger is intentionally a static utility
 export class Logger {
 	static debug(
@@ -41,7 +49,9 @@ export class Logger {
 		data?: Record<string, unknown>,
 	) {
 		if (!shouldLog("debug")) return;
-		globalThis.console.debug(formatMessage("debug", component, message, data));
+		const msg = formatMessage("debug", component, message, data);
+		globalThis.console.debug(msg);
+		bridgeToRust("debug", msg);
 	}
 
 	static info(
@@ -50,7 +60,9 @@ export class Logger {
 		data?: Record<string, unknown>,
 	) {
 		if (!shouldLog("info")) return;
-		globalThis.console.info(formatMessage("info", component, message, data));
+		const msg = formatMessage("info", component, message, data);
+		globalThis.console.info(msg);
+		bridgeToRust("info", msg);
 	}
 
 	static warn(
@@ -59,7 +71,9 @@ export class Logger {
 		data?: Record<string, unknown>,
 	) {
 		if (!shouldLog("warn")) return;
-		globalThis.console.warn(formatMessage("warn", component, message, data));
+		const msg = formatMessage("warn", component, message, data);
+		globalThis.console.warn(msg);
+		bridgeToRust("warn", msg);
 	}
 
 	static error(
@@ -68,6 +82,8 @@ export class Logger {
 		data?: Record<string, unknown>,
 	) {
 		if (!shouldLog("error")) return;
-		globalThis.console.error(formatMessage("error", component, message, data));
+		const msg = formatMessage("error", component, message, data);
+		globalThis.console.error(msg);
+		bridgeToRust("error", msg);
 	}
 }

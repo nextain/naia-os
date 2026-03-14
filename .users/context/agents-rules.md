@@ -328,6 +328,28 @@ AI review encouraged; human review required for security-critical changes.
 - Rule change -> propagate to all dependent contexts
 - **Order**: self -> parent -> siblings -> children -> mirror
 
+### Harness Engineering
+
+Mechanical enforcement of project rules via Claude Code hooks.
+Text rules get forgotten; mechanical enforcement doesn't.
+
+**Hooks** (`.claude/hooks/`):
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| `sync-entry-points.js` | Edit\|Write on entry points | Auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md |
+| `cascade-check.js` | Edit\|Write on context files | Remind triple-mirror updates |
+| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify phase |
+
+**Progress Files** (`.agents/progress/*.json`):
+- Session handoff JSON — survives context compaction and session boundaries
+- Gitignored (session-local only, not committed)
+- Schema: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers
+
+**Tests**: `bash .agents/tests/harness/run-all.sh` (28 tests)
+
+Detail: `.agents/context/harness.yaml`
+
 ---
 
 ## AI Workflow

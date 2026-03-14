@@ -1,6 +1,7 @@
 mod audit;
 mod gemini_live;
 mod memory;
+mod stt_models;
 
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
@@ -821,16 +822,9 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                 }
             }
 
-            // Production: bundled agent via Tauri resources
-            if let Ok(resource_dir) = app_handle.path().resource_dir() {
-                let bundled = resource_dir.join("agent/dist/index.js");
-                if bundled.exists() {
-                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
-                    return bundled.to_string_lossy().to_string();
-                }
-            }
-
             // Dev: tsx for TypeScript direct execution (NOT in Flatpak)
+            // Check dev source BEFORE bundled dist — bundled dist in target/debug/
+            // often has incomplete node_modules (pnpm hoisting issues)
             if !is_flatpak {
                 let candidates = [
                     "../../agent/src/index.ts",  // from src-tauri/
@@ -841,12 +835,21 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
                         .map(|d| d.join(rel))
                         .unwrap_or_default();
                     if dev_path.exists() {
-                        log_verbose(&format!("[Naia] Found agent at: {}", dev_path.display()));
+                        log_verbose(&format!("[Naia] Found dev agent at: {}", dev_path.display()));
                         return dev_path.canonicalize()
                             .unwrap_or(dev_path)
                             .to_string_lossy()
                             .to_string();
                     }
+                }
+            }
+
+            // Production: bundled agent via Tauri resources
+            if let Ok(resource_dir) = app_handle.path().resource_dir() {
+                let bundled = resource_dir.join("agent/dist/index.js");
+                if bundled.exists() {
+                    log_verbose(&format!("[Naia] Found bundled agent at: {}", bundled.display()));
+                    return bundled.to_string_lossy().to_string();
                 }
             }
 
@@ -1231,6 +1234,34 @@ async fn list_skills() -> Result<Vec<SkillManifestInfo>, String> {
     });
 
     Ok(skills)
+}
+
+/// Frontend log bridge — prints frontend diagnostic messages to Rust stderr (terminal visible)
+#[tauri::command]
+fn frontend_log(level: String, message: String) {
+    match level.as_str() {
+        "error" => log::error!("[frontend] {}", message),
+        "warn" => log::warn!("[frontend] {}", message),
+        "debug" => log::debug!("[frontend] {}", message),
+        _ => log::info!("[frontend] {}", message),
+    }
+}
+
+// ── STT model management commands ──────────────────────────────────
+
+#[tauri::command]
+fn list_stt_models(app: AppHandle) -> Vec<stt_models::SttModelInfo> {
+    stt_models::get_model_catalog(&app)
+}
+
+#[tauri::command]
+async fn download_stt_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    stt_models::download_model(app, model_id).await
+}
+
+#[tauri::command]
+fn delete_stt_model(app: AppHandle, model_id: String) -> Result<(), String> {
+    stt_models::delete_model(&app, &model_id)
 }
 
 #[tauri::command]
@@ -2189,6 +2220,12 @@ async fn gemini_live_disconnect(state: tauri::State<'_, AppState>) -> Result<(),
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize env_logger so `log` crate macros (info!, debug!, warn!) produce output.
+    // Control verbosity with RUST_LOG env var, e.g. RUST_LOG=tauri_plugin_stt=debug
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_millis()
+        .init();
+
     let is_flatpak = std::env::var("FLATPAK").map(|v| v == "1").unwrap_or(false);
 
     let mut builder = tauri::Builder::default()
@@ -2204,7 +2241,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_stt::init());
 
     // Flatpak manages its own updates; skip updater plugin in Flatpak builds
     if !is_flatpak {
@@ -2220,6 +2258,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_skills,
+            frontend_log,
+            list_stt_models,
+            download_stt_model,
+            delete_stt_model,
             send_to_agent_command,
             cancel_stream,
             reset_window_state,
@@ -2273,6 +2315,9 @@ pub fn run() {
                 .map_err(|e| -> Box<dyn std::error::Error> { format!("Failed to init memory DB: {}", e).into() })?;
             app.manage(MemoryState { db: memory_db });
             log_verbose(&format!("[Naia] Memory DB initialized at: {}", memory_db_path.display()));
+
+            // Migrate legacy vosk-models → stt-models
+            stt_models::migrate_legacy_vosk_models(&app_handle);
 
             // Register deep-link handler for naia:// URI scheme
             #[cfg(desktop)]
