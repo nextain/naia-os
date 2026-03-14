@@ -181,24 +181,56 @@ STT engines run in **Rust** (`tauri-plugin-stt`). The TypeScript registry holds 
 
 ### Testing your provider
 
-**Unit test** — Verify registry registration:
+After adding a provider, run the full test suite to verify it works end-to-end.
+
+**Step 1: Unit tests** — Registry registration + UI rendering:
 ```bash
-cd agent && pnpm test  # Checks TTS provider is registered
-cd shell && pnpm test  # Checks UI metadata is registered
+cd shell && pnpm test    # SettingsTab renders your provider in dropdown
+cd agent && pnpm test    # Agent registers your provider
 ```
 
-**E2E test** — Run the provider switching test:
+**Step 2: Voice validity** — Verify voices produce actual audio:
 ```bash
-cd shell && source ../my-envs/naia-os-shell.env  # Load API keys
+cd agent && OPENAI_API_KEY=... pnpm exec vitest run src/__tests__/tts-voice-validity.test.ts
+```
+
+**Step 3: E2E — Settings UI** — Provider switching, API key, voice picker:
+```bash
+cd shell && source ../my-envs/naia-os-shell.env
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
 ```
 
-This test verifies: provider dropdown → API key input → voice selection → audio preview.
-
-**Voice validation** — Test that voices actually produce audio:
+**Step 4: E2E — Real API preview** — Enter API key, click preview, hear audio:
 ```bash
-cd agent && OPENAI_API_KEY=... pnpm exec vitest run src/__tests__/tts-preview-e2e.test.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-providers.spec.ts
 ```
+
+**Step 5: E2E — Chat + TTS pipeline** — Send message, verify TTS audio plays:
+```bash
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/81-chat-tts-response.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
+```
+
+**Step 6: E2E — STT→LLM→TTS pipeline** (Playwright, mock-based):
+```bash
+npx playwright test e2e/pipeline-voice.spec.ts
+```
+
+### Full test suite (85 tests)
+
+| Test | Type | Count | What it covers |
+|------|------|-------|----------------|
+| `76-tts-provider-switching` | Tauri E2E | 12 | TTS dropdown, API key, voice, Edge preview |
+| `77-stt-provider-switching` | Tauri E2E | 7 | STT dropdown, order (free→Naia→paid), API key |
+| `78-voice-pipeline-mode` | Tauri E2E | 11 | UI labels, voice picker, button states, 🗣️ icon |
+| `79-pipeline-voice-activation` | Tauri E2E | 9 | Voice button lifecycle, CSS 3-state |
+| `80-tts-preview-all-providers` | Tauri E2E | 6 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
+| `81-chat-tts-response` | Tauri E2E | 9 | Chat → AI response → TTS audio playback |
+| `82-chat-tts-multi-model` | Tauri E2E | 6 | Model switching preserves TTS |
+| `83-tts-per-model-verification` | Tauri E2E | 15 | 5 providers × model: chat + TTS |
+| `pipeline-voice` | Playwright | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
+| `tts-voice-validity` | Vitest | 17+ | All registered voices produce audio |
 
 ### Key files
 
@@ -206,18 +238,23 @@ cd agent && OPENAI_API_KEY=... pnpm exec vitest run src/__tests__/tts-preview-e2
 |------|---------|
 | `agent/src/tts/types.ts` | `TtsProviderDefinition` interface |
 | `agent/src/tts/registry.ts` | Runtime registry (Map-based, self-registration) |
-| `shell/src/lib/tts/types.ts` | `TtsProviderMeta` for Settings UI |
-| `shell/src/lib/tts/registry.ts` | UI metadata registry |
-| `shell/src/lib/stt/registry.ts` | STT metadata registry |
+| `shell/src/lib/tts/types.ts` | `TtsProviderMeta` for Settings UI (+ `fetchVoices()`) |
+| `shell/src/lib/tts/registry.ts` | UI metadata registry with pricing |
+| `shell/src/lib/tts/cost.ts` | Per-request TTS cost estimation |
+| `shell/src/lib/stt/types.ts` | `SttProviderMeta` + `SttSession` interface |
+| `shell/src/lib/stt/registry.ts` | STT metadata registry (offline + API) |
+| `shell/src/lib/stt/api-stt.ts` | API-based STT (Google/ElevenLabs/Naia Cloud) |
 | `shell/src/components/SettingsTab.tsx` | Auto-discovers providers from registry |
-| `shell/e2e-tauri/specs/76-tts-provider-switching.spec.ts` | E2E test |
+| `agent/src/skills/built-in/tts.ts` | Preview action (all 5 providers) |
 
 ### Voice list guidelines
 
 - **Verify voices** against official API docs before adding
 - **Mark model-specific voices** (e.g., "gpt-4o-mini-tts only")
-- **No hardcoded dynamic lists** — if the API supports `listVoices()`, prefer runtime fetching
+- **Use `fetchVoices()`** — implement runtime fetching if the API supports listing voices
+- **Add pricing** — include `pricing` field in provider metadata
 - **Test every voice** produces actual audio before release
+- **Run E2E** — at minimum specs 76, 80, 81 must pass with your provider
 
 ## Development workflow
 
