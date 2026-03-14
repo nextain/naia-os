@@ -14,7 +14,7 @@ fn main() {
         .build();
 
     // On Linux, ensure libvosk is available for linking and bundled for runtime
-    // STT native dependencies (vosk, whisper) are Linux-only for now
+    // STT native deps (vosk, whisper) are Linux-only until whisper-rs Windows bindings are fixed (#63)
     #[cfg(target_os = "linux")]
     setup_vosk();
 }

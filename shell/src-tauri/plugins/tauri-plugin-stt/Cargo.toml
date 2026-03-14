@@ -89,7 +89,7 @@ version = "0.3"
 
 [target.'cfg(target_os = "linux")'.dependencies.whisper-rs]
 git = "https://github.com/nextain/whisper-rs-fork.git"
-rev = "83911ba"
+rev = "3ea4acd"
 
 [target.'cfg(target_os = "linux")'.dependencies.zip]
 version = "6.0.0"
