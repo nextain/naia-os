@@ -512,6 +512,27 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 **설정 UI:** TTS 프로바이더 드롭다운 + API key 입력 + 음성 선택 (레지스트리 기반 자동 탐색).
 
+**가격:** Edge (무료) | Naia Cloud (Naia 크레딧) | Google ($16/1M 글자) | OpenAI ($15/1M 글자) | ElevenLabs ($0.30/1K 글자)
+
+**동적 음성:** Google과 ElevenLabs는 API key 입력 시 런타임 음성 목록 가져오기 지원.
+
+---
+
+### 음성 E2E 테스트
+
+| 스펙 | 테스트 수 | 커버리지 |
+|------|----------|----------|
+| `76-tts-provider-switching` | 12 | TTS 드롭다운, API key, 음성, 미리듣기 |
+| `77-stt-provider-switching` | 7 | STT 드롭다운, 순서, API key, Naia 로그인 유도 |
+| `78-voice-pipeline-mode` | 11 | 라벨, 음성 선택, 미리듣기, 버튼 상태 |
+
+```bash
+cd shell && source ../my-envs/naia-os-shell.env
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/78-voice-pipeline-mode.spec.ts
+```
+
 ---
 
 ### 파이프라인 음성 (STT → LLM → TTS)

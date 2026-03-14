@@ -696,6 +696,7 @@ export function SettingsTab() {
 	const [error, setError] = useState("");
 	const [saved, setSaved] = useState(false);
 	const [isPreviewing, setIsPreviewing] = useState(false);
+	const [dynamicTtsVoices, setDynamicTtsVoices] = useState<{ id: string; label: string; gender?: string }[]>([]);
 	const [facts, setFacts] = useState<Fact[]>([]);
 	const [allowedToolsCount, setAllowedToolsCount] = useState(existing?.allowedTools?.length ?? 0);
 	const [naiaKey, setNaiaKeyState] = useState(existing?.naiaKey ?? "");
@@ -2543,6 +2544,7 @@ export function SettingsTab() {
 							onChange={(e) => {
 								const next = e.target.value as TtsProviderId;
 								setTtsProvider(next);
+								setDynamicTtsVoices([]);
 								// Load API key for the selected provider
 								if (next === "openai") setGatewayTtsApiKey(existing?.openaiTtsApiKey ?? "");
 								else if (next === "elevenlabs") setGatewayTtsApiKey(existing?.elevenlabsApiKey ?? "");
@@ -2552,6 +2554,16 @@ export function SettingsTab() {
 								const meta = listTtsProviderMetas().find((p) => p.id === next);
 								if (meta?.voices?.[0]) {
 									persistTtsVoice(meta.voices[0].id);
+								}
+								// Fetch dynamic voices if provider supports it
+								const key = next === "openai" ? (existing?.openaiTtsApiKey ?? "")
+									: next === "elevenlabs" ? (existing?.elevenlabsApiKey ?? "")
+									: next === "google" ? (existing?.googleApiKey ?? "")
+									: "";
+								if (meta?.fetchVoices && key) {
+									meta.fetchVoices(key).then((voices) => {
+										if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+									});
 								}
 							}}
 						>
@@ -2630,8 +2642,9 @@ export function SettingsTab() {
 								</div>
 							) : null;
 						}
-						// Other providers: use registry voices
-						if (providerMeta?.voices && providerMeta.voices.length > 0) {
+						// Other providers: use dynamic voices (if fetched) or static registry voices
+						const voiceList = dynamicTtsVoices.length > 0 ? dynamicTtsVoices : (providerMeta?.voices ?? []);
+						if (voiceList.length > 0) {
 							return (
 								<div className="settings-field">
 									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
@@ -2641,7 +2654,7 @@ export function SettingsTab() {
 											value={ttsVoice}
 											onChange={(e) => persistTtsVoice(e.target.value)}
 										>
-											{providerMeta.voices.map((v) => (
+											{voiceList.map((v) => (
 												<option key={v.id} value={v.id}>{v.label}</option>
 											))}
 										</select>

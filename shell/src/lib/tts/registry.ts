@@ -55,6 +55,25 @@ registerTtsProviderMeta({
 		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
 	],
+	async fetchVoices(apiKey) {
+		try {
+			const resp = await fetch(
+				`https://texttospeech.googleapis.com/v1/voices?languageCode=ko-KR&key=${apiKey}`,
+			);
+			if (!resp.ok) return null;
+			const data = await resp.json();
+			return (data.voices ?? [])
+				.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp"))
+				.map((v: { name: string; ssmlGender?: string }) => ({
+					id: v.name,
+					label: v.name.replace("ko-KR-", ""),
+					language: "ko-KR",
+					gender: v.ssmlGender === "FEMALE" ? "female" as const : "male" as const,
+				}));
+		} catch {
+			return null;
+		}
+	},
 });
 
 registerTtsProviderMeta({
@@ -90,4 +109,22 @@ registerTtsProviderMeta({
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
 	pricing: "$0.30/1K chars",
+	async fetchVoices(apiKey) {
+		try {
+			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=50", {
+				headers: { "xi-api-key": apiKey },
+			});
+			if (!resp.ok) return null;
+			const data = await resp.json();
+			return (data.voices ?? []).map((v: { voice_id: string; name: string; labels?: { gender?: string } }) => ({
+				id: v.voice_id,
+				label: v.name,
+				gender: v.labels?.gender === "female" ? "female" as const
+					: v.labels?.gender === "male" ? "male" as const
+					: "neutral" as const,
+			}));
+		} catch {
+			return null;
+		}
+	},
 });

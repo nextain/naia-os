@@ -16,8 +16,10 @@ export interface TtsProviderMeta {
 	isFree?: boolean;
 	/** Pricing hint (e.g. "Free", "$15/1M chars"). */
 	pricing?: string;
-	/** Available voices for this provider. */
+	/** Static voice list (fallback when API unavailable). */
 	voices?: TtsVoiceMeta[];
+	/** Fetch voices dynamically from API. Returns null if not supported or API key missing. */
+	fetchVoices?: (apiKey: string) => Promise<TtsVoiceMeta[] | null>;
 }
 
 /** TTS voice metadata. */

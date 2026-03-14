@@ -512,6 +512,27 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 **Settings UI:** TTS provider dropdown + API key input + voice picker (auto-discovery from registry).
 
+**Pricing:** Edge (Free) | Naia Cloud (Naia credit) | Google ($16/1M chars) | OpenAI ($15/1M chars) | ElevenLabs ($0.30/1K chars)
+
+**Dynamic voices:** Google and ElevenLabs support runtime voice fetching via API when API key is provided.
+
+---
+
+### Voice E2E Tests
+
+| Spec | Tests | Coverage |
+|------|-------|----------|
+| `76-tts-provider-switching` | 12 | TTS dropdown, API key, voice, preview |
+| `77-stt-provider-switching` | 7 | STT dropdown, order, API key, Naia prompt |
+| `78-voice-pipeline-mode` | 11 | Labels, voice picker, preview, button states |
+
+```bash
+cd shell && source ../my-envs/naia-os-shell.env
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/78-voice-pipeline-mode.spec.ts
+```
+
 ---
 
 ### Pipeline Voice (STT → LLM → TTS)
