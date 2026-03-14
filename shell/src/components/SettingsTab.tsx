@@ -9,21 +9,27 @@ import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
 	LAB_GATEWAY_URL,
-	MODEL_OPTIONS,
 	type PanelPosition,
 	type ThemeId,
 	type SttProviderId,
 	type TtsProviderId,
 	clearAllowedTools,
-	fetchOllamaModels,
-	getDefaultModel,
-	isApiKeyOptional,
-	isOmniModel,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
 	getNaiaKeySecure,
 } from "../lib/config";
+import {
+	listLlmProviders,
+	getLlmProvider,
+	isOmniModel,
+	getDefaultLlmModel,
+	isApiKeyOptional,
+	getStaticModelsRecord,
+	fetchOllamaModels,
+	formatModelLabel,
+	type LlmModelMeta,
+} from "../lib/llm";
 import { saveSecretKey, deleteSecretKey } from "../lib/secure-store";
 import {
 	type Fact,
@@ -46,16 +52,7 @@ import { listTtsProviderMetas } from "../lib/tts/registry";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
-const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
-	{ id: "nextain", label: "Naia" },
-	{ id: "claude-code-cli", label: "Claude Code CLI (Local)" },
-	{ id: "gemini", label: "Google Gemini" },
-	{ id: "openai", label: "OpenAI (ChatGPT)", disabled: true },
-	{ id: "anthropic", label: "Anthropic (Claude)", disabled: true },
-	{ id: "xai", label: "xAI (Grok)", disabled: true },
-	{ id: "zai", label: "zAI (GLM)", disabled: true },
-	{ id: "ollama", label: "Ollama" },
-];
+const LLM_PROVIDERS = listLlmProviders();
 
 // Fallback voice lists for Edge TTS
 const ALL_EDGE_VOICES: string[] = [
@@ -617,9 +614,9 @@ export function SettingsTab() {
 	const initProvider = existing?.provider ?? "gemini";
 	const savedModel = existing?.model;
 	const modelValid =
-		savedModel && MODEL_OPTIONS[initProvider]?.some((m) => m.id === savedModel);
+		savedModel && (getLlmProvider(initProvider)?.models.some((m) => m.id === savedModel) ?? false);
 	const [model, setModel] = useState(
-		modelValid ? savedModel : getDefaultModel(initProvider),
+		modelValid ? savedModel : getDefaultLlmModel(initProvider),
 	);
 	const [apiKey, setApiKey] = useState(existing?.apiKey ?? "");
 	const [locale, setLocaleState] = useState<Locale>(
@@ -672,7 +669,7 @@ export function SettingsTab() {
 	const [openaiRealtimeApiKey, setOpenaiRealtimeApiKey] = useState(
 		existing?.openaiRealtimeApiKey ?? "",
 	);
-	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
+	const [dynamicModels, setDynamicModels] = useState<Record<string, LlmModelMeta[]>>(getStaticModelsRecord);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(
@@ -827,8 +824,8 @@ export function SettingsTab() {
 					if (models.length === 0) return;
 
 					const grouped = Object.fromEntries(
-						Object.entries(MODEL_OPTIONS).map(([k, v]) => [k, [...v]]),
-					) as typeof MODEL_OPTIONS;
+						Object.entries(getStaticModelsRecord()).map(([k, v]) => [k, [...v]]),
+					) as Record<string, LlmModelMeta[]>;
 
 					for (const m of models) {
 						if (!m || typeof m.id !== "string") continue;
@@ -838,8 +835,8 @@ export function SettingsTab() {
 							: "";
 						const label = `${m.name || modelId}${priceStr}`;
 
-						const pushModel = (key: ProviderId) => {
-							if (!grouped[key].some((x) => x.id === modelId)) {
+						const pushModel = (key: string) => {
+							if (!grouped[key]?.some((x) => x.id === modelId)) {
 								grouped[key].push({ id: modelId, label, type: "llm" as const });
 							}
 						};
@@ -848,15 +845,12 @@ export function SettingsTab() {
 				resolveProvider(m.provider) || resolveProviderFromId(m.id);
 			if (mappedProvider) pushModel(mappedProvider);
 			if (mappedProvider === "anthropic") pushModel("claude-code-cli");
-			// Naia only supports curated Gemini models
+			// Naia only supports curated Gemini models (from registry)
 			if (mappedProvider === "gemini") {
-				const NEXTAIN_ALLOWED = [
-					"gemini-3.1-pro-preview",
-					"gemini-3-flash-preview",
-					"gemini-2.5-pro",
-					"gemini-2.5-flash",
-				];
-				if (NEXTAIN_ALLOWED.includes(modelId)) {
+				const nextainModelIds = getLlmProvider("nextain")?.models
+					.filter((nm) => nm.type === "llm")
+					.map((nm) => nm.id) ?? [];
+				if (nextainModelIds.includes(modelId)) {
 					pushModel("nextain");
 				}
 			}
@@ -865,7 +859,7 @@ export function SettingsTab() {
 					setDynamicModels(grouped);
 				}
 			} catch {
-				// Fallback to static MODEL_OPTIONS
+				// Fallback to static registry models
 			}
 		}
 		fetchModels();
@@ -1059,7 +1053,7 @@ export function SettingsTab() {
 				setNaiaKeyState(nextNaiaKey);
 				setNaiaUserIdState(nextNaiaUserId);
 				setProvider("nextain");
-				setModel((prev) => prev || getDefaultModel("nextain"));
+				setModel((prev) => prev || getDefaultLlmModel("nextain"));
 				setError("");
 				// In Lab mode, clear direct API key input to avoid confusion.
 				setApiKey("");
@@ -1071,7 +1065,7 @@ export function SettingsTab() {
 				// Persist to both secure store and localStorage
 				await saveSecretKey("naiaKey", nextNaiaKey);
 				const current = loadConfig();
-				const nextModel = current?.model || getDefaultModel("nextain");
+				const nextModel = current?.model || getDefaultLlmModel("nextain");
 				if (current) {
 					// Auto-set default voice based on VRM avatar gender if not previously configured
 					const defaultVoice = current.voice ?? getDefaultVoiceForAvatar(current.vrmModel);
@@ -1172,7 +1166,7 @@ export function SettingsTab() {
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
 		if (id !== "ollama") {
-			setModel(getDefaultModel(id));
+			setModel(getDefaultLlmModel(id));
 		}
 		setError("");
 		if (id === "nextain" && !naiaKey) {
@@ -1930,7 +1924,7 @@ export function SettingsTab() {
 												setNaiaUserIdState("");
 												setLabBalance(null);
 													setProvider("gemini");
-													setModel(getDefaultModel("gemini"));
+													setModel(getDefaultLlmModel("gemini"));
 												setDiscordDefaultUserId("");
 												setDiscordDmChannelId("");
 												setDiscordDefaultTarget("");
@@ -1946,8 +1940,17 @@ export function SettingsTab() {
 																: current.provider,
 														model:
 															current.provider === "nextain"
-																? getDefaultModel("gemini")
+																? getDefaultLlmModel("gemini")
 																: current.model,
+														// Reset Naia-dependent STT/TTS to defaults
+														ttsProvider:
+															current.ttsProvider === "nextain"
+																? "edge"
+																: current.ttsProvider,
+														sttProvider:
+															current.sttProvider === "nextain"
+																? ""
+																: current.sttProvider,
 														naiaKey: undefined,
 														naiaUserId: undefined,
 														discordDefaultUserId: undefined,
@@ -1960,7 +1963,7 @@ export function SettingsTab() {
 												if (updated) {
 													await syncToOpenClaw(
 														updated.provider || "gemini",
-														updated.model || getDefaultModel("gemini"),
+														updated.model || getDefaultLlmModel("gemini"),
 														updated.apiKey,
 														updated.persona,
 														updated.agentName,
@@ -2028,9 +2031,9 @@ export function SettingsTab() {
 					value={provider}
 					onChange={(e) => handleProviderChange(e.target.value as ProviderId)}
 				>
-					{PROVIDERS.map((p) => (
-						<option key={p.id} value={p.id}>
-							{p.label}
+					{LLM_PROVIDERS.map((p) => (
+						<option key={p.id} value={p.id} disabled={p.disabled}>
+							{p.name}
 						</option>
 					))}
 				</select>
@@ -2059,7 +2062,7 @@ export function SettingsTab() {
 					) : null}
 					{providerModels.map((m) => (
 						<option key={m.id} value={m.id}>
-							{m.label}
+							{formatModelLabel(m)}
 						</option>
 					))}
 				</select>
@@ -2188,7 +2191,7 @@ export function SettingsTab() {
 													setNaiaUserIdState("");
 													setLabBalance(null);
 													setProvider("gemini");
-													setModel(getDefaultModel("gemini"));
+													setModel(getDefaultLlmModel("gemini"));
 													setDiscordDefaultUserId("");
 													setDiscordDmChannelId("");
 													setDiscordDefaultTarget("");
@@ -2204,8 +2207,16 @@ export function SettingsTab() {
 																	: current.provider,
 															model:
 																current.provider === "nextain"
-																	? getDefaultModel("gemini")
+																	? getDefaultLlmModel("gemini")
 																	: current.model,
+															ttsProvider:
+																current.ttsProvider === "nextain"
+																	? "edge"
+																	: current.ttsProvider,
+															sttProvider:
+																current.sttProvider === "nextain"
+																	? ""
+																	: current.sttProvider,
 															naiaKey: undefined,
 															naiaUserId: undefined,
 															discordDefaultUserId: undefined,
@@ -2218,7 +2229,7 @@ export function SettingsTab() {
 													if (updated) {
 														await syncToOpenClaw(
 															updated.provider || "gemini",
-															updated.model || getDefaultModel("gemini"),
+															updated.model || getDefaultLlmModel("gemini"),
 															updated.apiKey,
 															updated.persona,
 															updated.agentName,
@@ -2392,8 +2403,8 @@ export function SettingsTab() {
 						>
 							<option value="">{t("settings.sttNone")}</option>
 							{listSttProviders().map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
+								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
 								</option>
 							))}
 						</select>
@@ -2521,8 +2532,8 @@ export function SettingsTab() {
 							}}
 						>
 							{listTtsProviderMetas().map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
+								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
 								</option>
 							))}
 						</select>
