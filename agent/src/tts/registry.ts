@@ -29,24 +29,23 @@ export async function synthesize(
 ): Promise<string | null> {
 	const provider = providers.get(providerId);
 
-	if (!provider) {
-		// Unknown provider — fall back to edge
+	// Fallback to edge with voice cleared (other provider voices don't work with Edge)
+	const fallbackToEdge = () => {
 		const edge = providers.get("edge");
 		if (!edge) return null;
-		return edge.synthesize(options);
+		return edge.synthesize({ ...options, voice: undefined });
+	};
+
+	if (!provider) {
+		return fallbackToEdge();
 	}
 
 	if (provider.requiresApiKey && !options.apiKey) {
-		// Missing API key — fall back to edge
-		const edge = providers.get("edge");
-		if (!edge) return null;
-		return edge.synthesize(options);
+		return fallbackToEdge();
 	}
 
 	if (provider.requiresNaiaKey && !options.naiaKey) {
-		const edge = providers.get("edge");
-		if (!edge) return null;
-		return edge.synthesize(options);
+		return fallbackToEdge();
 	}
 
 	return provider.synthesize(options);

@@ -2594,6 +2594,9 @@ export function SettingsTab() {
 								const meta = listTtsProviderMetas().find((p) => p.id === next);
 								if (meta?.voices?.[0]) {
 									persistTtsVoice(meta.voices[0].id);
+								} else if (next === "edge") {
+									// Edge voice will be selected from gateway/hardcoded list
+									persistTtsVoice("");
 								}
 								// Fetch dynamic voices if provider supports it
 								const key = next === "openai" ? (existing?.openaiTtsApiKey ?? "")
