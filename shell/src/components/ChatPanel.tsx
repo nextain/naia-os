@@ -1157,10 +1157,8 @@ export function ChatPanel() {
 				});
 
 				setVoiceMode("active");
-				useChatStore.getState().addMessage({
-					role: "assistant",
-					content: "🎤 음성 대화 모드가 시작되었습니다.",
-				});
+				// Voice mode notification — not sent to agent, not read by TTS
+				Logger.info("ChatPanel", "Voice mode started notification displayed");
 				return;
 			}
 
