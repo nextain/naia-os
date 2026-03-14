@@ -61,6 +61,16 @@ registerTtsProviderMeta({
 	apiKeyConfigField: "googleApiKey",
 	pricing: "$16/1M chars",
 	voices: [
+		// Chirp 3 HD (최신, 고품질)
+		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Aoede", label: "Aoede (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Fenrir", label: "Fenrir (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", language: "ko-KR", gender: "neutral" },
+		// Neural2 (안정적)
 		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
