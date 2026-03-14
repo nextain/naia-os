@@ -1048,7 +1048,14 @@ export function ChatPanel() {
 
 					// Shared result handler for both offline and API-based STT
 					const handleSttResult = (result: { transcript: string; isFinal: boolean; confidence?: number }) => {
-						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
+						// Filter Whisper hallucinations: (sound descriptions), [noise], etc.
+						const filtered = result.transcript
+							.replace(/\([^)]*\)/g, "")
+							.replace(/\[[^\]]*\]/g, "")
+							.trim();
+						if (!filtered) return;
+						const cleanResult = { ...result, transcript: filtered };
+						Logger.info("ChatPanel", "STT result", { transcript: cleanResult.transcript, isFinal: cleanResult.isFinal, confidence: cleanResult.confidence });
 						if (!pipelineActiveRef.current) return;
 
 						if (ttsPlayingRef.current || Date.now() < ttsCooldownUntilRef.current) {
@@ -1056,13 +1063,13 @@ export function ChatPanel() {
 							return;
 						}
 
-						if (!result.isFinal) {
-							setSttPartial(result.transcript);
+						if (!cleanResult.isFinal) {
+							setSttPartial(cleanResult.transcript);
 						}
 
-						if (result.isFinal && result.transcript.trim()) {
+						if (cleanResult.isFinal && cleanResult.transcript.trim()) {
 							setSttPartial("");
-							sttBufferRef.current += (sttBufferRef.current ? " " : "") + result.transcript.trim();
+							sttBufferRef.current += (sttBufferRef.current ? " " : "") + cleanResult.transcript.trim();
 							if (sttDebounceRef.current) clearTimeout(sttDebounceRef.current);
 							sttDebounceRef.current = setTimeout(() => {
 								const text = sttBufferRef.current.trim();
