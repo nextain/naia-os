@@ -41,6 +41,16 @@ run_hook() {
     echo "$stdin_json" | node "$PROJECT_ROOT/.claude/hooks/$hook_script" 2>/dev/null || true
 }
 
+# run_hook_strict: returns "EXIT:N|OUTPUT" so tests can check exit code
+run_hook_strict() {
+    local hook_script="$1"
+    local stdin_json="$2"
+    local exit_code=0
+    local output
+    output=$(echo "$stdin_json" | node "$PROJECT_ROOT/.claude/hooks/$hook_script" 2>/dev/null) || exit_code=$?
+    echo "EXIT:${exit_code}|${output}"
+}
+
 # ─── 1. sync-entry-points.js ──────────────────────────────
 
 echo ""
@@ -94,14 +104,15 @@ else
     fail "1.5 Missing GEMINI.md handling" "CLAUDE synced, GEMINI not created" "CLAUDE=$(cat "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null) GEMINI exists=$(test -f "$TMPDIR_SYNC/GEMINI.md" && echo yes || echo no)"
 fi
 
-# Test 1.6: Wrong tool_name → no action
+# Test 1.6: Wrong tool_name → no action (exit 0, no file change)
 echo "# Should not change" > "$TMPDIR_SYNC/AGENTS.md"
 echo "# Original claude" > "$TMPDIR_SYNC/CLAUDE.md"
-OUTPUT=$(run_hook "sync-entry-points.js" "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC/AGENTS.md\"}}")
-if grep -q "Original claude" "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null; then
-    pass "1.6 Read tool ignored (no sync)"
+STRICT=$(run_hook_strict "sync-entry-points.js" "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$TMPDIR_SYNC/AGENTS.md\"}}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+if grep -q "Original claude" "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null && [ "$EXIT_CODE" = "0" ]; then
+    pass "1.6 Read tool ignored (exit 0, no sync)"
 else
-    fail "1.6 Read tool ignored" "Original claude" "$(cat "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null)"
+    fail "1.6 Read tool ignored (exit 0)" "exit=0, CLAUDE unchanged" "exit=$EXIT_CODE, CLAUDE=$(cat "$TMPDIR_SYNC/CLAUDE.md" 2>/dev/null)"
 fi
 
 # Test 1.7: CLAUDE.md as source → syncs to AGENTS.md and GEMINI.md
@@ -166,12 +177,14 @@ echo -e "${YELLOW}═══ Test: commit-guard.js ═══${NC}"
 TMPDIR_CG="$(mktemp -d)"
 mkdir -p "$TMPDIR_CG/.agents/progress"
 
-# Test 2.1: No progress file → no warning (silent pass)
-OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
-if [ -z "$OUTPUT" ]; then
-    pass "2.1 No progress file → silent pass"
+# Test 2.1: No progress file → no warning (silent pass, exit 0)
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "2.1 No progress file → silent pass (exit 0)"
 else
-    fail "2.1 No progress file → silent pass" "(empty)" "$OUTPUT"
+    fail "2.1 No progress file → silent pass (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
 # Test 2.2: Phase = build → should warn
@@ -190,31 +203,37 @@ else
     fail "2.3 Warning includes remaining phases" "mentions e2e_test" "$OUTPUT"
 fi
 
-# Test 2.4: Phase = report → no warning (past sync_verify)
+# Test 2.4: Phase = report → no warning (past sync_verify, exit 0)
 echo '{"issue":"#99","current_phase":"report"}' > "$TMPDIR_CG/.agents/progress/99.json"
-OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
-if [ -z "$OUTPUT" ]; then
-    pass "2.4 Phase 'report' → no warning"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "2.4 Phase 'report' → no warning (exit 0)"
 else
-    fail "2.4 Phase 'report' → no warning" "(empty)" "$OUTPUT"
+    fail "2.4 Phase 'report' → no warning (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
-# Test 2.5: Phase = commit → no warning
+# Test 2.5: Phase = commit → no warning (exit 0)
 echo '{"issue":"#99","current_phase":"commit"}' > "$TMPDIR_CG/.agents/progress/99.json"
-OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m done\"},\"cwd\":\"$TMPDIR_CG\"}")
-if [ -z "$OUTPUT" ]; then
-    pass "2.5 Phase 'commit' → no warning"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m done\"},\"cwd\":\"$TMPDIR_CG\"}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "2.5 Phase 'commit' → no warning (exit 0)"
 else
-    fail "2.5 Phase 'commit' → no warning" "(empty)" "$OUTPUT"
+    fail "2.5 Phase 'commit' → no warning (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
-# Test 2.6: Non-commit bash command → ignored
+# Test 2.6: Non-commit bash command → ignored (exit 0)
 echo '{"issue":"#99","current_phase":"build"}' > "$TMPDIR_CG/.agents/progress/99.json"
-OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"npm test\"},\"cwd\":\"$TMPDIR_CG\"}")
-if [ -z "$OUTPUT" ]; then
-    pass "2.6 Non-commit command (npm test) → ignored"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"npm test\"},\"cwd\":\"$TMPDIR_CG\"}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "2.6 Non-commit command (npm test) → ignored (exit 0)"
 else
-    fail "2.6 Non-commit command ignored" "(empty)" "$OUTPUT"
+    fail "2.6 Non-commit command ignored (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
 # Test 2.7: Invalid JSON in progress file → silent pass
@@ -253,14 +272,17 @@ else
 fi
 
 # Test 2.11: Multiple progress files → picks most recent by mtime
+# Clean up prior files first to isolate this test
+rm -f "$TMPDIR_CG/.agents/progress/"*.json
 echo '{"issue":"#10","current_phase":"report"}' > "$TMPDIR_CG/.agents/progress/10.json"
-sleep 0.1
+sleep 0.2
 echo '{"issue":"#20","current_phase":"build"}' > "$TMPDIR_CG/.agents/progress/20.json"
 OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"},\"cwd\":\"$TMPDIR_CG\"}")
-if echo "$OUTPUT" | grep -q "Committing at phase"; then
-    pass "2.11 Multiple progress files → picks most recent (build warns)"
+# Must warn (build < sync_verify) AND reference issue #20 (most recent), NOT #10
+if echo "$OUTPUT" | grep -q "Committing at phase" && echo "$OUTPUT" | grep -q "#20"; then
+    pass "2.11 Multiple progress files → picks most recent (issue #20, build warns)"
 else
-    fail "2.11 Multiple progress files → most recent" "Warning (build)" "$OUTPUT"
+    fail "2.11 Multiple progress files → picks #20" "Warning with issue #20" "$OUTPUT"
 fi
 
 # Test 2.12: Unknown phase name → silent pass (not in PHASE_ORDER)
@@ -344,20 +366,24 @@ else
     fail "3.5 .users/context/ko/*.md → reminder" ".agents/context/vision.yaml" "$OUTPUT"
 fi
 
-# Test 3.6: Edit unrelated file → no output
-OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/project/shell/src/App.tsx\"}}")
-if [ -z "$OUTPUT" ]; then
-    pass "3.6 Unrelated file → no reminder"
+# Test 3.6: Edit unrelated file → no output (exit 0)
+STRICT=$(run_hook_strict "cascade-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/project/shell/src/App.tsx\"}}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "3.6 Unrelated file → no reminder (exit 0)"
 else
-    fail "3.6 Unrelated file → no reminder" "(empty)" "$OUTPUT"
+    fail "3.6 Unrelated file → no reminder (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
-# Test 3.7: Read tool → ignored
-OUTPUT=$(run_hook "cascade-check.js" "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"/project/.agents/context/vision.yaml\"}}")
-if [ -z "$OUTPUT" ]; then
-    pass "3.7 Read tool → ignored"
+# Test 3.7: Read tool → ignored (exit 0)
+STRICT=$(run_hook_strict "cascade-check.js" "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"/project/.agents/context/vision.yaml\"}}")
+EXIT_CODE="${STRICT%%|*}"; EXIT_CODE="${EXIT_CODE#EXIT:}"
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ] && [ "$EXIT_CODE" = "0" ]; then
+    pass "3.7 Read tool → ignored (exit 0)"
 else
-    fail "3.7 Read tool → ignored" "(empty)" "$OUTPUT"
+    fail "3.7 Read tool → ignored (exit 0)" "exit=0, output=(empty)" "exit=$EXIT_CODE, output=$OUTPUT"
 fi
 
 # Test 3.8: Malformed JSON stdin → no crash
