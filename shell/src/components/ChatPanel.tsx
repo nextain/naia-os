@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { cancelChat, directToolCall, requestTts, sendChatMessage } from "../lib/chat-service";
+import { estimateTtsCost } from "../lib/tts/cost";
 import { AudioQueue } from "../lib/voice/audio-queue";
 import { SentenceChunker } from "../lib/voice/sentence-chunker";
 import {
@@ -896,6 +897,7 @@ export function ChatPanel() {
 		activeTtsRequestsRef.current.add(reqId);
 		const voiceCfg = pipelineVoiceConfigRef.current;
 		Logger.info("ChatPanel", "Sending TTS request", { reqId, seq, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
+		const ttsProviderForCost = voiceCfg?.ttsProvider ?? "edge";
 		requestTts({
 			text: clean,
 			voice: voiceCfg?.voice,
@@ -907,6 +909,17 @@ export function ChatPanel() {
 				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length });
 				audioQueueRef.current?.enqueueOrdered(seq, mp3Base64);
 				activeTtsRequestsRef.current.delete(reqId);
+				// Track TTS cost
+				const ttsCost = estimateTtsCost(ttsProviderForCost, clean.length);
+				if (ttsCost > 0) {
+					useChatStore.getState().addCostEntry({
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: ttsCost,
+						provider: "nextain" as ProviderId,
+						model: `tts:${ttsProviderForCost}`,
+					});
+				}
 			},
 		});
 	}
