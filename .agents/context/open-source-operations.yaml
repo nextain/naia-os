@@ -112,7 +112,7 @@ contributor_flow:
   code_contribution:
     steps:
       - "Check existing issues or create new one (AI checks duplicates)"
-      - "Create branch: issue-{number}-{short-description}"
+      - "Set up workspace: worktree (concurrent) or branch (solo) — issue-{number}-{short-description}"
       - "Code with AI assistance (AI guides patterns, conventions, tests)"
       - "Self-review with AI (contributing.yaml checklist)"
       - "Submit PR (English title, AI attribution, small focused PR)"

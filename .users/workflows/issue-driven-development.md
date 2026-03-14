@@ -126,6 +126,21 @@ Detail: `.agents/context/harness.yaml`
 
 ---
 
+## Git Integration
+
+### Workspace Isolation
+
+| Mode | When | Command |
+|------|------|---------|
+| **Worktree** (default) | Concurrent work — multiple issues active simultaneously | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc}` |
+| **Branch only** | Solo work — only one issue at a time | `git checkout -b issue-{N}-{desc}` |
+
+- Branch naming: `issue-{number}-{short-description}`
+- Investigation results, scope, plan posted as Issue comments (English)
+- PR links back to Issue on completion
+
+---
+
 ## Related Files
 
 - **SoT**: `.agents/workflows/issue-driven-development.yaml`

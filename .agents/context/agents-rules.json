@@ -245,8 +245,12 @@
 		"branch_strategy": {
 			"main": "Stable, always deployable (BlueBuild builds from main)",
 			"dev": "Integration branch for ongoing work",
-			"feature": "feature/<name> (short-lived, PR to dev)",
-			"release": "Automatic via BlueBuild on main push"
+			"feature": "issue-{N}-{desc} (short-lived, PR to dev)",
+			"release": "Automatic via BlueBuild on main push",
+			"isolation": {
+				"worktree": "Default for concurrent work — git worktree add when multiple issues are active simultaneously",
+				"branch_only": "For solo work — standard git checkout -b when only one issue is being worked on"
+			}
 		},
 		"commit_convention": {
 			"format": "<type>(<scope>): <description> (#<issue>)",
@@ -267,7 +271,8 @@
 			]
 		},
 		"pr_process": [
-			"Create feature branch from dev",
+			"Concurrent work: git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev (worktree + branch from dev)",
+			"Solo work: git checkout -b issue-{N}-{desc} dev (simple branch from dev)",
 			"Write tests first (TDD)",
 			"Implement minimal code",
 			"Ensure all tests pass",

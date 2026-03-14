@@ -242,8 +242,15 @@ eprintln!("[Naia] some debug info");  // raw eprintln 금지
 ```
 main ← 항상 배포 가능 (BlueBuild가 main에서 빌드)
   └── dev ← 통합 브랜치
-        └── feature/<name> ← 기능 브랜치 (짧은 수명, PR to dev)
+        └── issue-{N}-{desc} ← 기능 브랜치 (짧은 수명, PR to dev)
 ```
+
+**작업 공간 격리:**
+
+| 모드 | 사용 시점 | 명령어 |
+|------|----------|--------|
+| **워크트리** (기본값) | 동시 작업 — 같은 프로젝트에서 여러 이슈를 병렬 진행 | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` |
+| **브랜치만** | 단독 작업 — 해당 레포에서 이슈 하나만 진행 | `git checkout -b issue-{N}-{desc} dev` |
 
 ### 커밋 컨벤션
 
@@ -265,7 +272,8 @@ ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR 프로세스
-1. dev에서 feature 브랜치 생성
+1. 동시 작업: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (워크트리 + 브랜치 from dev)
+   단독 작업: `git checkout -b issue-{N}-{desc} dev` (단순 브랜치 from dev)
 2. 테스트 먼저 작성 (TDD)
 3. 최소 코드 구현
 4. 모든 테스트 통과 확인

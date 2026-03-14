@@ -96,7 +96,7 @@ Git records (code, commits, context, shared artifacts) in English. Personal note
 ### Code Contribution Essentials
 
 1. **Issue first** — Create or pick a GitHub Issue before coding
-2. **Branch**: `issue-{N}-{desc}`
+2. **Workspace**: Worktree (default, concurrent work) or branch (solo work) — `issue-{N}-{desc}`
 3. **TDD**: Test first → minimal code → refactor
 4. **One PR**: code + tests + context = one PR (no splitting)
 5. **PR title**: `type(scope): description` (feat, fix, refactor, docs, chore, test)

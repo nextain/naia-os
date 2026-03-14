@@ -58,7 +58,7 @@ Most open source projects in 2025-2026 are defending against AI contributions (c
 ### Code Contributions
 
 1. Check existing issues or create a new one (AI checks for duplicates)
-2. Create branch: `issue-{number}-{short-description}`
+2. Set up workspace: worktree (concurrent) or branch (solo) — `issue-{number}-{short-description}`
 3. Code with AI assistance (AI guides patterns, conventions, tests)
 4. Self-review with AI (contributing.yaml checklist)
 5. Submit PR: English title, AI attribution (`Assisted-by` trailer), small focused PR

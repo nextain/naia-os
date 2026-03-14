@@ -241,8 +241,15 @@ Logger.error("[Shell] Avatar render failed", error);
 ```
 main <- Stable, always deployable (BlueBuild builds from main)
   └── dev <- Integration branch
-        └── feature/<name> <- Feature branches (short-lived, PR to dev)
+        └── issue-{N}-{desc} <- Feature branches (short-lived, PR to dev)
 ```
+
+**Workspace Isolation:**
+
+| Mode | When | Command |
+|------|------|---------|
+| **Worktree** (default) | Concurrent work — multiple issues active simultaneously | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` |
+| **Branch only** | Solo work — only one issue at a time | `git checkout -b issue-{N}-{desc} dev` |
 
 ### Commit Convention
 
@@ -264,7 +271,8 @@ ci(os): add BlueBuild GitHub Action (#12)
 ```
 
 ### PR Process
-1. Create feature branch from dev
+1. Concurrent work: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (worktree + branch from dev)
+   Solo work: `git checkout -b issue-{N}-{desc} dev` (simple branch from dev)
 2. Write tests first (TDD)
 3. Implement minimal code
 4. Ensure all tests pass

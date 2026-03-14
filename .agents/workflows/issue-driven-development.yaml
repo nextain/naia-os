@@ -149,7 +149,7 @@ phases:
   build:
     description: "Implement according to approved plan"
     steps:
-      - "Create branch: issue-N-description"
+      - "Set up workspace (see git_integration.isolation for worktree vs branch)"
       - "Implement changes per plan, one phase at a time"
       - "After each phase:"
       - "  1. Run iterative code review (TWO consecutive clean passes)"
@@ -162,7 +162,7 @@ phases:
       - "Stay within plan scope — no unplanned changes"
       - "Follow upstream patterns, don't invent new ones"
       - "Do NOT proceed to the next phase if review or verification fails"
-    output: "Implementation on feature branch (verified per-phase + full review)"
+    output: "Implementation on worktree or branch (verified per-phase + full review)"
 
   review:
     description: "Self-review against plan AND original issue"
@@ -360,7 +360,15 @@ language:
 
 git_integration:
   issue: "Each cycle starts from a GitHub Issue"
-  branch: "issue-{number}-{short-description}"
+  branch_naming: "issue-{number}-{short-description}"
+  isolation:
+    worktree:
+      when: "Default — concurrent work (multiple issues active in the same project)"
+      command: "git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc}"
+      note: "Creates an independent working directory with its own branch. No stash/switch needed."
+    branch_only:
+      when: "Solo work — only one issue at a time in the repository"
+      command: "git checkout -b issue-{N}-{desc}"
   comments: "Investigation results, scope, plan, decisions posted as Issue comments (English)"
   pr: "Links back to Issue on completion"
   transparency: "Full decision trail visible in Issue timeline"

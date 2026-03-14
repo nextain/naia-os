@@ -110,7 +110,7 @@ contribution_types:
     process:
       - "Open issue with feature_request template"
       - "Discuss design with maintainer"
-      - "Fork → create branch issue-{N}-{desc}"
+      - "Fork → set up workspace (worktree for concurrent work, branch for solo work)"
       - "Implement following code rules below"
       - "Write tests (TDD)"
       - "Update .agents/ + .users/ context"
@@ -131,7 +131,7 @@ contribution_types:
     difficulty: medium-high
     process:
       - "Pick an existing issue"
-      - "Create branch: issue-{N}-{desc}"
+      - "Set up workspace: worktree (concurrent) or branch (solo) — see git_integration.isolation"
       - "Code with AI assistance (follow code rules below)"
       - "Write tests (TDD: test first → minimal code → refactor)"
       - "Update .agents/ + .users/ context if architecture changed"
