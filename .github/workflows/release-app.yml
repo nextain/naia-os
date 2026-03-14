@@ -137,6 +137,10 @@ jobs:
         with:
           workspaces: shell/src-tauri
 
+      - name: Install CMake (required by whisper-rs/whisper.cpp)
+        shell: pwsh
+        run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version "^2" --locked
 
