@@ -54,6 +54,23 @@ pub(crate) fn check_wsl_status() -> Result<bool, String> {
         _ => {}
     }
 
+    // Method 1b: wsl --version failed but wsl.exe exists (inbox version).
+    // Check if WSL2 kernel is missing — wsl --status reports this.
+    {
+        let mut status_cmd = Command::new("wsl");
+        status_cmd.arg("--status");
+        super::hide_console(&mut status_cmd);
+        if let Ok(o) = status_cmd.output() {
+            let stderr = decode_utf16_lossy(&o.stderr);
+            let stdout = decode_utf16_lossy(&o.stdout);
+            let combined = format!("{}{}", stdout, stderr);
+            // Korean: "커널 파일을 찾을 수 없습니다" / English: "kernel file is not found"
+            if combined.contains("kernel") || combined.contains("커널") {
+                return Err("WSL2 kernel not installed. Run: wsl --update".to_string());
+            }
+        }
+    }
+
     // Method 2: wsl echo ok (slower — boots VM if needed, but works everywhere)
     let mut cmd2 = Command::new("wsl");
     cmd2.args(["echo", "ok"]);

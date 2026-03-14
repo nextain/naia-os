@@ -1,6 +1,6 @@
 {
 	"build": {
-		"beforeBuildCommand": ""
+		"beforeBuildCommand": "cd ../agent && npm install && npm run build && cd ../shell && pnpm build"
 	},
 	"bundle": {
 		"targets": ["nsis"],

@@ -140,9 +140,9 @@ jobs:
         working-directory: shell
         run: pnpm install --frozen-lockfile
 
-      - name: Build agent
+      - name: Build agent (npm for flat node_modules — pnpm symlinks break NSIS bundling)
         working-directory: agent
-        run: pnpm install --frozen-lockfile && pnpm run build
+        run: npm install && npm run build
 
       - name: Build frontend
         working-directory: shell

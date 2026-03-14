@@ -240,6 +240,26 @@ fn emit_setup_progress(app: &tauri::AppHandle, step: &str, detail: &str) {
     crate::log_both(&format!("[Naia] WSL setup: {} — {}", step, detail));
 }
 
+/// Run `wsl --update` with UAC elevation to install/update the WSL2 kernel.
+/// This handles the case where WSL features are enabled but the kernel is missing
+/// (e.g. fresh Windows install, or feature enabled without kernel download).
+fn update_wsl_kernel_elevated() -> Result<(), String> {
+    let mut cmd = Command::new("powershell");
+    cmd.args([
+        "-NoProfile", "-Command",
+        "Start-Process wsl.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '--update'",
+    ]);
+    hide_console(&mut cmd);
+    match cmd.output() {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            crate::log_both(&format!("[Naia] wsl --update completed: {}", stdout.trim()));
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to run wsl --update: {}", e)),
+    }
+}
+
 /// Run the PowerShell UAC elevation script to enable WSL features.
 /// Returns Ok(()) on success, Err on failure.
 fn enable_wsl_features_elevated() -> Result<(), String> {
@@ -285,44 +305,70 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
     // The VMP feature check via PowerShell may fail in app contexts that lack
     // elevation, so we only use it as a "definitely disabled" guard.
     if !super::wsl::is_wsl_available() {
-        // Check if features are already enabled/pending but is_wsl_available failed
-        // due to PowerShell elevation issues in app context.
-        let vmp_state = super::wsl::get_windows_feature_state("VirtualMachinePlatform");
-        let wsl_state = super::wsl::get_windows_feature_state("Microsoft-Windows-Subsystem-Linux");
-        crate::log_both(&format!(
-            "[Naia] Feature states — VMP: {:?}, WSL: {:?}",
-            vmp_state, wsl_state
-        ));
+        // Distinguish between "features disabled", "kernel missing", and "pending reboot".
+        let wsl_err = super::wsl::check_wsl_status().unwrap_err();
+        crate::log_both(&format!("[Naia] WSL not available: {}", wsl_err));
 
-        let vmp_disabled = vmp_state.as_deref() == Some("Disabled");
-        let wsl_disabled = wsl_state.as_deref() == Some("Disabled");
-        let vmp_pending = vmp_state.as_deref() == Some("EnablePending");
-        let wsl_pending = wsl_state.as_deref() == Some("EnablePending");
+        // Case 1: WSL2 kernel not installed (features enabled, vmcompute exists, but no kernel)
+        // This happens on fresh Windows installs or after WSL feature enable without wsl --update.
+        if wsl_err.contains("kernel") || wsl_err.contains("커널") || wsl_err.contains("wsl --update") {
+            emit_setup_progress(app_handle, "wsl_kernel", "Installing WSL2 kernel...");
+            crate::log_both("[Naia] WSL2 kernel missing — running wsl --update with elevation");
+            update_wsl_kernel_elevated()?;
 
-        if vmp_disabled || wsl_disabled {
-            // At least one feature needs enabling
-            emit_setup_progress(app_handle, "wsl", "Installing WSL...");
-            crate::log_both("[Naia] WSL features need enabling");
-            enable_wsl_features_elevated()?;
+            // Re-check after kernel install
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            if !super::wsl::is_wsl_available() {
+                return Err("WSL2 kernel installed. Please restart your computer and reopen Naia to complete setup.".to_string());
+            }
+            crate::log_both("[Naia] WSL2 kernel installed successfully — continuing setup");
+        } else {
+            // Case 2: Features disabled or pending
+            let vmp_state = super::wsl::get_windows_feature_state("VirtualMachinePlatform");
+            let wsl_state = super::wsl::get_windows_feature_state("Microsoft-Windows-Subsystem-Linux");
+            crate::log_both(&format!(
+                "[Naia] Feature states — VMP: {:?}, WSL: {:?}",
+                vmp_state, wsl_state
+            ));
 
-            // Features were just enabled — reboot required
-            return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
-        }
+            let vmp_disabled = vmp_state.as_deref() == Some("Disabled");
+            let wsl_disabled = wsl_state.as_deref() == Some("Disabled");
+            let vmp_pending = vmp_state.as_deref() == Some("EnablePending");
+            let wsl_pending = wsl_state.as_deref() == Some("EnablePending");
 
-        if vmp_pending || wsl_pending {
-            // Features enabled but pending reboot
-            return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
-        }
+            if vmp_pending || wsl_pending {
+                return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+            }
 
-        // Feature state check failed (None) but wsl --version also failed.
-        // Last resort: try wsl --version one more time after a short delay.
-        std::thread::sleep(std::time::Duration::from_secs(2));
-        if !super::wsl::is_wsl_available() {
-            crate::log_both("[Naia] WSL still not available — requesting feature enable");
-            emit_setup_progress(app_handle, "wsl", "Installing WSL...");
-            enable_wsl_features_elevated()?;
+            if vmp_disabled || wsl_disabled {
+                emit_setup_progress(app_handle, "wsl", "Installing WSL...");
+                crate::log_both("[Naia] WSL features need enabling");
+                enable_wsl_features_elevated()?;
+                return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+            }
 
-            return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+            // Case 3: Feature state unknown (None) — last resort
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            if !super::wsl::is_wsl_available() {
+                // Try kernel update first (more common issue than features missing)
+                emit_setup_progress(app_handle, "wsl_kernel", "Installing WSL2 kernel...");
+                crate::log_both("[Naia] WSL not available, unknown reason — trying wsl --update");
+                if update_wsl_kernel_elevated().is_ok() {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    if super::wsl::is_wsl_available() {
+                        crate::log_both("[Naia] WSL available after kernel update");
+                    } else {
+                        // Kernel update wasn't enough, try enabling features
+                        emit_setup_progress(app_handle, "wsl", "Installing WSL...");
+                        enable_wsl_features_elevated()?;
+                        return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+                    }
+                } else {
+                    emit_setup_progress(app_handle, "wsl", "Installing WSL...");
+                    enable_wsl_features_elevated()?;
+                    return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+                }
+            }
         }
     }
 
