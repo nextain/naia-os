@@ -22,16 +22,11 @@ export function listTtsProviderMetas(): TtsProviderMeta[] {
 registerTtsProviderMeta({
 	id: "edge",
 	name: "Microsoft Edge TTS",
-	description: "Free, no API key needed. Good quality Korean/English voices.",
+	description: "Free, no API key needed. Good quality voices for 14+ languages.",
 	requiresApiKey: false,
 	isFree: true,
 	pricing: "Free",
-	voices: [
-		{ id: "ko-KR-SunHiNeural", label: "SunHi (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-InJoonNeural", label: "InJoon (남성)", language: "ko-KR", gender: "male" },
-		{ id: "en-US-JennyNeural", label: "Jenny (Female)", language: "en-US", gender: "female" },
-		{ id: "en-US-GuyNeural", label: "Guy (Male)", language: "en-US", gender: "male" },
-	],
+	// Edge voices are fetched dynamically from Gateway — no static list needed
 });
 
 registerTtsProviderMeta({
@@ -41,59 +36,35 @@ registerTtsProviderMeta({
 	requiresApiKey: false,
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
-	voices: [
-		// Chirp 3 HD (최신, 고품질)
-		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Aoede", label: "Aoede (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Fenrir", label: "Fenrir (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", language: "ko-KR", gender: "neutral" },
-		// Neural2 (안정적)
-		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
-	],
+	// Voices fetched dynamically via Naia gateway — supports all locales
 });
 
 registerTtsProviderMeta({
 	id: "google",
 	name: "Google Cloud TTS",
-	description: "High-quality Neural2 voices. Requires Google API key.",
+	description: "High-quality Neural2 + Chirp 3 HD voices. Requires Google API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
 	pricing: "$0.016/1K 글자",
-	voices: [
-		// Chirp 3 HD (최신, 고품질)
-		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Aoede", label: "Aoede (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Fenrir", label: "Fenrir (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", language: "ko-KR", gender: "male" },
-		{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", language: "ko-KR", gender: "neutral" },
-		// Neural2 (안정적)
-		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
-		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
-	],
+	// Voices fetched dynamically from Google API — supports all locales
 	async fetchVoices(apiKey) {
 		try {
+			const locale = document.documentElement.lang || navigator.language || "ko-KR";
+			const langCode = locale.slice(0, 5); // "ko-KR", "en-US", etc.
 			const resp = await fetch(
-				`https://texttospeech.googleapis.com/v1/voices?languageCode=ko-KR&key=${apiKey}`,
+				`https://texttospeech.googleapis.com/v1/voices?languageCode=${langCode}&key=${apiKey}`,
 			);
 			if (!resp.ok) return null;
 			const data = await resp.json();
+			const genderLabel = (g?: string) => g === "FEMALE" ? "여성" : g === "MALE" ? "남성" : "";
+			const shortName = (name: string) => name.replace(new RegExp(`^${langCode}-`), "").replace(/^(Chirp3-HD-|Neural2-)/, "");
 			return (data.voices ?? [])
-				.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp"))
+				.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp") || v.name?.includes("Wavenet"))
 				.map((v: { name: string; ssmlGender?: string }) => ({
 					id: v.name,
-					label: v.name.replace("ko-KR-", ""),
-					language: "ko-KR",
-					gender: v.ssmlGender === "FEMALE" ? "female" as const : "male" as const,
+					label: `${shortName(v.name)}${genderLabel(v.ssmlGender) ? ` (${genderLabel(v.ssmlGender)})` : ""}`,
+					language: langCode,
+					gender: v.ssmlGender === "FEMALE" ? "female" as const : v.ssmlGender === "MALE" ? "male" as const : "neutral" as const,
 				}));
 		} catch {
 			return null;
@@ -104,12 +75,11 @@ registerTtsProviderMeta({
 registerTtsProviderMeta({
 	id: "openai",
 	name: "OpenAI TTS",
-	description: "OpenAI text-to-speech. Requires OpenAI API key.",
+	description: "OpenAI text-to-speech. All languages supported.",
 	requiresApiKey: true,
 	apiKeyConfigField: "openaiTtsApiKey",
 	pricing: "$0.015/1K 글자",
 	voices: [
-		// All models (tts-1, tts-1-hd, gpt-4o-mini-tts)
 		{ id: "alloy", label: "Alloy", gender: "neutral" },
 		{ id: "ash", label: "Ash", gender: "male" },
 		{ id: "coral", label: "Coral", gender: "female" },
@@ -119,7 +89,6 @@ registerTtsProviderMeta({
 		{ id: "onyx", label: "Onyx", gender: "male" },
 		{ id: "sage", label: "Sage", gender: "female" },
 		{ id: "shimmer", label: "Shimmer", gender: "female" },
-		// gpt-4o-mini-tts only
 		{ id: "ballad", label: "Ballad (gpt-4o-mini-tts)", gender: "male" },
 		{ id: "verse", label: "Verse (gpt-4o-mini-tts)", gender: "male" },
 		{ id: "marin", label: "Marin (gpt-4o-mini-tts)", gender: "female" },
@@ -130,10 +99,11 @@ registerTtsProviderMeta({
 registerTtsProviderMeta({
 	id: "elevenlabs",
 	name: "ElevenLabs",
-	description: "Premium AI voices. Requires ElevenLabs API key.",
+	description: "Premium AI voices. All languages supported.",
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
 	pricing: "$0.30/1K 글자",
+	// Voices fetched dynamically from ElevenLabs API
 	async fetchVoices(apiKey) {
 		try {
 			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=50", {
