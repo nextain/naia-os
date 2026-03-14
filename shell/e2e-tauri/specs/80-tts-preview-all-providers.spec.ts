@@ -110,16 +110,16 @@ describe("80 — TTS preview all providers", () => {
 		expect(error).toBe("");
 	});
 
-	it("ElevenLabs TTS: preview with API key", async () => {
+	it("ElevenLabs TTS: preview succeeds with API key (default voice)", async () => {
 		if (!ELEVENLABS_KEY) { console.log("[SKIP] no ELEVENLABS_API_KEY"); return; }
 		await setSelectValue(S.ttsProviderSelect, "elevenlabs");
 		await browser.pause(500);
 		await setInputValue(S.ttsApiKeyInput, ELEVENLABS_KEY);
 		await browser.pause(300);
-		// ElevenLabs has no static voice list — preview may fail gracefully
+		// Uses default voice (Sarah) when no voice selected
 		const error = await previewAndCheckError();
-		console.log("[ElevenLabs] error:", error || "(none)");
-		expect(typeof error).toBe("string");
+		if (error) console.error("[ElevenLabs]", error);
+		expect(error).toBe("");
 	});
 
 	it("Google Cloud TTS: note — requires separate Cloud API key", () => {
