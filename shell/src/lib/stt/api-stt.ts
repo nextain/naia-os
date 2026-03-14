@@ -202,7 +202,7 @@ async function transcribeNextain(audio: Blob, naiaKey: string, language: string)
 
 async function transcribeElevenLabs(audio: Blob, apiKey: string, language: string): Promise<string | null> {
 	const formData = new FormData();
-	formData.append("audio", audio, "audio.webm");
+	formData.append("file", audio, "audio.webm");
 	formData.append("model_id", "scribe_v1");
 	formData.append("language_code", language.split("-")[0]); // "ko-KR" → "ko"
 
