@@ -27,15 +27,18 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 	let recordingInterval: ReturnType<typeof setInterval> | null = null;
 
 	async function transcribeChunk(audioBlob: Blob): Promise<string | null> {
+		Logger.info("api-stt", `transcribeChunk called`, { provider, blobSize: audioBlob.size, blobType: audioBlob.type });
 		try {
+			let result: string | null = null;
 			if (provider === "google") {
-				return await transcribeGoogle(audioBlob, apiKey, language);
+				result = await transcribeGoogle(audioBlob, apiKey, language);
 			} else if (provider === "nextain") {
-				return await transcribeNextain(audioBlob, apiKey, language);
+				result = await transcribeNextain(audioBlob, apiKey, language);
 			} else if (provider === "elevenlabs") {
-				return await transcribeElevenLabs(audioBlob, apiKey, language);
+				result = await transcribeElevenLabs(audioBlob, apiKey, language);
 			}
-			return null;
+			Logger.info("api-stt", `transcribeChunk result`, { provider, result: result?.slice(0, 50) ?? "(null)" });
+			return result;
 		} catch (err) {
 			Logger.warn("api-stt", `${provider} transcription error`, { error: String(err) });
 			for (const cb of errorCallbacks) cb({ code: "API_ERROR", message: String(err) });
@@ -64,7 +67,10 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 						: ""; // browser default
 				const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 				recorder.ondataavailable = (e) => {
-					if (e.data.size > 0) chunks.push(e.data);
+					if (e.data.size > 0) {
+						chunks.push(e.data);
+						Logger.info("api-stt", `chunk received`, { size: e.data.size, totalChunks: chunks.length });
+					}
 				};
 				recorder.onstop = async () => {
 					if (chunks.length === 0 || stopped) return;
