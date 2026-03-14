@@ -2454,7 +2454,7 @@ export function SettingsTab() {
 							<option value="">{t("settings.sttNone")}</option>
 							{listSttProviders().map((p) => (
 								<option key={p.id} value={p.id}>
-									{p.name}{p.isOffline ? "" : p.requiresApiKey ? " (API key)" : ""}
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
 								</option>
 							))}
 						</select>
@@ -2557,7 +2557,7 @@ export function SettingsTab() {
 						>
 							{listTtsProviderMetas().map((p) => (
 								<option key={p.id} value={p.id}>
-									{p.name}{p.isFree ? "" : p.requiresNaiaKey ? " (Naia)" : " (API key)"}
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
 								</option>
 							))}
 						</select>

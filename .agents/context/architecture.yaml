@@ -552,6 +552,30 @@ voice_architecture:
       - google, nextain → "google" engine (direct Google Cloud TTS)
       - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
     settings_ui: "TTS provider dropdown + API key input + voice picker (auto-discovery from registry)"
+    pricing:
+      edge: "Free"
+      nextain: "Naia credit (included with Naia account)"
+      google: "$16/1M chars (Neural2)"
+      openai: "$15/1M chars (tts-1)"
+      elevenlabs: "$0.30/1K chars"
+
+  # ── Testing ────────────────────────────────────────────────────
+
+  testing:
+    description: "E2E test suite for STT/TTS provider UI and voice pipeline"
+    e2e_specs:
+      - "shell/e2e-tauri/specs/76-tts-provider-switching.spec.ts — TTS provider dropdown, API key, voice, preview (12 tests)"
+      - "shell/e2e-tauri/specs/77-stt-provider-switching.spec.ts — STT provider dropdown, order, API key (7 tests)"
+      - "shell/e2e-tauri/specs/78-voice-pipeline-mode.spec.ts — labels, voice picker, preview, button states (11 tests)"
+    unit_tests:
+      - "shell/src/components/__tests__/SettingsTab.test.tsx — Settings UI rendering (15 tests)"
+      - "shell/src/components/__tests__/ChatPanel.test.tsx — Chat panel rendering (15 tests)"
+    run_commands: |
+      cd shell && pnpm test                    # Unit tests
+      cd shell && source ../my-envs/naia-os-shell.env
+      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
+      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
+      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/78-voice-pipeline-mode.spec.ts
 
   # ── Pipeline Voice (STT → LLM → TTS) ──────────────────────────
 

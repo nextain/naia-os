@@ -26,6 +26,7 @@ registerSttProvider({
 	engineType: "tauri",
 	engine: "vosk",
 	isOffline: true,
+	pricing: "Free",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
@@ -40,6 +41,7 @@ registerSttProvider({
 	engine: "whisper",
 	isOffline: true,
 	gpuAccelerated: true,
+	pricing: "Free",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
@@ -56,6 +58,7 @@ registerSttProvider({
 	engineType: "api",
 	isOffline: false,
 	requiresNaiaKey: true,
+	pricing: "Naia credit",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
@@ -72,6 +75,7 @@ registerSttProvider({
 	isOffline: false,
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
+	pricing: "$0.006/15s",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
@@ -87,6 +91,7 @@ registerSttProvider({
 	isOffline: false,
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
+	pricing: "$0.40/hr",
 	supportedLanguages: [
 		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
 		"de-DE", "ru-RU",

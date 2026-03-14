@@ -68,6 +68,7 @@ export function createGeminiLiveSession(): VoiceSession {
 
 					if (isDirect) {
 						// Direct mode: Gemini API native setup format
+						const langCode = gemini.locale ?? "ko-KR";
 						ws!.send(
 							JSON.stringify({
 								setup: {
@@ -80,8 +81,11 @@ export function createGeminiLiveSession(): VoiceSession {
 													voiceName: gemini.voice ?? "Kore",
 												},
 											},
+											languageCode: langCode,
 										},
 									},
+									inputAudioTranscription: {},
+									outputAudioTranscription: {},
 									systemInstruction: gemini.systemInstruction
 										? {
 												parts: [{ text: gemini.systemInstruction }],
@@ -104,6 +108,7 @@ export function createGeminiLiveSession(): VoiceSession {
 								setup: {
 									apiKey: `Bearer ${gemini.naiaKey}`,
 									voice: gemini.voice ?? "Kore",
+									languageCode: gemini.locale ?? "ko-KR",
 									systemInstruction: gemini.systemInstruction,
 									tools: gemini.tools,
 									model,

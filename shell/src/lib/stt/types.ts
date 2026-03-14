@@ -23,6 +23,8 @@ export interface SttProviderMeta {
 	apiKeyConfigField?: string;
 	/** Whether this provider requires a Naia Lab key. */
 	requiresNaiaKey?: boolean;
+	/** Pricing hint (e.g. "Free", "$0.006/15s"). */
+	pricing?: string;
 	/** Supported language codes (BCP-47). */
 	supportedLanguages: string[];
 }

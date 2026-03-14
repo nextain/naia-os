@@ -1277,6 +1277,7 @@ export function ChatPanel() {
 					provider: "openai-realtime",
 					apiKey: openaiKey!,
 					voice: selectedVoice,
+					locale: getLocale(),
 					systemInstruction: systemPrompt,
 				});
 			} else {
@@ -1287,6 +1288,7 @@ export function ChatPanel() {
 					naiaKey: useDirectMode ? undefined : naiaKey,
 					googleApiKey: useDirectMode ? config.googleApiKey : undefined,
 					voice: selectedVoice,
+					locale: getLocale(),
 					systemInstruction: systemPrompt,
 				});
 			}

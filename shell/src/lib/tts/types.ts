@@ -14,6 +14,8 @@ export interface TtsProviderMeta {
 	requiresNaiaKey?: boolean;
 	/** Whether the provider is free to use. */
 	isFree?: boolean;
+	/** Pricing hint (e.g. "Free", "$15/1M chars"). */
+	pricing?: string;
 	/** Available voices for this provider. */
 	voices?: TtsVoiceMeta[];
 }

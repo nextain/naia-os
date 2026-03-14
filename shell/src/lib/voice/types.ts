@@ -49,6 +49,8 @@ interface LiveProviderConfigBase {
 	model?: string;
 	systemInstruction?: string;
 	tools?: ToolDeclaration[];
+	/** BCP-47 locale for speech recognition language hint (e.g. "ko-KR"). */
+	locale?: string;
 }
 
 export interface GeminiLiveConfig extends LiveProviderConfigBase {

@@ -25,6 +25,7 @@ registerTtsProviderMeta({
 	description: "Free, no API key needed. Good quality Korean/English voices.",
 	requiresApiKey: false,
 	isFree: true,
+	pricing: "Free",
 	voices: [
 		{ id: "ko-KR-SunHiNeural", label: "SunHi (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-InJoonNeural", label: "InJoon (남성)", language: "ko-KR", gender: "male" },
@@ -39,6 +40,7 @@ registerTtsProviderMeta({
 	description: "Cloud TTS without API key. Currently Google Chirp 3 HD, more providers coming.",
 	requiresApiKey: false,
 	requiresNaiaKey: true,
+	pricing: "Naia credit",
 });
 
 registerTtsProviderMeta({
@@ -47,6 +49,7 @@ registerTtsProviderMeta({
 	description: "High-quality Neural2 voices. Requires Google API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
+	pricing: "$16/1M chars",
 	voices: [
 		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
@@ -60,6 +63,7 @@ registerTtsProviderMeta({
 	description: "OpenAI text-to-speech. Requires OpenAI API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "openaiTtsApiKey",
+	pricing: "$15/1M chars",
 	voices: [
 		// All models (tts-1, tts-1-hd, gpt-4o-mini-tts)
 		{ id: "alloy", label: "Alloy", gender: "neutral" },
@@ -85,4 +89,5 @@ registerTtsProviderMeta({
 	description: "Premium AI voices. Requires ElevenLabs API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
+	pricing: "$0.30/1K chars",
 });
