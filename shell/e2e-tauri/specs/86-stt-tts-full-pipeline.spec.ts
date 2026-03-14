@@ -45,71 +45,17 @@ async function injectSilentMicStream() {
 	});
 }
 
-/** Configure STT + TTS providers in settings UI */
-async function configureSttTts(sttProvider: string, ttsProvider: string, ttsKey?: string) {
-	await navigateToSettings();
-	const settingsTab = await $(S.settingsTab);
-	await settingsTab.waitForDisplayed({ timeout: 10_000 });
-
-	// Set STT provider
-	await browser.execute((provider: string) => {
-		const selects = document.querySelectorAll("select");
-		for (const sel of selects) {
-			const options = Array.from(sel.options).map((o) => o.value);
-			if (options.includes("vosk") && options.includes("whisper")) {
-				sel.value = provider;
-				sel.dispatchEvent(new Event("change", { bubbles: true }));
-				return;
-			}
-		}
-	}, sttProvider);
-	await browser.pause(300);
-
-	// Enable TTS
-	await scrollToSection(S.ttsToggle);
-	const ttsOn = await browser.execute((sel: string) =>
-		(document.querySelector(sel) as HTMLInputElement)?.checked ?? false, S.ttsToggle);
-	if (!ttsOn) {
-		await browser.execute((sel: string) =>
-			(document.querySelector(sel) as HTMLInputElement)?.click(), S.ttsToggle);
-		await browser.pause(200);
-	}
-
-	// Set TTS provider
-	await scrollToSection(S.ttsProviderSelect);
-	await browser.execute((sel: string, val: string) => {
-		const s = document.querySelector(sel) as HTMLSelectElement;
-		if (s) { s.value = val; s.dispatchEvent(new Event("change", { bubbles: true })); }
-	}, S.ttsProviderSelect, ttsProvider);
-	await browser.pause(300);
-
-	// Enter TTS API key if needed
-	if (ttsKey) {
-		const hasInput = await browser.execute((sel: string) =>
-			!!document.querySelector(sel), S.ttsApiKeyInput);
-		if (hasInput) {
-			await browser.execute((sel: string, val: string) => {
-				const input = document.querySelector(sel) as HTMLInputElement;
-				if (!input) return;
-				const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-				setter?.call(input, val);
-				input.dispatchEvent(new Event("input", { bubbles: true }));
-				input.dispatchEvent(new Event("change", { bubbles: true }));
-			}, S.ttsApiKeyInput, ttsKey);
-			await browser.pause(200);
-		}
-	}
-
-	// Save
-	await browser.execute(() => {
-		const btns = document.querySelectorAll("button");
-		for (const btn of btns) {
-			if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
-				btn.click(); return;
-			}
-		}
-	});
-	await browser.pause(1500);
+/** Configure STT + TTS providers via localStorage (reliable, React-independent) */
+async function configureSttTts(sttProvider: string, ttsProvider: string, extras: Record<string, string> = {}) {
+	await browser.execute((stt: string, tts: string, ext: Record<string, string>) => {
+		const cfg = JSON.parse(localStorage.getItem("naia-config") ?? "{}");
+		cfg.sttProvider = stt;
+		cfg.ttsEnabled = true;
+		cfg.ttsProvider = tts;
+		for (const [k, v] of Object.entries(ext)) cfg[k] = v;
+		localStorage.setItem("naia-config", JSON.stringify(cfg));
+	}, sttProvider, ttsProvider, extras);
+	await browser.pause(500);
 }
 
 /** Click voice button and check activation */
@@ -149,7 +95,7 @@ describe("86 — STT + TTS full pipeline", () => {
 
 		it("should configure google STT + edge TTS", async () => {
 			if (!GOOGLE_KEY) { console.log("[SKIP] no GEMINI_API_KEY"); return; }
-			await configureSttTts("google", "edge");
+			await configureSttTts("google", "edge", { googleApiKey: GOOGLE_KEY });
 		});
 
 		it("should activate voice mode with API STT", async () => {
@@ -225,21 +171,18 @@ describe("86 — STT + TTS full pipeline", () => {
 
 	describe("Phase 3: Provider combos", () => {
 		const combos = [
-			{ stt: "google", tts: "edge", ttsKey: "", label: "Google STT + Edge TTS" },
-			{ stt: "google", tts: "openai", ttsKey: OPENAI_KEY, label: "Google STT + OpenAI TTS" },
-			{ stt: "google", tts: "elevenlabs", ttsKey: ELEVENLABS_KEY, label: "Google STT + ElevenLabs TTS" },
+			{ stt: "google", tts: "edge", extras: { googleApiKey: GOOGLE_KEY }, label: "Google STT + Edge TTS" },
+			{ stt: "google", tts: "openai", extras: { googleApiKey: GOOGLE_KEY, openaiTtsApiKey: OPENAI_KEY }, label: "Google STT + OpenAI TTS", skip: () => !OPENAI_KEY },
+			{ stt: "google", tts: "elevenlabs", extras: { googleApiKey: GOOGLE_KEY, elevenlabsApiKey: ELEVENLABS_KEY }, label: "Google STT + ElevenLabs TTS", skip: () => !ELEVENLABS_KEY },
 		];
 
 		for (const combo of combos) {
 			it(`${combo.label}: voice activation succeeds`, async () => {
 				if (!GOOGLE_KEY) { console.log("[SKIP] no GEMINI_API_KEY"); return; }
-				if (combo.ttsKey === "" && combo.tts !== "edge") {
-					console.log(`[SKIP] no API key for ${combo.tts}`);
-					return;
-				}
+				if (combo.skip?.()) { console.log(`[SKIP] missing key`); return; }
 
 				await injectSilentMicStream();
-				await configureSttTts(combo.stt, combo.tts, combo.ttsKey || undefined);
+				await configureSttTts(combo.stt, combo.tts, combo.extras);
 
 				const classes = await activateVoice();
 				console.log(`[${combo.label}] Voice classes:`, classes);
