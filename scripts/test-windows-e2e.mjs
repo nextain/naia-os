@@ -190,69 +190,59 @@ async function phase1_verifyCleanState() {
 }
 
 async function phase2_wslSetup() {
-	log("Phase 2: WSL setup (Ubuntu → NaiaEnv → provision)");
+	log("Phase 2: WSL setup (rootfs download → NaiaEnv → provision)");
 
-	// 2a: Install Ubuntu-24.04
-	if (!isDistroRegistered("Ubuntu-24.04")) {
-		log("  Installing Ubuntu-24.04 (this takes a few minutes)...");
-		try {
-			run("wsl --install -d Ubuntu-24.04 --no-launch", { timeout: 300_000 });
-			ok("Ubuntu-24.04 installed");
-		} catch (e) {
-			fail("Ubuntu-24.04 installed", e.message);
-			return false;
-		}
-	} else {
-		ok("Ubuntu-24.04 already present");
-	}
-
-	// 2b: Export Ubuntu → import as NaiaEnv
 	const wslDir = join(homedir(), ".naia", "wsl");
 	mkdirSync(wslDir, { recursive: true });
-	const exportPath = join(wslDir, "ubuntu-export.tar");
 	const installDir = join(wslDir, "NaiaEnv");
 	mkdirSync(installDir, { recursive: true });
 
-	log("  Exporting Ubuntu base...");
-	try {
-		run(`wsl --export Ubuntu-24.04 "${exportPath}"`, { timeout: 300_000 });
-		ok("Ubuntu exported");
-	} catch (e) {
-		fail("Ubuntu exported", e.message);
-		return false;
-	}
-
-	log("  Importing as NaiaEnv...");
-	try {
-		run(`wsl --import NaiaEnv "${installDir}" "${exportPath}" --version 2`, { timeout: 120_000 });
-		ok("NaiaEnv imported");
-	} catch (e) {
-		fail("NaiaEnv imported", e.message);
-		return false;
-	}
-
-	// Cleanup export + Ubuntu base
-	try {
-		rmSync(exportPath, { force: true });
-		run("wsl --unregister Ubuntu-24.04", { allowFail: true });
-	} catch { /* ignore */ }
-
-	// Write .wslconfig
-	const wslconfigPath = join(homedir(), ".wslconfig");
-	if (!existsSync(wslconfigPath)) {
-		const templatePath = join(process.cwd(), "config", "defaults", "wslconfig-template");
-		if (existsSync(templatePath)) {
-			const { writeFileSync } = await import("node:fs");
-			writeFileSync(wslconfigPath, readFileSync(templatePath, "utf-8"));
-			ok(".wslconfig written");
+	// 2a: Download Ubuntu rootfs (direct download, same as app code)
+	const rootfsUrl = "https://cdimage.ubuntu.com/ubuntu-wsl/noble/daily-live/current/noble-wsl-amd64.wsl";
+	const rootfsPath = join(wslDir, "ubuntu-noble-wsl-amd64.wsl");
+	if (existsSync(rootfsPath)) {
+		ok("Ubuntu rootfs already cached");
+	} else {
+		log("  Downloading Ubuntu 24.04 rootfs (~374MB)...");
+		try {
+			run(`curl.exe -L -o "${rootfsPath}" "${rootfsUrl}"`, { timeout: 600_000 });
+			const { statSync } = await import("node:fs");
+			const size = statSync(rootfsPath).size;
+			if (size > 100_000_000) {
+				ok(`Ubuntu rootfs downloaded (${Math.round(size / 1_000_000)}MB)`);
+			} else {
+				fail("Ubuntu rootfs downloaded", `file too small: ${size} bytes`);
+				return false;
+			}
+		} catch (e) {
+			fail("Ubuntu rootfs downloaded", e.message);
+			return false;
 		}
 	}
 
-	// Restart WSL to apply config
-	run("wsl --shutdown", { allowFail: true });
-	await sleep(3000);
+	// 2b: Verify HCS (vmcompute) before import
+	const scResult = run("sc.exe query vmcompute", { allowFail: true });
+	if (!scResult.includes("RUNNING") && !scResult.includes("STATE")) {
+		fail("HCS (vmcompute) service", "not available — reboot may be needed");
+		return false;
+	}
+	ok("HCS (vmcompute) service available");
 
-	// 2c: Provision (Node.js + OpenClaw)
+	// 2c: Import rootfs as NaiaEnv
+	if (!isDistroRegistered(DISTRO)) {
+		log("  Importing rootfs as NaiaEnv...");
+		try {
+			run(`wsl --import NaiaEnv "${installDir}" "${rootfsPath}" --version 2`, { timeout: 120_000 });
+			ok("NaiaEnv imported");
+		} catch (e) {
+			fail("NaiaEnv imported", e.message);
+			return false;
+		}
+	} else {
+		ok("NaiaEnv already registered");
+	}
+
+	// 2d: Provision (Node.js + OpenClaw)
 	log("  Provisioning NaiaEnv (Node.js + OpenClaw)...");
 	try {
 		wslRun(DISTRO, [
@@ -281,7 +271,7 @@ async function phase2_wslSetup() {
 		return false;
 	}
 
-	// 2d: Configure gateway.mode=local
+	// 2e: Configure gateway.mode=local
 	try {
 		const script = [
 			"cat > /tmp/set-gw-mode.js << 'NODESCRIPT'",
@@ -330,11 +320,12 @@ async function phase2_wslSetup() {
 async function phase3_gateway() {
 	log("Phase 3: Gateway startup + health check");
 
-	// Spawn Gateway in WSL
+	// Spawn Gateway in WSL (same as app: --bind loopback --port 18789 --allow-unconfigured)
 	gatewayProcess = spawn("wsl", [
 		"-d", DISTRO, "--",
 		"node", OPENCLAW_PATH,
 		"gateway", "run", "--bind", "loopback", "--port", String(GATEWAY_PORT),
+		"--allow-unconfigured",
 	], {
 		stdio: ["ignore", "pipe", "pipe"],
 		detached: false,
@@ -345,17 +336,49 @@ async function phase3_gateway() {
 		if (line && process.env.VERBOSE) console.log(`  [gw] ${line}`);
 	});
 
+	// 3a: Wait for health from WSL side (gateway itself)
 	try {
 		const health = await waitForHealth(GATEWAY_URL, 60_000);
 		if (health.ok) {
-			ok("Gateway healthy");
+			ok("Gateway healthy (WSL-side)");
 		} else {
-			fail("Gateway healthy", JSON.stringify(health));
+			fail("Gateway healthy (WSL-side)", JSON.stringify(health));
 			return false;
 		}
 	} catch (e) {
-		fail("Gateway healthy", e.message);
+		fail("Gateway healthy (WSL-side)", e.message);
 		return false;
+	}
+
+	// 3b: Verify health from Windows host side (tests localhost forwarding)
+	// This is the exact endpoint the Tauri app uses: /__openclaw__/canvas/
+	try {
+		const res = await fetch(`${GATEWAY_URL}/__openclaw__/canvas/`);
+		if (res.ok) {
+			ok("Gateway reachable from Windows host (localhost forwarding works)");
+		} else {
+			fail("Gateway reachable from Windows host", `HTTP ${res.status}`);
+			return false;
+		}
+	} catch (e) {
+		// Retry a few times — localhost forwarding may need time
+		let hostOk = false;
+		for (let i = 0; i < 10; i++) {
+			await sleep(2000);
+			try {
+				const res = await fetch(`${GATEWAY_URL}/__openclaw__/canvas/`);
+				if (res.ok) {
+					hostOk = true;
+					break;
+				}
+			} catch { /* retry */ }
+		}
+		if (hostOk) {
+			ok("Gateway reachable from Windows host (after retry)");
+		} else {
+			fail("Gateway reachable from Windows host", e.message);
+			return false;
+		}
 	}
 
 	return true;

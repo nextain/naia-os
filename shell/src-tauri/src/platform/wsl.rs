@@ -15,8 +15,28 @@ pub(crate) fn check_wsl_status() -> Result<bool, String> {
     // Method 0: Check if VirtualMachinePlatform Windows feature is enabled.
     // wsl --version succeeds even when VMP is disabled (wsl.exe is always present),
     // but WSL2 distros cannot run without it.
-    if !is_windows_feature_enabled("VirtualMachinePlatform") {
-        return Err("VirtualMachinePlatform is not enabled".to_string());
+    // Only block if we can CONFIRM the feature is disabled. If the check fails
+    // (e.g. Get-WindowsOptionalFeature needs elevation in some app contexts),
+    // fall through to HCS check instead of returning a false negative.
+    match get_windows_feature_state("VirtualMachinePlatform") {
+        Some(state) if state == "Disabled" => {
+            return Err("VirtualMachinePlatform is not enabled".to_string());
+        }
+        _ => {} // Enabled, EnablePending, or check failed — continue
+    }
+
+    // Method 0b: Check if Hyper-V Compute Service (vmcompute) exists.
+    // This is the definitive check — wsl --version always succeeds on Win11
+    // even when features are disabled, but vmcompute only exists when VMP
+    // is fully activated (after reboot).
+    {
+        let mut sc_cmd = Command::new("sc.exe");
+        sc_cmd.args(["query", "vmcompute"]);
+        super::hide_console(&mut sc_cmd);
+        let sc_ok = sc_cmd.output().map(|o| o.status.success()).unwrap_or(false);
+        if !sc_ok {
+            return Err("VirtualMachinePlatform is not active (vmcompute service missing)".to_string());
+        }
     }
 
     // Method 1: wsl --version (fast, no VM boot, works on Win11+)
@@ -52,10 +72,10 @@ pub(crate) fn check_wsl_status() -> Result<bool, String> {
     }
 }
 
-/// Check if a Windows optional feature is enabled via PowerShell.
-/// Uses Get-WindowsOptionalFeature which works without admin privileges.
-/// Returns true only if state is exactly "Enabled".
-fn is_windows_feature_enabled(feature: &str) -> bool {
+/// Get the state of a Windows optional feature via PowerShell.
+/// Returns Some("Enabled"), Some("Disabled"), Some("EnablePending"), etc.
+/// Returns None if the check fails (e.g. elevation required in some contexts).
+pub(crate) fn get_windows_feature_state(feature: &str) -> Option<String> {
     let script = format!(
         "(Get-WindowsOptionalFeature -Online -FeatureName {}).State",
         feature
@@ -65,10 +85,10 @@ fn is_windows_feature_enabled(feature: &str) -> bool {
     super::hide_console(&mut cmd);
     match cmd.output() {
         Ok(o) if o.status.success() => {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            stdout.trim() == "Enabled"
+            let state = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if state.is_empty() { None } else { Some(state) }
         }
-        _ => false,
+        _ => None,
     }
 }
 
@@ -200,15 +220,40 @@ pub(crate) fn spawn_node_host_in_wsl(
 /// Parses `openclaw devices list` CLI output to find pending request UUIDs,
 /// then approves each one so the Agent can connect without manual intervention.
 pub(crate) fn auto_approve_pending_devices(name: &str) {
+    // Run device list with a timeout to prevent hanging restart_gateway.
+    // WSL commands can hang if the gateway is still initializing.
     let mut cmd = Command::new("wsl");
     cmd.args([
         "-d", name, "--",
         "node",
         "/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs",
         "devices", "list",
-    ]);
+    ])
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped());
     super::hide_console(&mut cmd);
-    let output = match cmd.output() {
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+    // Poll with timeout (15s) — Child::wait() blocks forever if the WSL
+    // process hangs, so we poll try_wait in a loop instead.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    crate::log_both("[Naia] auto_approve_pending_devices timed out (15s) — skipping");
+                    let _ = child.kill();
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+            Err(_) => return,
+        }
+    }
+    let output = match child.wait_with_output() {
         Ok(o) => o,
         Err(_) => return,
     };
@@ -318,11 +363,6 @@ pub(crate) fn terminate_distro(name: &str) {
     cmd.args(["--terminate", name]);
     super::hide_console(&mut cmd);
     let _ = cmd.output();
-}
-
-/// Decode UTF-16LE stderr from wsl.exe (public helper for windows.rs).
-pub(crate) fn decode_wsl_stderr(bytes: &[u8]) -> String {
-    decode_utf16_lossy(bytes)
 }
 
 /// Check if a distro has Node.js + OpenClaw provisioned.

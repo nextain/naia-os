@@ -179,13 +179,13 @@ export function App() {
 				<WslSetupScreen
 					onComplete={() => {
 						setShowWslSetup(false);
+						// Always start Gateway after WSL setup completes.
+						// During initial app startup, Gateway spawn was skipped
+						// because NaiaEnv didn't exist yet.
+						restartGateway().catch(() => {});
 						if (!isOnboardingComplete()) {
 							// First install: proceed to onboarding
 							setShowOnboarding(true);
-						} else {
-							// WSL re-install (interrupted or deleted):
-							// start Gateway + reconnect agent
-							restartGateway().catch(() => {});
 						}
 					}}
 				/>

@@ -1,6 +1,9 @@
 {
+	"build": {
+		"beforeBuildCommand": ""
+	},
 	"bundle": {
-		"targets": ["nsis", "msi"],
+		"targets": ["nsis"],
 		"resources": {
 			"resources/node.exe": "node.exe"
 		},
@@ -8,7 +11,9 @@
 			"certificateThumbprint": null,
 			"digestAlgorithm": "sha256",
 			"nsis": {
-				"installMode": "currentUser"
+				"installMode": "currentUser",
+				"languages": ["English", "Korean", "Japanese"],
+				"startMenuFolder": "Naia"
 			}
 		}
 	}

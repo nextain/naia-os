@@ -610,6 +610,58 @@ pub(crate) fn check_gateway_health_sync() -> bool {
     }
 }
 
+/// Detailed health check: fetch /health JSON and log full status.
+/// Used by E2E tests to verify Gateway is fully functional.
+fn check_gateway_health_detailed() {
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+    match client.get("http://127.0.0.1:18789/health").send() {
+        Ok(resp) if resp.status().is_success() => {
+            if let Ok(text) = resp.text() {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                    let ok = json.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let version = json.get("version").and_then(|v| v.as_str()).unwrap_or("?");
+                    let methods = json
+                        .get("methods")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    log_both(&format!(
+                        "[Naia] Gateway details: ok={}, version={}, methods={}",
+                        ok, version, methods
+                    ));
+                }
+            }
+        }
+        _ => log_verbose("[Naia] Gateway /health endpoint not available"),
+    }
+}
+
+/// Send a diagnostic probe through agent-core to verify the full WebSocket chain.
+/// Only runs when CAFE_DEBUG_E2E=1. Logs results for E2E script verification.
+fn e2e_gateway_websocket_probe(state: &AppState) {
+    if !debug_e2e_enabled() {
+        return;
+    }
+    let probe = serde_json::json!({
+        "type": "tool_request",
+        "requestId": "e2e-gateway-probe",
+        "toolName": "skill_diagnostics",
+        "args": { "action": "status" },
+        "gatewayUrl": "ws://127.0.0.1:18789"
+    });
+    log_both("[E2E-DEBUG] Sending Gateway WebSocket probe via agent-core");
+    match send_to_agent(state, &probe.to_string(), None, None) {
+        Ok(_) => log_both("[E2E-DEBUG] Gateway WebSocket probe sent successfully"),
+        Err(e) => log_both(&format!("[E2E-DEBUG] Gateway WebSocket probe failed: {}", e)),
+    }
+}
+
 /// Find openclaw binary and node binary paths
 fn find_openclaw_paths() -> Result<(std::path::PathBuf, String, String), String> {
     let node_bin = find_node_binary()?;
@@ -1738,6 +1790,22 @@ async fn restart_gateway(
     // If Gateway is now available, restart agent so it can connect
     if result.as_ref().copied().unwrap_or(false) {
         log_both("[Naia] Gateway is up — restarting agent-core to connect...");
+
+        // Start health monitor if not already running (e.g. Gateway was unavailable
+        // during initial startup but is now spawned via restart_gateway).
+        {
+            let should_start = state.health_monitor_shutdown.lock()
+                .map(|g| g.is_none())
+                .unwrap_or(false);
+            if should_start {
+                let shutdown = start_gateway_health_monitor(app.clone());
+                if let Ok(mut guard) = state.health_monitor_shutdown.lock() {
+                    *guard = Some(shutdown);
+                }
+                log_both("[Naia] Health monitor started (deferred from startup)");
+            }
+        }
+
         // Kill current agent
         {
             let mut guard = lock_or_recover(&state.agent, "state.agent(restart_gateway)");
@@ -1926,6 +1994,20 @@ async fn setup_wsl(app: AppHandle) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || platform::setup_wsl_environment(&app))
         .await
         .map_err(|e| format!("WSL setup task failed: {}", e))?
+}
+
+/// Reboot the computer (Windows: shutdown /r /t 3).
+/// Used after WSL feature activation requires a restart.
+#[tauri::command]
+async fn reboot_computer() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = std::process::Command::new("shutdown");
+        cmd.args(["/r", "/t", "3"]);
+        platform::hide_console(&mut cmd);
+        cmd.spawn().map_err(|e| format!("Failed to initiate reboot: {}", e))?;
+    }
+    Ok(())
 }
 
 /// Fetch linked messaging channels for the current user from naia.nextain.io BFF.
@@ -2602,6 +2684,7 @@ pub fn run() {
             fetch_linked_channels,
             get_platform_tier,
             setup_wsl,
+            reboot_computer,
             gemini_live_connect,
             gemini_live_send_audio,
             gemini_live_send_text,
@@ -2725,6 +2808,7 @@ pub fn run() {
                         "[Naia] Gateway ready (managed={}, node_host={})",
                         managed, has_node_host
                     ));
+                    check_gateway_health_detailed();
                     (true, managed)
                 }
                 Err(e) => {
@@ -2759,6 +2843,13 @@ pub fn run() {
                     log_both(&format!("[Naia] agent-core not available: {}", e));
                     log_both("[Naia] Running without agent (chat will be unavailable)");
                 }
+            }
+
+            // E2E: probe Gateway through agent-core WebSocket chain
+            if gateway_running {
+                // Give agent-core a moment to initialize before probing
+                std::thread::sleep(std::time::Duration::from_millis(2000));
+                e2e_gateway_websocket_probe(&*state);
             }
 
             Ok(())

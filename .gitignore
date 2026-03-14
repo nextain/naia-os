@@ -19,6 +19,9 @@ build-dir/
 # Claude Code
 .claude/
 
+# Windows build resources (downloaded at build time)
+shell/src-tauri/resources/
+
 # Temporary / local-only
 errors/
 iso-download/

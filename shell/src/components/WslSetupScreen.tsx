@@ -12,7 +12,6 @@ interface WslSetupScreenProps {
 const STEP_LABELS: Record<string, string> = {
 	wsl: "wslProgress.wsl",
 	ubuntu: "wslProgress.ubuntu",
-	export: "wslProgress.export",
 	import: "wslProgress.import",
 	provision: "wslProgress.provision",
 	provision_node: "wslProgress.provisionNode",
@@ -31,6 +30,7 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 	const [detail, setDetail] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [elapsed, setElapsed] = useState(0);
+	const [needsReboot, setNeedsReboot] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	// Listen for progress events from Rust backend
@@ -65,6 +65,7 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 	const handleSetup = async () => {
 		setRunning(true);
 		setError(null);
+		setNeedsReboot(false);
 		setStepKey(null);
 		setDetail(null);
 		try {
@@ -77,6 +78,7 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 			Logger.warn("wsl-setup", "WSL setup failed", { error: msg });
 			if (msg.includes("restart") || msg.includes("reboot")) {
 				setError(t("wslSetup.needsReboot"));
+				setNeedsReboot(true);
 			} else {
 				setError(msg);
 			}
@@ -108,25 +110,35 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 				</p>
 
 				{error && <p className="wsl-setup-error">{error}</p>}
-				{!error && statusLabel && (
+				{needsReboot && (
+					<div className="wsl-setup-actions" style={{ marginTop: "1rem" }}>
+						<button
+							className="wsl-setup-btn primary"
+							onClick={() => invoke("reboot_computer")}
+						>
+							{t("wslSetup.rebootButton")}
+						</button>
+					</div>
+				)}
+				{running && (
 					<div className="wsl-setup-progress">
-						<p className="wsl-setup-status">{statusLabel}</p>
+						<div className="wsl-setup-spinner" />
+						{statusLabel && <p className="wsl-setup-status">{statusLabel}</p>}
 						{detail && <p className="wsl-setup-detail">{detail}</p>}
-						{running && (
-							<p className="wsl-setup-elapsed">{formatElapsed(elapsed)}</p>
-						)}
+						<p className="wsl-setup-elapsed">{formatElapsed(elapsed)}</p>
 					</div>
 				)}
 
-				<div className="wsl-setup-actions">
-					<button
-						className="wsl-setup-btn primary"
-						onClick={handleSetup}
-						disabled={running}
-					>
-						{running ? t("wslSetup.running") : t("wslSetup.startButton")}
-					</button>
-				</div>
+				{!needsReboot && !running && (
+					<div className="wsl-setup-actions">
+						<button
+							className="wsl-setup-btn primary"
+							onClick={handleSetup}
+						>
+							{t("wslSetup.startButton")}
+						</button>
+					</div>
+				)}
 			</div>
 		</div>
 	);
