@@ -2645,13 +2645,24 @@ export function SettingsTab() {
 										onChange={(e) => {
 											const val = e.target.value;
 											setGatewayTtsApiKey(val);
-											// Fetch dynamic voices when key is entered
 											const meta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
 											if (meta?.fetchVoices && val.length > 10) {
 												meta.fetchVoices(val).then((voices) => {
 													if (voices && voices.length > 0) setDynamicTtsVoices(voices);
 												});
 											}
+										}}
+										onPaste={(e) => {
+											// Handle paste — onChange may not fire in WebKitGTK
+											setTimeout(() => {
+												const val = (e.target as HTMLInputElement).value;
+												if (val.length > 10) {
+													const meta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+													meta?.fetchVoices?.(val).then((voices) => {
+														if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+													});
+												}
+											}, 100);
 										}}
 										placeholder={`${providerMeta.name} API Key`}
 									/>
