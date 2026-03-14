@@ -1795,68 +1795,8 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
     }
 
     // Sync TTS settings into messages.tts so the gateway uses the right provider/voice
-    // When provider is "nextain" and naiaKey is available, route through Lab gateway's
-    // OpenAI-compatible TTS endpoint instead of falling back to edge.
-    let use_nextain_via_lab = matches!(params.tts_provider.as_deref(), Some("nextain"))
-        && params.naia_key.as_ref().map_or(false, |k| !k.is_empty());
-
-    if params.tts_provider.is_some() || params.tts_voice.is_some() || params.tts_auto.is_some() || params.tts_mode.is_some() {
-        let messages = obj
-            .entry("messages")
-            .or_insert_with(|| serde_json::json!({}))
-            .as_object_mut()
-            .ok_or("messages is not an object")?;
-        let tts = messages
-            .entry("tts")
-            .or_insert_with(|| serde_json::json!({}))
-            .as_object_mut()
-            .ok_or("tts is not an object")?;
-        if let Some(ref provider) = params.tts_provider {
-            let gw_provider = if use_nextain_via_lab {
-                // Route through Lab gateway's OpenAI-compatible TTS endpoint
-                "openai"
-            } else {
-                match provider.as_str() {
-                    "nextain" | "google" => "edge",
-                    other => other,
-                }
-            };
-            tts.insert("provider".to_string(), serde_json::Value::String(gw_provider.to_string()));
-            // Remove "nextain" key — OpenClaw doesn't recognize it and rejects config
-            tts.remove("nextain");
-        }
-        if use_nextain_via_lab {
-            // Configure openai section to point to Lab gateway
-            let openai_obj = tts
-                .entry("openai")
-                .or_insert_with(|| serde_json::json!({}))
-                .as_object_mut()
-                .ok_or("tts openai section is not an object")?;
-            openai_obj.insert("apiKey".to_string(),
-                serde_json::Value::String(params.naia_key.as_ref().unwrap().clone()));
-            if let Some(ref voice) = params.tts_voice {
-                openai_obj.insert("voice".to_string(), serde_json::Value::String(voice.clone()));
-            }
-        } else if let Some(ref voice) = params.tts_voice {
-            // Write voice to the provider-specific section (e.g. edge.voice, openai.voice)
-            let provider_key = match params.tts_provider.as_deref() {
-                Some("nextain") | Some("google") | None => "edge",
-                Some(other) => other,
-            };
-            let provider_obj = tts
-                .entry(provider_key)
-                .or_insert_with(|| serde_json::json!({}))
-                .as_object_mut()
-                .ok_or("tts provider section is not an object")?;
-            provider_obj.insert("voice".to_string(), serde_json::Value::String(voice.clone()));
-        }
-        if let Some(ref auto) = params.tts_auto {
-            tts.insert("auto".to_string(), serde_json::Value::String(auto.clone()));
-        }
-        if let Some(ref mode) = params.tts_mode {
-            tts.insert("mode".to_string(), serde_json::Value::String(mode.clone()));
-        }
-    }
+    // TTS is handled entirely by Shell (not OpenClaw Gateway).
+    // No TTS config sync needed — removed to prevent gateway config schema crashes.
 
     // Atomic write: openclaw.json
     let dir = std::path::Path::new(&config_path)
@@ -1872,52 +1812,7 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
     std::fs::rename(&tmp_path, &config_path)
         .map_err(|e| format!("Failed to rename {} → {}: {}", tmp_path, config_path, e))?;
 
-    // Also write TTS prefs to settings/tts.json (per-host override that takes priority
-    // over messages.tts in openclaw.json). Without this, stale prefs override our config.
-    if params.tts_provider.is_some() || params.tts_auto.is_some() {
-        let openclaw_dir = std::path::Path::new(&config_path)
-            .parent()
-            .ok_or("No parent dir")?;
-        let prefs_path = openclaw_dir.join("settings/tts.json");
-        if let Some(prefs_parent) = prefs_path.parent() {
-            std::fs::create_dir_all(prefs_parent)
-                .map_err(|e| format!("Failed to create settings dir: {}", e))?;
-        }
-        let mut prefs_root: serde_json::Value = if prefs_path.exists() {
-            let raw = std::fs::read_to_string(&prefs_path).unwrap_or_else(|_| "{}".to_string());
-            serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}))
-        } else {
-            serde_json::json!({})
-        };
-        let prefs_tts = prefs_root
-            .as_object_mut()
-            .ok_or("prefs root is not an object")?
-            .entry("tts")
-            .or_insert_with(|| serde_json::json!({}))
-            .as_object_mut()
-            .ok_or("prefs tts is not an object")?;
-        if let Some(ref provider) = params.tts_provider {
-            let gw_provider = if use_nextain_via_lab {
-                "openai"
-            } else {
-                match provider.as_str() {
-                    "nextain" | "google" => "edge",
-                    other => other,
-                }
-            };
-            prefs_tts.insert("provider".to_string(), serde_json::Value::String(gw_provider.to_string()));
-        }
-        if let Some(ref auto) = params.tts_auto {
-            prefs_tts.insert("auto".to_string(), serde_json::Value::String(auto.clone()));
-        }
-        let prefs_pretty = serde_json::to_string_pretty(&prefs_root)
-            .map_err(|e| format!("JSON serialize prefs: {}", e))?;
-        std::fs::write(&prefs_path, prefs_pretty.as_bytes())
-            .map_err(|e| format!("Failed to write tts prefs: {}", e))?;
-    }
-
-    // Write OPENAI_TTS_BASE_URL env file for gateway to pick up on (re)start.
-    // When using Naia TTS via Lab gateway, point OpenClaw's openai TTS to Lab.
+    // Write env file for gateway.
     {
         let openclaw_dir = std::path::Path::new(&config_path)
             .parent()
@@ -1929,12 +1824,8 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
         } else {
             serde_json::Map::new()
         };
-        if use_nextain_via_lab {
-            env_obj.insert("OPENAI_TTS_BASE_URL".to_string(),
-                serde_json::Value::String("https://naia-gateway-181404717065.asia-northeast3.run.app/v1".to_string()));
-        } else {
-            env_obj.remove("OPENAI_TTS_BASE_URL");
-        }
+        // TTS handled by Shell, not Gateway — no OPENAI_TTS_BASE_URL needed
+        env_obj.remove("OPENAI_TTS_BASE_URL");
         // Write OLLAMA_API_KEY for OpenClaw to register Ollama as a provider.
         // OpenClaw requires this env var (any non-empty value) to enable Ollama.
         if params.provider == "ollama" {
