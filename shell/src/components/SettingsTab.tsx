@@ -1406,14 +1406,26 @@ export function SettingsTab() {
 				}
 				base64 = parsedOai.audio;
 			} else {
-				// Edge TTS preview via agent skill_tts
+				// TTS preview via agent skill_tts — use selected ttsProvider
 				const previewText = getPreviewText(ttsVoice);
+				const selectedProvider = ttsProvider || "edge";
 				const previewArgs: Record<string, unknown> = {
 					action: "preview",
-					provider: "edge",
+					provider: selectedProvider,
 					text: previewText,
 					voice: ttsVoice,
 				};
+				// Pass API key for providers that need it
+				if (selectedProvider === "openai" && gatewayTtsApiKey) {
+					previewArgs.apiKey = gatewayTtsApiKey;
+				} else if (selectedProvider === "elevenlabs" && gatewayTtsApiKey) {
+					previewArgs.apiKey = gatewayTtsApiKey;
+				} else if (selectedProvider === "google" && gatewayTtsApiKey) {
+					previewArgs.apiKey = gatewayTtsApiKey;
+				}
+				if (selectedProvider === "nextain" && naiaKey) {
+					previewArgs.naiaKey = naiaKey;
+				}
 				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 				const result = await directToolCall({
 					toolName: "skill_tts",
@@ -1423,7 +1435,8 @@ export function SettingsTab() {
 					gatewayToken,
 				});
 				if (!result.success || !result.output) {
-					throw new Error("Edge TTS 미리듣기에 실패했습니다.");
+					const providerName = listTtsProviderMetas().find((p) => p.id === selectedProvider)?.name ?? selectedProvider;
+					throw new Error(`${providerName} 미리듣기에 실패했습니다.${selectedProvider !== "edge" ? " API Key를 확인하세요." : ""}`);
 				}
 				const parsed = JSON.parse(result.output) as { audio?: string };
 				if (!parsed.audio) {

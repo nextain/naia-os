@@ -13,6 +13,8 @@ import {
 } from "../../gateway/tts-proxy.js";
 import { synthesizeEdgeSpeech } from "../../tts/edge-tts.js";
 import { synthesizeElevenLabsSpeech } from "../../tts/elevenlabs-tts.js";
+import { synthesizeSpeech as synthesizeGoogleSpeech } from "../../tts/google-tts.js";
+import { synthesizeNextainSpeech } from "../../tts/nextain-tts.js";
 import { synthesizeOpenAISpeech } from "../../tts/openai-tts.js";
 import type { SkillDefinition, SkillResult } from "../types.js";
 
@@ -208,6 +210,34 @@ export function createTtsSkill(): SkillDefinition {
 						audio = await synthesizeElevenLabsSpeech(
 							text,
 							key,
+							args.voice as string | undefined,
+						);
+					} else if (provider === "google") {
+						const key = args.apiKey as string;
+						if (!key) {
+							return {
+								success: false,
+								output: "",
+								error: "apiKey is required for Google Cloud TTS preview",
+							};
+						}
+						audio = await synthesizeGoogleSpeech(
+							text,
+							key,
+							args.voice as string | undefined,
+						);
+					} else if (provider === "nextain") {
+						const nKey = args.naiaKey as string;
+						if (!nKey) {
+							return {
+								success: false,
+								output: "",
+								error: "Naia account login is required for Naia Cloud TTS preview",
+							};
+						}
+						audio = await synthesizeNextainSpeech(
+							text,
+							nKey,
 							args.voice as string | undefined,
 						);
 					} else {
