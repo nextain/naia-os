@@ -1079,6 +1079,18 @@ export function SettingsTab() {
 			headers: { "X-AnyLLM-Key": `Bearer ${key}` },
 		})
 			.then((res) => {
+				if (res.status === 401) {
+					// Key is invalid/expired — clear it so login screen shows
+					Logger.warn("SettingsTab", "Naia key invalid (401), clearing stored key");
+					setNaiaKeyState("");
+					deleteSecretKey("naiaKey").catch(() => {});
+					const cfg = loadConfig();
+					if (cfg) {
+						const { naiaKey: _removed, ...rest } = cfg;
+						saveConfig(rest as typeof cfg);
+					}
+					throw new Error("KEY_EXPIRED");
+				}
 				if (!res.ok) {
 					return res.text().then((text) => {
 						throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
@@ -1092,6 +1104,7 @@ export function SettingsTab() {
 				setLabBalanceError(false);
 			})
 			.catch((err) => {
+				if (String(err).includes("KEY_EXPIRED")) return;
 				Logger.warn("SettingsTab", "Lab balance fetch failed", {
 					error: String(err),
 				});
@@ -2626,7 +2639,17 @@ export function SettingsTab() {
 										id="tts-api-key"
 										type="password"
 										value={gatewayTtsApiKey}
-										onChange={(e) => setGatewayTtsApiKey(e.target.value)}
+										onChange={(e) => {
+											const val = e.target.value;
+											setGatewayTtsApiKey(val);
+											// Fetch dynamic voices when key is entered
+											const meta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+											if (meta?.fetchVoices && val.length > 10) {
+												meta.fetchVoices(val).then((voices) => {
+													if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+												});
+											}
+										}}
 										placeholder={`${providerMeta.name} API Key`}
 									/>
 								</div>
