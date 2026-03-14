@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { cancelChat, directToolCall, requestTts, sendChatMessage } from "../lib/chat-service";
-import { estimateTtsCost } from "../lib/tts/cost";
+import { estimateSttCost, estimateTtsCost } from "../lib/tts/cost";
 import { AudioQueue } from "../lib/voice/audio-queue";
 import { SentenceChunker } from "../lib/voice/sentence-chunker";
 import {
@@ -18,16 +18,16 @@ import { createApiSttSession, getSttProvider } from "../lib/stt";
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
-	getModelOption,
 	isToolAllowed,
 	loadConfig,
 	loadConfigWithSecrets,
 	localeToSttLanguage,
 	resolveGatewayUrl,
 	saveConfig,
+	isReadyToChat,
 } from "../lib/config";
+import { getLlmModel, isApiKeyOptional } from "../lib/llm";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
-import { isApiKeyOptional, isReadyToChat } from "../lib/config";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import {
 	getAllFacts,
@@ -522,7 +522,7 @@ export function ChatPanel() {
 			useChatStore.getState().finishStreaming();
 			return;
 			}
-			if (!isApiKeyOptional(config?.provider) && !config?.apiKey && !config?.naiaKey) {
+			if (!isApiKeyOptional(config?.provider ?? "") && !config?.apiKey && !config?.naiaKey) {
 				useChatStore.getState().appendStreamChunk(t("chat.noApiKey"));
 				useChatStore.getState().finishStreaming();
 				return;
@@ -988,7 +988,7 @@ export function ChatPanel() {
 				return;
 			}
 			const naiaKey = config?.naiaKey;
-			const modelMeta = getModelOption(config.provider, config.model);
+			const modelMeta = getLlmModel(config.provider, config.model);
 			const isOmni = modelMeta?.type === "omni";
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
@@ -1104,7 +1104,19 @@ export function ChatPanel() {
 							apiKey,
 							language: sttLang,
 						});
-						const cleanupResult = session.onResult(handleSttResult);
+						const cleanupResult = session.onResult((result) => {
+							handleSttResult(result);
+							// Track STT cost (3s chunk)
+							const sttCost = estimateSttCost(sttEngine, 3);
+							if (sttCost > 0) {
+								useChatStore.getState().addCostEntry({
+									inputTokens: 0, outputTokens: 0,
+									cost: sttCost,
+									provider: "nextain" as ProviderId,
+									model: `stt:${sttEngine}`,
+								});
+							}
+						});
 						sttCleanupRef.current.push(cleanupResult);
 						if (session.onError) {
 							const cleanupError = session.onError((err) => {
