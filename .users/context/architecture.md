@@ -518,7 +518,9 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 ---
 
-### Voice E2E Tests (85 tests total: 75 Tauri + 10 Playwright)
+### Voice E2E Tests (97 tests: 87 Tauri + 10 Playwright)
+
+E2E = actual app UI. Every test launches real Tauri app, types API keys in input fields, clicks buttons, sends chat messages, and verifies results. Never mocks API calls — uses real `.env` keys.
 
 | Spec | Tests | Coverage |
 |------|-------|----------|
@@ -526,18 +528,18 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 | `77-stt-provider-switching` | 7 | STT dropdown, order free→Naia→paid, API key |
 | `78-voice-pipeline-mode` | 11 | UI labels, voice picker, button states, 🗣️ icon |
 | `79-pipeline-voice-activation` | 9 | Voice button lifecycle, CSS 3-state |
-| `80-tts-preview-all-providers` | 6 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
+| `80-tts-preview-all-providers` | 5 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
 | `81-chat-tts-response` | 9 | Chat → AI response → TTS audio playback |
 | `82-chat-tts-multi-model` | 6 | Model switching preserves TTS |
-| `83-tts-per-model-verification` | 15 | 5 providers × model: chat + TTS |
+| `83-tts-per-model-verification` | 15 | 5 LLM providers × model: chat + TTS |
+| `84-chat-tts-per-provider` | 12 | 4 TTS providers: UI key input → save → chat → verify |
 | `pipeline-voice` (Playwright) | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
 
 ```bash
 cd shell && source ../my-envs/naia-os-shell.env
-# Key E2E specs
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-providers.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/84-chat-tts-per-provider.spec.ts
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
-# Pipeline (Playwright)
 npx playwright test e2e/pipeline-voice.spec.ts
 ```
 

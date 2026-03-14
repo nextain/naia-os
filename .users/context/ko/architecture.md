@@ -518,7 +518,9 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 ---
 
-### 음성 E2E 테스트 (총 85개: Tauri 75 + Playwright 10)
+### 음성 E2E 테스트 (총 97개: Tauri 87 + Playwright 10)
+
+E2E = 실제 앱 UI. 모든 테스트가 실제 Tauri 앱을 실행하고, API key를 입력 필드에 타이핑하고, 버튼을 클릭하고, 채팅 메시지를 보내서 결과를 검증한다. API 호출을 mock하지 않음 — 실제 `.env` 키 사용.
 
 | 스펙 | 수 | 커버리지 |
 |------|---|----------|
@@ -526,18 +528,18 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 | `77-stt-provider-switching` | 7 | STT 드롭다운, 순서 무료→Naia→유료, API key |
 | `78-voice-pipeline-mode` | 11 | UI 라벨, 음성 선택, 버튼 상태, 🗣️ 아이콘 |
 | `79-pipeline-voice-activation` | 9 | 음성 버튼 생명주기, CSS 3-state |
-| `80-tts-preview-all-providers` | 6 | 실제 API key 미리듣기: Edge/OpenAI/Google/ElevenLabs |
+| `80-tts-preview-all-providers` | 5 | 실제 API key 미리듣기: Edge/OpenAI/Google/ElevenLabs |
 | `81-chat-tts-response` | 9 | 채팅 → AI 응답 → TTS 오디오 재생 |
 | `82-chat-tts-multi-model` | 6 | 모델 전환 후 TTS 유지 |
-| `83-tts-per-model-verification` | 15 | 5개 프로바이더×모델별 채팅+TTS |
+| `83-tts-per-model-verification` | 15 | 5개 LLM 프로바이더×모델별 채팅+TTS |
+| `84-chat-tts-per-provider` | 12 | 4개 TTS 프로바이더: UI key 입력 → 저장 → 채팅 → 검증 |
 | `pipeline-voice` (Playwright) | 10 | STT mock → LLM → TTS, 디바운스, 인터럽트, Whisper |
 
 ```bash
 cd shell && source ../my-envs/naia-os-shell.env
-# 핵심 E2E
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-providers.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/84-chat-tts-per-provider.spec.ts
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
-# 파이프라인 (Playwright)
 npx playwright test e2e/pipeline-voice.spec.ts
 ```
 
