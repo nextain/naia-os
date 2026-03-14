@@ -538,22 +538,24 @@ export function ChatPanel() {
 		const chatTtsEnabled = !pipelineActiveRef.current && config.ttsEnabled === true;
 		const activeProvider = config.provider || provider;
 
-		// Initialize SentenceChunker + AudioQueue for chat TTS (same path as pipeline)
-		if (chatTtsEnabled && !sentenceChunkerRef.current) {
-			const queue = new AudioQueue({
-				onPlaybackStart: () => {
-					useAvatarStore.getState().setSpeaking(true);
-					ttsPlayingRef.current = true;
-					setTtsPlaying(true);
-				},
-				onPlaybackEnd: () => {
-					useAvatarStore.getState().setSpeaking(false);
-					ttsPlayingRef.current = false;
-					setTtsPlaying(false);
-				},
-			});
-			audioQueueRef.current = queue;
+		// Initialize/update SentenceChunker + AudioQueue for chat TTS
+		if (chatTtsEnabled) {
+			if (!audioQueueRef.current) {
+				audioQueueRef.current = new AudioQueue({
+					onPlaybackStart: () => {
+						useAvatarStore.getState().setSpeaking(true);
+						ttsPlayingRef.current = true;
+						setTtsPlaying(true);
+					},
+					onPlaybackEnd: () => {
+						useAvatarStore.getState().setSpeaking(false);
+						ttsPlayingRef.current = false;
+						setTtsPlaying(false);
+					},
+				});
+			}
 			sentenceChunkerRef.current = new SentenceChunker();
+			// Always refresh voice config from latest settings
 			pipelineVoiceConfigRef.current = {
 				voice: config.ttsProvider === "nextain"
 					? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
