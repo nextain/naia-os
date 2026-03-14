@@ -70,6 +70,8 @@ async function setTtsProvider(providerId: string, apiKey?: string) {
 		const cfg = JSON.parse(localStorage.getItem("naia-config") ?? "{}");
 		cfg.ttsEnabled = true;
 		cfg.ttsProvider = provider;
+		// Reset voice to provider default — prevent cross-provider voice contamination
+		cfg.ttsVoice = "";
 		if (provider === "openai" && key) cfg.openaiTtsApiKey = key;
 		if (provider === "elevenlabs" && key) cfg.elevenlabsApiKey = key;
 		if (provider === "google" && key) cfg.googleApiKey = key;
