@@ -627,6 +627,13 @@ voice_architecture:
       - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
       - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
     openclaw_separation: "STT/TTS fully decoupled from OpenClaw Gateway. Shell handles all STT/TTS directly via agent IPC. Gateway used only for LLM routing + skills/tools."
+    naia_cloud:
+      tts_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/speech"
+      stt_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/transcriptions"
+      auth: "X-AnyLLM-Key: Bearer {naiaKey}"
+      pricing_tts: "$0.000016/char (Neural2)"
+      pricing_stt: "$0.006/15s"
+      test_key_env: "NAIA_API_KEY in shell/.env"
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
       - "shell/src/lib/voice/sentence-chunker.ts"
