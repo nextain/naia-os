@@ -562,20 +562,31 @@ voice_architecture:
   # ── Testing ────────────────────────────────────────────────────
 
   testing:
-    description: "E2E test suite for STT/TTS provider UI and voice pipeline"
-    e2e_specs:
-      - "shell/e2e-tauri/specs/76-tts-provider-switching.spec.ts — TTS provider dropdown, API key, voice, preview (12 tests)"
-      - "shell/e2e-tauri/specs/77-stt-provider-switching.spec.ts — STT provider dropdown, order, API key (7 tests)"
-      - "shell/e2e-tauri/specs/78-voice-pipeline-mode.spec.ts — labels, voice picker, preview, button states (11 tests)"
+    description: "85 tests across 10 specs — unit, E2E UI, real API preview, chat pipeline"
+    total: "85 tests (75 Tauri + 10 Playwright)"
+    tauri_e2e:
+      - "76-tts-provider-switching (12) — TTS dropdown, API key, voice, Edge preview"
+      - "77-stt-provider-switching (7) — STT dropdown, order free→Naia→paid, API key"
+      - "78-voice-pipeline-mode (11) — UI labels, voice picker, button states, 🗣️ icon"
+      - "79-pipeline-voice-activation (9) — voice button lifecycle, CSS 3-state"
+      - "80-tts-preview-all-providers (6) — real API key preview: Edge/OpenAI/Google/ElevenLabs"
+      - "81-chat-tts-response (9) — chat → AI response → TTS audio playback"
+      - "82-chat-tts-multi-model (6) — model switching preserves TTS"
+      - "83-tts-per-model-verification (15) — 5 providers × model: chat + TTS"
+    playwright_e2e:
+      - "pipeline-voice (10) — STT mock → LLM → TTS, debounce, interrupt, Whisper engine"
     unit_tests:
-      - "shell/src/components/__tests__/SettingsTab.test.tsx — Settings UI rendering (15 tests)"
-      - "shell/src/components/__tests__/ChatPanel.test.tsx — Chat panel rendering (15 tests)"
-    run_commands: |
-      cd shell && pnpm test                    # Unit tests
+      - "SettingsTab.test.tsx (15) — Settings UI rendering"
+      - "ChatPanel.test.tsx (15) — Chat panel rendering"
+      - "tts-voice-validity.test.ts (17+) — all registered voices produce audio"
+    run_all: |
+      cd shell && pnpm test                                          # Unit tests
+      cd agent && pnpm test                                          # Agent tests
       cd shell && source ../my-envs/naia-os-shell.env
       npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
-      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
-      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/78-voice-pipeline-mode.spec.ts
+      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-providers.spec.ts
+      npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
+      npx playwright test e2e/pipeline-voice.spec.ts                 # Pipeline STT→LLM→TTS
 
   # ── Pipeline Voice (STT → LLM → TTS) ──────────────────────────
 

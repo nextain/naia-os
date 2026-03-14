@@ -518,19 +518,27 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 ---
 
-### Voice E2E Tests
+### Voice E2E Tests (85 tests total: 75 Tauri + 10 Playwright)
 
 | Spec | Tests | Coverage |
 |------|-------|----------|
-| `76-tts-provider-switching` | 12 | TTS dropdown, API key, voice, preview |
-| `77-stt-provider-switching` | 7 | STT dropdown, order, API key, Naia prompt |
-| `78-voice-pipeline-mode` | 11 | Labels, voice picker, preview, button states |
+| `76-tts-provider-switching` | 12 | TTS dropdown, API key, voice, Edge preview |
+| `77-stt-provider-switching` | 7 | STT dropdown, order free→Naia→paid, API key |
+| `78-voice-pipeline-mode` | 11 | UI labels, voice picker, button states, 🗣️ icon |
+| `79-pipeline-voice-activation` | 9 | Voice button lifecycle, CSS 3-state |
+| `80-tts-preview-all-providers` | 6 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
+| `81-chat-tts-response` | 9 | Chat → AI response → TTS audio playback |
+| `82-chat-tts-multi-model` | 6 | Model switching preserves TTS |
+| `83-tts-per-model-verification` | 15 | 5 providers × model: chat + TTS |
+| `pipeline-voice` (Playwright) | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
 
 ```bash
 cd shell && source ../my-envs/naia-os-shell.env
-npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
-npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/77-stt-provider-switching.spec.ts
-npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/78-voice-pipeline-mode.spec.ts
+# Key E2E specs
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-providers.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
+# Pipeline (Playwright)
+npx playwright test e2e/pipeline-voice.spec.ts
 ```
 
 ---

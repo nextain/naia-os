@@ -4,7 +4,7 @@
 	"version": "0.1.2",
 	"type": "module",
 	"scripts": {
-		"dev": "node -e \"try{require('child_process').execSync('fuser -k 1420/tcp',{stdio:'ignore'})}catch{}\" && vite",
+		"dev": "node -e \"try{require('child_process').execSync('fuser -k 1420/tcp',{stdio:'ignore'});require('child_process').execSync('sleep 0.5')}catch{}\" && vite",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
 		"tauri": "cargo tauri",
