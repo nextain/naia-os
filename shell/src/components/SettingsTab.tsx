@@ -2598,14 +2598,18 @@ export function SettingsTab() {
 									// Edge voice will be selected from gateway/hardcoded list
 									persistTtsVoice("");
 								}
-								// Fetch dynamic voices if provider supports it
-								const key = next === "openai" ? (existing?.openaiTtsApiKey ?? "")
+								// Fetch dynamic voices — use saved key or current input
+								const savedKey = next === "openai" ? (existing?.openaiTtsApiKey ?? "")
 									: next === "elevenlabs" ? (existing?.elevenlabsApiKey ?? "")
 									: next === "google" ? (existing?.googleApiKey ?? "")
 									: "";
-								if (meta?.fetchVoices && key) {
-									meta.fetchVoices(key).then((voices) => {
-										if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+								const effectiveKey = savedKey || gatewayTtsApiKey;
+								if (meta?.fetchVoices && effectiveKey) {
+									meta.fetchVoices(effectiveKey).then((voices) => {
+										if (voices && voices.length > 0) {
+											setDynamicTtsVoices(voices);
+											if (voices[0] && !meta.voices?.length) persistTtsVoice(voices[0].id);
+										}
 									});
 								}
 							}}
