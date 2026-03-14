@@ -17,7 +17,7 @@ export function listTtsProviderMetas(): TtsProviderMeta[] {
 	return Array.from(providers.values());
 }
 
-// ── Built-in providers ──
+// ── Built-in providers (order: free → Naia → paid) ──
 
 registerTtsProviderMeta({
 	id: "edge",
@@ -34,6 +34,14 @@ registerTtsProviderMeta({
 });
 
 registerTtsProviderMeta({
+	id: "nextain",
+	name: "Naia Cloud TTS",
+	description: "Cloud TTS without API key. Currently Google Chirp 3 HD, more providers coming.",
+	requiresApiKey: false,
+	requiresNaiaKey: true,
+});
+
+registerTtsProviderMeta({
 	id: "google",
 	name: "Google Cloud TTS",
 	description: "High-quality Neural2 voices. Requires Google API key.",
@@ -41,6 +49,7 @@ registerTtsProviderMeta({
 	apiKeyConfigField: "googleApiKey",
 	voices: [
 		{ id: "ko-KR-Neural2-A", label: "Neural2-A (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Neural2-B", label: "Neural2-B (여성)", language: "ko-KR", gender: "female" },
 		{ id: "ko-KR-Neural2-C", label: "Neural2-C (남성)", language: "ko-KR", gender: "male" },
 	],
 });
@@ -52,14 +61,21 @@ registerTtsProviderMeta({
 	requiresApiKey: true,
 	apiKeyConfigField: "openaiTtsApiKey",
 	voices: [
-		{ id: "nova", label: "Nova", gender: "female" },
+		// All models (tts-1, tts-1-hd, gpt-4o-mini-tts)
 		{ id: "alloy", label: "Alloy", gender: "neutral" },
+		{ id: "ash", label: "Ash", gender: "male" },
+		{ id: "coral", label: "Coral", gender: "female" },
 		{ id: "echo", label: "Echo", gender: "male" },
 		{ id: "fable", label: "Fable", gender: "male" },
+		{ id: "nova", label: "Nova", gender: "female" },
 		{ id: "onyx", label: "Onyx", gender: "male" },
+		{ id: "sage", label: "Sage", gender: "female" },
 		{ id: "shimmer", label: "Shimmer", gender: "female" },
-		{ id: "marin", label: "Marin (추천)", gender: "female" },
-		{ id: "cedar", label: "Cedar (추천)", gender: "male" },
+		// gpt-4o-mini-tts only
+		{ id: "ballad", label: "Ballad (gpt-4o-mini-tts)", gender: "male" },
+		{ id: "verse", label: "Verse (gpt-4o-mini-tts)", gender: "male" },
+		{ id: "marin", label: "Marin (gpt-4o-mini-tts)", gender: "female" },
+		{ id: "cedar", label: "Cedar (gpt-4o-mini-tts)", gender: "male" },
 	],
 });
 
@@ -69,12 +85,4 @@ registerTtsProviderMeta({
 	description: "Premium AI voices. Requires ElevenLabs API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "elevenlabsApiKey",
-});
-
-registerTtsProviderMeta({
-	id: "nextain",
-	name: "Naia Cloud TTS",
-	description: "Chirp 3 HD voices via Naia Lab. Requires Naia account.",
-	requiresApiKey: false,
-	requiresNaiaKey: true,
 });

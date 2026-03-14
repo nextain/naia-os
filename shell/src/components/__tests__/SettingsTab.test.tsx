@@ -104,14 +104,15 @@ describe("SettingsTab", () => {
 		).toBeDefined();
 	});
 
-	it("shows STT provider selector with default vosk", () => {
+	it("shows STT provider selector with vosk option", () => {
 		mockInvoke.mockResolvedValue([]);
 		render(<SettingsTab />);
 
 		// STT provider selector is always visible in voice section
 		const sttSelect = screen.getByText(/Vosk/)?.closest("select") as HTMLSelectElement;
 		expect(sttSelect).toBeDefined();
-		expect(sttSelect.value).toBe("vosk");
+		// Default is empty (no provider set) — vosk is an available option
+		expect(sttSelect.querySelector('option[value="vosk"]')).toBeDefined();
 	});
 
 	it("hides API key input for Claude Code CLI provider", () => {

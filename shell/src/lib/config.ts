@@ -22,7 +22,7 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
-export type SttProviderId = "" | "vosk" | "whisper" | "google" | "elevenlabs";
+export type SttProviderId = "" | "vosk" | "whisper" | "google" | "elevenlabs" | "nextain";
 
 /** Map app locale to Vosk STT language code. */
 const LOCALE_TO_STT: Record<string, string> = {
@@ -174,7 +174,7 @@ export const MODEL_OPTIONS: Record<ProviderId, ModelOption[]> = {
 		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", type: "llm" },
 		{
 			id: "gemini-2.5-flash-live",
-			label: "Gemini 2.5 Flash Live 🔊",
+			label: "Gemini 2.5 Flash Live 🗣️",
 			type: "omni",
 			voiceSelectable: true,
 			voices: [...GEMINI_LIVE_VOICES],
@@ -193,7 +193,7 @@ export const MODEL_OPTIONS: Record<ProviderId, ModelOption[]> = {
 		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash ($0.30 / $2.50)", type: "llm" },
 		{
 			id: "gemini-2.5-flash-live",
-			label: "Gemini 2.5 Flash Live 🔊 (~$0.03/min)",
+			label: "Gemini 2.5 Flash Live 🗣️ (~$0.03/min)",
 			type: "omni",
 			voiceSelectable: true,
 			voices: [...GEMINI_LIVE_VOICES],
@@ -204,7 +204,7 @@ export const MODEL_OPTIONS: Record<ProviderId, ModelOption[]> = {
 		{ id: "gpt-4o", label: "GPT-4o ($2.50 / $10.00)", type: "llm" },
 		{
 			id: "gpt-4o-realtime",
-			label: "GPT-4o Realtime 🔊 (~$0.10/min)",
+			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
 			type: "omni",
 			voiceSelectable: true,
 			voices: [...OPENAI_REALTIME_VOICES],

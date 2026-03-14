@@ -510,7 +510,7 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 **naiaKey routing:** TTS auth is independent of LLM provider selection. `ChatRequest` carries `naiaKey` as top-level field.
 
-**Settings UI status:** TTS provider dropdown NOT yet implemented — currently Edge TTS hardcoded in UI.
+**Settings UI:** TTS provider dropdown + API key input + voice picker (auto-discovery from registry).
 
 ---
 

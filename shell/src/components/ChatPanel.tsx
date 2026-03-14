@@ -13,6 +13,7 @@ import {
 	onError as sttOnError,
 	type RecognitionResult,
 } from "tauri-plugin-stt-api";
+import { createApiSttSession, getSttProvider } from "../lib/stt";
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
@@ -976,8 +977,10 @@ export function ChatPanel() {
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
-				// Guard: STT provider + model must be configured
-				if (!config.sttProvider || !config.sttModel) {
+				// Guard: STT provider must be configured; model required only for offline engines
+				const sttProviderMeta = getSttProvider(config.sttProvider || "");
+				const needsModel = sttProviderMeta?.engineType === "tauri";
+				if (!config.sttProvider || (needsModel && !config.sttModel)) {
 					setVoiceMode("off");
 					if (globalThis.confirm(t("voice.setupRequired") + "\n\n" + t("voice.goToSettings") + "?")) {
 						setActiveTab("settings");
@@ -1019,21 +1022,24 @@ export function ChatPanel() {
 					naiaKey: config.naiaKey,
 				};
 
-				// Start STT engine (Vosk or Whisper)
+				// Start STT engine — route to Tauri plugin (offline) or API-based
 				setSttState("initializing");
 				try {
-					const unlistenResult = await sttOnResult((result: RecognitionResult) => {
+					const sttLang = localeToSttLanguage(getLocale());
+					const sttEngine = config.sttProvider || "vosk";
+					const sttMeta = getSttProvider(sttEngine);
+					const isApiBased = sttMeta?.engineType === "api";
+
+					// Shared result handler for both offline and API-based STT
+					const handleSttResult = (result: { transcript: string; isFinal: boolean; confidence?: number }) => {
 						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
 						if (!pipelineActiveRef.current) return;
 
-						// Suppress STT while TTS is playing or in cooldown after TTS ends
-						// (echo cancellation removes speaker audio but mic is still muted-ish during playback)
 						if (ttsPlayingRef.current || Date.now() < ttsCooldownUntilRef.current) {
 							Logger.info("ChatPanel", "STT result suppressed (TTS playing/cooldown)");
 							return;
 						}
 
-						// Show partial transcript in real-time
 						if (!result.isFinal) {
 							setSttPartial(result.transcript);
 						}
@@ -1046,7 +1052,6 @@ export function ChatPanel() {
 								const text = sttBufferRef.current.trim();
 								sttBufferRef.current = "";
 								if (text && pipelineActiveRef.current) {
-									// Guard: skip if already streaming (prevents duplicate send from interim+silence double-fire)
 									if (useChatStore.getState().isStreaming) {
 										Logger.info("ChatPanel", "Skipping duplicate send (already streaming)", { text });
 										return;
@@ -1055,41 +1060,75 @@ export function ChatPanel() {
 								}
 							}, 300);
 						}
-					});
-					const resultCleanup = typeof unlistenResult === "function"
-						? unlistenResult
-						: () => unlistenResult.unregister();
-					sttCleanupRef.current.push(resultCleanup);
+					};
 
-					const unlistenState = await sttOnStateChange((event) => {
-						Logger.info("ChatPanel", "STT state change", { state: event.state });
-						if (event.state === "listening") setSttState("listening");
-					});
-					const stateCleanup = typeof unlistenState === "function"
-						? unlistenState
-						: () => unlistenState.unregister();
-					sttCleanupRef.current.push(stateCleanup);
+					if (isApiBased) {
+						// API-based STT — browser MediaStream + cloud API
+						const apiKey = sttMeta?.requiresNaiaKey
+							? config.naiaKey
+							: sttMeta?.apiKeyConfigField === "googleApiKey"
+								? config.googleApiKey
+								: sttMeta?.apiKeyConfigField === "elevenlabsApiKey"
+									? config.elevenlabsApiKey
+									: "";
+						if (!apiKey) {
+							Logger.warn("ChatPanel", "API STT requires API key", { provider: sttEngine });
+							setSttState("idle");
+							return;
+						}
+						const session = createApiSttSession({
+							provider: sttEngine as "google" | "elevenlabs" | "nextain",
+							apiKey,
+							language: sttLang,
+						});
+						const cleanupResult = session.onResult(handleSttResult);
+						sttCleanupRef.current.push(cleanupResult);
+						if (session.onError) {
+							const cleanupError = session.onError((err) => {
+								Logger.warn("ChatPanel", "API STT error", { code: err.code, message: err.message });
+							});
+							sttCleanupRef.current.push(cleanupError);
+						}
+						sttCleanupRef.current.push(() => session.stop());
+						await session.start();
+						setSttState("listening");
+					} else {
+						// Tauri plugin (offline: Vosk/Whisper)
+						const unlistenResult = await sttOnResult((result: RecognitionResult) => {
+							handleSttResult(result);
+						});
+						const resultCleanup = typeof unlistenResult === "function"
+							? unlistenResult
+							: () => unlistenResult.unregister();
+						sttCleanupRef.current.push(resultCleanup);
 
-					const unlistenError = await sttOnError((err) => {
-						Logger.warn("ChatPanel", "STT error", { code: err.code, message: err.message });
-					});
-					const errorCleanup = typeof unlistenError === "function"
-						? unlistenError
-						: () => unlistenError.unregister();
-					sttCleanupRef.current.push(errorCleanup);
+						const unlistenState = await sttOnStateChange((event) => {
+							Logger.info("ChatPanel", "STT state change", { state: event.state });
+							if (event.state === "listening") setSttState("listening");
+						});
+						const stateCleanup = typeof unlistenState === "function"
+							? unlistenState
+							: () => unlistenState.unregister();
+						sttCleanupRef.current.push(stateCleanup);
 
-					const sttLang = localeToSttLanguage(getLocale());
-					const sttEngine = config.sttProvider || "vosk";
-					Logger.info("ChatPanel", "Starting STT", { engine: sttEngine, model: config.sttModel, language: sttLang, locale: getLocale() });
-					// engine & modelId are custom extensions — upstream types don't include them yet
-					await sttStart({
-						engine: sttEngine,
-						modelId: config.sttModel,
-						language: sttLang,
-						continuous: true,
-						interimResults: true,
-					} as Record<string, unknown> & Parameters<typeof sttStart>[0]);
-					Logger.info("ChatPanel", "STT started successfully (waiting for engine ready)");
+						const unlistenError = await sttOnError((err) => {
+							Logger.warn("ChatPanel", "STT error", { code: err.code, message: err.message });
+						});
+						const errorCleanup = typeof unlistenError === "function"
+							? unlistenError
+							: () => unlistenError.unregister();
+						sttCleanupRef.current.push(errorCleanup);
+
+						Logger.info("ChatPanel", "Starting STT", { engine: sttEngine, model: config.sttModel, language: sttLang });
+						await sttStart({
+							engine: sttEngine,
+							modelId: config.sttModel,
+							language: sttLang,
+							continuous: true,
+							interimResults: true,
+						} as Record<string, unknown> & Parameters<typeof sttStart>[0]);
+					}
+					Logger.info("ChatPanel", "STT started successfully", { engine: sttEngine, apiMode: isApiBased });
 				} catch (sttErr) {
 					Logger.warn("ChatPanel", "STT start failed — falling back to text input", { error: String(sttErr) });
 					setSttState("idle");

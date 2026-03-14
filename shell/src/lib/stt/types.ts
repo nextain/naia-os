@@ -1,5 +1,5 @@
-/** STT engine identifier — maps to Rust implementation in tauri-plugin-stt. */
-export type SttEngineId = "vosk" | "whisper";
+/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based. */
+export type SttEngineType = "tauri" | "api";
 
 /** STT provider metadata for settings UI and runtime selection. */
 export interface SttProviderMeta {
@@ -9,12 +9,20 @@ export interface SttProviderMeta {
 	name: string;
 	/** Brief description for settings UI. */
 	description: string;
-	/** Which Rust engine to use. */
-	engine: SttEngineId;
+	/** Engine type: "tauri" (offline Rust) or "api" (cloud API). */
+	engineType: SttEngineType;
+	/** Rust engine name for tauri-based providers (vosk/whisper). */
+	engine?: string;
 	/** Whether this runs entirely offline. */
 	isOffline: boolean;
 	/** Whether GPU acceleration is available/beneficial. */
 	gpuAccelerated?: boolean;
+	/** Whether this provider requires an API key. */
+	requiresApiKey?: boolean;
+	/** Config field name for the API key. */
+	apiKeyConfigField?: string;
+	/** Whether this provider requires a Naia Lab key. */
+	requiresNaiaKey?: boolean;
 	/** Supported language codes (BCP-47). */
 	supportedLanguages: string[];
 }
@@ -35,4 +43,24 @@ export interface SttModelMeta {
 	languages: string[];
 	/** Whether GPU is recommended for real-time performance. */
 	gpuRecommended?: boolean;
+}
+
+/** Recognition result from any STT engine. */
+export interface SttResult {
+	transcript: string;
+	isFinal: boolean;
+	confidence?: number;
+}
+
+/**
+ * Unified STT session interface.
+ * Both Tauri (offline) and API-based providers implement this.
+ */
+export interface SttSession {
+	start(): Promise<void>;
+	stop(): Promise<void>;
+	/** Register callback for recognition results. Returns cleanup function. */
+	onResult(callback: (result: SttResult) => void): () => void;
+	/** Register callback for errors. Returns cleanup function. */
+	onError?(callback: (error: { code: string; message: string }) => void): () => void;
 }

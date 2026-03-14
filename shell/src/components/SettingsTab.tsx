@@ -2459,15 +2459,36 @@ export function SettingsTab() {
 							))}
 						</select>
 					</div>
-					{/* STT API key hint — API-based providers share key with TTS config */}
+					{/* STT API key — shown for API-based providers */}
 					{(() => {
 						const sttMeta = listSttProviders().find((p) => p.id === sttProvider);
-						if (sttMeta?.requiresApiKey) {
+						if (sttMeta?.requiresNaiaKey && !naiaKey) {
 							return (
 								<div className="settings-field">
-									<span className="settings-hint">
-										{sttMeta.name} — uses {sttMeta.apiKeyConfigField === "googleApiKey" ? "Google" : "ElevenLabs"} API key from TTS settings
-									</span>
+									<span className="settings-hint">{t("settings.ttsNaiaRequired")}</span>
+								</div>
+							);
+						}
+						if (sttMeta?.requiresApiKey) {
+							const currentKey = sttMeta.apiKeyConfigField === "googleApiKey"
+								? (existing?.googleApiKey ?? "")
+								: sttMeta.apiKeyConfigField === "elevenlabsApiKey"
+									? (existing?.elevenlabsApiKey ?? "")
+									: "";
+							return (
+								<div className="settings-field">
+									<label htmlFor="stt-api-key">{t("settings.sttApiKey")}</label>
+									<input
+										id="stt-api-key"
+										type="password"
+										defaultValue={currentKey}
+										onChange={(e) => {
+											if (sttMeta.apiKeyConfigField === "googleApiKey") {
+												setGatewayTtsApiKey(e.target.value);
+											}
+										}}
+										placeholder={`${sttMeta.name} API Key`}
+									/>
 								</div>
 							);
 						}

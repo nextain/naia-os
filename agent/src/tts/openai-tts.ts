@@ -2,11 +2,10 @@ import { registerTtsProvider } from "./registry.js";
 
 const DEFAULT_VOICE = "nova";
 
-// Voices that require gpt-4o-mini-tts model
+// Voices only available on gpt-4o-mini-tts (not tts-1/tts-1-hd)
 const MINI_TTS_ONLY_VOICES = new Set([
 	"ballad",
 	"cedar",
-	"juniper",
 	"marin",
 	"verse",
 ]);

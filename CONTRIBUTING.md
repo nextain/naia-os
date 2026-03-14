@@ -114,6 +114,111 @@ When editing context:
 | Code, commits, context files | English |
 | Work-logs (personal notes) | Your preferred language (tip: keep in a separate private repo) |
 
+## Adding a STT/TTS Provider
+
+Naia uses an extensible **provider registry pattern** for STT and TTS. Adding a new provider is one of the easiest ways to contribute.
+
+### Architecture overview
+
+```
+Voice interaction depends on LLM model type:
+- Omni models (Gemini Live, OpenAI Realtime): voice I/O built into LLM
+- Standard LLM models: independent STT → LLM → TTS pipeline
+```
+
+STT, TTS, and LLM providers are **three independent categories**. When an omni model is active, STT/TTS providers are disabled.
+
+### Adding a TTS provider (5 steps)
+
+1. **Create provider file** — `agent/src/tts/{name}.ts`
+
+```typescript
+import { registerTtsProvider } from "./registry.js";
+
+export async function synthesizeSpeech(
+  text: string, apiKey?: string, voice?: string
+): Promise<string | null> {
+  // Call your TTS API, return base64-encoded MP3 or null
+}
+
+registerTtsProvider({
+  id: "my-provider",
+  name: "My TTS Provider",
+  requiresApiKey: true,
+  synthesize: (opts) => synthesizeSpeech(opts.text, opts.apiKey, opts.voice),
+});
+```
+
+2. **Register import** — Add `import "./my-provider.js";` in `agent/src/tts/index.ts`
+
+3. **Add UI metadata** — In `shell/src/lib/tts/registry.ts`:
+
+```typescript
+registerTtsProviderMeta({
+  id: "my-provider",
+  name: "My TTS Provider",
+  description: "Description for settings UI.",
+  requiresApiKey: true,
+  apiKeyConfigField: "myProviderApiKey",  // matches AppConfig field
+  voices: [
+    { id: "voice-1", label: "Voice One", gender: "female" },
+    { id: "voice-2", label: "Voice Two", gender: "male" },
+  ],
+});
+```
+
+4. **Add config field** — In `shell/src/lib/config.ts`, add your API key field to `AppConfig`
+
+5. **Test** — See testing section below
+
+### Adding a STT provider
+
+STT engines run in **Rust** (`tauri-plugin-stt`). The TypeScript registry holds metadata only.
+
+1. Implement engine in `shell/src-tauri/plugins/tauri-plugin-stt/src/desktop.rs`
+2. Register metadata in `shell/src/lib/stt/registry.ts`
+3. Add model entries in `shell/src-tauri/src/stt_models.rs`
+
+### Testing your provider
+
+**Unit test** — Verify registry registration:
+```bash
+cd agent && pnpm test  # Checks TTS provider is registered
+cd shell && pnpm test  # Checks UI metadata is registered
+```
+
+**E2E test** — Run the provider switching test:
+```bash
+cd shell && source ../my-envs/naia-os-shell.env  # Load API keys
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/76-tts-provider-switching.spec.ts
+```
+
+This test verifies: provider dropdown → API key input → voice selection → audio preview.
+
+**Voice validation** — Test that voices actually produce audio:
+```bash
+cd agent && OPENAI_API_KEY=... pnpm exec vitest run src/__tests__/tts-preview-e2e.test.ts
+```
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `agent/src/tts/types.ts` | `TtsProviderDefinition` interface |
+| `agent/src/tts/registry.ts` | Runtime registry (Map-based, self-registration) |
+| `shell/src/lib/tts/types.ts` | `TtsProviderMeta` for Settings UI |
+| `shell/src/lib/tts/registry.ts` | UI metadata registry |
+| `shell/src/lib/stt/registry.ts` | STT metadata registry |
+| `shell/src/components/SettingsTab.tsx` | Auto-discovers providers from registry |
+| `shell/e2e-tauri/specs/76-tts-provider-switching.spec.ts` | E2E test |
+
+### Voice list guidelines
+
+- **Verify voices** against official API docs before adding
+- **Mark model-specific voices** (e.g., "gpt-4o-mini-tts only")
+- **No hardcoded dynamic lists** — if the API supports `listVoices()`, prefer runtime fetching
+- **Test every voice** produces actual audio before release
+
 ## Development workflow
 
 For feature-level work, we follow **issue-driven development**:

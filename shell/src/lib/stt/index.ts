@@ -1,2 +1,3 @@
 export { getSttProvider, listSttProviders, registerSttProvider } from "./registry";
-export type { SttEngineId, SttModelMeta, SttProviderMeta } from "./types";
+export type { SttEngineType, SttModelMeta, SttProviderMeta, SttResult, SttSession } from "./types";
+export { createApiSttSession } from "./api-stt";

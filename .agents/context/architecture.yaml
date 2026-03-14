@@ -551,7 +551,7 @@ voice_architecture:
       ttsEngine is derived from ttsProvider:
       - google, nextain → "google" engine (direct Google Cloud TTS)
       - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
-    settings_ui_status: "TTS provider dropdown NOT yet implemented — currently Edge TTS hardcoded in UI"
+    settings_ui: "TTS provider dropdown + API key input + voice picker (auto-discovery from registry)"
 
   # ── Pipeline Voice (STT → LLM → TTS) ──────────────────────────
 

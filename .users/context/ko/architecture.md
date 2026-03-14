@@ -510,7 +510,7 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 **naiaKey 라우팅:** TTS 인증은 LLM 프로바이더 선택과 독립적. `ChatRequest`가 `naiaKey`를 최상위 필드로 전달.
 
-**설정 UI 상태:** TTS 프로바이더 드롭다운 미구현 — 현재 Edge TTS UI에 하드코딩됨.
+**설정 UI:** TTS 프로바이더 드롭다운 + API key 입력 + 음성 선택 (레지스트리 기반 자동 탐색).
 
 ---
 
