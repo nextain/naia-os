@@ -122,7 +122,7 @@ describe("80 — TTS preview all providers", () => {
 		expect(error).toBe("");
 	});
 
-	it("Google Cloud TTS: preview with GEMINI_API_KEY", async () => {
+	it("Google Cloud TTS: preview succeeds with GEMINI_API_KEY", async () => {
 		const googleKey = process.env.GEMINI_API_KEY ?? "";
 		if (!googleKey) { console.log("[SKIP] no GEMINI_API_KEY"); return; }
 		await setSelectValue(S.ttsProviderSelect, "google");
@@ -132,13 +132,8 @@ describe("80 — TTS preview all providers", () => {
 		await setSelectValue(S.ttsVoiceSelect, "ko-KR-Neural2-A");
 		await browser.pause(300);
 		const error = await previewAndCheckError();
-		if (error) {
-			// 403 = Text-to-Speech API not enabled on the GCP project
-			console.log("[Google TTS] error:", error);
-			console.log("[INFO] Enable Text-to-Speech API at console.cloud.google.com for this project");
-		}
-		// Pass regardless — documents the actual result
-		expect(typeof error).toBe("string");
+		if (error) console.error("[Google TTS]", error);
+		expect(error).toBe("");
 	});
 
 	it("should restore edge and navigate back", async () => {
