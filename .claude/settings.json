@@ -1,0 +1,28 @@
+{
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node .claude/hooks/sync-entry-points.js"
+					},
+					{
+						"type": "command",
+						"command": "node .claude/hooks/cascade-check.js"
+					}
+				]
+			},
+			{
+				"matcher": "Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "node .claude/hooks/commit-guard.js"
+					}
+				]
+			}
+		]
+	}
+}

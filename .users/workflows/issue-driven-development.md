@@ -62,6 +62,41 @@ All review loops terminate after **two consecutive clean passes** (not just one)
 
 ---
 
+## Progress File (Session Handoff)
+
+Progress files (`.agents/progress/*.json`) survive context compaction and session boundaries. They allow the next AI session to resume work without losing state.
+
+**Gitignored** — session-local only, not committed.
+
+### When to Update
+
+| Trigger | What to Update |
+|---------|---------------|
+| Gate approved (understand, scope, plan, sync) | `current_phase`, `gate_approvals.{phase}` |
+| Build phase start / sub-phase completion | `current_phase`, `decisions[]` |
+| Session end (mandatory) | Snapshot current state |
+| Surprise or blocker discovered | Append to `surprises[]` or `blockers[]` |
+
+### Schema
+
+```json
+{
+  "issue": "#42",
+  "title": "Feature description",
+  "project": "naia-os",
+  "current_phase": "build",
+  "gate_approvals": { "understand": "ISO-timestamp", ... },
+  "decisions": [{ "decision": "...", "rationale": "...", "date": "..." }],
+  "surprises": [],
+  "blockers": [],
+  "updated_at": "ISO-timestamp"
+}
+```
+
+Detail: `.agents/context/harness.yaml`
+
+---
+
 ## Artifact Storage
 
 | Type | Location | Language |

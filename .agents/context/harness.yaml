@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+#
+# Harness Engineering Context
+#
+# Mechanical enforcement of project rules via Claude Code hooks,
+# progress files for session handoff, and automated tests.
+#
+# Concept: "Engineer the environment so the AI never repeats a mistake."
+# (Mitchell Hashimoto, Feb 2026)
+
+version: 1
+name: harness-engineering
+mirror:
+  users: .users/context/harness.md
+  users_ko: .users/context/ko/harness.md
+
+overview:
+  principle: "Text rules get forgotten; mechanical enforcement doesn't."
+  pillars:
+    - name: hooks
+      description: "Claude Code PostToolUse hooks that intercept edits and commands in real-time"
+    - name: progress_files
+      description: "JSON session handoff files that survive context compaction and session boundaries"
+    - name: tests
+      description: "Bash test suite verifying all hooks behave correctly"
+
+hooks:
+  location: .claude/hooks/
+  registration: .claude/settings.json
+  protocol:
+    input: "stdin JSON — { tool_name, tool_input, cwd, session_id }"
+    output: "stdout JSON — { reason, hookSpecificOutput: { hookEventName, additionalContext } }"
+    blocking: "Set decision: 'block' in output to prevent tool execution (PreToolUse only)"
+
+  sync_entry_points:
+    file: sync-entry-points.js
+    trigger: "PostToolUse on Edit|Write"
+    purpose: "Auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md"
+    behavior:
+      - "Detects when any entry point file is edited"
+      - "Copies content to the other two (if they exist)"
+      - "Uses temp lockfile to prevent recursive sync"
+      - "Only syncs to files that already exist (won't create GEMINI.md if absent)"
+    enforces: "Cascade rule — entry point files must always be identical"
+
+  cascade_check:
+    file: cascade-check.js
+    trigger: "PostToolUse on Edit|Write"
+    purpose: "Remind agent about triple-mirror updates"
+    patterns:
+      - ".agents/context/*.yaml|json → remind .users/context/ + .users/context/ko/"
+      - ".users/context/*.md (not ko/) → remind .agents/ + .users/context/ko/"
+      - ".users/context/ko/*.md → remind .agents/ + .users/context/"
+      - "agents-rules.json → extra SoT warning"
+    behavior: "Advisory (additionalContext), not blocking"
+
+  commit_guard:
+    file: commit-guard.js
+    trigger: "PostToolUse on Bash (git commit commands)"
+    purpose: "Warn when committing before E2E test and context sync"
+    behavior:
+      - "Reads most recent .agents/progress/*.json"
+      - "Checks current_phase against PHASE_ORDER"
+      - "Warns if phase is before sync_verify"
+      - "Gracefully passes if no progress file exists"
+    phase_order:
+      - issue
+      - understand
+      - scope
+      - investigate
+      - plan
+      - build
+      - review
+      - e2e_test
+      - post_test_review
+      - sync
+      - sync_verify
+      - report
+      - commit
+    min_phase_for_commit: sync_verify
+
+progress_files:
+  location: .agents/progress/
+  format: JSON
+  gitignored: true
+  purpose: "Session handoff — survives context compaction and session boundaries"
+
+  schema:
+    issue: "GitHub Issue reference (e.g., '#42')"
+    title: "Short description of the work"
+    project: "Project name (e.g., 'naia-os')"
+    current_phase: "Current phase from PHASE_ORDER"
+    gate_approvals:
+      description: "Map of gate → ISO timestamp when user approved"
+      keys: [understand, scope, plan, sync]
+    decisions:
+      description: "Array of key decisions made during this work"
+      fields: [decision, rationale, date]
+    surprises:
+      description: "Unexpected findings during investigation/build"
+    blockers:
+      description: "Current blockers preventing progress"
+    updated_at: "ISO timestamp of last update"
+
+  update_points:
+    - "Gate approval (understand, scope, plan, sync)"
+    - "Build phase start"
+    - "Build sub-phase completion"
+    - "Session end (mandatory)"
+    - "On surprise or blocker discovery"
+    - "Phase transition"
+
+  example:
+    issue: "#42"
+    title: "Add avatar idle animation"
+    project: "naia-os"
+    current_phase: "build"
+    gate_approvals:
+      understand: "2026-03-14T10:00Z"
+      scope: "2026-03-14T10:15Z"
+      plan: "2026-03-14T11:00Z"
+    decisions:
+      - decision: "Use Three.js AnimationMixer for idle"
+        rationale: "Upstream VRM uses it, minimal custom code"
+        date: "2026-03-14"
+    surprises: []
+    blockers: []
+    updated_at: "2026-03-14T14:30Z"
+
+tests:
+  location: .agents/tests/harness/
+  runner: run-all.sh
+  command: "bash .agents/tests/harness/run-all.sh"
+  coverage:
+    sync_entry_points: 11
+    commit_guard: 15
+    cascade_check: 12
+    progress_schema: 7
+    integration_lifecycle: 2
+    total: 47
+
+directory_structure:
+  committed:
+    - .claude/settings.json
+    - .claude/hooks/sync-entry-points.js
+    - .claude/hooks/cascade-check.js
+    - .claude/hooks/commit-guard.js
+    - .agents/context/harness.yaml
+    - .agents/tests/harness/run-all.sh
+    - .agents/progress/.gitkeep
+  gitignored:
+    - ".claude/* (except settings.json and hooks/)"
+    - ".agents/progress/*.json"

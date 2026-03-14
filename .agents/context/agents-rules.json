@@ -344,6 +344,27 @@
 			"rule": "Read workflow files only when performing specific tasks",
 			"always_read": ["agents-rules.json"],
 			"on_demand": ["workflows/*", "skills/*"]
+		},
+		"harness_engineering": {
+			"principle": "Text rules get forgotten; mechanical enforcement doesn't",
+			"hooks": {
+				"location": ".claude/hooks/",
+				"registration": ".claude/settings.json",
+				"sync_entry_points": "PostToolUse Edit|Write — auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md",
+				"cascade_check": "PostToolUse Edit|Write — remind triple-mirror updates on context file edits",
+				"commit_guard": "PostToolUse Bash — warn when committing before sync_verify phase"
+			},
+			"progress_files": {
+				"location": ".agents/progress/",
+				"format": "JSON",
+				"gitignored": true,
+				"purpose": "Session handoff — survives context compaction and session boundaries"
+			},
+			"tests": {
+				"location": ".agents/tests/harness/",
+				"command": "bash .agents/tests/harness/run-all.sh"
+			},
+			"detail": ".agents/context/harness.yaml"
 		}
 	},
 	"ai_workflow": {

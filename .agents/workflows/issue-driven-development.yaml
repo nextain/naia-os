@@ -283,6 +283,38 @@ gates:
   - phase: sync
     prompt: "Here are the context updates from this work. Please review before I proceed."
 
+# ─── Progress File (Session Handoff) ─────────────────────────
+
+progress_file:
+  location: ".agents/progress/"
+  format: JSON
+  gitignored: true
+  purpose: "Survive context compaction and session boundaries"
+  schema:
+    required: [issue, title, project, current_phase, updated_at]
+    optional: [gate_approvals, decisions, surprises, blockers]
+  update_points:
+    - phase: understand
+      trigger: "Gate approved"
+      update: "Set current_phase, record gate_approvals.understand"
+    - phase: scope
+      trigger: "Gate approved"
+      update: "Set current_phase, record gate_approvals.scope"
+    - phase: plan
+      trigger: "Gate approved"
+      update: "Set current_phase, record gate_approvals.plan"
+    - phase: build
+      trigger: "Phase start and each sub-phase completion"
+      update: "Set current_phase, record decisions"
+    - phase: sync
+      trigger: "Gate approved"
+      update: "Set current_phase, record gate_approvals.sync"
+    - trigger: "Session end (mandatory)"
+      update: "Snapshot current state regardless of phase"
+    - trigger: "Surprise or blocker discovered"
+      update: "Append to surprises[] or blockers[]"
+  detail: ".agents/context/harness.yaml"
+
 # ─── Artifact Storage ────────────────────────────────────────
 
 artifact_storage:
