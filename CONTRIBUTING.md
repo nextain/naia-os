@@ -215,15 +215,22 @@ npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/80-tts-preview-all-pr
 **Step 5: E2E — Chat + TTS pipeline** — Send message, verify TTS audio plays:
 ```bash
 npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/81-chat-tts-response.spec.ts
-npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-verification.spec.ts
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/84-chat-tts-per-provider.spec.ts
 ```
+
+**Step 6: E2E — Actual recording + voice pipeline** — Real MediaRecorder + STT init:
+```bash
+npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/85-voice-actual-recording.spec.ts
+```
+This test verifies: WebKitGTK MediaRecorder support, mic permission, STT initialization,
+voice button state transitions, and TTS audio in chat. Uses real microphone access.
 
 **Step 6: E2E — STT→LLM→TTS pipeline** (Playwright, mock-based):
 ```bash
 npx playwright test e2e/pipeline-voice.spec.ts
 ```
 
-### Full test suite (97+ tests)
+### Full test suite (104+ tests)
 
 | Test | Type | Count | What it covers |
 |------|------|-------|----------------|
@@ -236,6 +243,7 @@ npx playwright test e2e/pipeline-voice.spec.ts
 | `82-chat-tts-multi-model` | Tauri E2E | 6 | Model switching preserves TTS |
 | `83-tts-per-model-verification` | Tauri E2E | 15 | 5 LLM providers × model: chat + TTS |
 | `84-chat-tts-per-provider` | Tauri E2E | 12 | 4 TTS providers: UI key input → save → chat |
+| `85-voice-actual-recording` | Tauri E2E | 7 | Real MediaRecorder, mic access, STT init, voice button |
 | `pipeline-voice` | Playwright | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
 | `tts-voice-validity` | Vitest | 17+ | All registered voices produce audio |
 
@@ -254,14 +262,27 @@ npx playwright test e2e/pipeline-voice.spec.ts
 | `shell/src/components/SettingsTab.tsx` | Auto-discovers providers from registry |
 | `agent/src/skills/built-in/tts.ts` | Preview action (all 5 providers) |
 
+### Testing principle: UI vs actual operation
+
+E2E tests must verify **actual operation**, not just UI elements:
+
+| Level | What to check | Example |
+|-------|--------------|---------|
+| **UI only** (insufficient) | dropdown exists, no error CSS | "select has options" |
+| **Actual operation** (required) | real API call succeeds, audio data received | "MediaRecorder created, STT initialized, audio base64 > 0" |
+
+- **Spec 85** tests actual MediaRecorder creation + mic access + STT init — this catches WebKitGTK compatibility issues
+- **Spec 80** tests real API key preview — actual TTS audio generation
+- **Spec 84** tests real chat + TTS — actual LLM response with TTS enabled
+- Always check **logs** for errors, not just absence of UI error elements
+
 ### Voice list guidelines
 
 - **Verify voices** against official API docs before adding
-- **Mark model-specific voices** (e.g., "gpt-4o-mini-tts only")
 - **Use `fetchVoices()`** — implement runtime fetching if the API supports listing voices
 - **Add pricing** — include `pricing` field in provider metadata
 - **Test every voice** produces actual audio before release
-- **Run E2E** — at minimum specs 76, 80, 81 must pass with your provider
+- **Run E2E** — at minimum specs 80, 84, 85 must pass with your provider
 
 ## Development workflow
 
