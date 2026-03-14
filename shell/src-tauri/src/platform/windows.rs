@@ -252,6 +252,11 @@ fn update_wsl_kernel_elevated() -> Result<(), String> {
     hide_console(&mut cmd);
     match cmd.output() {
         Ok(output) => {
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                // UAC denied or elevation failed
+                return Err(format!("wsl --update failed (user may have denied elevation): {}", stderr.trim()));
+            }
             let stdout = String::from_utf8_lossy(&output.stdout);
             crate::log_both(&format!("[Naia] wsl --update completed: {}", stdout.trim()));
             Ok(())

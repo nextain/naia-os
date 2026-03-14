@@ -771,7 +771,10 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] CI `build-flatpak` produces Flatpak bundle
 - [x] CI `build-wsl-distro` produces NaiaEnv-rootfs.tar.gz (607MB)
 - [x] CI `release` creates GitHub Release with all artifacts + SHA256SUMS
-- [ ] Download Windows installer → install → app opens (not tested)
+- [x] Download Windows installer → install → app opens (verified 2026-03-14)
+- [x] WSL2 kernel auto-install via `wsl --update` when kernel missing (verified 2026-03-14)
+- [x] Full clean-install flow: kernel install → NaiaEnv → Gateway → agent connected (verified 2026-03-14)
+- [x] Agent node_modules bundling fixed: npm flat install for Windows NSIS (pnpm symlinks break bundler)
 
 **Known issue**: Release workflow runs build-linux + build-flatpak only; build-windows is silently skipped.
 
@@ -801,12 +804,14 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 - [x] `config/wsl/Dockerfile` + `wsl.conf` + `healthcheck.sh` for NaiaEnv distro build
 - [x] CI `build-wsl-distro` job activated in release-app.yml
 
-**Checkpoint 2b** (PARTIALLY VERIFIED — 2026-03-10):
+**Checkpoint 2b** (VERIFIED — 2026-03-14):
 - [x] `wsl --status` detection works (manual test)
 - [x] Tier correctly reported: Tier 1 without NaiaEnv (manual test)
 - [x] WSL auto-install via setup_wsl button works (UAC → install → no reboot needed on Win11)
 - [x] `.wslconfig` auto-deployed to `%USERPROFILE%` (manual test)
 - [x] Reboot detection: re-click doesn't re-trigger install (manual test)
+- [x] WSL2 kernel missing → auto `wsl --update` with UAC elevation (verified 2026-03-14)
+- [x] Clean install E2E: kernel → NaiaEnv → provision → Gateway healthy → agent connected (verified 2026-03-14)
 - [x] NaiaEnv rootfs not found → clear error message (manual test)
 - [x] `cargo check` passes with zero warnings (2026-03-10)
 - [x] CI build-wsl-distro success — rootfs 607MB (2026-03-10)
