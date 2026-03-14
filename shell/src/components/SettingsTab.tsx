@@ -2477,7 +2477,12 @@ export function SettingsTab() {
 					{sttProvider === "nextain" && naiaKey && (
 						<div className="settings-field">
 							<label>{t("settings.naiaCloudBackend")}</label>
-							<select defaultValue="google-cloud-stt">
+							<select
+								value={existing?.naiaCloudSttBackend ?? "google-cloud-stt"}
+								onChange={(e) => {
+									if (existing) saveConfig({ ...existing, naiaCloudSttBackend: e.target.value });
+								}}
+							>
 								<option value="google-cloud-stt">Google Cloud STT</option>
 							</select>
 						</div>
@@ -2600,7 +2605,12 @@ export function SettingsTab() {
 					{ttsProvider === "nextain" && naiaKey && (
 						<div className="settings-field">
 							<label>{t("settings.naiaCloudBackend")}</label>
-							<select defaultValue="google-chirp3-hd">
+							<select
+								value={existing?.naiaCloudTtsBackend ?? "google-chirp3-hd"}
+								onChange={(e) => {
+									if (existing) saveConfig({ ...existing, naiaCloudTtsBackend: e.target.value });
+								}}
+							>
 								<option value="google-chirp3-hd">Google Chirp 3 HD</option>
 							</select>
 						</div>

@@ -110,10 +110,14 @@ export interface AppConfig {
 	customBgs?: string[];
 	sttProvider?: SttProviderId;
 	sttModel?: string;
+	/** Naia Cloud STT backend engine (e.g. "google-cloud-stt"). */
+	naiaCloudSttBackend?: string;
 	ttsEnabled?: boolean;
 	ttsVoice?: string;
 	googleApiKey?: string;
 	ttsProvider?: TtsProviderId;
+	/** Naia Cloud TTS backend engine (e.g. "google-chirp3-hd"). */
+	naiaCloudTtsBackend?: string;
 	ttsEngine?: "auto" | "openclaw" | "google";
 	persona?: string;
 	enableTools?: boolean;
