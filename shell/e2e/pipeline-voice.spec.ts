@@ -475,8 +475,8 @@ test.describe("Pipeline Voice E2E", () => {
 		// Wait for response to start streaming
 		await expect(page.locator(".chat-message.assistant")).toHaveCount(2, { timeout: 10_000 }); // welcome + response
 
-		// Now "interrupt" by speaking while audio might be playing
-		const ttsCountBefore = await getTtsRequestCount(page);
+		// Now "interrupt" by speaking — wait for echo cooldown first
+		await page.waitForTimeout(2000); // Wait for TTS playback + cooldown (800ms)
 		await injectSttResult(page, "잠깐만", true);
 
 		// Should still get a new response eventually
