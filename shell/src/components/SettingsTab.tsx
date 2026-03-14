@@ -2473,6 +2473,15 @@ export function SettingsTab() {
 							))}
 						</select>
 					</div>
+					{/* Naia Cloud STT — backend engine selector */}
+					{sttProvider === "nextain" && naiaKey && (
+						<div className="settings-field">
+							<label>{t("settings.naiaCloudBackend")}</label>
+							<select defaultValue="google-cloud-stt">
+								<option value="google-cloud-stt">Google Cloud STT</option>
+							</select>
+						</div>
+					)}
 					{/* STT API key — shown for API-based providers */}
 					{(() => {
 						const sttMeta = listSttProviders().find((p) => p.id === sttProvider);
@@ -2587,6 +2596,15 @@ export function SettingsTab() {
 							))}
 						</select>
 					</div>
+					{/* Naia Cloud TTS — backend engine selector */}
+					{ttsProvider === "nextain" && naiaKey && (
+						<div className="settings-field">
+							<label>{t("settings.naiaCloudBackend")}</label>
+							<select defaultValue="google-chirp3-hd">
+								<option value="google-chirp3-hd">Google Chirp 3 HD</option>
+							</select>
+						</div>
+					)}
 					{/* TTS API key input — shown when provider requires it */}
 					{(() => {
 						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
