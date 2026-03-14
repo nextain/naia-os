@@ -173,11 +173,17 @@ registerTtsProviderMeta({
 
 ### Adding a STT provider
 
-STT engines run in **Rust** (`tauri-plugin-stt`). The TypeScript registry holds metadata only.
+Two types of STT providers:
 
+**Offline (Tauri plugin)** — runs locally, no API key:
 1. Implement engine in `shell/src-tauri/plugins/tauri-plugin-stt/src/desktop.rs`
-2. Register metadata in `shell/src/lib/stt/registry.ts`
+2. Register metadata in `shell/src/lib/stt/registry.ts` with `engineType: "tauri"`
 3. Add model entries in `shell/src-tauri/src/stt_models.rs`
+
+**API-based (cloud)** — requires API key, runs via browser MediaStream:
+1. Add transcription function in `shell/src/lib/stt/api-stt.ts`
+2. Register metadata in `shell/src/lib/stt/registry.ts` with `engineType: "api"`
+3. Add route in `ChatPanel.tsx` API STT branch
 
 ### Testing your provider
 
@@ -217,7 +223,7 @@ npx wdio run e2e-tauri/wdio.conf.ts --spec e2e-tauri/specs/83-tts-per-model-veri
 npx playwright test e2e/pipeline-voice.spec.ts
 ```
 
-### Full test suite (85 tests)
+### Full test suite (97+ tests)
 
 | Test | Type | Count | What it covers |
 |------|------|-------|----------------|
@@ -225,10 +231,11 @@ npx playwright test e2e/pipeline-voice.spec.ts
 | `77-stt-provider-switching` | Tauri E2E | 7 | STT dropdown, order (free→Naia→paid), API key |
 | `78-voice-pipeline-mode` | Tauri E2E | 11 | UI labels, voice picker, button states, 🗣️ icon |
 | `79-pipeline-voice-activation` | Tauri E2E | 9 | Voice button lifecycle, CSS 3-state |
-| `80-tts-preview-all-providers` | Tauri E2E | 6 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
+| `80-tts-preview-all-providers` | Tauri E2E | 5 | Real API key preview: Edge/OpenAI/Google/ElevenLabs |
 | `81-chat-tts-response` | Tauri E2E | 9 | Chat → AI response → TTS audio playback |
 | `82-chat-tts-multi-model` | Tauri E2E | 6 | Model switching preserves TTS |
-| `83-tts-per-model-verification` | Tauri E2E | 15 | 5 providers × model: chat + TTS |
+| `83-tts-per-model-verification` | Tauri E2E | 15 | 5 LLM providers × model: chat + TTS |
+| `84-chat-tts-per-provider` | Tauri E2E | 12 | 4 TTS providers: UI key input → save → chat |
 | `pipeline-voice` | Playwright | 10 | STT mock → LLM → TTS, debounce, interrupt, Whisper |
 | `tts-voice-validity` | Vitest | 17+ | All registered voices produce audio |
 
