@@ -42,14 +42,14 @@ registerTtsProviderMeta({
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
 	voices: [
-		{ id: "Kore", label: "Kore (여성, 차분)", gender: "female" },
-		{ id: "Puck", label: "Puck (남성, 활발)", gender: "male" },
-		{ id: "Charon", label: "Charon (남성)", gender: "male" },
-		{ id: "Aoede", label: "Aoede (여성)", gender: "female" },
-		{ id: "Fenrir", label: "Fenrir (남성)", gender: "male" },
-		{ id: "Leda", label: "Leda (여성)", gender: "female" },
-		{ id: "Orus", label: "Orus (남성)", gender: "male" },
-		{ id: "Zephyr", label: "Zephyr (중성)", gender: "neutral" },
+		{ id: "ko-KR-Chirp3-HD-Kore", label: "Kore (여성, 차분)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Puck", label: "Puck (남성, 활발)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Charon", label: "Charon (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Aoede", label: "Aoede (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Fenrir", label: "Fenrir (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Leda", label: "Leda (여성)", language: "ko-KR", gender: "female" },
+		{ id: "ko-KR-Chirp3-HD-Orus", label: "Orus (남성)", language: "ko-KR", gender: "male" },
+		{ id: "ko-KR-Chirp3-HD-Zephyr", label: "Zephyr (중성)", language: "ko-KR", gender: "neutral" },
 	],
 });
 
