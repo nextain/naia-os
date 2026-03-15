@@ -25,12 +25,16 @@ interface ChatState {
 	streamingToolCalls: ToolCall[];
 	provider: ProviderId;
 	totalSessionCost: number;
+	sessionCostEntries: CostEntry[];
 	pendingApproval: PendingApproval | null;
 	messageQueue: string[];
 
 	setSessionId: (id: string) => void;
 	setMessages: (messages: ChatMessage[]) => void;
-	addMessage: (msg: Pick<ChatMessage, "role" | "content"> & Partial<Pick<ChatMessage, "cost">>) => void;
+	addMessage: (
+		msg: Pick<ChatMessage, "role" | "content"> &
+			Partial<Pick<ChatMessage, "cost">>,
+	) => void;
 	updateLastMessage: (role: ChatMessage["role"], content: string) => void;
 	startStreaming: () => void;
 	appendStreamChunk: (text: string) => void;
@@ -47,8 +51,8 @@ interface ChatState {
 	) => void;
 	finishStreaming: () => void;
 	addCostEntry: (entry: CostEntry) => void;
-	/** Add cost to session total only (not attached to any message). Used for STT costs. */
-	addSessionCost: (cost: number) => void;
+	/** Add a cost entry not attached to any message (e.g. STT). Shown in CostDashboard breakdown. */
+	addSessionCostEntry: (entry: CostEntry) => void;
 	setProvider: (provider: ProviderId) => void;
 	setPendingApproval: (approval: PendingApproval) => void;
 	clearPendingApproval: () => void;
@@ -70,6 +74,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 	streamingToolCalls: [],
 	provider: "gemini",
 	totalSessionCost: 0,
+	sessionCostEntries: [],
 	pendingApproval: null,
 	messageQueue: [],
 
@@ -197,12 +202,12 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 						...messages[i],
 						cost: prev
 							? {
-								inputTokens: prev.inputTokens + entry.inputTokens,
-								outputTokens: prev.outputTokens + entry.outputTokens,
-								cost: prev.cost + entry.cost,
-								provider: entry.provider,
-								model: entry.model,
-							}
+									inputTokens: prev.inputTokens + entry.inputTokens,
+									outputTokens: prev.outputTokens + entry.outputTokens,
+									cost: prev.cost + entry.cost,
+									provider: entry.provider,
+									model: entry.model,
+								}
 							: entry,
 					};
 					attached = true;
@@ -218,8 +223,24 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			};
 		}),
 
-	addSessionCost: (cost) =>
-		set((s) => ({ totalSessionCost: s.totalSessionCost + cost })),
+	addSessionCostEntry: (entry) =>
+		set((s) => {
+			const key = `${entry.provider}|${entry.model}`;
+			const existing = s.sessionCostEntries.find(
+				(e) => `${e.provider}|${e.model}` === key,
+			);
+			const sessionCostEntries = existing
+				? s.sessionCostEntries.map((e) =>
+						`${e.provider}|${e.model}` === key
+							? { ...e, cost: e.cost + entry.cost }
+							: e,
+					)
+				: [...s.sessionCostEntries, entry];
+			return {
+				sessionCostEntries,
+				totalSessionCost: s.totalSessionCost + entry.cost,
+			};
+		}),
 
 	setProvider: (provider) => set({ provider }),
 
@@ -236,6 +257,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			streamingThinking: "",
 			streamingToolCalls: [],
 			totalSessionCost: 0,
+			sessionCostEntries: [],
 			pendingApproval: null,
 			messageQueue: [],
 		}),
