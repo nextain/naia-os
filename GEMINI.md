@@ -163,6 +163,25 @@ gh workflow run iso.yml
 - `org.freedesktop.Sdk.Extension.rust-stable`
 - `org.freedesktop.Sdk.Extension.node22`
 
+### Distribution Architecture (read before adding native dependencies)
+
+**Flatpak is the single source of truth.** ISO = Flatpak pre-bundled on Bazzite OS image.
+
+| Channel | How Naia ships | How it updates |
+|---------|---------------|----------------|
+| Flatpak | `flatpak/io.nextain.naia.yml` — self-contained bundle | `flatpak update` |
+| ISO | Flatpak baked into squashfs via `hook-post-rootfs.sh` | `bootc upgrade` (OS) + `flatpak update` (app) |
+| AppImage | `tauri build` — system libs required at runtime | Tauri updater (Ed25519) |
+| Windows | NSIS + WSL2/NaiaEnv (issue-4) — STT Linux-only in WSL | TBD |
+
+**Rule — Adding a native library:**
+- Add to **Flatpak manifest only** (`flatpak/io.nextain.naia.yml` libvosk module pattern)
+- ISO inherits automatically — **do NOT add to `recipes/recipe.yml`** (Flatpak sandbox ignores host libs)
+- For AppImage CI build: also add to `release-app.yml` apt-get install
+- Windows: check if it's gated behind `cfg(target_os = "linux")` — if so, no action needed
+
+**Update pipeline detail:** `.agents/context/update-pipeline.yaml`
+
 ### Flatpak Caveats
 - **NEVER use `cargo build --release`** — causes white screen (WebKitGTK asset protocol not configured)
 - **ALWAYS use `npx tauri build --no-bundle --config src-tauri/tauri.conf.flatpak.json`**

@@ -1,5 +1,35 @@
 description: Naia distribution and release pipeline
 
+design_principles:
+  primary_channel: flatpak
+  rationale: |
+    Flatpak is the single source of truth for Naia's distribution.
+    ISO = Flatpak pre-bundled on a Bazzite-based OS image.
+    All native dependencies MUST be declared in the Flatpak manifest only.
+    DO NOT add OS-level library installs to recipe.yml — they are dead code
+    because Naia runs inside the Flatpak sandbox even on the ISO.
+
+  adding_native_dependencies:
+    rule: "Add to Flatpak manifest (flatpak/io.nextain.naia.yml) ONLY"
+    iso: "Inherits automatically — ISO bundles the Flatpak bundle"
+    appimage: "Secondary channel — vosk-sys fetches at build time, runtime requires system lib (documented limitation)"
+    windows: "STT/Vosk is Linux-only (cfg(target_os=linux) gate) — no action needed on Windows"
+    do_not: "Add to recipes/recipe.yml, config/scripts/ (OS-level) — Flatpak sandbox ignores host libs"
+
+  update_unification:
+    flatpak: "flatpak update — pulls new bundle including all bundled libs (libvosk etc.) automatically"
+    iso_os: "ostree/bootc update — updates the base OS image, independent of Flatpak app (#31)"
+    appimage: "Tauri updater plugin — Ed25519 signed AppImage, does NOT bundle libvosk"
+    key_point: "Adding a lib to Flatpak manifest = single change that covers both Flatpak install AND ISO users"
+    see_also: ".agents/context/update-pipeline.yaml (OS-level bootc update details, testing tiers)"
+
+  multi_platform_build:
+    linux_flatpak: "flatpak-builder via CI (build_flatpak job) — self-contained, all deps in manifest"
+    linux_native: "tauri build via CI (build_linux job) — AppImage/DEB/RPM, system deps required at runtime"
+    iso: "BlueBuild → OCI image → titanoboa ISO — depends on Flatpak bundle in GitHub Release"
+    windows: "NSIS installer (issue-4) — WSL2/NaiaEnv, STT runs in WSL, no Flatpak"
+    warning: "When adding a Rust dep with a native lib: add to Flatpak manifest AND CI apt-get (for build_linux job)"
+
 formats:
   flatpak:
     app_id: io.nextain.naia
