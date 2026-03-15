@@ -403,6 +403,29 @@ jobs:
           draft: false
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
 
+      - name: Upload to Cloudflare R2
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
+          AWS_REGION: auto
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          # Versioned uploads
+          for f in artifacts/Naia-Shell-x86_64.AppImage artifacts/Naia-Shell-x86_64.deb artifacts/Naia-Shell-x86_64.rpm artifacts/Naia-Shell-x86_64-setup.exe; do
+            [ -f "$f" ] && aws s3 cp "$f" "s3://naia-releases/shell/${TAG}/$(basename $f)" --no-progress
+          done
+          [ -f artifacts/latest.json ] && aws s3 cp artifacts/latest.json "s3://naia-releases/shell/${TAG}/latest.json" --no-progress
+          [ -f artifacts/SHA256SUMS ] && aws s3 cp artifacts/SHA256SUMS "s3://naia-releases/shell/${TAG}/SHA256SUMS" --no-progress
+          # Latest (overwrite)
+          for f in artifacts/Naia-Shell-x86_64.AppImage artifacts/Naia-Shell-x86_64.deb artifacts/Naia-Shell-x86_64.rpm artifacts/Naia-Shell-x86_64-setup.exe; do
+            [ -f "$f" ] && aws s3 cp "$f" "s3://naia-releases/shell/latest/$(basename $f)" --no-progress
+          done
+          [ -f artifacts/latest.json ] && aws s3 cp artifacts/latest.json "s3://naia-releases/shell/latest/latest.json" --no-progress
+          [ -f artifacts/SHA256SUMS ] && aws s3 cp artifacts/SHA256SUMS "s3://naia-releases/shell/latest/SHA256SUMS" --no-progress
+          echo "Uploaded to R2: shell/${TAG}/ and shell/latest/"
+
       - name: Upload to itch.io
         if: startsWith(github.ref, 'refs/tags/v')
         env:
