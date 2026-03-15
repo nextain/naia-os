@@ -26,7 +26,7 @@ cpal = "0.17"
 vosk = "0.3"
 reqwest = { version = "0.12", features = ["blocking"] }
 zip = "6.0.0"
-whisper-rs = { git = "https://github.com/nextain/whisper-rs-fork.git", rev = "ab97b92" }
+whisper-rs = { package = "whisper-rs-nx", git = "https://github.com/nextain/whisper-rs-nx.git", rev = "ce60fe4" }
 
 [build-dependencies]
 tauri-plugin = { version = "2.5.4", features = ["build"] }

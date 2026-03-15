@@ -88,8 +88,9 @@ features = ["blocking"]
 version = "0.3"
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.whisper-rs]
-git = "https://github.com/nextain/whisper-rs-fork.git"
-rev = "ab97b92"
+package = "whisper-rs-nx"
+git = "https://github.com/nextain/whisper-rs-nx.git"
+rev = "ce60fe4"
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.zip]
 version = "6.0.0"

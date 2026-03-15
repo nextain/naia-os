@@ -5228,7 +5228,7 @@ dependencies = [
  "tauri-plugin",
  "thiserror 2.0.18",
  "vosk",
- "whisper-rs",
+ "whisper-rs-nx",
  "zip 6.0.0",
 ]
 
@@ -6304,17 +6304,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "whisper-rs"
+name = "whisper-rs-nx"
 version = "0.15.1"
-source = "git+https://github.com/nextain/whisper-rs-fork.git?rev=ab97b92#ab97b9249ff9c32ce37a00ee76bd16c30e7c1ada"
+source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=ce60fe4#ce60fe4b70c64522ba36daefc358a0b97ab0282e"
 dependencies = [
- "whisper-rs-sys",
+ "whisper-rs-nx-sys",
 ]
 
 [[package]]
-name = "whisper-rs-sys"
+name = "whisper-rs-nx-sys"
 version = "0.14.1"
-source = "git+https://github.com/nextain/whisper-rs-fork.git?rev=ab97b92#ab97b9249ff9c32ce37a00ee76bd16c30e7c1ada"
+source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=ce60fe4#ce60fe4b70c64522ba36daefc358a0b97ab0282e"
 dependencies = [
  "bindgen",
  "cfg-if",
