@@ -23,7 +23,6 @@ modules:
   - type: script
     scripts:
       - install-naia-shell.sh
-      - install-vosk.sh
       - branding.sh
 
   - type: files

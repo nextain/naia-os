@@ -268,7 +268,6 @@ os_image:
   recipe: recipes/recipe.yml
   scripts:
     - config/scripts/install-naia-shell.sh (downloads Flatpak bundle from GitHub Release + creates first-boot service)
-    - config/scripts/install-vosk.sh (downloads libvosk v0.3.45 → /usr/lib/libvosk.so for Vosk STT runtime)
     - config/scripts/branding.sh (os-release → Naia, URLs → naia.nextain.io)
   deployed_files:
     - config/files/usr/etc/xdg/autostart/naia-shell.desktop (login autostart → flatpak run)
