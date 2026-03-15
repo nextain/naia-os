@@ -51,7 +51,12 @@
 		"longDescription": "Naia Shell is a desktop AI companion powered by LLM providers. Features an interactive VRM avatar (Naia), tool execution, and always-on daemon.",
 		"linux": {
 			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "pipewire-alsa", "libasound2"],
+				"depends": [
+					"libwebkit2gtk-4.1-0",
+					"libgtk-3-0",
+					"pipewire-alsa",
+					"libasound2"
+				],
 				"desktopTemplate": null
 			},
 			"rpm": {
