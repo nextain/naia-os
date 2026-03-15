@@ -5,7 +5,11 @@
 	"bundle": {
 		"targets": ["nsis"],
 		"resources": {
-			"resources/node.exe": "node.exe"
+			"resources/node.exe": "node.exe",
+			"target/release/libvosk.dll": "libvosk.dll",
+			"target/release/libgcc_s_seh-1.dll": "libgcc_s_seh-1.dll",
+			"target/release/libstdc++-6.dll": "libstdc++-6.dll",
+			"target/release/libwinpthread-1.dll": "libwinpthread-1.dll"
 		},
 		"windows": {
 			"certificateThumbprint": null,
