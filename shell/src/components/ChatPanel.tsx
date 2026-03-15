@@ -26,7 +26,7 @@ import {
 	saveConfig,
 	isReadyToChat,
 } from "../lib/config";
-import { getLlmModel, isApiKeyOptional } from "../lib/llm";
+import { getDefaultLlmModel, getLlmModel, getLlmProvider, isApiKeyOptional } from "../lib/llm";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import {
@@ -580,12 +580,26 @@ export function ChatPanel() {
 			requestId,
 			textPreview: text.slice(0, 40),
 		});
+		// Guard against provider/model mismatch (e.g. provider=gemini, model=claude-sonnet-4-6).
+		// When the saved model is not valid for the active provider, fall back to the default.
+		const savedModel = config.model || "gemini-2.5-flash";
+		const providerMeta = getLlmProvider(activeProvider);
+		const modelIsValid = !providerMeta || providerMeta.models.some((m) => m.id === savedModel);
+		const resolvedModel = modelIsValid ? savedModel : getDefaultLlmModel(activeProvider);
+		if (!modelIsValid) {
+			Logger.warn("ChatPanel", "Model not valid for provider — using default", {
+				provider: activeProvider,
+				savedModel,
+				resolvedModel,
+			});
+		}
+
 		try {
 			await sendChatMessage({
 				message: text,
 				provider: {
 					provider: activeProvider,
-					model: config.model || "gemini-2.5-flash",
+					model: resolvedModel,
 					apiKey: config.apiKey,
 					naiaKey: activeProvider === "nextain" ? config.naiaKey : undefined,
 					ollamaHost: activeProvider === "ollama" ? config.ollamaHost : undefined,
@@ -901,6 +915,7 @@ export function ChatPanel() {
 		const voiceCfg = pipelineVoiceConfigRef.current;
 		Logger.info("ChatPanel", "Sending TTS request", { reqId, seq, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
 		const ttsProviderForCost = voiceCfg?.ttsProvider ?? "edge";
+		const ttsVoiceForCost = voiceCfg?.voice;
 		requestTts({
 			text: clean,
 			voice: voiceCfg?.voice,
@@ -908,18 +923,18 @@ export function ChatPanel() {
 			ttsApiKey: voiceCfg?.ttsApiKey,
 			naiaKey: voiceCfg?.naiaKey,
 			requestId: reqId,
-			onAudio: (mp3Base64) => {
-				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length });
+			onAudio: (mp3Base64, costUsd) => {
+				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length, costUsd });
 				audioQueueRef.current?.enqueueOrdered(seq, mp3Base64);
 				activeTtsRequestsRef.current.delete(reqId);
-				// Track TTS cost
-				const ttsCost = estimateTtsCost(ttsProviderForCost, clean.length);
+				// Track TTS cost: use server cost for Naia Cloud, estimate for others
+				const ttsCost = costUsd != null ? costUsd : estimateTtsCost(ttsProviderForCost, clean.length, ttsVoiceForCost);
 				if (ttsCost > 0) {
 					useChatStore.getState().addCostEntry({
 						inputTokens: 0,
 						outputTokens: 0,
 						cost: ttsCost,
-						provider: "nextain" as ProviderId,
+						provider: ttsProviderForCost as ProviderId,
 						model: `tts:${ttsProviderForCost}`,
 					});
 				}

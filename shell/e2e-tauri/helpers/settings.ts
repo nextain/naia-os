@@ -271,6 +271,7 @@ export async function ensureAppReady(): Promise<void> {
 				enableTools: true,
 				locale: config.locale || "ko",
 				onboardingComplete: true,
+				panelVisible: true,
 			});
 			localStorage.setItem("naia-config", JSON.stringify(config));
 		}, API_KEY);
@@ -287,6 +288,18 @@ export async function ensureAppReady(): Promise<void> {
 				await browser.pause(2_000);
 			}
 		}
+	} else {
+		// Even if already configured, ensure the panel is visible so tabs render.
+		// A stored config with panelVisible:false would block all tab-based waits.
+		await browser.execute(() => {
+			const raw = localStorage.getItem("naia-config");
+			if (!raw) return;
+			const config = JSON.parse(raw);
+			if (config.panelVisible === false) {
+				config.panelVisible = true;
+				localStorage.setItem("naia-config", JSON.stringify(config));
+			}
+		});
 	}
 
 	// Wait for app + tabs to be ready

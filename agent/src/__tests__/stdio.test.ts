@@ -6,9 +6,9 @@ vi.mock("../providers/factory.js", () => ({
 	buildProvider: vi.fn(),
 }));
 
-// Mock TTS
-vi.mock("../tts/google-tts.js", () => ({
-	synthesizeSpeech: vi.fn(),
+// Mock TTS registry synthesize
+vi.mock("../tts/index.js", () => ({
+	synthesize: vi.fn(),
 }));
 
 // Mock cost
@@ -143,13 +143,13 @@ describe("handleChatRequest TTS integration", () => {
 
 	it("sends audio chunk when provider is gemini", async () => {
 		const { buildProvider } = await import("../providers/factory.js");
-		const { synthesizeSpeech } = await import("../tts/google-tts.js");
+		const { synthesize } = await import("../tts/index.js");
 		const { handleChatRequest } = await import("../index.js");
 
 		vi.mocked(buildProvider).mockReturnValue({
 			stream: () => fakeStream(),
 		});
-		vi.mocked(synthesizeSpeech).mockResolvedValue("base64audio==");
+		vi.mocked(synthesize).mockResolvedValue({ audio: "base64audio==" });
 
 		await handleChatRequest({
 			type: "chat_request",
@@ -164,7 +164,7 @@ describe("handleChatRequest TTS integration", () => {
 		});
 
 		const types = outputs
-			.filter((o: any) => o.type !== "ready")
+			.filter((o: any) => o.type !== "ready" && o.type !== "log_entry")
 			.map((o: any) => o.type);
 		// Order: text → audio → usage → finish
 		expect(types).toEqual(["text", "audio", "usage", "finish"]);
@@ -173,17 +173,16 @@ describe("handleChatRequest TTS integration", () => {
 		expect(audioChunk.data).toBe("base64audio==");
 		expect(audioChunk.requestId).toBe("req-tts");
 
-		// TTS called with emotion tag stripped
-		expect(synthesizeSpeech).toHaveBeenCalledWith(
-			"안녕하세요!",
-			"key123",
-			"ko-KR-Neural2-A",
+		// TTS synthesize called via registry with emotion tag stripped
+		expect(synthesize).toHaveBeenCalledWith(
+			"edge",
+			expect.objectContaining({ text: "안녕하세요!" }),
 		);
 	});
 
 	it("skips TTS for non-gemini providers", async () => {
 		const { buildProvider } = await import("../providers/factory.js");
-		const { synthesizeSpeech } = await import("../tts/google-tts.js");
+		const { synthesize } = await import("../tts/index.js");
 		const { handleChatRequest } = await import("../index.js");
 
 		vi.mocked(buildProvider).mockReturnValue({
@@ -197,20 +196,20 @@ describe("handleChatRequest TTS integration", () => {
 			messages: [{ role: "user", content: "Hello" }],
 		});
 
-		expect(synthesizeSpeech).not.toHaveBeenCalled();
-		const types = outputs.map((o: any) => o.type);
+		expect(synthesize).not.toHaveBeenCalled();
+		const types = outputs.filter((o: any) => o.type !== "log_entry").map((o: any) => o.type);
 		expect(types).toEqual(["text", "usage", "finish"]);
 	});
 
 	it("continues normally when TTS fails", async () => {
 		const { buildProvider } = await import("../providers/factory.js");
-		const { synthesizeSpeech } = await import("../tts/google-tts.js");
+		const { synthesize } = await import("../tts/index.js");
 		const { handleChatRequest } = await import("../index.js");
 
 		vi.mocked(buildProvider).mockReturnValue({
 			stream: () => fakeStream(),
 		});
-		vi.mocked(synthesizeSpeech).mockResolvedValue(null);
+		vi.mocked(synthesize).mockResolvedValue(null);
 
 		await handleChatRequest({
 			type: "chat_request",
@@ -223,7 +222,7 @@ describe("handleChatRequest TTS integration", () => {
 			messages: [{ role: "user", content: "Test" }],
 		});
 
-		const types = outputs.map((o: any) => o.type);
+		const types = outputs.filter((o: any) => o.type !== "log_entry").map((o: any) => o.type);
 		// No audio chunk, but usage + finish still sent
 		expect(types).toEqual(["text", "usage", "finish"]);
 	});

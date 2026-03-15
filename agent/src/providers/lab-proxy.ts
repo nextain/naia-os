@@ -58,6 +58,7 @@ export function createLabProxyProvider(
 			let buffer = "";
 			let totalInput = 0;
 			let totalOutput = 0;
+			let bytesReceived = 0; // detect silent gateway errors (0-byte SSE streams)
 
 			// Accumulate tool call arguments across multiple SSE chunks
 			const pendingToolCalls = new Map<
@@ -70,6 +71,7 @@ export function createLabProxyProvider(
 					const { done, value } = await reader.read();
 					if (done) break;
 
+					bytesReceived += value.byteLength;
 					buffer += decoder.decode(value, { stream: true });
 					const lines = buffer.split("\n");
 					buffer = lines.pop() ?? "";
@@ -138,6 +140,14 @@ export function createLabProxyProvider(
 				}
 			} finally {
 				reader.releaseLock();
+			}
+
+			// Gateway streaming bug: 200 OK with 0-byte body means a silent backend error.
+			// Non-streaming returns 500 with the real error; streaming swallows it.
+			if (bytesReceived === 0) {
+				throw new Error(
+					`Lab proxy: empty SSE stream for model "${model}" — gateway may lack credentials for this provider. Try non-Naia route instead.`,
+				);
 			}
 
 			// Emit accumulated tool calls

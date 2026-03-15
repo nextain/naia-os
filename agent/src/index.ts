@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as readline from "node:readline";
@@ -196,6 +196,18 @@ function writeLine(data: unknown): void {
 	process.stdout.write(`${JSON.stringify(data)}\n`);
 }
 
+/** Append one JSON-line to ~/.naia/logs/llm-debug.log (non-blocking, best-effort) */
+function logLlm(entry: Record<string, unknown>): void {
+	try {
+		const logDir = join(homedir(), ".naia", "logs");
+		mkdirSync(logDir, { recursive: true });
+		const logPath = join(logDir, "llm-debug.log");
+		appendFileSync(logPath, `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`);
+	} catch {
+		// non-critical — never block request on logging failure
+	}
+}
+
 export async function handleChatRequest(req: ChatRequest): Promise<void> {
 	const {
 		requestId,
@@ -231,9 +243,12 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 	activeStreams.set(requestId, controller);
 
 	let gateway: GatewayClient | null = null;
+	const requestStart = Date.now();
 
 	try {
 		const provider = buildProvider(providerConfig);
+		logLlm({ event: "request_start", requestId, provider: providerConfig.provider, model: providerConfig.model, msgCount: rawMessages.length });
+		writeLine({ type: "log_entry", requestId, level: "info", message: `[LLM:start] provider=${providerConfig.provider} model=${providerConfig.model} msgs=${rawMessages.length}`, timestamp: new Date().toISOString() });
 		const wantGatewayForTools = !!(enableTools && gatewayUrl);
 		const wantGatewayForTts =
 			!!gatewayUrl && !!ttsVoice && (ttsEngine === "openclaw" || ttsEngine === "auto");
@@ -539,14 +554,19 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				let audioSent = false;
 
 				try {
-					const audio = await ttsSynthesize(selectedProvider, {
+					const ttsResult = await ttsSynthesize(selectedProvider, {
 						text: cleanText,
 						voice: ttsVoice,
 						apiKey: ttsApiKey,
 						naiaKey: effectiveNaiaKey,
 					});
-					if (audio) {
-						writeLine({ type: "audio", requestId, data: audio });
+					if (ttsResult) {
+						writeLine({
+							type: "audio",
+							requestId,
+							data: ttsResult.audio,
+							...(ttsResult.costUsd != null && { costUsd: ttsResult.costUsd }),
+						});
 						audioSent = true;
 					}
 				} catch { /* TTS failure is non-critical */ }
@@ -562,13 +582,13 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 						(providerConfig.provider === "gemini" ? providerConfig.apiKey : null);
 					if (googleKey) {
 						try {
-							const audio = await ttsSynthesize("google", {
+							const ttsResult = await ttsSynthesize("google", {
 								text: cleanText,
 								voice: ttsVoice,
 								apiKey: googleKey,
 							});
-							if (audio) {
-								writeLine({ type: "audio", requestId, data: audio });
+							if (ttsResult) {
+								writeLine({ type: "audio", requestId, data: ttsResult.audio });
 							}
 						} catch { /* TTS failure is non-critical */ }
 					}
@@ -593,10 +613,13 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				model: providerConfig.model,
 			});
 		}
+		logLlm({ event: "finish", requestId, provider: providerConfig.provider, model: providerConfig.model, textLen: fullText.length, inputTokens: totalInputTokens, outputTokens: totalOutputTokens, durationMs: Date.now() - requestStart });
 		console.error(`[agent:chat] Finish — fullText=${fullText.length} chars, reqId=${requestId}`);
 		writeLine({ type: "finish", requestId });
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
+		logLlm({ event: "error", requestId, provider: providerConfig.provider, model: providerConfig.model, error: message, durationMs: Date.now() - requestStart });
+		writeLine({ type: "log_entry", requestId, level: "error", message: `[LLM:error] provider=${providerConfig.provider} model=${providerConfig.model} error=${message.slice(0, 300)}`, timestamp: new Date().toISOString() });
 		console.error(`[agent:chat] Error — ${message}, reqId=${requestId}`);
 		writeLine({ type: "error", requestId, message });
 	} finally {
@@ -691,7 +714,7 @@ async function handleTtsRequest(req: TtsRequest): Promise<void> {
 		if (controller.signal.aborted) return;
 
 		const providerId = ttsProvider || "edge";
-		const audio = await ttsSynthesize(providerId, {
+		const result = await ttsSynthesize(providerId, {
 			text,
 			voice,
 			apiKey: ttsApiKey,
@@ -700,9 +723,14 @@ async function handleTtsRequest(req: TtsRequest): Promise<void> {
 
 		if (controller.signal.aborted) return;
 
-		console.error(`[agent:tts] Done — audio=${audio ? `${audio.length} chars base64` : "null"}`);
-		if (audio) {
-			writeLine({ type: "audio", requestId, data: audio });
+		console.error(`[agent:tts] Done — audio=${result ? `${result.audio.length} chars base64` : "null"}${result?.costUsd != null ? `, cost=$${result.costUsd}` : ""}`);
+		if (result) {
+			writeLine({
+				type: "audio",
+				requestId,
+				data: result.audio,
+				...(result.costUsd != null && { costUsd: result.costUsd }),
+			});
 		}
 		writeLine({ type: "finish", requestId });
 	} catch (err) {
