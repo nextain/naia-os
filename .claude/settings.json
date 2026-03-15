@@ -20,6 +20,10 @@
 					{
 						"type": "command",
 						"command": "node .claude/hooks/commit-guard.js"
+					},
+					{
+						"type": "command",
+						"command": "node .claude/hooks/dll-bundle-check.js"
 					}
 				]
 			}

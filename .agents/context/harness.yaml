@@ -54,6 +54,17 @@ hooks:
       - "agents-rules.json → extra SoT warning"
     behavior: "Advisory (additionalContext), not blocking"
 
+  dll_bundle_check:
+    file: dll-bundle-check.js
+    trigger: "PostToolUse on Bash (cargo build --release / tauri build)"
+    purpose: "Warn when third-party DLLs in target/release/ are not declared in tauri.conf.windows.json resources"
+    behavior:
+      - "Scans target/release/ for .dll files after release builds"
+      - "Compares against tauri.conf.windows.json bundle.resources"
+      - "Skips naia_*, WebView2*, tauri* (auto-bundled)"
+      - "Warns with specific DLL names and fix instructions"
+    enforces: "All runtime DLLs must be declared in Tauri bundle config"
+
   commit_guard:
     file: commit-guard.js
     trigger: "PostToolUse on Bash (git commit commands)"
