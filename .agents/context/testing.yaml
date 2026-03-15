@@ -16,6 +16,19 @@ test_code_review:
     - "After pass: re-confirm 'does this test actually validate the intended behavior?'"
   why: "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden."
 
+test_attitude:
+  rule: "Tests are diagnostic tools, not scoreboards. See agents-rules.json testing.test_attitude for canonical rules."
+  anti_patterns:
+    - name: "Assertion loosening"
+      description: "Changing === to includes, removing checks, or widening match patterns to make a failing test pass"
+      correct: "Read full error output, diagnose whether failure is in app code or test code, fix the actual source"
+    - name: "Expected value gaming"
+      description: "Updating expected values to match the (buggy) actual output"
+      correct: "If actual output is wrong, fix the code that produces it, not the expectation"
+    - name: "Test deletion"
+      description: "Deleting or skipping a failing test instead of fixing the code it covers"
+      correct: "Investigate why the test fails, fix app code, keep the test"
+
 frameworks:
   unit_integration: Vitest
   e2e_shell: "@tauri-apps/cli (tauri-driver) + WebDriver"
@@ -199,6 +212,15 @@ shell:
       llm_nondeterminism: |
         Gemini may not always use requested tools.
         Use flexible assertions: check tool-success element OR text pattern.
+      ensure_app_ready_no_key_provider: |
+        ensureAppReady() alreadyConfigured check requires apiKey OR naiaKey — but
+        claude-code-cli and ollama need no API key. Without fix, they are always
+        treated as unconfigured and get reset to gemini. Use noKeyProviders list
+        (or isApiKeyOptional()) when determining alreadyConfigured.
+      provider_model_default_hardcoded: |
+        When savedModel is empty, ChatPanel used "gemini-2.5-flash" as hardcoded fallback
+        regardless of active provider. Fix: use getDefaultLlmModel(activeProvider) first,
+        then "gemini-2.5-flash" as last-resort fallback only.
     methodology:
       principles:
         - "E2E must fail when the AI response explicitly says feature unavailable or failed."
@@ -206,6 +228,8 @@ shell:
         - "Validate with semantic criteria for user-visible behavior, plus structural checks for config state."
         - "Every E2E must start from a documented objective (user-visible success condition) and end with objective-vs-implementation review."
         - "Always check for missing/incorrect implementation paths before declaring PASS."
+        - "Tests are diagnostic tools — a failure means 'investigate app code', not 'fix the test to pass'."
+        - "NEVER loosen assertions, change expected values, or skip test cases to make a failing test pass without first diagnosing the root cause in app code."
       assertion_style:
         - "Prefer semantic validation for final assistant messages (task + pass/fail criteria)."
         - "Avoid brittle literal matching and avoid relying only on `expect` equality."

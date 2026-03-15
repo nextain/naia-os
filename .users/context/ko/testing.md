@@ -37,6 +37,20 @@
 
 ---
 
+## 테스트 태도 (Test Attitude)
+
+테스트는 진단 도구이지, 점수판이 아닙니다. 정식 규칙은 `agents-rules.json`의 `testing.test_attitude`를 참조.
+
+### 안티패턴
+
+| 안티패턴 | 설명 | 올바른 대응 |
+|----------|------|------------|
+| **Assertion 느슨화** | `===`를 `includes`로 바꾸거나, 검사를 제거하거나, 매칭 패턴을 넓혀서 실패하는 테스트를 통과시킴 | 전체 에러 출력을 읽고, 실패 원인이 앱 코드인지 테스트 코드인지 진단 후 실제 원인을 수정 |
+| **기대값 조작** | (버그 있는) 실제 출력에 맞추려고 기대값을 변경 | 실제 출력이 잘못되면, 기대값이 아니라 출력을 생성하는 코드를 수정 |
+| **테스트 삭제** | 커버하는 코드를 수정하는 대신 실패하는 테스트를 삭제하거나 스킵 | 왜 실패하는지 조사하고, 앱 코드를 수정하고, 테스트를 유지 |
+
+---
+
 ## Agent 테스트
 
 Agent를 자식 프로세스로 실행하고, stdin에 파이프, stdout을 검증합니다.
@@ -97,6 +111,8 @@ E2E 실패 진단 시 동시에 사용:
 - **Stale 엘리먼트**: WebKitGTK는 React 리렌더 시 참조 무효화. 항상 `browser.execute()` + 새 `querySelector()` 사용.
 - **React input**: 네이티브 property setter + `dispatchEvent('input')`으로 값 설정. 100ms 대기 후 send 클릭.
 - **LLM 비결정성**: Gemini가 항상 도구를 사용하지 않을 수 있음. 유연한 검증: tool-success 엘리먼트 OR 텍스트 패턴.
+- **ensureAppReady 키 없는 프로바이더**: `alreadyConfigured` 체크가 `apiKey` 또는 `naiaKey`를 요구하지만, `claude-code-cli`와 `ollama`는 API 키 불필요. 수정 없으면 이 프로바이더들은 항상 "미설정"으로 처리되어 gemini로 리셋됨. `noKeyProviders` 목록(또는 `isApiKeyOptional()`)으로 판별.
+- **provider/model 기본값 하드코딩**: `savedModel`이 비어 있을 때 ChatPanel이 active provider 무관하게 `"gemini-2.5-flash"`를 하드코딩 fallback으로 사용했음. 수정: `getDefaultLlmModel(activeProvider)` 우선 사용, 없으면 최후 fallback으로만 `"gemini-2.5-flash"` 사용.
 
 ### E2E 방법론
 
@@ -105,6 +121,8 @@ E2E 실패 진단 시 동시에 사용:
 - assistant 메시지에 대해 명시적 FAIL 문구를 사용한 의미론적 검증.
 - 스펙이 예상외로 통과하면 항상 메시지 트레이스를 검사합니다.
 - 기본 트레이스: `shell/e2e-tauri/.artifacts/ui-message-trace.ndjson`
+- 테스트는 진단 도구 — 실패는 "앱 코드를 조사하라"는 뜻이지, "테스트를 고쳐서 통과시키라"는 뜻이 아닙니다.
+- 먼저 앱 코드의 근본 원인을 진단하지 않고 assertion을 느슨하게 하거나, 기대값을 바꾸거나, 테스트를 스킵하는 것은 절대 금지.
 
 ## Gateway 테스트
 

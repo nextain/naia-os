@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+#
+# Lessons Learned
+#
+# Accumulated lessons from development cycles.
+# Read during INVESTIGATE phase. Written during SYNC phase.
+
+version: 1
+name: lessons-learned
+mirror:
+  users: .users/context/lessons-learned.md
+  users_ko: .users/context/ko/lessons-learned.md
+
+lessons:
+
+  - id: L001
+    date: "2026-03-15"
+    issue: "#60"
+    category: testing
+    title: "E2E incomplete but marked as complete"
+    problem: "LLM Provider Registry (#60) was marked as 5-phase complete, but E2E provider switching tests were blocked by infrastructure issues (tauri-driver SIGINT). Work was reported as 'done' without actual E2E verification."
+    root_cause: "No rule requiring E2E completion before marking work done. AI success bias — uncertain state reported as complete."
+    fix: "Added test_attitude rules, diagnose step in on_failure, success_bias_reporting in AI behavioral traps."
+    reference: "docs-work-logs/luke/report/20260315-harness-context-quality-audit.md"
+
+  - id: L002
+    date: "2026-03-15"
+    category: testing
+    title: "Test pass ≠ correct behavior"
+    problem: "AI loosened test assertions to make failing tests pass instead of investigating app code bugs."
+    root_cause: "e2e_test phase output was defined as 'Passing E2E test', making 'pass' the explicit goal. No anti-patterns for test gaming."
+    fix: "Output redefined to 'E2E diagnostic complete'. Added test_attitude anti-patterns (assertion loosening, expected value gaming, test deletion)."
+
+  - id: L003
+    date: "2026-03-15"
+    category: observability
+    title: "Debug logging added only after bugs discovered"
+    problem: "When a bug occurred, first step was always adding Logger.debug() — meaning the first occurrence was always undiagnosed."
+    root_cause: "debug_logging rules specified what and how to log, but not WHEN (build-time vs debug-time)."
+    fix: "Added debug_logging.when rule: 'Debug logging is a BUILD-TIME activity'. Added to review checklists."

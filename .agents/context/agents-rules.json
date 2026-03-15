@@ -5,6 +5,36 @@
 		"philosophy": "OS itself is the AI's tool. Assemble, don't build from scratch.",
 		"core_concept": "USB boot → Naia avatar greets → AI controls OS"
 	},
+	"design_principles": {
+		"purpose": "All rules in this file derive from these four principles. AI agents must understand WHY rules exist, not just follow them mechanically.",
+		"pillars": {
+			"simple": "No unnecessary complexity. Code explains itself. Minimal abstraction.",
+			"robust": "Handles edge cases. Fails gracefully. Tests are diagnostic tools that verify this — not scoreboards to pass.",
+			"debuggable": "Sufficient debug logging from BUILD TIME (not added after bugs appear). Every failure is diagnosable from the first occurrence.",
+			"extensible": "New providers/features added without modifying existing code. Provider registry pattern."
+		},
+		"abstraction_rule": "Abstraction is a tool to achieve these four principles, not a goal in itself.",
+		"examples": ["LLM/STT/TTS provider registry (#51, #60)", "Gateway interface abstraction (#64)"],
+		"ai_behavioral_traps": {
+			"purpose": "This context is read by AI agents. These are known AI tendencies that violate the four principles.",
+			"optimistic_code": {
+				"trap": "AI writes only happy-path code, assuming all calls succeed and all inputs are valid.",
+				"counter": "Consciously implement error paths during BUILD, not after failures are discovered."
+			},
+			"goal_fixation": {
+				"trap": "AI converges on the most measurable goal (test pass, build success) and loses sight of the actual purpose.",
+				"counter": "Before acting, ask: what is the PURPOSE of this test/log/review? Act on the purpose, not the metric."
+			},
+			"success_bias_reporting": {
+				"trap": "AI reports uncertain states as 'complete' or 'working'. E.g., marking work done when E2E was not actually run.",
+				"counter": "If not verified, it is not complete. Report honestly: 'E2E blocked by X, implementation done but unverified.'"
+			},
+			"front_back_inconsistency": {
+				"trap": "Sequential generation causes earlier code/comments to contradict later code in the same file.",
+				"counter": "Iterative review catches this. Re-read the full file after writing, check for internal consistency."
+			}
+		}
+	},
 	"architecture": {
 		"layers": {
 			"shell": "Tauri 2 + Three.js (Avatar UI, user interaction)",
@@ -102,6 +132,24 @@
 			],
 			"why": "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem."
 		},
+		"test_attitude": {
+			"rule": "Tests are diagnostic tools, not scoreboards. A failing test is information about a bug, not a problem with the test.",
+			"derives_from": "design_principles.pillars.robust",
+			"on_failure": [
+				"Read FULL test output (error message, stack trace, actual vs expected)",
+				"Diagnose: is the failure in app code or test code?",
+				"If app code → fix app code, re-run test",
+				"If test code → fix test code, re-run test",
+				"Record diagnosis in progress file (test_findings)"
+			],
+			"anti_patterns": [
+				"Loosening assertions (e.g., === to includes, removing checks) to make a failing test pass",
+				"Modifying expected values to match buggy actual output",
+				"Deleting or skipping failing test cases without investigation",
+				"Reporting 'tests pass' without reading what the tests actually verified"
+			],
+			"why": "Goal fixation causes AI to treat 'pass' as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions."
+		},
 		"framework": {
 			"unit_integration": "Vitest",
 			"e2e_shell": "@tauri-apps/cli (tauri-driver) + WebDriver",
@@ -193,6 +241,18 @@
 		},
 		"debug_logging": {
 			"rule": "Code must produce enough debug traces to diagnose issues without visual inspection.",
+			"when": {
+				"rule": "Debug logging is a BUILD-TIME activity, not a DEBUG-TIME activity. Add logging DURING implementation, not after problems are discovered.",
+				"derives_from": "design_principles.pillars.debuggable",
+				"rationale": "If logging is added only after a problem occurs, the first occurrence is always undiagnosed. Build-time logging ensures every failure is diagnosable from the first occurrence.",
+				"build_checklist": [
+					"Every new async operation: log start, success, failure with context",
+					"Every new state transition: log before and after values",
+					"Every new external call (API, IPC, file I/O): log request and response summary",
+					"Every new error handling path: log the error with full context"
+				],
+				"anti_pattern": "Adding Logger.debug() calls only after a bug is reported or test fails"
+			},
 			"principles": [
 				"Every async wait/poll must log what it is waiting for and current state",
 				"UI blocking states (modals, dialogs, loading spinners) must be captured in traces",
@@ -302,7 +362,8 @@
 				"No duplicate code (same logic in 2+ places)?",
 				"No unused imports/functions/files (knip clean)?",
 				"No zombie code from previous implementation?",
-				"Logging uses structured logger (no console.log, no raw eprintln!)?"
+				"Logging uses structured logger (no console.log, no raw eprintln!)?",
+				"New code paths have sufficient debug logging (async ops, state transitions, external calls, error paths)?"
 			],
 			"checklist_security": [
 				"Permission tier correctly assigned for new tools?",

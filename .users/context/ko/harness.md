@@ -84,6 +84,21 @@ sync → sync_verify → report → commit
 
 ### 스키마
 
+| 필드 | 설명 |
+|------|------|
+| `issue` | GitHub Issue 참조 (예: `#42`) |
+| `title` | 작업 요약 |
+| `project` | 프로젝트 이름 (예: `naia-os`) |
+| `current_phase` | 페이즈 순서에서의 현재 단계 |
+| `gate_approvals` | 게이트 → 사용자 승인 ISO 타임스탬프 맵 |
+| `decisions` | 핵심 결정 배열 (decision, rationale, date) |
+| `surprises` | 조사/빌드 중 예상치 못한 발견 |
+| `blockers` | 진행을 막는 현재 블로커 |
+| `test_findings` | 테스트 실패 진단 결과 — e2e_test에서 build/plan으로 되돌아가기 전 필수 기록. 필드: test_name, error_summary, root_cause, routing |
+| `updated_at` | 마지막 업데이트 ISO 타임스탬프 |
+
+### 예시
+
 ```json
 {
   "issue": "#42",
@@ -104,6 +119,14 @@ sync → sync_verify → report → commit
   ],
   "surprises": [],
   "blockers": [],
+  "test_findings": [
+    {
+      "test_name": "03-basic-chat.spec.ts",
+      "error_summary": "Expected non-empty response, got empty string",
+      "root_cause": "Gateway connection timeout — agent not spawned",
+      "routing": "implementation_issue → BUILD"
+    }
+  ],
   "updated_at": "2026-03-14T14:30Z"
 }
 ```

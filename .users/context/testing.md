@@ -37,6 +37,20 @@ Test code MUST be iteratively reviewed before trusting results. Faulty test logi
 
 ---
 
+## Test Attitude
+
+Tests are diagnostic tools, not scoreboards. See `agents-rules.json` `testing.test_attitude` for canonical rules.
+
+### Anti-Patterns
+
+| Anti-Pattern | Description | Correct Response |
+|--------------|-------------|-----------------|
+| **Assertion loosening** | Changing `===` to `includes`, removing checks, or widening match patterns to make a failing test pass | Read full error output, diagnose whether failure is in app code or test code, fix the actual source |
+| **Expected value gaming** | Updating expected values to match the (buggy) actual output | If actual output is wrong, fix the code that produces it, not the expectation |
+| **Test deletion** | Deleting or skipping a failing test instead of fixing the code it covers | Investigate why the test fails, fix app code, keep the test |
+
+---
+
 ## Agent Testing
 
 Spawn agent as child process, pipe stdin, assert stdout.
@@ -97,6 +111,8 @@ Use these simultaneously when diagnosing E2E failures:
 - **Stale elements**: WebKitGTK invalidates refs on React re-renders. Always use `browser.execute()` with fresh `querySelector()`.
 - **React input**: Set value via native property setter + `dispatchEvent('input')`. Wait 100ms, then click send.
 - **LLM nondeterminism**: Gemini may not always use tools. Use flexible assertions: tool-success element OR text pattern.
+- **ensureAppReady no-key providers**: `alreadyConfigured` check requires `apiKey` OR `naiaKey` — but `claude-code-cli` and `ollama` need no API key. Without the fix, they are always treated as unconfigured and reset to gemini. Use `noKeyProviders` list (or `isApiKeyOptional()`) when determining `alreadyConfigured`.
+- **provider/model default hardcoded**: When `savedModel` is empty, ChatPanel used `"gemini-2.5-flash"` as a hardcoded fallback regardless of active provider. Fix: use `getDefaultLlmModel(activeProvider)` first, then `"gemini-2.5-flash"` as last-resort only.
 
 ### E2E Methodology
 
@@ -105,6 +121,8 @@ Use these simultaneously when diagnosing E2E failures:
 - Use semantic validation for assistant messages with explicit FAIL phrases.
 - Always inspect message traces when a spec passes unexpectedly.
 - Primary trace: `shell/e2e-tauri/.artifacts/ui-message-trace.ndjson`
+- Tests are diagnostic tools -- a failure means "investigate app code", not "fix the test to pass".
+- NEVER loosen assertions, change expected values, or skip test cases to make a failing test pass without first diagnosing the root cause in app code.
 
 ## Gateway Testing
 

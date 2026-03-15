@@ -84,6 +84,21 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 
 ### Schema
 
+| Field | Description |
+|-------|-------------|
+| `issue` | GitHub Issue reference (e.g., `#42`) |
+| `title` | Short description of the work |
+| `project` | Project name (e.g., `naia-os`) |
+| `current_phase` | Current phase from phase order |
+| `gate_approvals` | Map of gate -> ISO timestamp when user approved |
+| `decisions` | Array of key decisions (decision, rationale, date) |
+| `surprises` | Unexpected findings during investigation/build |
+| `blockers` | Current blockers preventing progress |
+| `test_findings` | Diagnostic results from test failures -- mandatory before returning from e2e_test to build/plan. Fields: test_name, error_summary, root_cause, routing |
+| `updated_at` | ISO timestamp of last update |
+
+### Example
+
 ```json
 {
   "issue": "#42",
@@ -104,6 +119,14 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
   ],
   "surprises": [],
   "blockers": [],
+  "test_findings": [
+    {
+      "test_name": "03-basic-chat.spec.ts",
+      "error_summary": "Expected non-empty response, got empty string",
+      "root_cause": "Gateway connection timeout — agent not spawned",
+      "routing": "implementation_issue → BUILD"
+    }
+  ],
   "updated_at": "2026-03-14T14:30Z"
 }
 ```

@@ -57,6 +57,7 @@ cycle:
       - "Temp code must have // TODO: comment + issue number"
       - "Every async wait/poll must log what it waits for and current state"
       - "UI blocking states (modals, dialogs) must be captured in debug traces"
+      - "Debug logging is a BUILD-TIME activity — add Logger.debug() during implementation, not after bugs appear"
     anti_patterns:
       - "Implementing without tests"
       - "Mixing multiple features in one PR"
@@ -136,6 +137,7 @@ review_gates:
       - "No unused code left behind?"
       - "Tests added?"
       - "No console.log?"
+      - "New code paths have debug logging (async, state transitions, external calls)?"
 
   gate_2_automated:
     when: "On PR creation (CI)"
