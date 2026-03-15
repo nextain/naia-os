@@ -249,11 +249,15 @@ const API_KEY =
  * Safe to call multiple times — skips if already configured.
  */
 export async function ensureAppReady(): Promise<void> {
+	// Providers like claude-code-cli and ollama don't require an apiKey.
+	// Consider configured if onboardingComplete is set — apiKey is optional depending on provider.
 	const alreadyConfigured = await browser.execute(() => {
 		const raw = localStorage.getItem("naia-config");
 		if (!raw) return false;
 		const config = JSON.parse(raw);
-		return !!config.onboardingComplete && !!config.apiKey;
+		const noKeyProviders = ["claude-code-cli", "ollama"];
+		const apiKeyOptional = noKeyProviders.includes(config.provider ?? "");
+		return !!config.onboardingComplete && (!!config.apiKey || !!config.naiaKey || apiKeyOptional);
 	});
 
 	if (!alreadyConfigured) {

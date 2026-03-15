@@ -44,14 +44,8 @@ const PROVIDERS = [
 describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 	// ── Naia Cloud (lab-proxy) — uses naiaKey, not apiKey ──
 	const naiaKey = process.env.NAIA_API_KEY ?? "";
-	describe("nextain / lab-proxy (gemini-2.5-flash)", () => {
-		if (!naiaKey) {
-			it("[SKIP] NAIA_API_KEY not set", () => {
-				console.log("SKIP: NAIA_API_KEY not available");
-			});
-			return;
-		}
 
+	describe.skipIf(!naiaKey)("nextain / lab-proxy (gemini-2.5-flash)", () => {
 		it("should stream via gateway", async () => {
 			const provider = buildProvider({
 				provider: "nextain",
@@ -95,12 +89,7 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 	});
 
 	// ── Edge cases: provider/model mismatch ──
-	describe("nextain + claude model (mismatch)", () => {
-		if (!naiaKey) {
-			it("[SKIP] NAIA_API_KEY not set", () => {});
-			return;
-		}
-
+	describe.skipIf(!naiaKey)("nextain + claude model (mismatch)", () => {
 		it("should fail with clear error (gateway lacks Anthropic key)", async () => {
 			// Known behavior: lab-proxy gateway supports vertexai:gemini only.
 			// Anthropic models require a separate API key not configured on the gateway.
@@ -142,14 +131,7 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 	for (const p of PROVIDERS) {
 		const apiKey = process.env[p.keyEnv] ?? "";
 
-		describe(`${p.provider} (${p.model})`, () => {
-			if (!apiKey) {
-				it(`[SKIP] ${p.keyEnv} not set`, () => {
-					console.log(`SKIP: ${p.keyEnv} not available`);
-				});
-				return;
-			}
-
+		describe.skipIf(!apiKey)(`${p.provider} (${p.model})`, () => {
 			it("should stream a response", async () => {
 				const provider = buildProvider({
 					provider: p.provider,
