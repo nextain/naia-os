@@ -53,10 +53,14 @@ async function dumpBrowserLogs(context: string): Promise<void> {
 		const logs = await browser.getLogs("browser");
 		if (logs.length === 0) return;
 		const lines = logs
-			.map((entry) => JSON.stringify({ ts: new Date().toISOString(), context, ...entry }))
+			.map((entry) =>
+				JSON.stringify({ ts: new Date().toISOString(), context, ...entry }),
+			)
 			.join("\n");
 		appendFileSync(BROWSER_LOG_FILE, `${lines}\n`);
-		const errors = logs.filter((l) => l.level === "SEVERE" || l.level === "ERROR");
+		const errors = logs.filter(
+			(l) => l.level === "SEVERE" || l.level === "ERROR",
+		);
 		if (errors.length > 0) {
 			console.error(`[89:browserlog] ${context} — ${errors.length} error(s):`);
 			for (const e of errors) console.error(`  [${e.level}] ${e.message}`);
@@ -79,7 +83,9 @@ function printLlmDebugLog(lastN = 20): void {
 		for (const line of tail) {
 			try {
 				const entry = JSON.parse(line) as Record<string, unknown>;
-				console.log(`  ${entry.ts} [${entry.event}] provider=${entry.provider} model=${entry.model}${entry.error ? ` ERROR=${entry.error}` : ""}${entry.durationMs != null ? ` ${entry.durationMs}ms` : ""}${entry.textLen != null ? ` textLen=${entry.textLen}` : ""}`);
+				console.log(
+					`  ${entry.ts} [${entry.event}] provider=${entry.provider} model=${entry.model}${entry.error ? ` ERROR=${entry.error}` : ""}${entry.durationMs != null ? ` ${entry.durationMs}ms` : ""}${entry.textLen != null ? ` textLen=${entry.textLen}` : ""}`,
+				);
 			} catch {
 				console.log(`  ${line}`);
 			}
@@ -97,14 +103,54 @@ const TEST_PROVIDERS: {
 	keyField?: "apiKey" | "naiaKey";
 	extraConfig?: Record<string, unknown>;
 }[] = [
-	{ provider: "gemini", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash", keyEnv: "GEMINI_API_KEY" },
-	{ provider: "openai", model: "gpt-4o", label: "OpenAI GPT-4o", keyEnv: "OPENAI_API_KEY" },
-	{ provider: "anthropic", model: "claude-haiku-4-5-20251001", label: "Anthropic Haiku", keyEnv: "ANTHROPIC_API_KEY" },
-	{ provider: "xai", model: "grok-3-mini", label: "xAI Grok 3 Mini", keyEnv: "XAI_API_KEY" },
-	{ provider: "zai", model: "glm-4.7", label: "Zhipu AI GLM-4.7", keyEnv: "ZHIPU_API_KEY" },
-	{ provider: "nextain", model: "gemini-2.5-flash", label: "Nextain (lab-proxy)", keyEnv: "NAIA_API_KEY", keyField: "naiaKey" },
-	{ provider: "ollama", model: "qwen3.5:9b", label: "Ollama qwen3.5:9b", extraConfig: { ollamaHost: "http://localhost:11434" } },
-	{ provider: "claude-code-cli", model: "claude-sonnet-4-6", label: "Claude Code CLI" },
+	{
+		provider: "gemini",
+		model: "gemini-2.5-flash",
+		label: "Gemini 2.5 Flash",
+		keyEnv: "GEMINI_API_KEY",
+	},
+	{
+		provider: "openai",
+		model: "gpt-4o",
+		label: "OpenAI GPT-4o",
+		keyEnv: "OPENAI_API_KEY",
+	},
+	{
+		provider: "anthropic",
+		model: "claude-haiku-4-5-20251001",
+		label: "Anthropic Haiku",
+		keyEnv: "ANTHROPIC_API_KEY",
+	},
+	{
+		provider: "xai",
+		model: "grok-3-mini",
+		label: "xAI Grok 3 Mini",
+		keyEnv: "XAI_API_KEY",
+	},
+	{
+		provider: "zai",
+		model: "glm-4.7",
+		label: "Zhipu AI GLM-4.7",
+		keyEnv: "ZHIPU_API_KEY",
+	},
+	{
+		provider: "nextain",
+		model: "gemini-2.5-flash",
+		label: "Nextain (lab-proxy)",
+		keyEnv: "NAIA_API_KEY",
+		keyField: "naiaKey",
+	},
+	{
+		provider: "ollama",
+		model: "qwen3.5:9b",
+		label: "Ollama qwen3.5:9b",
+		extraConfig: { ollamaHost: "http://localhost:11434" },
+	},
+	{
+		provider: "claude-code-cli",
+		model: "claude-sonnet-4-6",
+		label: "Claude Code CLI",
+	},
 ];
 
 function getApiKey(envName?: string): string {
@@ -137,25 +183,31 @@ async function refreshAndWaitForChat(): Promise<void> {
 			await browser.refresh();
 			break;
 		} catch {
-			if (attempt === 2) throw new Error("browser.refresh() failed after 3 attempts");
+			if (attempt === 2)
+				throw new Error("browser.refresh() failed after 3 attempts");
 			await browser.pause(2_000);
 		}
 	}
 
 	// Wait for onboarding overlay to disappear
 	await browser.waitUntil(
-		async () => browser.execute(
-			(sel: string) => !document.querySelector(sel),
-			S.onboardingOverlay,
-		),
-		{ timeout: 30_000, timeoutMsg: "Onboarding overlay still visible after 30s" },
+		async () =>
+			browser.execute(
+				(sel: string) => !document.querySelector(sel),
+				S.onboardingOverlay,
+			),
+		{
+			timeout: 30_000,
+			timeoutMsg: "Onboarding overlay still visible after 30s",
+		},
 	);
 
 	// Wait for tabs to render, then explicitly click the chat tab
 	await browser.waitUntil(
-		async () => browser.execute(
-			() => document.querySelectorAll(".chat-tabs .chat-tab").length >= 1,
-		),
+		async () =>
+			browser.execute(
+				() => document.querySelectorAll(".chat-tabs .chat-tab").length >= 1,
+			),
 		{ timeout: 20_000, timeoutMsg: "Chat tabs not rendered after 20s" },
 	);
 	// Click the first (chat) tab to ensure it is active
@@ -169,9 +221,12 @@ async function refreshAndWaitForChat(): Promise<void> {
 	const domState = await browser.execute((chatSel: string) => {
 		const chatInput = document.querySelector(chatSel);
 		const body = document.body.className;
-		const activeTab = document.querySelector(".chat-tab.active")?.className ?? "(none)";
+		const activeTab =
+			document.querySelector(".chat-tab.active")?.className ?? "(none)";
 		const chatPanel = document.querySelector(".chat-panel");
-		const chatInputStyle = chatInput ? window.getComputedStyle(chatInput).display : "(not in DOM)";
+		const chatInputStyle = chatInput
+			? window.getComputedStyle(chatInput).display
+			: "(not in DOM)";
 		return {
 			chatInputExists: !!chatInput,
 			chatInputDisplay: chatInputStyle,
@@ -202,8 +257,11 @@ async function captureAppState(): Promise<{
 	return browser.execute((onboardSel: string) => {
 		const raw = localStorage.getItem("naia-config");
 		const cfg = raw ? JSON.parse(raw) : {};
-		const msgs = document.querySelectorAll(".chat-message.assistant .message-content");
-		const lastMsg = msgs.length > 0 ? (msgs[msgs.length - 1]?.textContent?.trim() ?? "") : "";
+		const msgs = document.querySelectorAll(
+			".chat-message.assistant .message-content",
+		);
+		const lastMsg =
+			msgs.length > 0 ? (msgs[msgs.length - 1]?.textContent?.trim() ?? "") : "";
 		return {
 			provider: cfg.provider ?? "",
 			model: cfg.model ?? "",
@@ -224,15 +282,27 @@ describe("89 — LLM provider switching", () => {
 		ensureArtifactDirs();
 
 		// Save original config for restoration
-		originalConfig = await browser.execute(() => localStorage.getItem("naia-config") ?? "{}");
+		originalConfig = await browser.execute(
+			() => localStorage.getItem("naia-config") ?? "{}",
+		);
 
 		const geminiKey = process.env.GEMINI_API_KEY ?? "";
 		console.log(`[89] GEMINI_API_KEY: ${geminiKey ? "available" : "MISSING"}`);
-		console.log(`[89] OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "available" : "MISSING"}`);
-		console.log(`[89] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "available" : "MISSING"}`);
-		console.log(`[89] XAI_API_KEY: ${process.env.XAI_API_KEY ? "available" : "MISSING"}`);
-		console.log(`[89] ZHIPU_API_KEY: ${process.env.ZHIPU_API_KEY ? "available" : "MISSING"}`);
-		console.log(`[89] NAIA_API_KEY: ${process.env.NAIA_API_KEY ? "available" : "MISSING"}`);
+		console.log(
+			`[89] OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "available" : "MISSING"}`,
+		);
+		console.log(
+			`[89] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "available" : "MISSING"}`,
+		);
+		console.log(
+			`[89] XAI_API_KEY: ${process.env.XAI_API_KEY ? "available" : "MISSING"}`,
+		);
+		console.log(
+			`[89] ZHIPU_API_KEY: ${process.env.ZHIPU_API_KEY ? "available" : "MISSING"}`,
+		);
+		console.log(
+			`[89] NAIA_API_KEY: ${process.env.NAIA_API_KEY ? "available" : "MISSING"}`,
+		);
 		console.log(`[89] Artifacts dir: ${ARTIFACTS_DIR}`);
 		console.log(`[89] LLM debug log: ${LLM_LOG_PATH}`);
 
@@ -305,7 +375,9 @@ describe("89 — LLM provider switching", () => {
 
 				// Verify config was applied
 				const state = await captureAppState();
-				console.log(`[89] ${tp.provider} state after switch: ${JSON.stringify(state)}`);
+				console.log(
+					`[89] ${tp.provider} state after switch: ${JSON.stringify(state)}`,
+				);
 				await screenshot(`89-${tp.provider}-after-switch`);
 				expect(state.provider).toBe(tp.provider);
 				expect(state.model).toBe(tp.model);
@@ -316,7 +388,9 @@ describe("89 — LLM provider switching", () => {
 				try {
 					await sendMessage("Say hello in one word.");
 					const response = await getLastAssistantMessage();
-					console.log(`[89] ${tp.provider} response: "${response.slice(0, 200)}"`);
+					console.log(
+						`[89] ${tp.provider} response: "${response.slice(0, 200)}"`,
+					);
 
 					// Screenshot of successful response
 					await screenshot(`89-${tp.provider}-response`);
@@ -325,14 +399,21 @@ describe("89 — LLM provider switching", () => {
 					expect(response.length).toBeGreaterThan(0);
 
 					// Check for error in response
-					if (response.includes("[오류]") || response.toLowerCase().includes("error")) {
-						console.error(`[89] ${tp.provider} ERROR in response: ${response.slice(0, 300)}`);
+					if (
+						response.includes("[오류]") ||
+						response.toLowerCase().includes("error")
+					) {
+						console.error(
+							`[89] ${tp.provider} ERROR in response: ${response.slice(0, 300)}`,
+						);
 						await screenshot(`89-${tp.provider}-error-in-response`);
 					}
 				} catch (err) {
 					// Capture state + screenshot on failure for debugging
 					const state = await captureAppState();
-					console.error(`[89] ${tp.provider} FAILED. App state: ${JSON.stringify(state)}`);
+					console.error(
+						`[89] ${tp.provider} FAILED. App state: ${JSON.stringify(state)}`,
+					);
 					await screenshot(`89-${tp.provider}-FAILED`);
 					await dumpBrowserLogs(`${tp.provider}:FAILED`);
 					// Print current llm-debug.log to see what agent reported
