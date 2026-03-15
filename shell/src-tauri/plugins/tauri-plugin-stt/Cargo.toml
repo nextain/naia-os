@@ -48,8 +48,9 @@ repository = "https://github.com/brenogonzaga/tauri-plugin-stt"
 
 [features]
 default = []
-cuda = ["whisper-rs/cuda"]
-cuda-dynamic = ["whisper-rs/cuda-dynamic"]
+whisper = ["dep:whisper-rs"]
+cuda = ["whisper", "whisper-rs/cuda"]
+cuda-dynamic = ["whisper", "whisper-rs/cuda-dynamic"]
 
 [lib]
 name = "tauri_plugin_stt"
@@ -90,7 +91,8 @@ version = "0.3"
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.whisper-rs]
 package = "whisper-rs-nx"
 git = "https://github.com/nextain/whisper-rs-nx.git"
-rev = "ce60fe4"
+rev = "9fde21b"
+optional = true
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.zip]
 version = "6.0.0"

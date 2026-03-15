@@ -14,6 +14,12 @@ links = "tauri-plugin-stt"
 keywords = ["tauri", "speech", "recognition", "stt", "vosk"]
 categories = ["multimedia::audio", "api-bindings"]
 
+[features]
+default = []
+whisper = ["dep:whisper-rs"]
+cuda = ["whisper", "whisper-rs/cuda"]
+cuda-dynamic = ["whisper", "whisper-rs/cuda-dynamic"]
+
 [dependencies]
 tauri = { version = "2.10.3" }
 serde = "1.0"
@@ -26,7 +32,7 @@ cpal = "0.17"
 vosk = "0.3"
 reqwest = { version = "0.12", features = ["blocking"] }
 zip = "6.0.0"
-whisper-rs = { package = "whisper-rs-nx", git = "https://github.com/nextain/whisper-rs-nx.git", rev = "ce60fe4" }
+whisper-rs = { package = "whisper-rs-nx", git = "https://github.com/nextain/whisper-rs-nx.git", rev = "9fde21b", optional = true }
 
 [build-dependencies]
 tauri-plugin = { version = "2.5.4", features = ["build"] }

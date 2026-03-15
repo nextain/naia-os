@@ -362,9 +362,10 @@ test.describe("Pipeline Voice E2E", () => {
 		// Should transition to active state
 		await expect(voiceBtn).toHaveClass(/active/, { timeout: 5_000 });
 
-		// Should show voice mode started message
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
-		await expect(assistantMsg.last()).toContainText("음성 대화", { timeout: 5_000 });
+		// Welcome message was removed in 7ba9fff0 — voice mode starts silently.
+		// Verify placeholder text changes to listening state instead.
+		const input = page.locator(".chat-input");
+		await expect(input).toHaveAttribute("placeholder", /듣고 있어요|텍스트 입력/, { timeout: 5_000 });
 
 		// STT should be listening
 		expect(await isSttListening(page)).toBe(true);
@@ -445,13 +446,13 @@ test.describe("Pipeline Voice E2E", () => {
 		await voiceBtn.click();
 		await expect(voiceBtn).toHaveClass(/active/, { timeout: 5_000 });
 
-		// Send two quick final results within debounce window
+		// Send two quick final results within debounce window (300ms)
 		await injectSttResult(page, "내", true);
-		await page.waitForTimeout(200); // Within 1000ms debounce
+		await page.waitForTimeout(100); // Well within 300ms debounce
 		await injectSttResult(page, "이름이 뭐야", true);
 
-		// Wait for debounce + response
-		await page.waitForTimeout(2000);
+		// Wait for debounce (300ms) + send + LLM response
+		await page.waitForTimeout(2500);
 
 		// Should merge into one user message containing both parts
 		const userMsg = page.locator(".chat-message.user .message-content");
@@ -472,17 +473,18 @@ test.describe("Pipeline Voice E2E", () => {
 		await injectSttResult(page, "안녕하세요", true);
 		await page.waitForTimeout(1500);
 
-		// Wait for response to start streaming
-		await expect(page.locator(".chat-message.assistant")).toHaveCount(2, { timeout: 10_000 }); // welcome + response
+		// Wait for response to start streaming (no welcome message — voice mode starts silently)
+		await expect(page.locator(".chat-message.assistant")).toHaveCount(1, { timeout: 10_000 });
 
-		// Now "interrupt" by speaking — wait for echo cooldown first
-		await page.waitForTimeout(2000); // Wait for TTS playback + cooldown (800ms)
+		// Now "interrupt" by speaking — wait for TTS playback + echo cooldown (800ms)
+		// Mock TTS plays in ~50ms, so total cooldown ends ~850ms after response finishes.
+		// Wait generously to avoid race conditions.
+		await page.waitForTimeout(3000);
 		await injectSttResult(page, "잠깐만", true);
 
-		// Should still get a new response eventually
-		await page.waitForTimeout(2000);
+		// Should get a new user message from the interrupt
 		const userMsgs = page.locator(".chat-message.user .message-content");
-		await expect(userMsgs.last()).toContainText("잠깐만", { timeout: 5_000 });
+		await expect(userMsgs.last()).toContainText("잠깐만", { timeout: 8_000 });
 	});
 
 	test("TTS 문장 분리 — 긴 응답이 문장별로 TTS 요청", async ({ page }) => {
@@ -517,16 +519,16 @@ test.describe("Pipeline Voice E2E", () => {
 		await voiceBtn.click();
 		await expect(voiceBtn).not.toHaveClass(/active/, { timeout: 3_000 });
 
-		// Normal chat should still work
+		// Normal chat should still work after pipeline stopped
 		await sendMessage(page, "안녕");
 		const assistantMsg = page.locator(".chat-message.assistant .message-content");
-		await expect(assistantMsg.last()).not.toBeEmpty({ timeout: 10_000 });
+		await expect(assistantMsg.last()).toContainText("기분", { timeout: 10_000 });
 
-		// No new TTS requests after pipeline stopped
+		// After TTS unification (52225fc5), chat TTS is active when ttsEnabled: true.
+		// Wait for async TTS request to be dispatched, then verify.
+		await page.waitForTimeout(1000);
 		const ttsCount = await getTtsRequestCount(page);
-		// TTS count should be 0 since we only chatted after stopping pipeline
-		// (pipeline mode was stopped before sending "안녕")
-		expect(ttsCount).toBe(0);
+		expect(ttsCount).toBeGreaterThan(0);
 	});
 });
 

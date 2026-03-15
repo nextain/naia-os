@@ -7,8 +7,9 @@ edition = "2021"
 
 [features]
 default = []
-cuda = ["tauri-plugin-stt/cuda"]
-cuda-dynamic = ["tauri-plugin-stt/cuda-dynamic"]
+whisper = ["tauri-plugin-stt/whisper"]
+cuda = ["whisper", "tauri-plugin-stt/cuda"]
+cuda-dynamic = ["whisper", "tauri-plugin-stt/cuda-dynamic"]
 
 [lib]
 name = "naia_shell_lib"

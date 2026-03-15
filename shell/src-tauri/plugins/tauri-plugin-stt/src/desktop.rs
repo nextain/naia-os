@@ -9,6 +9,7 @@ use tauri::{plugin::PluginApi, AppHandle, Emitter, Manager, Runtime};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use vosk::{Model, Recognizer};
+#[cfg(feature = "whisper")]
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
 
 use crate::models::*;
@@ -106,6 +107,7 @@ struct AudioProcessor {
     resample_ratio: f64,
 }
 
+#[cfg(feature = "whisper")]
 /// Shared Whisper audio buffer — audio callback pushes f32 samples, inference thread consumes.
 struct WhisperAudioBuffer {
     samples: Vec<f32>,
@@ -127,11 +129,15 @@ struct SttState {
     stream_created: bool,
     /// Active engine: "vosk" or "whisper"
     active_engine: String,
+    #[cfg(feature = "whisper")]
     /// Whisper model context (reused across sessions)
     whisper_ctx: Option<Arc<WhisperContext>>,
+    #[cfg(feature = "whisper")]
     whisper_model_id: Option<String>,
+    #[cfg(feature = "whisper")]
     /// Shared buffer for Whisper audio
     whisper_buffer: Option<Arc<Mutex<WhisperAudioBuffer>>>,
+    #[cfg(feature = "whisper")]
     /// Whether a Whisper audio stream has been created
     whisper_stream_created: bool,
 }
@@ -150,9 +156,13 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
         audio_processor: None,
         stream_created: false,
         active_engine: "vosk".into(),
+        #[cfg(feature = "whisper")]
         whisper_ctx: None,
+        #[cfg(feature = "whisper")]
         whisper_model_id: None,
+        #[cfg(feature = "whisper")]
         whisper_buffer: None,
+        #[cfg(feature = "whisper")]
         whisper_stream_created: false,
     }));
 
@@ -199,6 +209,7 @@ impl<R: Runtime> Stt<R> {
             .join("stt-models")
     }
 
+    #[cfg(feature = "whisper")]
     /// Load or reuse a Whisper model.
     fn ensure_whisper_model(&self, model_id: &str) -> crate::Result<Arc<WhisperContext>> {
         let mut state = self.state.lock().unwrap();
@@ -491,7 +502,12 @@ impl<R: Runtime> Stt<R> {
     pub fn start_listening(&self, config: ListenConfig) -> crate::Result<()> {
         // Dispatch to Whisper engine if requested
         if config.engine == "whisper" {
+            #[cfg(feature = "whisper")]
             return self.start_listening_whisper(config);
+            #[cfg(not(feature = "whisper"))]
+            return Err(crate::Error::NotAvailable(
+                "Whisper engine is not available in this build. Use Vosk or a cloud STT provider.".to_string(),
+            ));
         }
 
         let model = self.ensure_model(config.language.as_deref())?;
@@ -920,6 +936,7 @@ impl<R: Runtime> Stt<R> {
         Ok(())
     }
 
+    #[cfg(feature = "whisper")]
     /// Whisper engine: start listening with whisper.cpp
     fn start_listening_whisper(&self, config: ListenConfig) -> crate::Result<()> {
         let model_id = config.model_id.as_deref()
@@ -1356,6 +1373,7 @@ fn get_language_display_name(code: &str) -> String {
     }
 }
 
+#[cfg(feature = "whisper")]
 /// Run whisper.cpp inference on audio samples (f32, mono, 16kHz).
 /// Returns recognized text or None on error.
 /// Uses a pre-created WhisperState to avoid GPU memory reallocation.

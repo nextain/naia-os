@@ -1114,6 +1114,11 @@ export function ChatPanel() {
 						if (!apiKey) {
 							Logger.warn("ChatPanel", "API STT requires API key", { provider: sttEngine });
 							setSttState("idle");
+							pipelineActiveRef.current = false;
+							setVoiceMode("off");
+							if (globalThis.confirm("STT API key is required.\n\nGo to Settings?")) {
+								setActiveTab("settings");
+							}
 							return;
 						}
 						const session = createApiSttSession({
@@ -1180,8 +1185,13 @@ export function ChatPanel() {
 					}
 					Logger.info("ChatPanel", "STT started successfully", { engine: sttEngine, apiMode: isApiBased });
 				} catch (sttErr) {
-					Logger.warn("ChatPanel", "STT start failed — falling back to text input", { error: String(sttErr) });
+					Logger.warn("ChatPanel", "STT start failed", { error: String(sttErr) });
 					setSttState("idle");
+					pipelineActiveRef.current = false;
+					audioQueueRef.current = null;
+					sentenceChunkerRef.current = null;
+					setVoiceMode("off");
+					return;
 				}
 
 				Logger.info("ChatPanel", "Pipeline voice mode started", {

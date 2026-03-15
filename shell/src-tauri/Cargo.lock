@@ -6306,7 +6306,7 @@ dependencies = [
 [[package]]
 name = "whisper-rs-nx"
 version = "0.15.1"
-source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=ce60fe4#ce60fe4b70c64522ba36daefc358a0b97ab0282e"
+source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=9fde21b#9fde21bbdecd8c00d2474b7b3f9137d0073b4429"
 dependencies = [
  "whisper-rs-nx-sys",
 ]
@@ -6314,7 +6314,7 @@ dependencies = [
 [[package]]
 name = "whisper-rs-nx-sys"
 version = "0.14.1"
-source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=ce60fe4#ce60fe4b70c64522ba36daefc358a0b97ab0282e"
+source = "git+https://github.com/nextain/whisper-rs-nx.git?rev=9fde21b#9fde21bbdecd8c00d2474b7b3f9137d0073b4429"
 dependencies = [
  "bindgen",
  "cfg-if",

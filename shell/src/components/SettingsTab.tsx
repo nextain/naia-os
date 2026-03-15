@@ -2409,10 +2409,23 @@ export function SettingsTab() {
 
 					{/* Voice status summary */}
 					<div className="settings-field" style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}>
-						{!sttProvider && <div>{t("settings.voiceStatusSttNeeded")}</div>}
-						{sttProvider && !sttModel && <div>{t("settings.voiceStatusModelNeeded")}</div>}
-						{sttProvider && sttModel && !ttsEnabled && <div>{t("settings.voiceStatusTtsOff")}</div>}
-						{sttProvider && sttModel && ttsEnabled && <div style={{ color: "var(--success-color, #4caf50)" }}>{t("settings.voiceStatusReady")}</div>}
+						{(() => {
+							const sttMeta = sttProvider ? listSttProviders().find((p) => p.id === sttProvider) : undefined;
+							const isApi = sttMeta?.engineType === "api";
+							const needsModel = sttMeta?.engineType === "tauri";
+							const hasApiKey = isApi
+								? sttMeta?.requiresNaiaKey ? !!naiaKey
+									: sttMeta?.apiKeyConfigField === "googleApiKey" ? !!(existing?.googleApiKey)
+									: sttMeta?.apiKeyConfigField === "elevenlabsApiKey" ? !!(existing?.elevenlabsApiKey)
+									: false
+								: true;
+							const hasModel = needsModel ? !!sttModel : true;
+							if (!sttProvider) return <div>{t("settings.voiceStatusSttNeeded")}</div>;
+							if (isApi && !hasApiKey) return <div>STT API key required</div>;
+							if (needsModel && !hasModel) return <div>{t("settings.voiceStatusModelNeeded")}</div>;
+							if (!ttsEnabled) return <div>{t("settings.voiceStatusTtsOff")}</div>;
+							return <div style={{ color: "var(--success-color, #4caf50)" }}>{t("settings.voiceStatusReady")}</div>;
+						})()}
 					</div>
 
 					{/* STT Provider */}
