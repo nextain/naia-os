@@ -247,14 +247,8 @@ export function createSkillManagerSkill(
 							error: "skillName is required for install action",
 						};
 					}
-					const installId = args.installId as string | undefined;
-					if (!installId) {
-						return {
-							success: false,
-							output: "",
-							error: "installId is required for install action",
-						};
-					}
+					// installId defaults to skillName (npm package id, usually same as skill name)
+					const installId = (args.installId as string | undefined) ?? skillName;
 					const gateway = ctx.gateway;
 					if (!gateway?.isConnected()) {
 						return {

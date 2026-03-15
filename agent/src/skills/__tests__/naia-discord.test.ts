@@ -62,10 +62,10 @@ describe("skill_naia_discord", () => {
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannelId = process.env.DISCORD_DEFAULT_CHANNEL_ID;
 		const prevUserId = process.env.DISCORD_DEFAULT_USER_ID;
-		process.env.DISCORD_BOT_TOKEN = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
+		delete process.env.DISCORD_BOT_TOKEN;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -120,16 +120,16 @@ describe("skill_naia_discord", () => {
 		});
 
 		if (prev !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prev;
-		else process.env.DISCORD_DEFAULT_USER_ID = undefined;
+		else delete process.env.DISCORD_DEFAULT_USER_ID;
 	});
 
 	it("derives user target from connected numeric discord accountId", async () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -190,9 +190,9 @@ describe("skill_naia_discord", () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -250,7 +250,7 @@ describe("skill_naia_discord", () => {
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
 	});
 
-	it("strips emotion tags from Discord messages before sending", async () => {
+	it("replaces emotion tags with emoji before sending to Discord", async () => {
 		const gateway = {
 			isConnected: () => true,
 			availableMethods: ["send"],
@@ -272,11 +272,11 @@ describe("skill_naia_discord", () => {
 
 		expect(result.success).toBe(true);
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"음, 생각해볼게요...",
+			"🤔음, 생각해볼게요...",
 		);
 	});
 
-	it("strips multiple emotion tags from message", async () => {
+	it("replaces multiple emotion tags with emoji", async () => {
 		const gateway = {
 			isConnected: () => true,
 			availableMethods: ["send"],
@@ -297,12 +297,13 @@ describe("skill_naia_discord", () => {
 		);
 
 		expect(result.success).toBe(true);
+		// HAPPY → 😊, NEUTRAL → "" (empty)
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"좋은 아침! 오늘 날씨 좋네요",
+			"😊좋은 아침! 오늘 날씨 좋네요",
 		);
 	});
 
-	it("preserves emoji in Discord messages", async () => {
+	it("preserves existing emoji while replacing emotion tags", async () => {
 		const gateway = {
 			isConnected: () => true,
 			availableMethods: ["send"],
@@ -323,8 +324,9 @@ describe("skill_naia_discord", () => {
 		);
 
 		expect(result.success).toBe(true);
+		// HAPPY → 😊, existing emoji preserved
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"좋은 아침이에요! 😊 오늘도 화이팅! ✨",
+			"😊좋은 아침이에요! 😊 오늘도 화이팅! ✨",
 		);
 	});
 

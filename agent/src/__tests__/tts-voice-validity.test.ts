@@ -26,7 +26,7 @@ describe("Voice Validity — verify voices produce audio", () => {
 		];
 
 		for (const voice of edgeVoices) {
-			it(`${voice} produces audio`, async () => {
+			it.skipIf(process.env.CI)(`${voice} produces audio`, async () => {
 				const result = await synthesizeEdgeSpeech(TEST_TEXT, voice);
 				expect(result).not.toBeNull();
 				expect(result!.audio.length).toBeGreaterThan(100);
