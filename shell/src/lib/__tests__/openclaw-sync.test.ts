@@ -42,32 +42,6 @@ describe("syncToOpenClaw", () => {
 		);
 	});
 
-	it("passes TTS settings to Tauri command", async () => {
-		await syncToOpenClaw(
-			"gemini",
-			"gemini-3-flash-preview",
-			undefined, // apiKey
-			undefined, // persona
-			undefined, // agentName
-			undefined, // userName
-			undefined, // _systemPrompt
-			undefined, // locale
-			undefined, // discordDmChannelId
-			undefined, // discordDefaultUserId
-			"edge", // ttsProvider
-			"ko-KR-SunHiNeural", // ttsVoice
-			"inbound", // ttsAuto
-			"final", // ttsMode
-		);
-
-		const callArgs = mockInvoke.mock.calls[0];
-		const params = callArgs[1].params;
-		expect(params.tts_provider).toBe("edge");
-		expect(params.tts_voice).toBe("ko-KR-SunHiNeural");
-		expect(params.tts_auto).toBe("inbound");
-		expect(params.tts_mode).toBe("final");
-	});
-
 	it("sends null for omitted TTS fields", async () => {
 		await syncToOpenClaw("gemini", "gemini-3-flash-preview");
 

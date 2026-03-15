@@ -52,7 +52,7 @@ describe("OnboardingWizard", () => {
 		expect(screen.getByText(/OpenAI/)).toBeDefined();
 		expect(screen.getByText(/Anthropic/)).toBeDefined();
 		expect(screen.getByText(/xAI/)).toBeDefined();
-		expect(screen.getByText(/zAI/)).toBeDefined();
+		expect(screen.getByText(/Zhipu AI/)).toBeDefined();
 	});
 
 	it("progresses through steps: provider → apiKey → agentName → ...", () => {

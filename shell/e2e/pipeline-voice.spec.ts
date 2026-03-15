@@ -363,8 +363,12 @@ test.describe("Pipeline Voice E2E", () => {
 		await expect(voiceBtn).toHaveClass(/active/, { timeout: 5_000 });
 
 		// Should show voice mode started message
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
-		await expect(assistantMsg.last()).toContainText("음성 대화", { timeout: 5_000 });
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
+		await expect(assistantMsg.last()).toContainText("음성 대화", {
+			timeout: 5_000,
+		});
 
 		// STT should be listening
 		expect(await isSttListening(page)).toBe(true);
@@ -428,7 +432,9 @@ test.describe("Pipeline Voice E2E", () => {
 
 		// Assistant response should appear
 		await expect(page.locator(".cursor-blink")).toBeHidden({ timeout: 15_000 });
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
 		await expect(assistantMsg.last()).toContainText("날씨", { timeout: 5_000 });
 
 		// TTS requests should have been made (sentence-level)
@@ -459,8 +465,12 @@ test.describe("Pipeline Voice E2E", () => {
 
 		// Response should mention name
 		await expect(page.locator(".cursor-blink")).toBeHidden({ timeout: 15_000 });
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
-		await expect(assistantMsg.last()).toContainText("나이아", { timeout: 5_000 });
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
+		await expect(assistantMsg.last()).toContainText("나이아", {
+			timeout: 5_000,
+		});
 	});
 
 	test("음성 대화 중 인터럽트", async ({ page }) => {
@@ -473,7 +483,9 @@ test.describe("Pipeline Voice E2E", () => {
 		await page.waitForTimeout(1500);
 
 		// Wait for response to start streaming
-		await expect(page.locator(".chat-message.assistant")).toHaveCount(2, { timeout: 10_000 }); // welcome + response
+		await expect(page.locator(".chat-message.assistant")).toHaveCount(2, {
+			timeout: 10_000,
+		}); // welcome + response
 
 		// Now "interrupt" by speaking — wait for echo cooldown first
 		await page.waitForTimeout(2000); // Wait for TTS playback + cooldown (800ms)
@@ -519,7 +531,9 @@ test.describe("Pipeline Voice E2E", () => {
 
 		// Normal chat should still work
 		await sendMessage(page, "안녕");
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
 		await expect(assistantMsg.last()).not.toBeEmpty({ timeout: 10_000 });
 
 		// No new TTS requests after pipeline stopped
@@ -566,7 +580,9 @@ test.describe("Whisper Engine E2E", () => {
 		expect(await isSttListening(page)).toBe(true);
 
 		// Verify engine/modelId passed to STT start
-		const sttConfig = await page.evaluate(() => (window as any).__NAIA_E2E__.lastSttConfig);
+		const sttConfig = await page.evaluate(
+			() => (window as any).__NAIA_E2E__.lastSttConfig,
+		);
 		expect(sttConfig?.engine).toBe("whisper");
 		expect(sttConfig?.modelId).toBe("whisper-medium");
 
@@ -588,7 +604,9 @@ test.describe("Whisper Engine E2E", () => {
 		await expect(userMsg.last()).toContainText("날씨", { timeout: 5_000 });
 
 		await expect(page.locator(".cursor-blink")).toBeHidden({ timeout: 15_000 });
-		const assistantMsg = page.locator(".chat-message.assistant .message-content");
+		const assistantMsg = page.locator(
+			".chat-message.assistant .message-content",
+		);
 		await expect(assistantMsg.last()).toContainText("날씨", { timeout: 5_000 });
 
 		const ttsCount = await getTtsRequestCount(page);
