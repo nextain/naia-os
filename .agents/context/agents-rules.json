@@ -133,11 +133,13 @@
 			"why": "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem."
 		},
 		"test_attitude": {
-			"rule": "Tests are diagnostic tools, not scoreboards. A failing test is information about a bug, not a problem with the test.",
+			"rule": "Tests exist to make the implementation complete and correct — not to be passed. Test code itself can be wrong and may not be maintained. Tests are not always right. A failing test means 'investigate', not 'fix the implementation to match'.",
 			"derives_from": "design_principles.pillars.robust",
 			"on_failure": [
 				"Read FULL test output (error message, stack trace, actual vs expected)",
-				"Diagnose: is the failure in app code or test code?",
+				"Read the IMPLEMENTATION to understand the intended behavior and WHY it was written that way",
+				"Read the TEST to understand what behavior it claims to verify",
+				"Diagnose: is the failure in app code or test code? Understand the business logic FIRST.",
 				"If app code → fix app code, re-run test",
 				"If test code → fix test code, re-run test",
 				"Record diagnosis in progress file (test_findings)"
@@ -146,9 +148,10 @@
 				"Loosening assertions (e.g., === to includes, removing checks) to make a failing test pass",
 				"Modifying expected values to match buggy actual output",
 				"Deleting or skipping failing test cases without investigation",
-				"Reporting 'tests pass' without reading what the tests actually verified"
+				"Reporting 'tests pass' without reading what the tests actually verified",
+				"CRITICAL: Changing implementation to match a failing test WITHOUT reading the code context — the test may be wrong. A test name like 'strips X' does not prove that stripping is the correct behavior; the implementation may intentionally do something different (e.g., replace instead of strip) for a valid reason. Always read the implementation first and understand WHY it works the way it does before deciding which side to fix."
 			],
-			"why": "Goal fixation causes AI to treat 'pass' as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions."
+			"why": "Goal fixation causes AI to treat 'pass' as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions. Fixing the implementation to match a wrong test DELETES working features silently."
 		},
 		"framework": {
 			"unit_integration": "Vitest",

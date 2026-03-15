@@ -133,22 +133,25 @@ Test code MUST be iteratively reviewed before trusting results. Faulty test logi
 
 ### Test Attitude
 
-Tests are diagnostic tools, not scoreboards. A failing test is information about a bug, not a problem with the test.
+Tests exist to make the implementation complete and correct — not to be passed. Test code itself can be wrong and may not be maintained. Tests are not always right. A failing test means "investigate", not "fix the implementation to match".
 
 **On failure:**
 1. Read FULL test output (error message, stack trace, actual vs expected)
-2. Diagnose: is the failure in app code or test code?
-3. If app code -- fix app code, re-run test
-4. If test code -- fix test code, re-run test
-5. Record diagnosis in progress file (`test_findings`)
+2. Read the IMPLEMENTATION to understand the intended behavior and WHY it was written that way
+3. Read the TEST to understand what behavior it claims to verify
+4. Diagnose: is the failure in app code or test code? Understand the business logic FIRST.
+5. If app code → fix app code, re-run test
+6. If test code → fix test code, re-run test
+7. Record diagnosis in progress file (`test_findings`)
 
 **Anti-patterns:**
 - Loosening assertions (e.g., `===` to `includes`, removing checks) to make a failing test pass
 - Modifying expected values to match buggy actual output
 - Deleting or skipping failing test cases without investigation
 - Reporting "tests pass" without reading what the tests actually verified
+- **CRITICAL: Changing implementation to match a failing test WITHOUT reading the code context** — the test may be wrong. A test name like "strips X" does not prove that stripping is the correct behavior; the implementation may intentionally do something different for a valid reason. Always read the implementation first and understand WHY it works the way it does before deciding which side to fix.
 
-**Why:** Goal fixation causes AI to treat "pass" as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions.
+**Why:** Goal fixation causes AI to treat "pass" as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions. Fixing the implementation to match a wrong test DELETES working features silently.
 
 ### Frameworks
 
