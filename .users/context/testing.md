@@ -77,8 +77,22 @@ Spawn agent as child process, pipe stdin, assert stdout.
 | 14 Skills tab | 20+ skill cards, search filter, built-in no toggle |
 | 28 Skills install | Gateway cards, install buttons, feedback |
 
+### E2E Observability (5 methods, #60)
+
+Use these simultaneously when diagnosing E2E failures:
+
+| # | Method | Location | Notes |
+|---|--------|----------|-------|
+| 1 | `llm-debug.log` | `~/.naia/logs/llm-debug.log` | JSON-line per LLM request. Always on. Best for provider/model mismatch. |
+| 2 | `log_entry` chunks | DiagnosticsTab / `ui-message-trace.ndjson` | Agent emits on LLM start/error |
+| 3 | Screenshots | `shell/e2e-tauri/.artifacts/screenshots/` | Taken at key E2E steps |
+| 4 | Browser logs | `shell/e2e-tauri/.artifacts/browser-console.ndjson` | Via `browser.getLogs("browser")` |
+| 5 | `CAFE_DEBUG_E2E=1` | Rust stderr + `~/.naia/logs/naia.log` | Set by `wdio.conf.ts` automatically |
+
 ### E2E Tauri Gotchas
 
+- **panelVisible**: App does NOT render `ChatPanel` (no tabs) when `config.panelVisible === false`. Always write `panelVisible: true` in E2E config setups. `ensureAppReady()` enforces this.
+- **VRM path**: Local dev path (`/home/.../assets/AvatarSample_B.vrm`) fails in webview. Use `/avatars/01-Sendagaya-Shino-uniform.vrm`. VRM failure does NOT block tabs.
 - **WebKitGTK click**: `element.click()` returns "unsupported operation". Use `browser.execute(() => el.click())` via `clickBySelector` helper.
 - **Stale elements**: WebKitGTK invalidates refs on React re-renders. Always use `browser.execute()` with fresh `querySelector()`.
 - **React input**: Set value via native property setter + `dispatchEvent('input')`. Wait 100ms, then click send.

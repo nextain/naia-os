@@ -157,7 +157,34 @@ shell:
         assert: "Gateway cards render, install button works, success/error feedback appears"
         note: "Install result depends on host environment (brew/npm availability)"
 
+    observability:
+      description: "5 simultaneous methods for E2E debugging (#60)"
+      methods:
+        1_llm_debug_log: |
+          ~/.naia/logs/llm-debug.log — JSON-line per request_start/finish/error.
+          Written by agent/src/index.ts logLlm(). Best for diagnosing provider/model mismatches.
+          Enable: always on (agent writes unconditionally).
+        2_log_entry_chunks: |
+          Agent emits {type:"log_entry",...} chunks on LLM start/error.
+          Visible in DiagnosticsTab and ui-message-trace.ndjson.
+        3_screenshots: |
+          shell/e2e-tauri/.artifacts/screenshots/{name}.png
+          Taken at key points: initial-state, after-switch, on-response, on-failure.
+        4_browser_logs: |
+          shell/e2e-tauri/.artifacts/browser-console.ndjson
+          Appended via browser.getLogs("browser") (WebKit support varies).
+        5_cafe_debug_e2e: |
+          CAFE_DEBUG_E2E=1 → Rust logs all agent events to stderr + ~/.naia/logs/naia.log.
+          Set by wdio.conf.ts for all E2E sessions.
     gotchas:
+      panelVisible: |
+        App does NOT render ChatPanel (or any tabs) when config.panelVisible === false.
+        All tab-based waits will time out silently. Fix: always write panelVisible:true
+        in E2E config setups. ensureAppReady() now enforces this.
+      vrm_path: |
+        Local dev path (/home/luke/dev/naia-os/assets/...) fails in webview context.
+        Use web-relative path: /avatars/01-Sendagaya-Shino-uniform.vrm.
+        VRM failure does NOT prevent tabs from rendering but blocks AvatarCanvas.
       webkitgtk_click: |
         WebDriver element.click() returns "unsupported operation" in WebKitGTK/wry.
         Use browser.execute(() => el.click()) via clickBySelector helper instead.
