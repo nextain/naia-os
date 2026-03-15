@@ -16,7 +16,7 @@ Integration-first TDD. Test real I/O, not mocked internals.
 
 | Type | Tool |
 |------|------|
-| Unit/integration | Vitest |
+| Unit/integration | Vitest (`describe.skipIf()` / `it.skipIf()` for conditional skips) |
 | E2E (Shell) | @tauri-apps/cli (tauri-driver) + WebDriver |
 | E2E (OS) | QEMU VM boot (libvirt in CI) |
 | Rust | cargo test |
@@ -34,6 +34,20 @@ Test code MUST be iteratively reviewed before trusting results. Faulty test logi
 4. After pass: re-confirm "does this test actually validate the intended behavior?"
 
 **Why:** Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem.
+
+---
+
+## Test Attitude
+
+Tests are diagnostic tools, not scoreboards. See `agents-rules.json` `testing.test_attitude` for canonical rules.
+
+### Anti-Patterns
+
+| Anti-Pattern | Description | Correct Response |
+|--------------|-------------|-----------------|
+| **Assertion loosening** | Changing `===` to `includes`, removing checks, or widening match patterns to make a failing test pass | Read full error output, diagnose whether failure is in app code or test code, fix the actual source |
+| **Expected value gaming** | Updating expected values to match the (buggy) actual output | If actual output is wrong, fix the code that produces it, not the expectation |
+| **Test deletion** | Deleting or skipping a failing test instead of fixing the code it covers | Investigate why the test fails, fix app code, keep the test |
 
 ---
 
@@ -77,12 +91,28 @@ Spawn agent as child process, pipe stdin, assert stdout.
 | 14 Skills tab | 20+ skill cards, search filter, built-in no toggle |
 | 28 Skills install | Gateway cards, install buttons, feedback |
 
+### E2E Observability (5 methods, #60)
+
+Use these simultaneously when diagnosing E2E failures:
+
+| # | Method | Location | Notes |
+|---|--------|----------|-------|
+| 1 | `llm-debug.log` | `~/.naia/logs/llm-debug.log` | JSON-line per LLM request. Always on. Best for provider/model mismatch. |
+| 2 | `log_entry` chunks | DiagnosticsTab / `ui-message-trace.ndjson` | Agent emits on LLM start/error |
+| 3 | Screenshots | `shell/e2e-tauri/.artifacts/screenshots/` | Taken at key E2E steps |
+| 4 | Browser logs | `shell/e2e-tauri/.artifacts/browser-console.ndjson` | Via `browser.getLogs("browser")` |
+| 5 | `CAFE_DEBUG_E2E=1` | Rust stderr + `~/.naia/logs/naia.log` | Set by `wdio.conf.ts` automatically |
+
 ### E2E Tauri Gotchas
 
+- **panelVisible**: App does NOT render `ChatPanel` (no tabs) when `config.panelVisible === false`. Always write `panelVisible: true` in E2E config setups. `ensureAppReady()` enforces this.
+- **VRM path**: Local dev path (`/home/.../assets/AvatarSample_B.vrm`) fails in webview. Use `/avatars/01-Sendagaya-Shino-uniform.vrm`. VRM failure does NOT block tabs.
 - **WebKitGTK click**: `element.click()` returns "unsupported operation". Use `browser.execute(() => el.click())` via `clickBySelector` helper.
 - **Stale elements**: WebKitGTK invalidates refs on React re-renders. Always use `browser.execute()` with fresh `querySelector()`.
 - **React input**: Set value via native property setter + `dispatchEvent('input')`. Wait 100ms, then click send.
 - **LLM nondeterminism**: Gemini may not always use tools. Use flexible assertions: tool-success element OR text pattern.
+- **ensureAppReady no-key providers**: `alreadyConfigured` check requires `apiKey` OR `naiaKey` — but `claude-code-cli` and `ollama` need no API key. Without the fix, they are always treated as unconfigured and reset to gemini. Use `noKeyProviders` list (or `isApiKeyOptional()`) when determining `alreadyConfigured`.
+- **provider/model default hardcoded**: When `savedModel` is empty, ChatPanel used `"gemini-2.5-flash"` as a hardcoded fallback regardless of active provider. Fix: use `getDefaultLlmModel(activeProvider)` first, then `"gemini-2.5-flash"` as last-resort only.
 
 ### E2E Methodology
 
@@ -91,6 +121,8 @@ Spawn agent as child process, pipe stdin, assert stdout.
 - Use semantic validation for assistant messages with explicit FAIL phrases.
 - Always inspect message traces when a spec passes unexpectedly.
 - Primary trace: `shell/e2e-tauri/.artifacts/ui-message-trace.ndjson`
+- Tests are diagnostic tools -- a failure means "investigate app code", not "fix the test to pass".
+- NEVER loosen assertions, change expected values, or skip test cases to make a failing test pass without first diagnosing the root cause in app code.
 
 ## Gateway Testing
 

@@ -143,6 +143,39 @@ Detail: `.agents/context/harness.yaml`
 
 ## Related Files
 
+## E2E Test Details
+
+### On Failure
+
+**Mandatory first step**: DIAGNOSE -- read full test output before any code change.
+
+**Diagnose:**
+1. Read FULL test output (error message, stack trace, actual vs expected values)
+2. Read relevant test code to confirm assertions are correct
+3. Identify root cause: is it implementation, design, or investigation gap?
+4. Record diagnosis in progress file (`test_findings` field)
+
+**Then route:**
+- Implementation issue --> return to BUILD (with specific diagnosis of what to fix)
+- Design issue --> return to PLAN (with specific diagnosis of design flaw)
+- Investigation gap --> return to INVESTIGATE (with specific diagnosis of missing knowledge)
+
+**Rules:**
+- NEVER return to BUILD without first reading the full test failure output
+- NEVER modify test assertions as the first response to a failure
+- The diagnosis must identify a specific root cause, not just "test failed"
+
+**Output**: E2E diagnostic complete -- all tests pass with correct assertions (targeted + full suite)
+
+### Review Checklist
+
+Added item for debug logging:
+- `debug_logging_sufficient`: Do new code paths have adequate debug logging (async ops, state transitions, external calls, error paths)?
+
+---
+
+## Related Files
+
 - **SoT**: `.agents/workflows/issue-driven-development.yaml`
 - **Coding cycle**: `.agents/workflows/development-cycle.yaml`
 - **Contributing guide**: `.agents/context/contributing.yaml`

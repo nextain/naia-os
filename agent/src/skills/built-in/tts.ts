@@ -183,7 +183,7 @@ export function createTtsSkill(): SkillDefinition {
 							error: "text is required for preview action",
 						};
 					}
-					let audio: string | null = null;
+					let ttsResult: import("../../tts/types.js").TtsSynthesizeResult | null = null;
 					if (provider === "openai") {
 						const key = args.apiKey as string;
 						if (!key) {
@@ -193,7 +193,7 @@ export function createTtsSkill(): SkillDefinition {
 								error: "apiKey is required for OpenAI preview",
 							};
 						}
-						audio = await synthesizeOpenAISpeech(
+						ttsResult = await synthesizeOpenAISpeech(
 							text,
 							key,
 							args.voice as string | undefined,
@@ -207,7 +207,7 @@ export function createTtsSkill(): SkillDefinition {
 								error: "apiKey is required for ElevenLabs preview",
 							};
 						}
-						audio = await synthesizeElevenLabsSpeech(
+						ttsResult = await synthesizeElevenLabsSpeech(
 							text,
 							key,
 							args.voice as string | undefined,
@@ -221,7 +221,7 @@ export function createTtsSkill(): SkillDefinition {
 								error: "apiKey is required for Google Cloud TTS preview",
 							};
 						}
-						audio = await synthesizeGoogleSpeech(
+						ttsResult = await synthesizeGoogleSpeech(
 							text,
 							key,
 							args.voice as string | undefined,
@@ -235,22 +235,22 @@ export function createTtsSkill(): SkillDefinition {
 								error: "Naia account login is required for Naia Cloud TTS preview",
 							};
 						}
-						audio = await synthesizeNextainSpeech(
+						ttsResult = await synthesizeNextainSpeech(
 							text,
 							nKey,
 							args.voice as string | undefined,
 						);
 					} else {
 						// Default: Edge TTS (free)
-						audio = await synthesizeEdgeSpeech(
+						ttsResult = await synthesizeEdgeSpeech(
 							text,
 							args.voice as string | undefined,
 						);
 					}
-					if (audio) {
+					if (ttsResult) {
 						return {
 							success: true,
-							output: JSON.stringify({ audio, format: "mp3" }),
+							output: JSON.stringify({ audio: ttsResult.audio, format: "mp3" }),
 						};
 					}
 					return {
@@ -280,15 +280,15 @@ export function createTtsSkill(): SkillDefinition {
 						};
 					}
 					// Gateway returned no audio — use msedge-tts directly
-					const edgeAudio = await synthesizeEdgeSpeech(
+					const edgeResult = await synthesizeEdgeSpeech(
 						text,
 						args.voice as string | undefined,
 					);
-					if (edgeAudio) {
+					if (edgeResult) {
 						return {
 							success: true,
 							output: JSON.stringify({
-								audio: edgeAudio,
+								audio: edgeResult.audio,
 								format: "mp3",
 							}),
 						};

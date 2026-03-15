@@ -4,8 +4,8 @@ vi.mock("../providers/factory.js", () => ({
 	buildProvider: vi.fn(),
 }));
 
-vi.mock("../tts/google-tts.js", () => ({
-	synthesizeSpeech: vi.fn(),
+vi.mock("../tts/index.js", () => ({
+	synthesize: vi.fn(),
 }));
 
 vi.mock("../providers/cost.js", () => ({

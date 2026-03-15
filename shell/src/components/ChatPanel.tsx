@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { cancelChat, directToolCall, requestTts, sendChatMessage } from "../lib/chat-service";
-import { estimateTtsCost } from "../lib/tts/cost";
+import { estimateSttCost, estimateTtsCost } from "../lib/tts/cost";
 import { AudioQueue } from "../lib/voice/audio-queue";
 import { SentenceChunker } from "../lib/voice/sentence-chunker";
 import {
@@ -18,16 +18,16 @@ import { createApiSttSession, getSttProvider } from "../lib/stt";
 import {
 	LAB_GATEWAY_URL,
 	addAllowedTool,
-	getModelOption,
 	isToolAllowed,
 	loadConfig,
 	loadConfigWithSecrets,
 	localeToSttLanguage,
 	resolveGatewayUrl,
 	saveConfig,
+	isReadyToChat,
 } from "../lib/config";
+import { getDefaultLlmModel, getLlmModel, getLlmProvider, isApiKeyOptional } from "../lib/llm";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
-import { isApiKeyOptional, isReadyToChat } from "../lib/config";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import {
 	getAllFacts,
@@ -522,7 +522,7 @@ export function ChatPanel() {
 			useChatStore.getState().finishStreaming();
 			return;
 			}
-			if (!isApiKeyOptional(config?.provider) && !config?.apiKey && !config?.naiaKey) {
+			if (!isApiKeyOptional(config?.provider ?? "") && !config?.apiKey && !config?.naiaKey) {
 				useChatStore.getState().appendStreamChunk(t("chat.noApiKey"));
 				useChatStore.getState().finishStreaming();
 				return;
@@ -538,22 +538,24 @@ export function ChatPanel() {
 		const chatTtsEnabled = !pipelineActiveRef.current && config.ttsEnabled === true;
 		const activeProvider = config.provider || provider;
 
-		// Initialize SentenceChunker + AudioQueue for chat TTS (same path as pipeline)
-		if (chatTtsEnabled && !sentenceChunkerRef.current) {
-			const queue = new AudioQueue({
-				onPlaybackStart: () => {
-					useAvatarStore.getState().setSpeaking(true);
-					ttsPlayingRef.current = true;
-					setTtsPlaying(true);
-				},
-				onPlaybackEnd: () => {
-					useAvatarStore.getState().setSpeaking(false);
-					ttsPlayingRef.current = false;
-					setTtsPlaying(false);
-				},
-			});
-			audioQueueRef.current = queue;
+		// Initialize/update SentenceChunker + AudioQueue for chat TTS
+		if (chatTtsEnabled) {
+			if (!audioQueueRef.current) {
+				audioQueueRef.current = new AudioQueue({
+					onPlaybackStart: () => {
+						useAvatarStore.getState().setSpeaking(true);
+						ttsPlayingRef.current = true;
+						setTtsPlaying(true);
+					},
+					onPlaybackEnd: () => {
+						useAvatarStore.getState().setSpeaking(false);
+						ttsPlayingRef.current = false;
+						setTtsPlaying(false);
+					},
+				});
+			}
 			sentenceChunkerRef.current = new SentenceChunker();
+			// Always refresh voice config from latest settings
 			pipelineVoiceConfigRef.current = {
 				voice: config.ttsProvider === "nextain"
 					? `ko-KR-Chirp3-HD-${config.voice ?? getDefaultVoiceForAvatar(config.vrmModel)}`
@@ -578,12 +580,28 @@ export function ChatPanel() {
 			requestId,
 			textPreview: text.slice(0, 40),
 		});
+		// Guard against provider/model mismatch (e.g. provider=gemini, model=claude-sonnet-4-6).
+		// When the saved model is not valid for the active provider, fall back to the default.
+		// Skip validation for providers with dynamic models (e.g. Ollama — empty static model list).
+		const savedModel = config.model || getDefaultLlmModel(activeProvider) || "gemini-2.5-flash";
+		const providerMeta = getLlmProvider(activeProvider);
+		const hasDynamicModels = providerMeta && providerMeta.models.length === 0;
+		const modelIsValid = !providerMeta || hasDynamicModels || providerMeta.models.some((m) => m.id === savedModel);
+		const resolvedModel = (modelIsValid ? savedModel : getDefaultLlmModel(activeProvider)) || "gemini-2.5-flash";
+		if (!modelIsValid) {
+			Logger.warn("ChatPanel", "Model not valid for provider — using default", {
+				provider: activeProvider,
+				savedModel,
+				resolvedModel,
+			});
+		}
+
 		try {
 			await sendChatMessage({
 				message: text,
 				provider: {
 					provider: activeProvider,
-					model: config.model || "gemini-2.5-flash",
+					model: resolvedModel,
 					apiKey: config.apiKey,
 					naiaKey: activeProvider === "nextain" ? config.naiaKey : undefined,
 					ollamaHost: activeProvider === "ollama" ? config.ollamaHost : undefined,
@@ -899,6 +917,7 @@ export function ChatPanel() {
 		const voiceCfg = pipelineVoiceConfigRef.current;
 		Logger.info("ChatPanel", "Sending TTS request", { reqId, seq, sentence: clean.slice(0, 50), provider: voiceCfg?.ttsProvider });
 		const ttsProviderForCost = voiceCfg?.ttsProvider ?? "edge";
+		const ttsVoiceForCost = voiceCfg?.voice;
 		requestTts({
 			text: clean,
 			voice: voiceCfg?.voice,
@@ -906,18 +925,18 @@ export function ChatPanel() {
 			ttsApiKey: voiceCfg?.ttsApiKey,
 			naiaKey: voiceCfg?.naiaKey,
 			requestId: reqId,
-			onAudio: (mp3Base64) => {
-				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length });
+			onAudio: (mp3Base64, costUsd) => {
+				Logger.info("ChatPanel", "TTS audio received", { reqId, seq, size: mp3Base64.length, costUsd });
 				audioQueueRef.current?.enqueueOrdered(seq, mp3Base64);
 				activeTtsRequestsRef.current.delete(reqId);
-				// Track TTS cost
-				const ttsCost = estimateTtsCost(ttsProviderForCost, clean.length);
+				// Track TTS cost: use server cost for Naia Cloud, estimate for others
+				const ttsCost = costUsd != null ? costUsd : estimateTtsCost(ttsProviderForCost, clean.length, ttsVoiceForCost);
 				if (ttsCost > 0) {
 					useChatStore.getState().addCostEntry({
 						inputTokens: 0,
 						outputTokens: 0,
 						cost: ttsCost,
-						provider: "nextain" as ProviderId,
+						provider: ttsProviderForCost as ProviderId,
 						model: `tts:${ttsProviderForCost}`,
 					});
 				}
@@ -986,7 +1005,7 @@ export function ChatPanel() {
 				return;
 			}
 			const naiaKey = config?.naiaKey;
-			const modelMeta = getModelOption(config.provider, config.model);
+			const modelMeta = getLlmModel(config.provider, config.model);
 			const isOmni = modelMeta?.type === "omni";
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
@@ -1046,7 +1065,14 @@ export function ChatPanel() {
 
 					// Shared result handler for both offline and API-based STT
 					const handleSttResult = (result: { transcript: string; isFinal: boolean; confidence?: number }) => {
-						Logger.info("ChatPanel", "STT result", { transcript: result.transcript, isFinal: result.isFinal, confidence: result.confidence });
+						// Filter Whisper hallucinations: (sound descriptions), [noise], etc.
+						const filtered = result.transcript
+							.replace(/\([^)]*\)/g, "")
+							.replace(/\[[^\]]*\]/g, "")
+							.trim();
+						if (!filtered) return;
+						const cleanResult = { ...result, transcript: filtered };
+						Logger.info("ChatPanel", "STT result", { transcript: cleanResult.transcript, isFinal: cleanResult.isFinal, confidence: cleanResult.confidence });
 						if (!pipelineActiveRef.current) return;
 
 						if (ttsPlayingRef.current || Date.now() < ttsCooldownUntilRef.current) {
@@ -1054,13 +1080,13 @@ export function ChatPanel() {
 							return;
 						}
 
-						if (!result.isFinal) {
-							setSttPartial(result.transcript);
+						if (!cleanResult.isFinal) {
+							setSttPartial(cleanResult.transcript);
 						}
 
-						if (result.isFinal && result.transcript.trim()) {
+						if (cleanResult.isFinal && cleanResult.transcript.trim()) {
 							setSttPartial("");
-							sttBufferRef.current += (sttBufferRef.current ? " " : "") + result.transcript.trim();
+							sttBufferRef.current += (sttBufferRef.current ? " " : "") + cleanResult.transcript.trim();
 							if (sttDebounceRef.current) clearTimeout(sttDebounceRef.current);
 							sttDebounceRef.current = setTimeout(() => {
 								const text = sttBufferRef.current.trim();
@@ -1102,6 +1128,16 @@ export function ChatPanel() {
 								Logger.warn("ChatPanel", "API STT error", { code: err.code, message: err.message });
 							});
 							sttCleanupRef.current.push(cleanupError);
+						}
+					// Track STT cost per API call — session total only (not per message)
+						if (session.onCost) {
+							const cleanupCost = session.onCost((cost: { durationSeconds: number }) => {
+								const sttCost = estimateSttCost(sttEngine, cost.durationSeconds);
+								if (sttCost > 0) {
+									useChatStore.getState().addSessionCost(sttCost);
+								}
+							});
+							sttCleanupRef.current.push(cleanupCost);
 						}
 						sttCleanupRef.current.push(() => session.stop());
 						await session.start();
@@ -1155,10 +1191,8 @@ export function ChatPanel() {
 				});
 
 				setVoiceMode("active");
-				useChatStore.getState().addMessage({
-					role: "assistant",
-					content: "🎤 음성 대화 모드가 시작되었습니다.",
-				});
+				// Voice mode notification — not sent to agent, not read by TTS
+				Logger.info("ChatPanel", "Voice mode started notification displayed");
 				return;
 			}
 

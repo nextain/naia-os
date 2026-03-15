@@ -1,14 +1,7 @@
 // === Provider ===
 
-export type ProviderId =
-	| "nextain"
-	| "claude-code-cli"
-	| "gemini"
-	| "openai"
-	| "anthropic"
-	| "xai"
-	| "zai"
-	| "ollama";
+/** Provider ID — extensible via LLM registry. */
+export type ProviderId = string;
 
 export interface ProviderConfig {
 	provider: ProviderId;
@@ -70,7 +63,7 @@ export interface AgentRequest {
 export type AgentResponseChunk =
 	| { type: "text"; requestId: string; text: string }
 	| { type: "thinking"; requestId: string; text: string }
-	| { type: "audio"; requestId: string; data: string }
+	| { type: "audio"; requestId: string; data: string; costUsd?: number }
 	| {
 			type: "tool_use";
 			requestId: string;

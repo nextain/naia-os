@@ -1,12 +1,5 @@
-export type ProviderId =
-	| "nextain"
-	| "claude-code-cli"
-	| "gemini"
-	| "openai"
-	| "anthropic"
-	| "xai"
-	| "zai"
-	| "ollama";
+/** Provider ID — extensible via registry. */
+export type ProviderId = string;
 
 export interface ProviderConfig {
 	provider: ProviderId;

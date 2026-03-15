@@ -77,7 +77,7 @@ What OpenClaw provides:
 ### Pillar 2: project-careti (Agent Intelligence)
 
 What Careti provides:
-- **Multi-LLM**: Gemini (default), xAI (Grok), Claude
+- **Multi-LLM via registry**: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama
 - **Tool definitions**: GATEWAY_TOOLS (8 tools)
 - **Function calling**: Gemini native (xAI/Claude = tech debt)
 - **Alpha persona**: System prompt, emotion mapping
@@ -88,7 +88,7 @@ What Careti provides:
 
 What OpenCode provides:
 - **Client/server separation**: Shell (client) / Agent (server)
-- **Provider abstraction**: buildProvider factory pattern
+- **Provider registry pattern**: registerLlmProvider → buildProvider (extensible)
 - **Module boundaries**: shell / agent / gateway separation
 
 ---
@@ -512,7 +512,9 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 **Settings UI:** TTS provider dropdown + API key input + voice picker (auto-discovery from registry).
 
-**Pricing:** Edge (Free) | Naia Cloud (Naia credit) | Google ($16/1M chars) | OpenAI ($15/1M chars) | ElevenLabs ($0.30/1K chars)
+**Pricing:** Edge (Free) | Naia Cloud (actual cost from gateway `cost_usd`) | Google (voice tier: Neural2/Wavenet $16/1M, Standard $4/1M, Chirp3-HD $16/1M) | OpenAI ($15/1M chars) | ElevenLabs ($0.30/1K chars)
+
+**Cost tracking:** Naia Cloud returns actual `cost_usd` from gateway → Shell uses server cost directly. Direct API providers (Google/OpenAI/ElevenLabs) use client-side estimation via `estimateTtsCost(provider, length, voice)`. Agent `TtsSynthesizeResult` carries `{ audio, costUsd? }` through the pipeline.
 
 **Dynamic voices:** Google and ElevenLabs support runtime voice fetching via API when API key is provided.
 

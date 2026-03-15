@@ -128,7 +128,7 @@ export async function requestTts(opts: {
 	ttsApiKey?: string;
 	naiaKey?: string;
 	requestId: string;
-	onAudio: (mp3Base64: string) => void;
+	onAudio: (mp3Base64: string, costUsd?: number) => void;
 }): Promise<void> {
 	const { text, voice, ttsProvider, ttsApiKey, naiaKey, requestId, onAudio } =
 		opts;
@@ -149,11 +149,11 @@ export async function requestTts(opts: {
 				typeof event.payload === "string"
 					? event.payload
 					: JSON.stringify(event.payload);
-			const chunk = JSON.parse(raw) as { type: string; requestId: string; data?: string };
+			const chunk = JSON.parse(raw) as { type: string; requestId: string; data?: string; costUsd?: number };
 			if (chunk.requestId !== requestId) return;
 
 			if (chunk.type === "audio" && chunk.data) {
-				onAudio(chunk.data);
+				onAudio(chunk.data, chunk.costUsd);
 			}
 			if (chunk.type === "finish" || chunk.type === "error") {
 				clearTimeout(timeoutId);

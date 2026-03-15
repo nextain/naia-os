@@ -16,12 +16,32 @@ test_code_review:
     - "After pass: re-confirm 'does this test actually validate the intended behavior?'"
   why: "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden."
 
+test_attitude:
+  rule: "Tests are diagnostic tools, not scoreboards. See agents-rules.json testing.test_attitude for canonical rules."
+  anti_patterns:
+    - name: "Assertion loosening"
+      description: "Changing === to includes, removing checks, or widening match patterns to make a failing test pass"
+      correct: "Read full error output, diagnose whether failure is in app code or test code, fix the actual source"
+    - name: "Expected value gaming"
+      description: "Updating expected values to match the (buggy) actual output"
+      correct: "If actual output is wrong, fix the code that produces it, not the expectation"
+    - name: "Test deletion"
+      description: "Deleting or skipping a failing test instead of fixing the code it covers"
+      correct: "Investigate why the test fails, fix app code, keep the test"
+
 frameworks:
   unit_integration: Vitest
   e2e_shell: "@tauri-apps/cli (tauri-driver) + WebDriver"
   e2e_os: "QEMU VM boot (libvirt in CI)"
   rust: "cargo test"
   mocking: "msw (Mock Service Worker) for LLM API mocking"
+  vitest_conventions:
+    conditional_skip: |
+      Use describe.skipIf(condition) / it.skipIf(condition) — NOT describe() with
+      an early return inside the callback. The return pattern works but is implicit
+      and error-prone; skipIf is the Vitest-idiomatic API.
+      Good:  describe.skipIf(!apiKey)("provider", () => { ... })
+      Avoid: describe("provider", () => { if (!apiKey) { it(...); return; } ... })
 
 agent:
   description: "Node.js AI core. Communicates via stdio JSON lines."
@@ -157,7 +177,34 @@ shell:
         assert: "Gateway cards render, install button works, success/error feedback appears"
         note: "Install result depends on host environment (brew/npm availability)"
 
+    observability:
+      description: "5 simultaneous methods for E2E debugging (#60)"
+      methods:
+        1_llm_debug_log: |
+          ~/.naia/logs/llm-debug.log — JSON-line per request_start/finish/error.
+          Written by agent/src/index.ts logLlm(). Best for diagnosing provider/model mismatches.
+          Enable: always on (agent writes unconditionally).
+        2_log_entry_chunks: |
+          Agent emits {type:"log_entry",...} chunks on LLM start/error.
+          Visible in DiagnosticsTab and ui-message-trace.ndjson.
+        3_screenshots: |
+          shell/e2e-tauri/.artifacts/screenshots/{name}.png
+          Taken at key points: initial-state, after-switch, on-response, on-failure.
+        4_browser_logs: |
+          shell/e2e-tauri/.artifacts/browser-console.ndjson
+          Appended via browser.getLogs("browser") (WebKit support varies).
+        5_cafe_debug_e2e: |
+          CAFE_DEBUG_E2E=1 → Rust logs all agent events to stderr + ~/.naia/logs/naia.log.
+          Set by wdio.conf.ts for all E2E sessions.
     gotchas:
+      panelVisible: |
+        App does NOT render ChatPanel (or any tabs) when config.panelVisible === false.
+        All tab-based waits will time out silently. Fix: always write panelVisible:true
+        in E2E config setups. ensureAppReady() now enforces this.
+      vrm_path: |
+        Local dev path (/home/luke/dev/naia-os/assets/...) fails in webview context.
+        Use web-relative path: /avatars/01-Sendagaya-Shino-uniform.vrm.
+        VRM failure does NOT prevent tabs from rendering but blocks AvatarCanvas.
       webkitgtk_click: |
         WebDriver element.click() returns "unsupported operation" in WebKitGTK/wry.
         Use browser.execute(() => el.click()) via clickBySelector helper instead.
@@ -172,6 +219,15 @@ shell:
       llm_nondeterminism: |
         Gemini may not always use requested tools.
         Use flexible assertions: check tool-success element OR text pattern.
+      ensure_app_ready_no_key_provider: |
+        ensureAppReady() alreadyConfigured check requires apiKey OR naiaKey — but
+        claude-code-cli and ollama need no API key. Without fix, they are always
+        treated as unconfigured and get reset to gemini. Use noKeyProviders list
+        (or isApiKeyOptional()) when determining alreadyConfigured.
+      provider_model_default_hardcoded: |
+        When savedModel is empty, ChatPanel used "gemini-2.5-flash" as hardcoded fallback
+        regardless of active provider. Fix: use getDefaultLlmModel(activeProvider) first,
+        then "gemini-2.5-flash" as last-resort fallback only.
     methodology:
       principles:
         - "E2E must fail when the AI response explicitly says feature unavailable or failed."
@@ -179,6 +235,8 @@ shell:
         - "Validate with semantic criteria for user-visible behavior, plus structural checks for config state."
         - "Every E2E must start from a documented objective (user-visible success condition) and end with objective-vs-implementation review."
         - "Always check for missing/incorrect implementation paths before declaring PASS."
+        - "Tests are diagnostic tools — a failure means 'investigate app code', not 'fix the test to pass'."
+        - "NEVER loosen assertions, change expected values, or skip test cases to make a failing test pass without first diagnosing the root cause in app code."
       assertion_style:
         - "Prefer semantic validation for final assistant messages (task + pass/fail criteria)."
         - "Avoid brittle literal matching and avoid relying only on `expect` equality."

@@ -1,8 +1,8 @@
 /**
- * API-based STT session — captures audio via browser MediaStream,
- * sends to cloud API (Google Cloud STT / ElevenLabs), returns transcripts.
+ * API-based STT session — captures audio via AudioContext + ScriptProcessor
+ * (same as mic-stream.ts), accumulates PCM, sends to cloud API every 3s.
  *
- * Inspired by project-airi's TranscriptionProvider pattern.
+ * Uses AudioContext (not MediaRecorder) for WebKitGTK compatibility.
  */
 import { Logger } from "../logger";
 import type { SttResult, SttSession } from "./types";
@@ -13,132 +13,173 @@ interface ApiSttOptions {
 	language: string;
 }
 
+const SAMPLE_RATE = 16000;
+const BUFFER_SIZE = 4096;
+const SEND_INTERVAL_MS = 3000;
+
 /**
  * Create an API-based STT session.
- * Uses browser MediaRecorder to capture audio, sends chunks to cloud API.
+ * Captures mic via AudioContext (WebKitGTK compatible), sends PCM chunks to API.
  */
 export function createApiSttSession(options: ApiSttOptions): SttSession {
 	const { provider, apiKey, language } = options;
-	let mediaStream: MediaStream | null = null;
-	let mediaRecorder: MediaRecorder | null = null;
 	let resultCallbacks: ((result: SttResult) => void)[] = [];
 	let errorCallbacks: ((error: { code: string; message: string }) => void)[] = [];
+	let costCallbacks: ((cost: { durationSeconds: number }) => void)[] = [];
 	let stopped = false;
-	let recordingInterval: ReturnType<typeof setInterval> | null = null;
+	let mediaStream: MediaStream | null = null;
+	let audioCtx: AudioContext | null = null;
+	let sendInterval: ReturnType<typeof setInterval> | null = null;
+	let pcmChunks: Int16Array[] = [];
 
-	async function transcribeChunk(audioBlob: Blob): Promise<string | null> {
+	function float32ToInt16(float32: Float32Array): Int16Array {
+		const int16 = new Int16Array(float32.length);
+		for (let i = 0; i < float32.length; i++) {
+			const s = Math.max(-1, Math.min(1, float32[i]));
+			int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+		}
+		return int16;
+	}
+
+	function int16ToBase64(samples: Int16Array): string {
+		const bytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+		let binary = "";
+		for (let i = 0; i < bytes.length; i++) {
+			binary += String.fromCharCode(bytes[i]);
+		}
+		return btoa(binary);
+	}
+
+	function mergePcmChunks(): Int16Array {
+		let totalLength = 0;
+		for (const chunk of pcmChunks) totalLength += chunk.length;
+		const merged = new Int16Array(totalLength);
+		let offset = 0;
+		for (const chunk of pcmChunks) {
+			merged.set(chunk, offset);
+			offset += chunk.length;
+		}
+		return merged;
+	}
+
+	async function sendAndTranscribe() {
+		if (pcmChunks.length === 0 || stopped) return;
+
+		const pcm = mergePcmChunks();
+		pcmChunks = [];
+
+		// Skip silence (RMS below threshold — higher = fewer unnecessary API calls)
+		let sumSq = 0;
+		for (let i = 0; i < pcm.length; i++) sumSq += pcm[i] * pcm[i];
+		const rms = Math.sqrt(sumSq / pcm.length);
+		if (rms < 500) {
+			Logger.info("api-stt", "Skipping silence", { rms: Math.round(rms), samples: pcm.length });
+			return;
+		}
+
+		const durationSeconds = pcm.length / SAMPLE_RATE;
+		const base64 = int16ToBase64(pcm);
+		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, durationSeconds: Math.round(durationSeconds) });
+
+		// Notify cost BEFORE API call (API call = billing)
+		for (const cb of costCallbacks) cb({ durationSeconds });
+
 		try {
+			let result: string | null = null;
 			if (provider === "google") {
-				return await transcribeGoogle(audioBlob, apiKey, language);
+				result = await transcribeGoogle(base64, apiKey, language);
 			} else if (provider === "nextain") {
-				return await transcribeNextain(audioBlob, apiKey, language);
+				result = await transcribeNextain(base64, apiKey, language);
 			} else if (provider === "elevenlabs") {
-				return await transcribeElevenLabs(audioBlob, apiKey, language);
+				result = await transcribeElevenLabs(base64, apiKey, language);
 			}
-			return null;
+			Logger.info("api-stt", "transcribeChunk result", { provider, result: result?.slice(0, 50) ?? "(null)" });
+			if (result && result.trim()) {
+				for (const cb of resultCallbacks) {
+					cb({ transcript: result.trim(), isFinal: true });
+				}
+			}
 		} catch (err) {
 			Logger.warn("api-stt", `${provider} transcription error`, { error: String(err) });
 			for (const cb of errorCallbacks) cb({ code: "API_ERROR", message: String(err) });
-			return null;
 		}
 	}
 
 	return {
 		async start() {
 			stopped = false;
+			pcmChunks = [];
+
 			try {
-				mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+				mediaStream = await navigator.mediaDevices.getUserMedia({
+					audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+				});
 			} catch (err) {
 				for (const cb of errorCallbacks) cb({ code: "MIC_ERROR", message: String(err) });
 				throw err;
 			}
 
-			const chunks: Blob[] = [];
+			audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+			const source = audioCtx.createMediaStreamSource(mediaStream);
+			const processor = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
-			function createRecorder(stream: MediaStream): MediaRecorder {
-				// WebKitGTK doesn't support audio/webm — fallback to supported format
-				const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-					? "audio/webm;codecs=opus"
-					: MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-						? "audio/ogg;codecs=opus"
-						: ""; // browser default
-				const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-				recorder.ondataavailable = (e) => {
-					if (e.data.size > 0) chunks.push(e.data);
-				};
-				recorder.onstop = async () => {
-					if (chunks.length === 0 || stopped) return;
-					const blob = new Blob(chunks, { type: mimeType || "audio/webm" });
-					chunks.length = 0;
-					const transcript = await transcribeChunk(blob);
-					if (transcript && transcript.trim()) {
-						for (const cb of resultCallbacks) {
-							cb({ transcript: transcript.trim(), isFinal: true });
-						}
-					}
-				};
-				return recorder;
-			}
+			processor.onaudioprocess = (e) => {
+				if (stopped) return;
+				const float32 = e.inputBuffer.getChannelData(0);
+				pcmChunks.push(float32ToInt16(float32));
+			};
 
-			mediaRecorder = createRecorder(mediaStream);
-			mediaRecorder.start();
+			source.connect(processor);
+			processor.connect(audioCtx.destination);
 
-			// Periodically stop/restart to send chunks every 3s
-			recordingInterval = setInterval(() => {
-				if (mediaRecorder && mediaRecorder.state === "recording" && !stopped) {
-					mediaRecorder.stop();
-					setTimeout(() => {
-						if (!stopped && mediaStream?.active) {
-							mediaRecorder = createRecorder(mediaStream!);
-							mediaRecorder.start();
-						}
-					}, 100);
-				}
-			}, 3000);
+			// Send accumulated PCM every 3s
+			sendInterval = setInterval(() => {
+				if (!stopped) sendAndTranscribe();
+			}, SEND_INTERVAL_MS);
 
-			Logger.info("api-stt", `${provider} STT started`, { language });
+			Logger.info("api-stt", `${provider} STT started`, { language, sampleRate: SAMPLE_RATE });
 		},
 
 		async stop() {
 			stopped = true;
-			if (recordingInterval) {
-				clearInterval(recordingInterval);
-				recordingInterval = null;
+			if (sendInterval) {
+				clearInterval(sendInterval);
+				sendInterval = null;
 			}
-			if (mediaRecorder && mediaRecorder.state !== "inactive") {
-				mediaRecorder.stop();
+			// Send remaining audio
+			await sendAndTranscribe();
+			if (audioCtx) {
+				audioCtx.close().catch(() => {});
+				audioCtx = null;
 			}
 			if (mediaStream) {
 				for (const track of mediaStream.getTracks()) track.stop();
 				mediaStream = null;
 			}
+			pcmChunks = [];
 			Logger.info("api-stt", `${provider} STT stopped`);
 		},
 
 		onResult(callback) {
 			resultCallbacks.push(callback);
-			return () => {
-				resultCallbacks = resultCallbacks.filter((cb) => cb !== callback);
-			};
+			return () => { resultCallbacks = resultCallbacks.filter((cb) => cb !== callback); };
 		},
 
 		onError(callback) {
 			errorCallbacks.push(callback);
-			return () => {
-				errorCallbacks = errorCallbacks.filter((cb) => cb !== callback);
-			};
+			return () => { errorCallbacks = errorCallbacks.filter((cb) => cb !== callback); };
+		},
+
+		onCost(callback: (cost: { durationSeconds: number }) => void) {
+			costCallbacks.push(callback);
+			return () => { costCallbacks = costCallbacks.filter((cb) => cb !== callback); };
 		},
 	};
 }
 
-// ── Google Cloud Speech-to-Text ──
+// ── Google Cloud Speech-to-Text (PCM LINEAR16) ──
 
-async function transcribeGoogle(audio: Blob, apiKey: string, language: string): Promise<string | null> {
-	const base64 = await blobToBase64(audio);
-	const encoding = audio.type.includes("ogg") ? "OGG_OPUS"
-		: audio.type.includes("webm") ? "WEBM_OPUS"
-		: "ENCODING_UNSPECIFIED";
-
+async function transcribeGoogle(pcmBase64: string, apiKey: string, language: string): Promise<string | null> {
 	const response = await fetch(
 		`https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
 		{
@@ -146,13 +187,13 @@ async function transcribeGoogle(audio: Blob, apiKey: string, language: string): 
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				config: {
-					encoding,
-					sampleRateHertz: 48000,
+					encoding: "LINEAR16",
+					sampleRateHertz: SAMPLE_RATE,
 					languageCode: language,
 					model: "latest_long",
 					enableAutomaticPunctuation: true,
 				},
-				audio: { content: base64 },
+				audio: { content: pcmBase64 },
 			}),
 		},
 	);
@@ -172,14 +213,19 @@ async function transcribeGoogle(audio: Blob, apiKey: string, language: string): 
 
 // ── Naia Cloud STT (via any-llm gateway → Google Cloud STT) ──
 
-async function transcribeNextain(audio: Blob, naiaKey: string, language: string): Promise<string | null> {
+async function transcribeNextain(pcmBase64: string, naiaKey: string, language: string): Promise<string | null> {
+	// Convert PCM base64 to WAV blob for gateway upload
+	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
+	const wavBlob = pcmToWavBlob(pcmBytes, SAMPLE_RATE);
+
 	const formData = new FormData();
-	formData.append("file", audio, "audio.webm");
+	formData.append("file", wavBlob, "audio.wav");
 	formData.append("language", language);
 
-	const response = await fetch("https://naia.nextain.io/api/gateway/v1/audio/transcriptions", {
+	const gatewayUrl = "https://naia-gateway-181404717065.asia-northeast3.run.app";
+	const response = await fetch(`${gatewayUrl}/v1/audio/transcriptions`, {
 		method: "POST",
-		headers: { "X-AnyLLM-Key": naiaKey },
+		headers: { "X-AnyLLM-Key": `Bearer ${naiaKey}` },
 		body: formData,
 	});
 
@@ -194,10 +240,15 @@ async function transcribeNextain(audio: Blob, naiaKey: string, language: string)
 
 // ── ElevenLabs Speech-to-Text ──
 
-async function transcribeElevenLabs(audio: Blob, apiKey: string, language: string): Promise<string | null> {
+async function transcribeElevenLabs(pcmBase64: string, apiKey: string, language: string): Promise<string | null> {
+	// Convert PCM base64 to WAV blob for ElevenLabs upload
+	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
+	const wavBlob = pcmToWavBlob(pcmBytes, SAMPLE_RATE);
+
 	const formData = new FormData();
-	formData.append("audio", audio, "audio.webm");
-	formData.append("language_code", language.split("-")[0]); // "ko-KR" → "ko"
+	formData.append("file", wavBlob, "audio.wav");
+	formData.append("model_id", "scribe_v1");
+	formData.append("language_code", language.split("-")[0]);
 
 	const response = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
 		method: "POST",
@@ -214,14 +265,32 @@ async function transcribeElevenLabs(audio: Blob, apiKey: string, language: strin
 	return data.text?.trim() || null;
 }
 
-// ── Utility ──
+// ── Utility: PCM Int16 to WAV blob ──
 
-async function blobToBase64(blob: Blob): Promise<string> {
-	const buffer = await blob.arrayBuffer();
-	const bytes = new Uint8Array(buffer);
-	let binary = "";
-	for (let i = 0; i < bytes.length; i++) {
-		binary += String.fromCharCode(bytes[i]);
-	}
-	return btoa(binary);
+function pcmToWavBlob(pcmBytes: Uint8Array, sampleRate: number): Blob {
+	const buffer = new ArrayBuffer(44 + pcmBytes.length);
+	const view = new DataView(buffer);
+
+	// WAV header
+	const writeString = (offset: number, str: string) => {
+		for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+	};
+	writeString(0, "RIFF");
+	view.setUint32(4, 36 + pcmBytes.length, true);
+	writeString(8, "WAVE");
+	writeString(12, "fmt ");
+	view.setUint32(16, 16, true); // chunk size
+	view.setUint16(20, 1, true); // PCM format
+	view.setUint16(22, 1, true); // mono
+	view.setUint32(24, sampleRate, true);
+	view.setUint32(28, sampleRate * 2, true); // byte rate
+	view.setUint16(32, 2, true); // block align
+	view.setUint16(34, 16, true); // bits per sample
+	writeString(36, "data");
+	view.setUint32(40, pcmBytes.length, true);
+
+	// PCM data
+	new Uint8Array(buffer, 44).set(pcmBytes);
+
+	return new Blob([buffer], { type: "audio/wav" });
 }

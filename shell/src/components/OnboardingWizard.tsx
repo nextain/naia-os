@@ -5,12 +5,15 @@ import { directToolCall } from "../lib/chat-service";
 import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
-	fetchOllamaModels,
-	getDefaultModel,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
+import {
+	listLlmProviders,
+	getDefaultLlmModel,
+	fetchOllamaModels,
+} from "../lib/llm";
 import { saveSecretKey } from "../lib/secure-store";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
@@ -117,48 +120,8 @@ Personality:
 	},
 ];
 
-const PROVIDERS: {
-	id: ProviderId;
-	label: string;
-	descKey: string;
-	disabled?: boolean;
-}[] = [
-	{
-		id: "claude-code-cli",
-		label: "Claude Code CLI (Local)",
-		descKey: "provider.claudeCodeCli.desc",
-	},
-	{
-		id: "gemini",
-		label: "Google Gemini",
-		descKey: "provider.apiKeyRequired",
-	},
-	{
-		id: "openai",
-		label: "OpenAI (ChatGPT)",
-		descKey: "provider.apiKeyRequired",
-	},
-	{
-		id: "anthropic",
-		label: "Anthropic (Claude)",
-		descKey: "provider.apiKeyRequired",
-	},
-	{
-		id: "xai",
-		label: "xAI (Grok)",
-		descKey: "provider.apiKeyRequired",
-	},
-	{
-		id: "zai",
-		label: "zAI (GLM)",
-		descKey: "provider.apiKeyRequired",
-	},
-	{
-		id: "ollama",
-		label: "Ollama",
-		descKey: "provider.localRequired",
-	},
-];
+// Providers for onboarding (exclude nextain — handled as Lab login)
+const ONBOARDING_PROVIDERS = listLlmProviders().filter((p) => p.id !== "nextain");
 
 function getNaiaWebBaseUrl() {
 	return (
@@ -247,7 +210,7 @@ export function OnboardingWizard({
 					const restored = {
 						...existing,
 						provider: "nextain" as ProviderId,
-						model: getDefaultModel("nextain"),
+						model: getDefaultLlmModel("nextain"),
 						apiKey: "",
 						userName: (onlineConfig?.userName ?? existing?.userName ?? source.userName) as string,
 						agentName: (onlineConfig?.agentName ?? existing?.agentName ?? source.agentName) as string,
@@ -439,7 +402,7 @@ export function OnboardingWizard({
 		const config = {
 			...existing,
 			provider: effectiveProvider,
-			model: effectiveProvider === "ollama" ? selectedOllamaModel : getDefaultModel(effectiveProvider),
+			model: effectiveProvider === "ollama" ? selectedOllamaModel : getDefaultLlmModel(effectiveProvider),
 			apiKey:
 				naiaKey || provider === "claude-code-cli" || provider === "ollama"
 					? ""
@@ -570,7 +533,7 @@ export function OnboardingWizard({
 						</div>
 
 						<div className="onboarding-provider-cards">
-							{PROVIDERS.map((p) => (
+							{ONBOARDING_PROVIDERS.map((p) => (
 								<button
 									key={p.id}
 									type="button"
@@ -578,14 +541,14 @@ export function OnboardingWizard({
 									disabled={p.disabled}
 									onClick={() => {
 										if (p.disabled) return;
-										setProvider(p.id);
+										setProvider(p.id as ProviderId);
 										setNaiaKey("");
 										setNaiaUserId("");
 										setLabTimeout(false);
 									}}
 								>
-									<span className="provider-card-label">{p.label}</span>
-									<span className="provider-card-desc">{t(p.descKey as any)}</span>
+									<span className="provider-card-label">{p.name}</span>
+									<span className="provider-card-desc">{t((p.descKey ?? "provider.apiKeyRequired") as any)}</span>
 								</button>
 							))}
 						</div>

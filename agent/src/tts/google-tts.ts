@@ -1,5 +1,6 @@
 import { registerTtsProvider } from "./registry.js";
 import { getGcpAccessToken } from "./gcp-auth.js";
+import type { TtsSynthesizeResult } from "./types.js";
 
 const TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 
@@ -15,7 +16,7 @@ export async function synthesizeSpeech(
 	text: string,
 	apiKeyOrServiceAccount: string,
 	voice?: string,
-): Promise<string | null> {
+): Promise<TtsSynthesizeResult | null> {
 	if (!text.trim()) return null;
 
 	const voiceName = voice || DEFAULT_VOICE;
@@ -64,7 +65,8 @@ export async function synthesizeSpeech(
 		}
 
 		const data = (await response.json()) as { audioContent?: string };
-		return data.audioContent ?? null;
+		if (!data.audioContent) return null;
+		return { audio: data.audioContent };
 	} catch (err) {
 		console.error("[google-tts] error:", err);
 		return null;

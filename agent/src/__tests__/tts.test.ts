@@ -24,7 +24,7 @@ describe("Google TTS", () => {
 		const { synthesizeSpeech } = await import("../tts/google-tts.js");
 		const result = await synthesizeSpeech("안녕하세요", "test-api-key");
 
-		expect(result).toBe("SGVsbG8gV29ybGQ=");
+		expect(result).toEqual({ audio: "SGVsbG8gV29ybGQ=" });
 		expect(mockFetch).toHaveBeenCalledTimes(1);
 		expect(mockFetch).toHaveBeenCalledWith(
 			expect.stringContaining("texttospeech.googleapis.com"),

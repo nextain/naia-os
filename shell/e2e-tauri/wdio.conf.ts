@@ -5,6 +5,9 @@ import { connect } from "node:net";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 
+// Enable debug logging for Tauri app — Rust logs all agent events to stderr + naia.log
+process.env.CAFE_DEBUG_E2E = "1";
+
 // Load shell/.env
 const envPath = resolve(import.meta.dirname, "../.env");
 try {

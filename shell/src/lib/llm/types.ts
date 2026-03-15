@@ -44,4 +44,6 @@ export interface LlmProviderMeta {
 	fetchModels?: (host: string) => Promise<LlmModelMeta[] | null>;
 	/** Whether this provider is disabled in UI. */
 	disabled?: boolean;
+	/** i18n description key for onboarding UI (e.g. "provider.apiKeyRequired"). */
+	descKey?: string;
 }

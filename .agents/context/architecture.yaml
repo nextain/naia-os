@@ -56,14 +56,14 @@ three_pillars:
   pillar_2_careti:
     role: "Agent intelligence (LLM + tools + persona)"
     provides:
-      - "Multi-provider LLM: Gemini (default), xAI (Grok), Claude"
+      - "Multi-provider LLM via registry: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama"
       - "Tool definitions: GATEWAY_TOOLS (8 tools)"
       - "Function calling: Gemini native (xAI/Claude = tech debt)"
       - "Alpha persona: system prompt, emotion mapping"
       - "Cost tracking: per-request cost display"
       - "stdio JSON lines protocol: Shell ↔ Agent"
     what_naia_uses:
-      - "LLM providers (gemini.ts, xai.ts, anthropic.ts)"
+      - "LLM provider registry (shell/src/lib/llm/ + agent/src/providers/registry.ts)"
       - "Tool loop (max 10 iterations, abort support)"
       - "Permission tiers 0-3"
       - "stdio protocol (chat_request/text/tool_use/tool_result/etc.)"
@@ -76,7 +76,7 @@ three_pillars:
       - "LSP-style communication pattern"
     what_naia_uses:
       - "Shell (client) / Agent (server) separation via stdio"
-      - "Provider factory pattern (buildProvider)"
+      - "Provider registry pattern (registerLlmProvider → buildProvider)"
       - "Clean module boundaries (shell/agent/gateway)"
 
 runtime_architecture:
@@ -454,6 +454,28 @@ voice_architecture:
         role: "WebSocket proxy: client ↔ Gemini Live SDK session (used by naia provider)"
     model: "configurable via config.liveModel (per-provider defaults exist)"
 
+  # ── LLM Providers (registry pattern) ──────────────────────────
+
+  llm_providers:
+    description: "Extensible LLM provider registry — Settings UI and Agent factory auto-discover from registry"
+    registry:
+      shell_types: "shell/src/lib/llm/types.ts — LlmProviderMeta, LlmModelMeta, LlmVoiceMeta"
+      shell_registry: "shell/src/lib/llm/registry.ts — registerLlmProvider(), listLlmProviders(), isOmniModel(), formatModelLabel()"
+      shell_barrel: "shell/src/lib/llm/index.ts"
+      agent_types: "agent/src/providers/registry.ts — LlmProviderDefinition, registerLlmProvider()"
+      agent_factory: "agent/src/providers/factory.ts — provider registrations + buildProvider()"
+    providers:
+      - "nextain (Naia Cloud — naiaKey, Gemini models via gateway)"
+      - "claude-code-cli (local Claude CLI subscription — no API key)"
+      - "gemini (Google Gemini API — GEMINI_API_KEY)"
+      - "openai (OpenAI GPT — OPENAI_API_KEY, includes GPT-4o Realtime omni)"
+      - "anthropic (Anthropic Claude API — ANTHROPIC_API_KEY)"
+      - "xai (xAI Grok — XAI_API_KEY)"
+      - "zai (Zhipu GLM — ZHIPU_API_KEY)"
+      - "ollama (local, no API key)"
+    adding_provider: "See CONTRIBUTING.md 'Adding an LLM provider' section"
+    type_system: "ProviderId = string (extensible via registry, no hardcoded union)"
+
   # ── STT Providers (independent, pipeline mode) ─────────────────
 
   stt_providers:
@@ -513,7 +535,7 @@ voice_architecture:
   # ── TTS Providers (independent, pipeline mode) ─────────────────
 
   tts_providers:
-    description: "Independent TTS provider registry — used in pipeline mode and chat auto-TTS"
+    description: "Independent TTS provider registry — Shell handles all TTS via SentenceChunker (both chat and pipeline)"
     note: "Omni models produce voice output directly and do NOT use these providers"
     default_provider: "edge (free, no login required)"
     registry:
@@ -534,21 +556,19 @@ voice_architecture:
       5. Add TtsProviderMeta in shell/src/lib/tts/registry.ts (for Settings UI)
     providers:
       edge:
-        route: "ChatPanel → agent → OpenClaw gateway → Edge TTS (free)"
+        route: "Shell SentenceChunker → requestTts IPC → agent → msedge-tts (direct)"
         auth: "none"
       nextain:
-        route: "ChatPanel → agent → nextain-tts.ts → any-llm gateway /v1/audio/speech → Google Cloud TTS"
-        voice_derivation: "config.liveVoice → 'ko-KR-Chirp3-HD-{name}'"
+        route: "Shell SentenceChunker → requestTts IPC → agent → any-llm gateway /v1/audio/speech"
         auth: "naiaKey via X-AnyLLM-Key header"
       google:
-        route: "ChatPanel → agent → OpenClaw gateway → Google Cloud TTS"
-        voices: "Neural2 series (ko-KR-Neural2-A, etc.)"
+        route: "Shell SentenceChunker → requestTts IPC → agent → Google Cloud TTS API (direct)"
         auth: "Google API key"
       openai:
-        route: "ChatPanel → agent → OpenClaw gateway → OpenAI TTS API"
+        route: "Shell SentenceChunker → requestTts IPC → agent → OpenAI TTS API (direct)"
         auth: "OpenAI API key"
       elevenlabs:
-        route: "ChatPanel → agent → OpenClaw gateway → ElevenLabs API"
+        route: "Shell SentenceChunker → requestTts IPC → agent → ElevenLabs API (direct)"
         auth: "ElevenLabs API key"
     naiaKey_routing: |
       TTS auth (naiaKey) is independent of LLM provider selection.
@@ -561,16 +581,16 @@ voice_architecture:
     settings_ui: "TTS provider dropdown + API key input + voice picker (auto-discovery from registry)"
     pricing:
       edge: "Free"
-      nextain: "Naia credit (included with Naia account)"
-      google: "$16/1M chars (Neural2)"
+      nextain: "Naia credit — actual cost returned from gateway (cost_usd in response)"
+      google: "Voice tier-based: Neural2/Wavenet $16/1M, Chirp3-HD $16/1M, Standard $4/1M"
       openai: "$15/1M chars (tts-1)"
       elevenlabs: "$0.30/1K chars"
 
   # ── Testing ────────────────────────────────────────────────────
 
   testing:
-    description: "97 tests across 11 specs — real API keys, actual app UI, chat pipeline"
-    total: "97 tests (87 Tauri + 10 Playwright)"
+    description: "123+ tests — real API keys, actual audio verification, STT×TTS combos"
+    total: "123+ tests (103 Tauri + 10 Playwright + 10+ unit)"
     tauri_e2e:
       - "76-tts-provider-switching (12) — TTS dropdown, API key, voice, Edge preview"
       - "77-stt-provider-switching (7) — STT dropdown, order free→Naia→paid, API key"
@@ -581,21 +601,19 @@ voice_architecture:
       - "82-chat-tts-multi-model (6) — model switching preserves TTS"
       - "83-tts-per-model-verification (15) — 5 LLM providers × model: chat + TTS"
       - "84-chat-tts-per-provider (12) — 4 TTS providers: UI key input → save → chat → verify"
+      - "85-voice-actual-recording (7) — WebKitGTK MediaRecorder, mic, STT init"
+      - "86-stt-tts-full-pipeline (8) — Google STT × Edge/OpenAI/ElevenLabs TTS pipeline"
+      - "87-tts-audio-verification (5) — actual audio data received: 4 TTS providers"
+      - "88-stt-tts-combo-verification (6) — 5 STT×TTS combos: voice activation"
     playwright_e2e:
-      - "pipeline-voice (10) — STT mock → LLM → TTS, debounce, interrupt, Whisper engine"
-    unit_tests:
-      - "SettingsTab.test.tsx (15) — Settings UI rendering"
-      - "ChatPanel.test.tsx (15) — Chat panel rendering"
-      - "tts-voice-validity.test.ts (17+) — all registered voices produce audio"
+      - "pipeline-voice (10) — STT mock → LLM → TTS, debounce, interrupt, Whisper"
     e2e_principle: |
-      E2E = actual app UI. Every test:
-      1. Launches real Tauri app (WebDriver)
-      2. Selects provider in dropdown (UI)
-      3. Types API key in input field (UI)
-      4. Selects voice (UI)
-      5. Clicks preview / sends chat (UI)
-      6. Verifies actual result (no error, audio played, response received)
-      Never mock API calls in E2E — use real .env keys.
+      E2E = actual app UI with real API keys. Tests must verify:
+      1. Actual audio DATA received (not just "no error")
+      2. Audio.play() actually called
+      3. STT MediaRecorder actually creates chunks
+      4. All provider combos tested
+      Test code itself must be reviewed before trusting results.
     run_all: |
       cd shell && pnpm test                                          # Unit tests
       cd agent && pnpm test                                          # Agent tests
@@ -637,7 +655,24 @@ voice_architecture:
       - Tools DISABLED in pipeline mode (prevents tool loops blocking TTS)
       - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
       - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
-    openclaw_separation: "STT/TTS handled independently. OpenClaw only for LLM routing + skills/tools."
+    openclaw_separation: "STT/TTS fully decoupled from OpenClaw Gateway. Shell handles all STT/TTS directly via agent IPC. Gateway used only for LLM routing + skills/tools."
+    naia_cloud:
+      tts_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/speech"
+      stt_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/transcriptions"
+      auth: "X-AnyLLM-Key: Bearer {naiaKey}"
+      pricing_tts: "$0.000016/char (Neural2)"
+      pricing_stt: "$0.006/15s"
+      test_key_env: "NAIA_API_KEY in shell/.env"
+    cost_tracking:
+      llm: "agent calculateCost() — client-side estimation from model pricing table"
+      tts: |
+        Two modes:
+        - Naia Cloud (nextain): gateway returns cost_usd → Shell uses server cost directly
+        - Direct API (google/openai/elevenlabs): Shell estimateTtsCost(provider, length, voice) — voice tier-based for Google, flat rate for others
+        Agent TtsSynthesizeResult carries { audio, costUsd? } through pipeline.
+        Accumulated on assistant message via addCostEntry.
+      stt: "Shell estimateSttCost() — per-API-call, session total only (not per message)"
+      note: "Client estimates may differ from gateway actual (e.g. Gemini free tier = $0)"
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"
       - "shell/src/lib/voice/sentence-chunker.ts"

@@ -1,16 +1,16 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { registerTtsProvider } from "./registry.js";
+import type { TtsSynthesizeResult } from "./types.js";
 
 const DEFAULT_VOICE = "ko-KR-SunHiNeural";
 
 /**
  * Synthesize speech using Microsoft Edge TTS (free, no API key needed).
- * Returns base64-encoded MP3 audio or null on failure.
  */
 export async function synthesizeEdgeSpeech(
 	text: string,
 	voice?: string,
-): Promise<string | null> {
+): Promise<TtsSynthesizeResult | null> {
 	if (!text.trim()) return null;
 
 	try {
@@ -29,7 +29,7 @@ export async function synthesizeEdgeSpeech(
 
 		const buf = Buffer.concat(chunks);
 		if (buf.length === 0) return null;
-		return buf.toString("base64");
+		return { audio: buf.toString("base64") };
 	} catch (err) {
 		console.error(
 			"[edge-tts] synthesize failed:",

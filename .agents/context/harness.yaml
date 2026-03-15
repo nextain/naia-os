@@ -100,6 +100,9 @@ progress_files:
       description: "Unexpected findings during investigation/build"
     blockers:
       description: "Current blockers preventing progress"
+    test_findings:
+      description: "Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan"
+      fields: [test_name, error_summary, root_cause, routing]
     updated_at: "ISO timestamp of last update"
 
   update_points:
@@ -125,6 +128,11 @@ progress_files:
         date: "2026-03-14"
     surprises: []
     blockers: []
+    test_findings:
+      - test_name: "03-basic-chat.spec.ts"
+        error_summary: "Expected non-empty response, got empty string"
+        root_cause: "Gateway connection timeout — agent not spawned"
+        routing: "implementation_issue → BUILD"
     updated_at: "2026-03-14T14:30Z"
 
 tests:

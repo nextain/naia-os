@@ -9,21 +9,27 @@ import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
 	LAB_GATEWAY_URL,
-	MODEL_OPTIONS,
 	type PanelPosition,
 	type ThemeId,
 	type SttProviderId,
 	type TtsProviderId,
 	clearAllowedTools,
-	fetchOllamaModels,
-	getDefaultModel,
-	isApiKeyOptional,
-	isOmniModel,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
 	getNaiaKeySecure,
 } from "../lib/config";
+import {
+	listLlmProviders,
+	getLlmProvider,
+	isOmniModel,
+	getDefaultLlmModel,
+	isApiKeyOptional,
+	getStaticModelsRecord,
+	fetchOllamaModels,
+	formatModelLabel,
+	type LlmModelMeta,
+} from "../lib/llm";
 import { saveSecretKey, deleteSecretKey } from "../lib/secure-store";
 import {
 	type Fact,
@@ -46,16 +52,7 @@ import { listTtsProviderMetas } from "../lib/tts/registry";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
-const PROVIDERS: { id: ProviderId; label: string; disabled?: boolean }[] = [
-	{ id: "nextain", label: "Naia" },
-	{ id: "claude-code-cli", label: "Claude Code CLI (Local)" },
-	{ id: "gemini", label: "Google Gemini" },
-	{ id: "openai", label: "OpenAI (ChatGPT)", disabled: true },
-	{ id: "anthropic", label: "Anthropic (Claude)", disabled: true },
-	{ id: "xai", label: "xAI (Grok)", disabled: true },
-	{ id: "zai", label: "zAI (GLM)", disabled: true },
-	{ id: "ollama", label: "Ollama" },
-];
+const LLM_PROVIDERS = listLlmProviders();
 
 // Fallback voice lists for Edge TTS
 const ALL_EDGE_VOICES: string[] = [
@@ -157,9 +154,6 @@ function getEdgeVoicesForLocale(loc: string): string[] {
 		(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
 	);
 }
-
-type GatewayTtsAuto = "off" | "always" | "inbound" | "tagged";
-type GatewayTtsMode = "final" | "all";
 
 
 const LOCALES: { id: Locale; label: string }[] = [
@@ -631,9 +625,9 @@ export function SettingsTab() {
 	const initProvider = existing?.provider ?? "gemini";
 	const savedModel = existing?.model;
 	const modelValid =
-		savedModel && MODEL_OPTIONS[initProvider]?.some((m) => m.id === savedModel);
+		savedModel && (getLlmProvider(initProvider)?.models.some((m) => m.id === savedModel) ?? false);
 	const [model, setModel] = useState(
-		modelValid ? savedModel : getDefaultModel(initProvider),
+		modelValid ? savedModel : getDefaultLlmModel(initProvider),
 	);
 	const [apiKey, setApiKey] = useState(existing?.apiKey ?? "");
 	const [locale, setLocaleState] = useState<Locale>(
@@ -686,7 +680,7 @@ export function SettingsTab() {
 	const [openaiRealtimeApiKey, setOpenaiRealtimeApiKey] = useState(
 		existing?.openaiRealtimeApiKey ?? "",
 	);
-	const [dynamicModels, setDynamicModels] = useState(MODEL_OPTIONS);
+	const [dynamicModels, setDynamicModels] = useState<Record<string, LlmModelMeta[]>>(getStaticModelsRecord);
 	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(
@@ -844,8 +838,8 @@ export function SettingsTab() {
 					if (models.length === 0) return;
 
 					const grouped = Object.fromEntries(
-						Object.entries(MODEL_OPTIONS).map(([k, v]) => [k, [...v]]),
-					) as typeof MODEL_OPTIONS;
+						Object.entries(getStaticModelsRecord()).map(([k, v]) => [k, [...v]]),
+					) as Record<string, LlmModelMeta[]>;
 
 					for (const m of models) {
 						if (!m || typeof m.id !== "string") continue;
@@ -855,8 +849,8 @@ export function SettingsTab() {
 							: "";
 						const label = `${m.name || modelId}${priceStr}`;
 
-						const pushModel = (key: ProviderId) => {
-							if (!grouped[key].some((x) => x.id === modelId)) {
+						const pushModel = (key: string) => {
+							if (!grouped[key]?.some((x) => x.id === modelId)) {
 								grouped[key].push({ id: modelId, label, type: "llm" as const });
 							}
 						};
@@ -864,16 +858,19 @@ export function SettingsTab() {
 			const mappedProvider =
 				resolveProvider(m.provider) || resolveProviderFromId(m.id);
 			if (mappedProvider) pushModel(mappedProvider);
-			if (mappedProvider === "anthropic") pushModel("claude-code-cli");
-			// Naia only supports curated Gemini models
+			// Claude Code CLI uses subscription — add models without pricing
+			if (mappedProvider === "anthropic") {
+				const nameOnly = m.name || modelId;
+				if (!grouped["claude-code-cli"]?.some((x) => x.id === modelId)) {
+					grouped["claude-code-cli"].push({ id: modelId, label: nameOnly, type: "llm" as const });
+				}
+			}
+			// Naia only supports curated Gemini models (from registry)
 			if (mappedProvider === "gemini") {
-				const NEXTAIN_ALLOWED = [
-					"gemini-3.1-pro-preview",
-					"gemini-3-flash-preview",
-					"gemini-2.5-pro",
-					"gemini-2.5-flash",
-				];
-				if (NEXTAIN_ALLOWED.includes(modelId)) {
+				const nextainModelIds = getLlmProvider("nextain")?.models
+					.filter((nm) => nm.type === "llm")
+					.map((nm) => nm.id) ?? [];
+				if (nextainModelIds.includes(modelId)) {
 					pushModel("nextain");
 				}
 			}
@@ -882,7 +879,7 @@ export function SettingsTab() {
 					setDynamicModels(grouped);
 				}
 			} catch {
-				// Fallback to static MODEL_OPTIONS
+				// Fallback to static registry models
 			}
 		}
 		fetchModels();
@@ -928,14 +925,7 @@ export function SettingsTab() {
 	};
 
 	// Gateway TTS state
-	const [gatewayTtsProviders, setGatewayTtsProviders] = useState<
-		{ id: string; label: string; configured: boolean; voices: string[] }[]
-	>([]);
-	// gatewayTtsActiveProvider tracks which provider the gateway is using (for API sync only)
-	const gatewayTtsActiveProviderRef = useRef("");
-	const [gatewayTtsAuto, setGatewayTtsAuto] = useState<GatewayTtsAuto>("off");
-	const [gatewayTtsMode, setGatewayTtsMode] = useState<GatewayTtsMode>("final");
-	const [, setGatewayTtsLoading] = useState(false);
+	// gatewayTtsApiKey: shared state for TTS API key input (used by multiple providers)
 	const [gatewayTtsApiKey, setGatewayTtsApiKey] = useState(() => {
 		const p = existing?.ttsProvider ?? "edge";
 		if (p === "openai") return existing?.openaiTtsApiKey ?? "";
@@ -957,65 +947,6 @@ export function SettingsTab() {
 	const [resetClearHistory, setResetClearHistory] = useState(false);
 	const [showLabDisconnect, setShowLabDisconnect] = useState(false);
 	const [showReOnboarding, setShowReOnboarding] = useState(false);
-
-	const fetchGatewayTts = useCallback(async () => {
-		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
-		setGatewayTtsLoading(true);
-		try {
-			const [statusRes, providersRes] = await Promise.all([
-				directToolCall({
-					toolName: "skill_tts",
-					args: { action: "status" },
-					requestId: `tts-status-${Date.now()}`,
-					gatewayUrl: effectiveGatewayUrl,
-					gatewayToken,
-				}),
-				directToolCall({
-					toolName: "skill_tts",
-					args: { action: "providers" },
-					requestId: `tts-providers-${Date.now()}`,
-					gatewayUrl: effectiveGatewayUrl,
-					gatewayToken,
-				}),
-			]);
-			if (statusRes.success && statusRes.output) {
-				const status = JSON.parse(statusRes.output) as {
-					enabled?: boolean;
-					provider?: string;
-					auto?: GatewayTtsAuto;
-					mode?: GatewayTtsMode;
-				};
-				gatewayTtsActiveProviderRef.current = status.provider || "";
-				// Prefer localStorage values over gateway runtime (which may be stale)
-				const savedConfig = loadConfig();
-				setGatewayTtsAuto(savedConfig?.gatewayTtsAuto as GatewayTtsAuto ?? status.auto ?? "off");
-				setGatewayTtsMode(savedConfig?.gatewayTtsMode as GatewayTtsMode ?? status.mode ?? "final");
-			}
-			if (providersRes.success && providersRes.output) {
-				const raw = JSON.parse(providersRes.output);
-				// Gateway may return array or object with providers
-				const providers = Array.isArray(raw)
-					? raw
-					: Array.isArray(raw?.providers)
-						? raw.providers
-						: Object.entries(raw)
-								.filter(([k]) => k !== "current" && k !== "fallback")
-								.map(([id, v]) => ({
-									id,
-									label: id,
-									configured: (v as Record<string, unknown>)?.configured === true,
-									voices: ((v as Record<string, unknown>)?.voices as string[]) ?? [],
-								}));
-				setGatewayTtsProviders(providers);
-			}
-		} catch (err) {
-			Logger.warn("SettingsTab", "Failed to load Gateway TTS", {
-				error: String(err),
-			});
-		} finally {
-			setGatewayTtsLoading(false);
-		}
-	}, [gatewayUrl, gatewayToken]);
 
 	const fetchVoiceWake = useCallback(async () => {
 		const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
@@ -1072,10 +1003,9 @@ export function SettingsTab() {
 	}, [gatewayUrl, gatewayToken]);
 
 	useEffect(() => {
-		fetchGatewayTts();
 		fetchVoiceWake();
 		fetchDiscordBotStatus();
-	}, [fetchGatewayTts, fetchVoiceWake, fetchDiscordBotStatus]);
+	}, [fetchVoiceWake, fetchDiscordBotStatus]);
 
 	useEffect(() => {
 		getAllFacts()
@@ -1149,7 +1079,7 @@ export function SettingsTab() {
 				setNaiaKeyState(nextNaiaKey);
 				setNaiaUserIdState(nextNaiaUserId);
 				setProvider("nextain");
-				setModel((prev) => prev || getDefaultModel("nextain"));
+				setModel((prev) => prev || getDefaultLlmModel("nextain"));
 				setError("");
 				// In Lab mode, clear direct API key input to avoid confusion.
 				setApiKey("");
@@ -1161,7 +1091,7 @@ export function SettingsTab() {
 				// Persist to both secure store and localStorage
 				await saveSecretKey("naiaKey", nextNaiaKey);
 				const current = loadConfig();
-				const nextModel = current?.model || getDefaultModel("nextain");
+				const nextModel = current?.model || getDefaultLlmModel("nextain");
 				if (current) {
 					// Auto-set default voice based on VRM avatar gender if not previously configured
 					const defaultVoice = current.voice ?? getDefaultVoiceForAvatar(current.vrmModel);
@@ -1262,7 +1192,7 @@ export function SettingsTab() {
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
 		if (id !== "ollama") {
-			setModel(getDefaultModel(id));
+			setModel(getDefaultLlmModel(id));
 		}
 		setError("");
 		if (id === "nextain" && !naiaKey) {
@@ -1338,7 +1268,7 @@ export function SettingsTab() {
 				cfg.provider, cfg.model,
 				undefined, undefined, undefined, undefined, undefined, undefined,
 				undefined, undefined,
-				cfg.ttsProvider, cfg.ttsVoice, gatewayTtsAuto, gatewayTtsMode,
+				undefined, undefined, undefined, undefined,
 				naiaKey || undefined,
 			);
 		}, 2000);
@@ -1488,22 +1418,6 @@ export function SettingsTab() {
 		}
 	}
 
-
-	async function handleGatewayTtsAutoChange(auto: GatewayTtsAuto) {
-		setGatewayTtsAuto(auto);
-		// Persist to localStorage so fetchGatewayTts doesn't revert it
-		const cfg = loadConfig();
-		if (cfg) saveConfig({ ...cfg, gatewayTtsAuto: auto });
-		// Write to openclaw.json then restart gateway to apply
-		await syncToOpenClaw(
-			cfg?.provider || provider, cfg?.model || model,
-			undefined, undefined, undefined, undefined, undefined, undefined,
-			undefined, undefined,
-			ttsProvider, ttsVoice, auto, gatewayTtsMode,
-			naiaKey || undefined,
-		);
-		await restartGateway();
-	}
 
 	function handleVoiceWakeAdd() {
 		const trimmed = voiceWakeInput.trim();
@@ -1667,9 +1581,7 @@ export function SettingsTab() {
 			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
 			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
 			discordDmChannelId: discordDmChannelId.trim() || undefined,
-			gatewayTtsAuto,
-			gatewayTtsMode,
-			ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
+				ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
 			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
 		};
@@ -1693,7 +1605,7 @@ export function SettingsTab() {
 			discordDefaultUserId: newConfig.discordDefaultUserId,
 			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, newConfig.ttsProvider, newConfig.ttsVoice, gatewayTtsAuto, gatewayTtsMode, naiaKey || undefined, newConfig.ollamaHost || undefined)
+		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, undefined, undefined, undefined, undefined, naiaKey || undefined, newConfig.ollamaHost || undefined)
 			.then(() => restartGateway());
 
 		// Auto-sync to Lab if connected
@@ -2038,7 +1950,7 @@ export function SettingsTab() {
 												setNaiaUserIdState("");
 												setLabBalance(null);
 													setProvider("gemini");
-													setModel(getDefaultModel("gemini"));
+													setModel(getDefaultLlmModel("gemini"));
 												setDiscordDefaultUserId("");
 												setDiscordDmChannelId("");
 												setDiscordDefaultTarget("");
@@ -2054,8 +1966,17 @@ export function SettingsTab() {
 																: current.provider,
 														model:
 															current.provider === "nextain"
-																? getDefaultModel("gemini")
+																? getDefaultLlmModel("gemini")
 																: current.model,
+														// Reset Naia-dependent STT/TTS to defaults
+														ttsProvider:
+															current.ttsProvider === "nextain"
+																? "edge"
+																: current.ttsProvider,
+														sttProvider:
+															current.sttProvider === "nextain"
+																? ""
+																: current.sttProvider,
 														naiaKey: undefined,
 														naiaUserId: undefined,
 														discordDefaultUserId: undefined,
@@ -2068,7 +1989,7 @@ export function SettingsTab() {
 												if (updated) {
 													await syncToOpenClaw(
 														updated.provider || "gemini",
-														updated.model || getDefaultModel("gemini"),
+														updated.model || getDefaultLlmModel("gemini"),
 														updated.apiKey,
 														updated.persona,
 														updated.agentName,
@@ -2136,9 +2057,9 @@ export function SettingsTab() {
 					value={provider}
 					onChange={(e) => handleProviderChange(e.target.value as ProviderId)}
 				>
-					{PROVIDERS.map((p) => (
-						<option key={p.id} value={p.id}>
-							{p.label}
+					{LLM_PROVIDERS.map((p) => (
+						<option key={p.id} value={p.id} disabled={p.disabled}>
+							{p.name}
 						</option>
 					))}
 				</select>
@@ -2167,7 +2088,7 @@ export function SettingsTab() {
 					) : null}
 					{providerModels.map((m) => (
 						<option key={m.id} value={m.id}>
-							{m.label}
+							{formatModelLabel(m)}
 						</option>
 					))}
 				</select>
@@ -2296,7 +2217,7 @@ export function SettingsTab() {
 													setNaiaUserIdState("");
 													setLabBalance(null);
 													setProvider("gemini");
-													setModel(getDefaultModel("gemini"));
+													setModel(getDefaultLlmModel("gemini"));
 													setDiscordDefaultUserId("");
 													setDiscordDmChannelId("");
 													setDiscordDefaultTarget("");
@@ -2312,8 +2233,16 @@ export function SettingsTab() {
 																	: current.provider,
 															model:
 																current.provider === "nextain"
-																	? getDefaultModel("gemini")
+																	? getDefaultLlmModel("gemini")
 																	: current.model,
+															ttsProvider:
+																current.ttsProvider === "nextain"
+																	? "edge"
+																	: current.ttsProvider,
+															sttProvider:
+																current.sttProvider === "nextain"
+																	? ""
+																	: current.sttProvider,
 															naiaKey: undefined,
 															naiaUserId: undefined,
 															discordDefaultUserId: undefined,
@@ -2326,7 +2255,7 @@ export function SettingsTab() {
 													if (updated) {
 														await syncToOpenClaw(
 															updated.provider || "gemini",
-															updated.model || getDefaultModel("gemini"),
+															updated.model || getDefaultLlmModel("gemini"),
 															updated.apiKey,
 															updated.persona,
 															updated.agentName,
@@ -2500,8 +2429,8 @@ export function SettingsTab() {
 						>
 							<option value="">{t("settings.sttNone")}</option>
 							{listSttProviders().map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
+								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
 								</option>
 							))}
 						</select>
@@ -2585,13 +2514,7 @@ export function SettingsTab() {
 							id="tts-toggle"
 							type="checkbox"
 							checked={ttsEnabled}
-							onChange={(e) => {
-								const on = e.target.checked;
-								setTtsEnabled(on);
-								if (!on && gatewayTtsAuto !== "off") {
-									handleGatewayTtsAutoChange("off");
-								}
-							}}
+							onChange={(e) => setTtsEnabled(e.target.checked)}
 						/>
 					</div>
 					{/* TTS Provider selector */}
@@ -2635,8 +2558,8 @@ export function SettingsTab() {
 							}}
 						>
 							{listTtsProviderMetas().map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}
+								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
+									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
 								</option>
 							))}
 						</select>
@@ -2705,17 +2628,9 @@ export function SettingsTab() {
 					{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
 						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
-						// Edge: prefer gateway voices, fallback to hardcoded
+						// Edge: use locale-based hardcoded voice list
 						if (ttsProvider === "edge") {
-							const gwProvider = gatewayTtsProviders.find((p) => p.id === "edge");
-							let gwVoices = gwProvider?.voices ?? [];
-							if (gwVoices.length > 0) {
-								const langPrefix = locale.slice(0, 2).toLowerCase() + "-";
-								gwVoices = gwVoices.filter(
-									(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
-								);
-							}
-							const voices = gwVoices.length > 0 ? gwVoices : getEdgeVoicesForLocale(locale);
+							const voices = getEdgeVoicesForLocale(locale);
 							return voices.length > 0 ? (
 								<div className="settings-field">
 									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>

@@ -52,10 +52,10 @@ describe("tool_request without Gateway", () => {
 	});
 
 	it("synthesizeEdgeSpeech works directly without any gateway", async () => {
-		const audio = await synthesizeEdgeSpeech(
+		const result = await synthesizeEdgeSpeech(
 			"게이트웨이 연결 없이도 Edge TTS는 동작합니다.",
 		);
-		expect(audio).not.toBeNull();
-		expect(audio?.length).toBeGreaterThan(100);
+		expect(result).not.toBeNull();
+		expect(result?.audio.length).toBeGreaterThan(100);
 	}, 15000);
 });

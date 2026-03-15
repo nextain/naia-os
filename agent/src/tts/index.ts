@@ -11,5 +11,6 @@ export { synthesize, getTtsProvider, listTtsProviders } from "./registry.js";
 export type {
 	TtsProviderDefinition,
 	TtsSynthesizeOptions,
+	TtsSynthesizeResult,
 	TtsVoiceInfo,
 } from "./types.js";

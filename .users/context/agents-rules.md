@@ -11,6 +11,36 @@
 - **Philosophy**: OS itself is the AI's tool. Assemble, don't build from scratch.
 - **Core concept**: USB boot -> Naia avatar greets -> AI controls OS
 
+## Design Principles
+
+All rules in this file derive from these four principles. AI agents must understand WHY rules exist, not just follow them mechanically.
+
+### Four Pillars
+
+| Pillar | Meaning |
+|--------|---------|
+| **Simple** | No unnecessary complexity. Code explains itself. Minimal abstraction. |
+| **Robust** | Handles edge cases. Fails gracefully. Tests are diagnostic tools that verify this -- not scoreboards to pass. |
+| **Debuggable** | Sufficient debug logging from BUILD TIME (not added after bugs appear). Every failure is diagnosable from the first occurrence. |
+| **Extensible** | New providers/features added without modifying existing code. Provider registry pattern. |
+
+**Abstraction rule**: Abstraction is a tool to achieve these four principles, not a goal in itself.
+
+**Examples**: LLM/STT/TTS provider registry (#51, #60), Gateway interface abstraction (#64).
+
+### AI Behavioral Traps
+
+Known AI tendencies that violate the four principles:
+
+| Trap | Description | Counter |
+|------|-------------|---------|
+| **Optimistic code** | AI writes only happy-path code, assuming all calls succeed and all inputs are valid. | Consciously implement error paths during BUILD, not after failures are discovered. |
+| **Goal fixation** | AI converges on the most measurable goal (test pass, build success) and loses sight of the actual purpose. | Before acting, ask: what is the PURPOSE of this test/log/review? Act on the purpose, not the metric. |
+| **Success bias reporting** | AI reports uncertain states as "complete" or "working". E.g., marking work done when E2E was not actually run. | If not verified, it is not complete. Report honestly: "E2E blocked by X, implementation done but unverified." |
+| **Front-back inconsistency** | Sequential generation causes earlier code/comments to contradict later code in the same file. | Iterative review catches this. Re-read the full file after writing, check for internal consistency. |
+
+---
+
 ## Architecture (4 Layers)
 
 | Layer | Technology | Role |
@@ -100,6 +130,28 @@ Test code MUST be iteratively reviewed before trusting results. Faulty test logi
 - Write test → review test code (assertions correct? target accurate? edge cases?) → fix → re-review → TWO consecutive clean passes → run
 - After pass: re-confirm "does this test actually validate the intended behavior?"
 - Why: Incorrect test logic causes tests to pass while real bugs remain hidden.
+
+### Test Attitude
+
+Tests exist to make the implementation complete and correct — not to be passed. Test code itself can be wrong and may not be maintained. Tests are not always right. A failing test means "investigate", not "fix the implementation to match".
+
+**On failure:**
+1. Read FULL test output (error message, stack trace, actual vs expected)
+2. Read the IMPLEMENTATION to understand the intended behavior and WHY it was written that way
+3. Read the TEST to understand what behavior it claims to verify
+4. Diagnose: is the failure in app code or test code? Understand the business logic FIRST.
+5. If app code → fix app code, re-run test
+6. If test code → fix test code, re-run test
+7. Record diagnosis in progress file (`test_findings`)
+
+**Anti-patterns:**
+- Loosening assertions (e.g., `===` to `includes`, removing checks) to make a failing test pass
+- Modifying expected values to match buggy actual output
+- Deleting or skipping failing test cases without investigation
+- Reporting "tests pass" without reading what the tests actually verified
+- **CRITICAL: Changing implementation to match a failing test WITHOUT reading the code context** — the test may be wrong. A test name like "strips X" does not prove that stripping is the correct behavior; the implementation may intentionally do something different for a valid reason. Always read the implementation first and understand WHY it works the way it does before deciding which side to fix.
+
+**Why:** Goal fixation causes AI to treat "pass" as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions. Fixing the implementation to match a wrong test DELETES working features silently.
 
 ### Frameworks
 
@@ -193,6 +245,17 @@ Logger.error("[Shell] Avatar render failed", error);
 
 ### Debug Logging
 
+**When**: Debug logging is a BUILD-TIME activity, not a DEBUG-TIME activity. Add logging DURING implementation, not after problems are discovered. If logging is added only after a problem occurs, the first occurrence is always undiagnosed. Build-time logging ensures every failure is diagnosable from the first occurrence.
+
+**Build-time checklist:**
+- Every new async operation: log start, success, failure with context
+- Every new state transition: log before and after values
+- Every new external call (API, IPC, file I/O): log request and response summary
+- Every new error handling path: log the error with full context
+
+**Anti-pattern**: Adding `Logger.debug()` calls only after a bug is reported or test fails.
+
+**Principles:**
 - Every async wait/poll must log what it is waiting for and current state
 - UI blocking states (modals, dialogs, loading spinners) must be captured in traces
 - State transitions must be logged with before and after values
@@ -298,12 +361,15 @@ ci(os): add BlueBuild GitHub Action (#12)
 
 AI review encouraged; human review required for security-critical changes.
 
+**Fix policy:** All issues found during review MUST be fixed — regardless of whether they are bugs or code quality improvements. Do not defer "non-bug" findings. If it was worth identifying, it is worth fixing.
+
 **Code quality:**
 - [ ] Tests added/updated for new behavior?
 - [ ] No duplicate code (same logic in 2+ places)?
 - [ ] No unused imports/functions/files (knip clean)?
 - [ ] No zombie code from previous implementation?
 - [ ] Structured logger used (no console.log)?
+- [ ] New code paths have sufficient debug logging (async ops, state transitions, external calls, error paths)?
 
 **Security:**
 - [ ] Correct permission tier for new tools?

@@ -1,11 +1,12 @@
 import { GATEWAY_URL } from "../providers/lab-proxy.js";
 import { registerTtsProvider } from "./registry.js";
+import type { TtsSynthesizeResult } from "./types.js";
 
 export async function synthesizeNextainSpeech(
 	text: string,
 	naiaKey: string,
 	voice?: string,
-): Promise<string | null> {
+): Promise<TtsSynthesizeResult | null> {
 	if (!text.trim() || !naiaKey) return null;
 
 	const selectedVoice = voice || "ko-KR-Chirp3-HD-Kore";
@@ -26,8 +27,15 @@ export async function synthesizeNextainSpeech(
 
 		if (!res.ok) return null;
 
-		const data = (await res.json()) as { audio_content?: string };
-		return data.audio_content ?? null;
+		const data = (await res.json()) as {
+			audio_content?: string;
+			cost_usd?: number;
+		};
+		if (!data.audio_content) return null;
+		return {
+			audio: data.audio_content,
+			costUsd: data.cost_usd,
+		};
 	} catch {
 		return null;
 	}

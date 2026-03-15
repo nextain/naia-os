@@ -249,11 +249,15 @@ const API_KEY =
  * Safe to call multiple times — skips if already configured.
  */
 export async function ensureAppReady(): Promise<void> {
+	// Providers like claude-code-cli and ollama don't require an apiKey.
+	// Consider configured if onboardingComplete is set — apiKey is optional depending on provider.
 	const alreadyConfigured = await browser.execute(() => {
 		const raw = localStorage.getItem("naia-config");
 		if (!raw) return false;
 		const config = JSON.parse(raw);
-		return !!config.onboardingComplete && !!config.apiKey;
+		const noKeyProviders = ["claude-code-cli", "ollama"];
+		const apiKeyOptional = noKeyProviders.includes(config.provider ?? "");
+		return !!config.onboardingComplete && (!!config.apiKey || !!config.naiaKey || apiKeyOptional);
 	});
 
 	if (!alreadyConfigured) {
@@ -271,6 +275,7 @@ export async function ensureAppReady(): Promise<void> {
 				enableTools: true,
 				locale: config.locale || "ko",
 				onboardingComplete: true,
+				panelVisible: true,
 			});
 			localStorage.setItem("naia-config", JSON.stringify(config));
 		}, API_KEY);
@@ -285,6 +290,35 @@ export async function ensureAppReady(): Promise<void> {
 						"browser.refresh() failed after 3 attempts in ensureAppReady",
 					);
 				await browser.pause(2_000);
+			}
+		}
+	} else {
+		// Even if already configured, ensure the panel is visible so tabs render.
+		// A stored config with panelVisible:false would block all tab-based waits.
+		const panelWasHidden = await browser.execute(() => {
+			const raw = localStorage.getItem("naia-config");
+			if (!raw) return false;
+			const config = JSON.parse(raw);
+			if (config.panelVisible === false) {
+				config.panelVisible = true;
+				localStorage.setItem("naia-config", JSON.stringify(config));
+				return true;
+			}
+			return false;
+		});
+		// If we changed panelVisible, refresh so React picks up the new state.
+		if (panelWasHidden) {
+			for (let attempt = 0; attempt < 3; attempt++) {
+				try {
+					await browser.refresh();
+					break;
+				} catch {
+					if (attempt === 2)
+						throw new Error(
+							"browser.refresh() failed after 3 attempts in ensureAppReady (panelVisible fix)",
+						);
+					await browser.pause(2_000);
+				}
 			}
 		}
 	}

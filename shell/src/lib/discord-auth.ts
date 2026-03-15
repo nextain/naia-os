@@ -1,9 +1,9 @@
 import {
 	type AppConfig,
-	getDefaultModel,
 	loadConfig,
 	saveConfig,
 } from "./config";
+import { getDefaultLlmModel } from "./llm";
 import { openDmChannel } from "./discord-api";
 import { Logger } from "./logger";
 
@@ -31,7 +31,7 @@ function ensureBaseConfig(existing: AppConfig | null): AppConfig {
 	if (existing) return existing;
 	return {
 		provider: "gemini",
-		model: getDefaultModel("gemini"),
+		model: getDefaultLlmModel("gemini"),
 		apiKey: "",
 	};
 }

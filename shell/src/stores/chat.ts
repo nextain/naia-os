@@ -47,6 +47,8 @@ interface ChatState {
 	) => void;
 	finishStreaming: () => void;
 	addCostEntry: (entry: CostEntry) => void;
+	/** Add cost to session total only (not attached to any message). Used for STT costs. */
+	addSessionCost: (cost: number) => void;
 	setProvider: (provider: ProviderId) => void;
 	setPendingApproval: (approval: PendingApproval) => void;
 	clearPendingApproval: () => void;
@@ -189,7 +191,20 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			let attached = false;
 			for (let i = messages.length - 1; i >= 0; i--) {
 				if (messages[i].role === "assistant") {
-					messages[i] = { ...messages[i], cost: entry };
+					const prev = messages[i].cost;
+					// Accumulate cost — don't overwrite previous entries
+					messages[i] = {
+						...messages[i],
+						cost: prev
+							? {
+								inputTokens: prev.inputTokens + entry.inputTokens,
+								outputTokens: prev.outputTokens + entry.outputTokens,
+								cost: prev.cost + entry.cost,
+								provider: entry.provider,
+								model: entry.model,
+							}
+							: entry,
+					};
 					attached = true;
 					break;
 				}
@@ -202,6 +217,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 				totalSessionCost: s.totalSessionCost + entry.cost,
 			};
 		}),
+
+	addSessionCost: (cost) =>
+		set((s) => ({ totalSessionCost: s.totalSessionCost + cost })),
 
 	setProvider: (provider) => set({ provider }),
 

@@ -77,7 +77,7 @@ OpenClaw이 제공하는 것:
 ### 축 2: project-careti (에이전트 지능)
 
 Careti가 제공하는 것:
-- **멀티 LLM**: Gemini (기본), xAI (Grok), Claude
+- **멀티 LLM (레지스트리)**: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama
 - **도구 정의**: GATEWAY_TOOLS (8개 도구)
 - **Function calling**: Gemini 네이티브 (xAI/Claude = 기술 부채)
 - **Alpha 페르소나**: 시스템 프롬프트, 감정 매핑
@@ -88,7 +88,7 @@ Careti가 제공하는 것:
 
 OpenCode가 제공하는 것:
 - **클라이언트/서버 분리**: Shell (클라이언트) / Agent (서버)
-- **프로바이더 추상화**: buildProvider 팩토리 패턴
+- **프로바이더 레지스트리 패턴**: registerLlmProvider → buildProvider (확장 가능)
 - **모듈 경계**: shell / agent / gateway 분리
 
 ---
@@ -512,7 +512,9 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 **설정 UI:** TTS 프로바이더 드롭다운 + API key 입력 + 음성 선택 (레지스트리 기반 자동 탐색).
 
-**가격:** Edge (무료) | Naia Cloud (Naia 크레딧) | Google ($16/1M 글자) | OpenAI ($15/1M 글자) | ElevenLabs ($0.30/1K 글자)
+**가격:** Edge (무료) | Naia Cloud (게이트웨이 `cost_usd` 실제 비용) | Google (음성 티어별: Neural2/Wavenet $16/1M, Standard $4/1M, Chirp3-HD $16/1M) | OpenAI ($15/1M 글자) | ElevenLabs ($0.30/1K 글자)
+
+**비용 추적:** Naia Cloud는 게이트웨이가 반환한 실제 `cost_usd` 사용. 직접 API 연동(Google/OpenAI/ElevenLabs)은 `estimateTtsCost(provider, length, voice)`로 클라이언트 측 추정. Agent `TtsSynthesizeResult`가 `{ audio, costUsd? }`를 파이프라인으로 전달.
 
 **동적 음성:** Google과 ElevenLabs는 API key 입력 시 런타임 음성 목록 가져오기 지원.
 

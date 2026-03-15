@@ -5,6 +5,36 @@
 		"philosophy": "OS itself is the AI's tool. Assemble, don't build from scratch.",
 		"core_concept": "USB boot → Naia avatar greets → AI controls OS"
 	},
+	"design_principles": {
+		"purpose": "All rules in this file derive from these four principles. AI agents must understand WHY rules exist, not just follow them mechanically.",
+		"pillars": {
+			"simple": "No unnecessary complexity. Code explains itself. Minimal abstraction.",
+			"robust": "Handles edge cases. Fails gracefully. Tests are diagnostic tools that verify this — not scoreboards to pass.",
+			"debuggable": "Sufficient debug logging from BUILD TIME (not added after bugs appear). Every failure is diagnosable from the first occurrence.",
+			"extensible": "New providers/features added without modifying existing code. Provider registry pattern."
+		},
+		"abstraction_rule": "Abstraction is a tool to achieve these four principles, not a goal in itself.",
+		"examples": ["LLM/STT/TTS provider registry (#51, #60)", "Gateway interface abstraction (#64)"],
+		"ai_behavioral_traps": {
+			"purpose": "This context is read by AI agents. These are known AI tendencies that violate the four principles.",
+			"optimistic_code": {
+				"trap": "AI writes only happy-path code, assuming all calls succeed and all inputs are valid.",
+				"counter": "Consciously implement error paths during BUILD, not after failures are discovered."
+			},
+			"goal_fixation": {
+				"trap": "AI converges on the most measurable goal (test pass, build success) and loses sight of the actual purpose.",
+				"counter": "Before acting, ask: what is the PURPOSE of this test/log/review? Act on the purpose, not the metric."
+			},
+			"success_bias_reporting": {
+				"trap": "AI reports uncertain states as 'complete' or 'working'. E.g., marking work done when E2E was not actually run.",
+				"counter": "If not verified, it is not complete. Report honestly: 'E2E blocked by X, implementation done but unverified.'"
+			},
+			"front_back_inconsistency": {
+				"trap": "Sequential generation causes earlier code/comments to contradict later code in the same file.",
+				"counter": "Iterative review catches this. Re-read the full file after writing, check for internal consistency."
+			}
+		}
+	},
 	"architecture": {
 		"layers": {
 			"shell": "Tauri 2 + Three.js (Avatar UI, user interaction)",
@@ -102,6 +132,27 @@
 			],
 			"why": "Incorrect test logic (wrong assertions, missing edge cases, wrong mock setup) causes tests to pass while real bugs remain hidden. The test itself becomes the obstacle to finding the problem."
 		},
+		"test_attitude": {
+			"rule": "Tests exist to make the implementation complete and correct — not to be passed. Test code itself can be wrong and may not be maintained. Tests are not always right. A failing test means 'investigate', not 'fix the implementation to match'.",
+			"derives_from": "design_principles.pillars.robust",
+			"on_failure": [
+				"Read FULL test output (error message, stack trace, actual vs expected)",
+				"Read the IMPLEMENTATION to understand the intended behavior and WHY it was written that way",
+				"Read the TEST to understand what behavior it claims to verify",
+				"Diagnose: is the failure in app code or test code? Understand the business logic FIRST.",
+				"If app code → fix app code, re-run test",
+				"If test code → fix test code, re-run test",
+				"Record diagnosis in progress file (test_findings)"
+			],
+			"anti_patterns": [
+				"Loosening assertions (e.g., === to includes, removing checks) to make a failing test pass",
+				"Modifying expected values to match buggy actual output",
+				"Deleting or skipping failing test cases without investigation",
+				"Reporting 'tests pass' without reading what the tests actually verified",
+				"CRITICAL: Changing implementation to match a failing test WITHOUT reading the code context — the test may be wrong. A test name like 'strips X' does not prove that stripping is the correct behavior; the implementation may intentionally do something different (e.g., replace instead of strip) for a valid reason. Always read the implementation first and understand WHY it works the way it does before deciding which side to fix."
+			],
+			"why": "Goal fixation causes AI to treat 'pass' as the objective. The actual objective is understanding system state. A passing test with wrong assertions is worse than a failing test with correct assertions. Fixing the implementation to match a wrong test DELETES working features silently."
+		},
 		"framework": {
 			"unit_integration": "Vitest",
 			"e2e_shell": "@tauri-apps/cli (tauri-driver) + WebDriver",
@@ -193,6 +244,18 @@
 		},
 		"debug_logging": {
 			"rule": "Code must produce enough debug traces to diagnose issues without visual inspection.",
+			"when": {
+				"rule": "Debug logging is a BUILD-TIME activity, not a DEBUG-TIME activity. Add logging DURING implementation, not after problems are discovered.",
+				"derives_from": "design_principles.pillars.debuggable",
+				"rationale": "If logging is added only after a problem occurs, the first occurrence is always undiagnosed. Build-time logging ensures every failure is diagnosable from the first occurrence.",
+				"build_checklist": [
+					"Every new async operation: log start, success, failure with context",
+					"Every new state transition: log before and after values",
+					"Every new external call (API, IPC, file I/O): log request and response summary",
+					"Every new error handling path: log the error with full context"
+				],
+				"anti_pattern": "Adding Logger.debug() calls only after a bug is reported or test fails"
+			},
 			"principles": [
 				"Every async wait/poll must log what it is waiting for and current state",
 				"UI blocking states (modals, dialogs, loading spinners) must be captured in traces",
@@ -297,12 +360,14 @@
 		},
 		"code_review": {
 			"rule": "AI-assisted review encouraged. Human review for security-critical changes.",
+			"fix_policy": "All issues found during review MUST be fixed — regardless of whether they are bugs or code quality improvements. Do not defer 'non-bug' findings. If it was worth identifying, it is worth fixing.",
 			"checklist_code_quality": [
 				"Tests added/updated for new behavior?",
 				"No duplicate code (same logic in 2+ places)?",
 				"No unused imports/functions/files (knip clean)?",
 				"No zombie code from previous implementation?",
-				"Logging uses structured logger (no console.log, no raw eprintln!)?"
+				"Logging uses structured logger (no console.log, no raw eprintln!)?",
+				"New code paths have sufficient debug logging (async ops, state transitions, external calls, error paths)?"
 			],
 			"checklist_security": [
 				"Permission tier correctly assigned for new tools?",

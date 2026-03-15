@@ -55,6 +55,10 @@ principles:
     rule: "When tests fail or AI behaves unexpectedly, analyze structural issues (doc vs code mismatch, unreachable references, information architecture) before attributing to AI tool characteristics"
     anti_pattern: "Blaming 'AI reads shallow' when the real problem is a broken file reference"
 
+  test_as_diagnostic:
+    rule: "Tests are diagnostic tools — a failing test means 'investigate the bug', not 'fix the test to pass'. Read full output before any code change."
+    anti_pattern: "Weakening assertions, changing expected values, or deleting test cases to make tests pass without diagnosing root cause"
+
 # ─── Iteration Termination Rule ───────────────────────────────
 
 iteration_rule:
@@ -187,6 +191,7 @@ phases:
       - "hardcoded_strings: Are there any hardcoded UI strings that should use i18n?"
       - "type_safety: Are there any unvalidated external inputs (body, params)?"
       - "unused_code: Are there unused props, imports, or dead code paths?"
+      - "debug_logging_sufficient: Do new code paths have adequate debug logging (async ops, state transitions, external calls, error paths)?"
 
   e2e_test:
     description: "End-to-end test by running the actual application"
@@ -208,12 +213,23 @@ phases:
       - "3. Start dev server / app"
       - "4. Run targeted tests (changed scope only) for fast feedback"
       - "5. On pass → run full E2E suite"
-      - "6. On fail → fix and re-run targeted tests before full suite"
+      - "6. On fail → diagnose (read full output), fix root cause, re-run targeted tests"
     on_failure:
-      implementation_issue: "→ return to BUILD"
-      design_issue: "→ return to PLAN"
-      investigation_gap: "→ return to INVESTIGATE"
-    output: "Passing E2E test (targeted + full suite, fully clean)"
+      mandatory_first_step: "DIAGNOSE — read full test output before any code change"
+      diagnose:
+        - "Read FULL test output (error message, stack trace, actual vs expected values)"
+        - "Read relevant test code to confirm assertions are correct"
+        - "Identify root cause: is it implementation, design, or investigation gap?"
+        - "Record diagnosis in progress file (test_findings field)"
+      then_route:
+        implementation_issue: "→ return to BUILD (with specific diagnosis of what to fix)"
+        design_issue: "→ return to PLAN (with specific diagnosis of design flaw)"
+        investigation_gap: "→ return to INVESTIGATE (with specific diagnosis of missing knowledge)"
+      rules:
+        - "NEVER return to BUILD without first reading the full test failure output"
+        - "NEVER modify test assertions as the first response to a failure"
+        - "The diagnosis must identify a specific root cause, not just 'test failed'"
+    output: "E2E diagnostic complete — all tests pass with correct assertions (targeted + full suite)"
 
   post_test_review:
     description: "Re-review after tests pass — catch issues that testing context reveals"

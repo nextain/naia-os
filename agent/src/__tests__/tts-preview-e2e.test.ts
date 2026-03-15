@@ -20,23 +20,23 @@ describe("TTS Preview E2E", () => {
 	// ═══════════════════════════════════════
 	describe("Edge TTS (msedge-tts)", () => {
 		it("synthesizes Korean text with default voice", async () => {
-			const audio = await synthesizeEdgeSpeech("안녕하세요 테스트입니다.");
-			expect(audio).not.toBeNull();
-			expect(audio?.length).toBeGreaterThan(100);
+			const result = await synthesizeEdgeSpeech("안녕하세요 테스트입니다.");
+			expect(result).not.toBeNull();
+			expect(result?.audio.length).toBeGreaterThan(100);
 		}, 15000);
 
 		it("synthesizes with specific voice", async () => {
-			const audio = await synthesizeEdgeSpeech(
+			const result = await synthesizeEdgeSpeech(
 				"Hello, this is a test.",
 				"en-US-MichelleNeural",
 			);
-			expect(audio).not.toBeNull();
-			expect(audio?.length).toBeGreaterThan(100);
+			expect(result).not.toBeNull();
+			expect(result?.audio.length).toBeGreaterThan(100);
 		}, 15000);
 
 		it("returns null for empty text", async () => {
-			const audio = await synthesizeEdgeSpeech("");
-			expect(audio).toBeNull();
+			const result = await synthesizeEdgeSpeech("");
+			expect(result).toBeNull();
 		});
 	});
 
