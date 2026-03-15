@@ -16,7 +16,7 @@ finish-args:
   - --filesystem=home
   - --talk-name=org.freedesktop.Flatpak
   - --talk-name=org.freedesktop.Notifications
-  - --own-name=com.naia.shell.*
+  - --own-name=io.nextain.naia.*
   - --env=FLATPAK=1
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
 build-options:
@@ -25,6 +25,15 @@ build-options:
     - --share=network
 modules:
   - shared-modules/libappindicator/libappindicator-gtk3-12.10.json
+  - name: libvosk
+    buildsystem: simple
+    sources:
+      - type: archive
+        url: https://github.com/alphacep/vosk-api/releases/download/v0.3.45/vosk-linux-x86_64-0.3.45.zip
+        sha256: bbdc8ed85c43979f6443142889770ea95cbfbc56cffb5c5dcd73afa875c5fbb2
+        strip-components: 1
+    build-commands:
+      - install -Dm755 libvosk.so /app/lib/libvosk.so
   - name: Naia-OS
     buildsystem: simple
     sources:
