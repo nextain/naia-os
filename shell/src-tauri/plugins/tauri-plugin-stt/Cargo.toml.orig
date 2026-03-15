@@ -19,13 +19,15 @@ tauri = { version = "2.10.3" }
 serde = "1.0"
 thiserror = "2"
 serde_json = "1.0"
+log = "0.4"
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 cpal = "0.17"
 vosk = "0.3"
 reqwest = { version = "0.12", features = ["blocking"] }
 zip = "6.0.0"
-
+whisper-rs = { git = "https://github.com/nextain/whisper-rs-fork.git", rev = "ab97b92" }
 
 [build-dependencies]
 tauri-plugin = { version = "2.5.4", features = ["build"] }
+zip = "6.0.0"

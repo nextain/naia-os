@@ -5,11 +5,11 @@ use tauri::{
 
 pub use models::*;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 mod desktop;
 #[cfg(mobile)]
 mod mobile;
-#[cfg(all(desktop, not(target_os = "linux")))]
+#[cfg(all(desktop, not(target_os = "linux"), not(target_os = "windows")))]
 mod stub;
 
 mod commands;
@@ -22,11 +22,11 @@ pub use paths::{
     get_model_path, get_models_dir, list_available_models, model_exists, validate_path,
 };
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use desktop::Stt;
 #[cfg(mobile)]
 use mobile::Stt;
-#[cfg(all(desktop, not(target_os = "linux")))]
+#[cfg(all(desktop, not(target_os = "linux"), not(target_os = "windows")))]
 use stub::Stt;
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the stt APIs.
@@ -74,9 +74,9 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .setup(|app, api| {
             #[cfg(mobile)]
             let stt = mobile::init(app, api)?;
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             let stt = desktop::init(app, api)?;
-            #[cfg(all(desktop, not(target_os = "linux")))]
+            #[cfg(all(desktop, not(target_os = "linux"), not(target_os = "windows")))]
             let stt = stub::init(app, api)?;
             app.manage(stt);
             Ok(())

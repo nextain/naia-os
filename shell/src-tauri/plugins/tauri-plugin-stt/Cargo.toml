@@ -77,19 +77,19 @@ features = ["build"]
 [build-dependencies.zip]
 version = "6.0.0"
 
-[target.'cfg(target_os = "linux")'.dependencies.cpal]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.cpal]
 version = "0.17"
 
-[target.'cfg(target_os = "linux")'.dependencies.reqwest]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.reqwest]
 version = "0.12"
 features = ["blocking"]
 
-[target.'cfg(target_os = "linux")'.dependencies.vosk]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.vosk]
 version = "0.3"
 
-[target.'cfg(target_os = "linux")'.dependencies.whisper-rs]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.whisper-rs]
 git = "https://github.com/nextain/whisper-rs-fork.git"
-rev = "3ea4acd"
+rev = "ab97b92"
 
-[target.'cfg(target_os = "linux")'.dependencies.zip]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies.zip]
 version = "6.0.0"

@@ -1,5 +1,5 @@
-//! Stub STT implementation for platforms without native STT support (Windows, macOS).
-//! All methods return "not available" — STT features are Linux-only for now.
+//! Stub STT implementation for platforms without native STT support (macOS).
+//! All methods return "not available" — STT is supported on Linux and Windows only.
 
 use tauri::{plugin::PluginApi, AppHandle, Runtime};
 
