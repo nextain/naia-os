@@ -574,8 +574,8 @@ voice_architecture:
     settings_ui: "TTS provider dropdown + API key input + voice picker (auto-discovery from registry)"
     pricing:
       edge: "Free"
-      nextain: "Naia credit (included with Naia account)"
-      google: "$16/1M chars (Neural2)"
+      nextain: "Naia credit — actual cost returned from gateway (cost_usd in response)"
+      google: "Voice tier-based: Neural2/Wavenet $16/1M, Chirp3-HD $16/1M, Standard $4/1M"
       openai: "$15/1M chars (tts-1)"
       elevenlabs: "$0.30/1K chars"
 
@@ -658,7 +658,12 @@ voice_architecture:
       test_key_env: "NAIA_API_KEY in shell/.env"
     cost_tracking:
       llm: "agent calculateCost() — client-side estimation from model pricing table"
-      tts: "Shell estimateTtsCost() — per-char estimation, accumulated on assistant message"
+      tts: |
+        Two modes:
+        - Naia Cloud (nextain): gateway returns cost_usd → Shell uses server cost directly
+        - Direct API (google/openai/elevenlabs): Shell estimateTtsCost(provider, length, voice) — voice tier-based for Google, flat rate for others
+        Agent TtsSynthesizeResult carries { audio, costUsd? } through pipeline.
+        Accumulated on assistant message via addCostEntry.
       stt: "Shell estimateSttCost() — per-API-call, session total only (not per message)"
       note: "Client estimates may differ from gateway actual (e.g. Gemini free tier = $0)"
     files:
