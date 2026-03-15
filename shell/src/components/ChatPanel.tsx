@@ -582,9 +582,11 @@ export function ChatPanel() {
 		});
 		// Guard against provider/model mismatch (e.g. provider=gemini, model=claude-sonnet-4-6).
 		// When the saved model is not valid for the active provider, fall back to the default.
+		// Skip validation for providers with dynamic models (e.g. Ollama — empty static model list).
 		const savedModel = config.model || "gemini-2.5-flash";
 		const providerMeta = getLlmProvider(activeProvider);
-		const modelIsValid = !providerMeta || providerMeta.models.some((m) => m.id === savedModel);
+		const hasDynamicModels = providerMeta && providerMeta.models.length === 0;
+		const modelIsValid = !providerMeta || hasDynamicModels || providerMeta.models.some((m) => m.id === savedModel);
 		const resolvedModel = modelIsValid ? savedModel : getDefaultLlmModel(activeProvider);
 		if (!modelIsValid) {
 			Logger.warn("ChatPanel", "Model not valid for provider — using default", {

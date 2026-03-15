@@ -94,11 +94,16 @@ const TEST_PROVIDERS: {
 	model: string;
 	label: string;
 	keyEnv?: string;
+	keyField?: "apiKey" | "naiaKey";
+	extraConfig?: Record<string, unknown>;
 }[] = [
 	{ provider: "gemini", model: "gemini-2.5-flash", label: "Gemini 2.5 Flash", keyEnv: "GEMINI_API_KEY" },
 	{ provider: "openai", model: "gpt-4o", label: "OpenAI GPT-4o", keyEnv: "OPENAI_API_KEY" },
 	{ provider: "anthropic", model: "claude-haiku-4-5-20251001", label: "Anthropic Haiku", keyEnv: "ANTHROPIC_API_KEY" },
 	{ provider: "xai", model: "grok-3-mini", label: "xAI Grok 3 Mini", keyEnv: "XAI_API_KEY" },
+	{ provider: "zai", model: "glm-4.7", label: "Zhipu AI GLM-4.7", keyEnv: "ZHIPU_API_KEY" },
+	{ provider: "nextain", model: "gemini-2.5-flash", label: "Nextain (lab-proxy)", keyEnv: "NAIA_API_KEY", keyField: "naiaKey" },
+	{ provider: "ollama", model: "qwen3.5:9b", label: "Ollama qwen3.5:9b", extraConfig: { ollamaHost: "http://localhost:11434" } },
 	{ provider: "claude-code-cli", model: "claude-sonnet-4-6", label: "Claude Code CLI" },
 ];
 
@@ -226,6 +231,8 @@ describe("89 — LLM provider switching", () => {
 		console.log(`[89] OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? "available" : "MISSING"}`);
 		console.log(`[89] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "available" : "MISSING"}`);
 		console.log(`[89] XAI_API_KEY: ${process.env.XAI_API_KEY ? "available" : "MISSING"}`);
+		console.log(`[89] ZHIPU_API_KEY: ${process.env.ZHIPU_API_KEY ? "available" : "MISSING"}`);
+		console.log(`[89] NAIA_API_KEY: ${process.env.NAIA_API_KEY ? "available" : "MISSING"}`);
 		console.log(`[89] Artifacts dir: ${ARTIFACTS_DIR}`);
 		console.log(`[89] LLM debug log: ${LLM_LOG_PATH}`);
 
@@ -288,7 +295,9 @@ describe("89 — LLM provider switching", () => {
 					model: tp.model,
 					onboardingComplete: true,
 				};
-				if (apiKey) patch.apiKey = apiKey;
+				const keyField = tp.keyField ?? "apiKey";
+				if (apiKey) patch[keyField] = apiKey;
+				if (tp.extraConfig) Object.assign(patch, tp.extraConfig);
 				await writeConfig(patch);
 
 				// Refresh to apply
