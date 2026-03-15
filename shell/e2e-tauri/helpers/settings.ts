@@ -291,15 +291,32 @@ export async function ensureAppReady(): Promise<void> {
 	} else {
 		// Even if already configured, ensure the panel is visible so tabs render.
 		// A stored config with panelVisible:false would block all tab-based waits.
-		await browser.execute(() => {
+		const panelWasHidden = await browser.execute(() => {
 			const raw = localStorage.getItem("naia-config");
-			if (!raw) return;
+			if (!raw) return false;
 			const config = JSON.parse(raw);
 			if (config.panelVisible === false) {
 				config.panelVisible = true;
 				localStorage.setItem("naia-config", JSON.stringify(config));
+				return true;
 			}
+			return false;
 		});
+		// If we changed panelVisible, refresh so React picks up the new state.
+		if (panelWasHidden) {
+			for (let attempt = 0; attempt < 3; attempt++) {
+				try {
+					await browser.refresh();
+					break;
+				} catch {
+					if (attempt === 2)
+						throw new Error(
+							"browser.refresh() failed after 3 attempts in ensureAppReady (panelVisible fix)",
+						);
+					await browser.pause(2_000);
+				}
+			}
+		}
 	}
 
 	// Wait for app + tabs to be ready
