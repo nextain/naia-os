@@ -21,9 +21,10 @@ formats:
       - "@node-llama-cpp excluded from bundle (rm -rf after npm install) — saves ~650MB"
       - "OpenClaw bundled at /app/lib/naia-os/openclaw/"
       - "Node bundled at /app/bin/node"
+      - "libvosk v0.3.45 bundled at /app/lib/libvosk.so (from flatpak/io.nextain.naia.yml libvosk module)"
       - "pnpm not in PATH — use npx pnpm, npx tauri"
       - "Claude Code terminal cannot flatpak install — use desktop terminal"
-      - "--own-name=com.naia.shell.* required for single-instance D-Bus in Flatpak sandbox"
+      - "--own-name=io.nextain.naia.* required for single-instance D-Bus in Flatpak sandbox"
       - "tauri dev registers competing MIME handlers — local-reinstall script cleans them automatically"
 
   agent_build_pipeline:
@@ -267,6 +268,7 @@ os_image:
   recipe: recipes/recipe.yml
   scripts:
     - config/scripts/install-naia-shell.sh (downloads Flatpak bundle from GitHub Release + creates first-boot service)
+    - config/scripts/install-vosk.sh (downloads libvosk v0.3.45 → /usr/lib/libvosk.so for Vosk STT runtime)
     - config/scripts/branding.sh (os-release → Naia, URLs → naia.nextain.io)
   deployed_files:
     - config/files/usr/etc/xdg/autostart/naia-shell.desktop (login autostart → flatpak run)
