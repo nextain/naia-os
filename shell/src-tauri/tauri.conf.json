@@ -7,7 +7,7 @@
 		"frontendDist": "../dist",
 		"devUrl": "http://localhost:1420",
 		"beforeDevCommand": "pnpm dev",
-		"beforeBuildCommand": "pnpm build"
+		"beforeBuildCommand": "cd ../agent && pnpm install --frozen-lockfile && pnpm run build && cd ../shell && pnpm build"
 	},
 	"app": {
 		"withGlobalTauri": false,
