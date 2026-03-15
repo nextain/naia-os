@@ -1,4 +1,4 @@
-import type { TtsProviderDefinition, TtsSynthesizeOptions } from "./types.js";
+import type { TtsProviderDefinition, TtsSynthesizeOptions, TtsSynthesizeResult } from "./types.js";
 
 const providers = new Map<string, TtsProviderDefinition>();
 
@@ -26,7 +26,7 @@ export function listTtsProviders(): TtsProviderDefinition[] {
 export async function synthesize(
 	providerId: string,
 	options: TtsSynthesizeOptions,
-): Promise<string | null> {
+): Promise<TtsSynthesizeResult | null> {
 	const provider = providers.get(providerId);
 
 	// Fallback to edge with voice cleared (other provider voices don't work with Edge)

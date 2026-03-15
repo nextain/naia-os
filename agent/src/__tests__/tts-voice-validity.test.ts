@@ -27,9 +27,9 @@ describe("Voice Validity — verify voices produce audio", () => {
 
 		for (const voice of edgeVoices) {
 			it(`${voice} produces audio`, async () => {
-				const audio = await synthesizeEdgeSpeech(TEST_TEXT, voice);
-				expect(audio).not.toBeNull();
-				expect(audio!.length).toBeGreaterThan(100);
+				const result = await synthesizeEdgeSpeech(TEST_TEXT, voice);
+				expect(result).not.toBeNull();
+				expect(result!.audio.length).toBeGreaterThan(100);
 			}, 15000);
 		}
 	});
@@ -40,9 +40,9 @@ describe("Voice Validity — verify voices produce audio", () => {
 
 		for (const voice of tts1Voices) {
 			it.skipIf(!OPENAI_API_KEY)(`${voice} produces audio`, async () => {
-				const audio = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
-				expect(audio).not.toBeNull();
-				expect(audio!.length).toBeGreaterThan(100);
+				const result = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
+				expect(result).not.toBeNull();
+				expect(result!.audio.length).toBeGreaterThan(100);
 			}, 30000);
 		}
 	});
@@ -53,9 +53,9 @@ describe("Voice Validity — verify voices produce audio", () => {
 
 		for (const voice of miniVoices) {
 			it.skipIf(!OPENAI_API_KEY)(`${voice} produces audio (gpt-4o-mini-tts)`, async () => {
-				const audio = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
-				expect(audio).not.toBeNull();
-				expect(audio!.length).toBeGreaterThan(100);
+				const result = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
+				expect(result).not.toBeNull();
+				expect(result!.audio.length).toBeGreaterThan(100);
 			}, 30000);
 		}
 	});

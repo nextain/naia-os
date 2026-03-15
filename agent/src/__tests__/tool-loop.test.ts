@@ -12,8 +12,8 @@ vi.mock("../providers/factory.js", () => ({
 }));
 
 // Mock TTS
-vi.mock("../tts/google-tts.js", () => ({
-	synthesizeSpeech: vi.fn(),
+vi.mock("../tts/index.js", () => ({
+	synthesize: vi.fn(),
 }));
 
 // Mock cost

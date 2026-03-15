@@ -1,16 +1,16 @@
 import { registerTtsProvider } from "./registry.js";
+import type { TtsSynthesizeResult } from "./types.js";
 
 const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
 
 /**
  * Synthesize speech using ElevenLabs TTS API.
- * Returns base64-encoded MP3 audio or null on failure.
  */
 export async function synthesizeElevenLabsSpeech(
 	text: string,
 	apiKey: string,
 	voiceIdOrName?: string,
-): Promise<string | null> {
+): Promise<TtsSynthesizeResult | null> {
 	if (!text.trim() || !apiKey) return null;
 
 	try {
@@ -40,7 +40,7 @@ export async function synthesizeElevenLabsSpeech(
 
 		const buf = Buffer.from(await response.arrayBuffer());
 		if (buf.length === 0) return null;
-		return buf.toString("base64");
+		return { audio: buf.toString("base64") };
 	} catch {
 		return null;
 	}
