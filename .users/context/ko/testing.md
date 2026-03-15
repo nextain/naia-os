@@ -16,7 +16,7 @@
 
 | 유형 | 도구 |
 |------|------|
-| 유닛/통합 | Vitest |
+| 유닛/통합 | Vitest (`describe.skipIf()` / `it.skipIf()` 조건부 스킵) |
 | E2E (Shell) | @tauri-apps/cli (tauri-driver) + WebDriver |
 | E2E (OS) | QEMU VM 부팅 (CI에서 libvirt) |
 | Rust | cargo test |

@@ -16,7 +16,7 @@ Integration-first TDD. Test real I/O, not mocked internals.
 
 | Type | Tool |
 |------|------|
-| Unit/integration | Vitest |
+| Unit/integration | Vitest (`describe.skipIf()` / `it.skipIf()` for conditional skips) |
 | E2E (Shell) | @tauri-apps/cli (tauri-driver) + WebDriver |
 | E2E (OS) | QEMU VM boot (libvirt in CI) |
 | Rust | cargo test |

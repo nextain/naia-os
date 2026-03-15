@@ -35,6 +35,13 @@ frameworks:
   e2e_os: "QEMU VM boot (libvirt in CI)"
   rust: "cargo test"
   mocking: "msw (Mock Service Worker) for LLM API mocking"
+  vitest_conventions:
+    conditional_skip: |
+      Use describe.skipIf(condition) / it.skipIf(condition) — NOT describe() with
+      an early return inside the callback. The return pattern works but is implicit
+      and error-prone; skipIf is the Vitest-idiomatic API.
+      Good:  describe.skipIf(!apiKey)("provider", () => { ... })
+      Avoid: describe("provider", () => { if (!apiKey) { it(...); return; } ... })
 
 agent:
   description: "Node.js AI core. Communicates via stdio JSON lines."

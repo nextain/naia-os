@@ -358,6 +358,8 @@ ci(os): add BlueBuild GitHub Action (#12)
 
 AI review encouraged; human review required for security-critical changes.
 
+**Fix policy:** All issues found during review MUST be fixed — regardless of whether they are bugs or code quality improvements. Do not defer "non-bug" findings. If it was worth identifying, it is worth fixing.
+
 **Code quality:**
 - [ ] Tests added/updated for new behavior?
 - [ ] No duplicate code (same logic in 2+ places)?
