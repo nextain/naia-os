@@ -516,6 +516,8 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 **비용 추적:** Naia Cloud는 게이트웨이가 반환한 실제 `cost_usd` 사용. 직접 API 연동(Google/OpenAI/ElevenLabs)은 `estimateTtsCost(provider, length, voice)`로 클라이언트 측 추정. Agent `TtsSynthesizeResult`가 `{ audio, costUsd? }`를 파이프라인으로 전달.
 
+**STT 비용 추적:** `estimateSttCost()` API 호출 단위로 측정 → `addSessionCostEntry()`로 `sessionCostEntries[]`에 저장. CostDashboard 상세 패널에 provider/model별로 표시 (예: `stt:nextain`). 메시지에 첨부하지 않음 (assistant 메시지의 LLM 토큰 데이터 덮어쓰기 방지).
+
 **동적 음성:** Google과 ElevenLabs는 API key 입력 시 런타임 음성 목록 가져오기 지원.
 
 ---

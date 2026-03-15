@@ -516,6 +516,8 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 **Cost tracking:** Naia Cloud returns actual `cost_usd` from gateway → Shell uses server cost directly. Direct API providers (Google/OpenAI/ElevenLabs) use client-side estimation via `estimateTtsCost(provider, length, voice)`. Agent `TtsSynthesizeResult` carries `{ audio, costUsd? }` through the pipeline.
 
+**STT cost tracking:** `estimateSttCost()` per API call → stored in `sessionCostEntries[]` via `addSessionCostEntry()`. Shown in CostDashboard breakdown by provider/model (e.g. `stt:nextain`). Not attached to messages (avoids overwriting LLM token data on assistant messages).
+
 **Dynamic voices:** Google and ElevenLabs support runtime voice fetching via API when API key is provided.
 
 ---
