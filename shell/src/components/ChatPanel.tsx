@@ -48,8 +48,13 @@ import { startMemorySync } from "../lib/memory-sync";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
-import { createApiSttSession, getSttProvider } from "../lib/stt";
+import {
+	createApiSttSession,
+	createWebSpeechSttSession,
+	getSttProvider,
+} from "../lib/stt";
 import { estimateSttCost, estimateTtsCost } from "../lib/tts/cost";
+import { getTtsProviderMeta } from "../lib/tts";
 import type {
 	AgentResponseChunk,
 	AuditEvent,
@@ -989,6 +994,32 @@ export function ChatPanel() {
 		});
 		const ttsProviderForCost = voiceCfg?.ttsProvider ?? "edge";
 		const ttsVoiceForCost = voiceCfg?.voice;
+
+		// Browser TTS — synthesize directly in browser, skip agent pipeline
+		const ttsMeta = getTtsProviderMeta(ttsProviderForCost);
+		if (ttsMeta?.isClientSide) {
+			if (typeof window !== "undefined" && "speechSynthesis" in window) {
+				const utter = new SpeechSynthesisUtterance(clean);
+				utter.lang = voiceCfg?.voice || document.documentElement.lang || "ko-KR";
+				utter.onstart = () => {
+					useAvatarStore.getState().setSpeaking(true);
+				};
+				utter.onend = () => {
+					useAvatarStore.getState().setSpeaking(false);
+					activeTtsRequestsRef.current.delete(reqId);
+				};
+				utter.onerror = () => {
+					activeTtsRequestsRef.current.delete(reqId);
+				};
+				window.speechSynthesis.speak(utter);
+				Logger.info("ChatPanel", "Browser TTS speak", { text: clean.slice(0, 50) });
+			} else {
+				Logger.warn("ChatPanel", "Browser TTS not available");
+				activeTtsRequestsRef.current.delete(reqId);
+			}
+			return;
+		}
+
 		requestTts({
 			text: clean,
 			voice: voiceCfg?.voice,
@@ -1156,6 +1187,7 @@ export function ChatPanel() {
 					const sttEngine = config.sttProvider || "vosk";
 					const sttMeta = getSttProvider(sttEngine);
 					const isApiBased = sttMeta?.engineType === "api";
+					const isWebBased = sttMeta?.engineType === "web";
 
 					// Shared result handler for both offline and API-based STT
 					const handleSttResult = (result: {
@@ -1268,6 +1300,23 @@ export function ChatPanel() {
 								},
 							);
 							sttCleanupRef.current.push(cleanupCost);
+						}
+						sttCleanupRef.current.push(() => session.stop());
+						await session.start();
+						setSttState("listening");
+					} else if (isWebBased) {
+						// Web Speech API — browser built-in, free, no model download
+						const session = createWebSpeechSttSession(sttLang);
+						const cleanupResult = session.onResult(handleSttResult);
+						sttCleanupRef.current.push(cleanupResult);
+						if (session.onError) {
+							const cleanupError = session.onError((err) => {
+								Logger.warn("ChatPanel", "Web Speech STT error", {
+									code: err.code,
+									message: err.message,
+								});
+							});
+							sttCleanupRef.current.push(cleanupError);
 						}
 						sttCleanupRef.current.push(() => session.stop());
 						await session.start();

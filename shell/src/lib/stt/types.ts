@@ -1,5 +1,5 @@
-/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based. */
-export type SttEngineType = "tauri" | "api";
+/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based, "web" for Web Speech API. */
+export type SttEngineType = "tauri" | "api" | "web";
 
 /** STT provider metadata for settings UI and runtime selection. */
 export interface SttProviderMeta {
@@ -64,7 +64,9 @@ export interface SttSession {
 	/** Register callback for recognition results. Returns cleanup function. */
 	onResult(callback: (result: SttResult) => void): () => void;
 	/** Register callback for errors. Returns cleanup function. */
-	onError?(callback: (error: { code: string; message: string }) => void): () => void;
+	onError?(
+		callback: (error: { code: string; message: string }) => void,
+	): () => void;
 	/** Register callback for cost tracking (called per API call). Returns cleanup function. */
 	onCost?(callback: (cost: { durationSeconds: number }) => void): () => void;
 }

@@ -14,6 +14,8 @@ export interface TtsProviderMeta {
 	requiresNaiaKey?: boolean;
 	/** Whether the provider is free to use. */
 	isFree?: boolean;
+	/** Whether TTS synthesis runs client-side in the browser (bypasses agent TTS pipeline). */
+	isClientSide?: boolean;
 	/** Pricing hint (e.g. "Free", "$15/1M chars"). */
 	pricing?: string;
 	/** Static voice list (fallback when API unavailable). */

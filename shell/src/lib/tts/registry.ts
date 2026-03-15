@@ -16,24 +16,41 @@ export function listTtsProviderMetas(): TtsProviderMeta[] {
 
 // ── Shared: Google TTS voice fetcher (used by both Naia Cloud and Google direct) ──
 
-async function fetchGoogleVoices(apiKey: string): Promise<TtsVoiceMeta[] | null> {
+async function fetchGoogleVoices(
+	apiKey: string,
+): Promise<TtsVoiceMeta[] | null> {
 	try {
-		const locale = document.documentElement.lang || navigator.language || "ko-KR";
+		const locale =
+			document.documentElement.lang || navigator.language || "ko-KR";
 		const langCode = locale.slice(0, 5);
 		const resp = await fetch(
 			`https://texttospeech.googleapis.com/v1/voices?languageCode=${langCode}&key=${apiKey}`,
 		);
 		if (!resp.ok) return null;
 		const data = await resp.json();
-		const genderLabel = (g?: string) => g === "FEMALE" ? "여성" : g === "MALE" ? "남성" : "";
-		const shortName = (name: string) => name.replace(new RegExp(`^${langCode}-`), "").replace(/^(Chirp3-HD-|Neural2-)/, "");
+		const genderLabel = (g?: string) =>
+			g === "FEMALE" ? "여성" : g === "MALE" ? "남성" : "";
+		const shortName = (name: string) =>
+			name
+				.replace(new RegExp(`^${langCode}-`), "")
+				.replace(/^(Chirp3-HD-|Neural2-)/, "");
 		return (data.voices ?? [])
-			.filter((v: { name?: string }) => v.name?.includes("Neural2") || v.name?.includes("Chirp") || v.name?.includes("Wavenet"))
+			.filter(
+				(v: { name?: string }) =>
+					v.name?.includes("Neural2") ||
+					v.name?.includes("Chirp") ||
+					v.name?.includes("Wavenet"),
+			)
 			.map((v: { name: string; ssmlGender?: string }) => ({
 				id: v.name,
 				label: `${shortName(v.name)}${genderLabel(v.ssmlGender) ? ` (${genderLabel(v.ssmlGender)})` : ""}`,
 				language: langCode,
-				gender: v.ssmlGender === "FEMALE" ? "female" as const : v.ssmlGender === "MALE" ? "male" as const : "neutral" as const,
+				gender:
+					v.ssmlGender === "FEMALE"
+						? ("female" as const)
+						: v.ssmlGender === "MALE"
+							? ("male" as const)
+							: ("neutral" as const),
 			}));
 	} catch {
 		return null;
@@ -59,9 +76,21 @@ const GOOGLE_TTS_VOICES: TtsVoiceMeta[] = [
 // ── Providers (order: free → Naia → paid) ──
 
 registerTtsProviderMeta({
+	id: "browser",
+	name: "Browser TTS",
+	description:
+		"Browser built-in speech synthesis. No API key, no cost. Voice quality varies by OS.",
+	requiresApiKey: false,
+	isFree: true,
+	isClientSide: true,
+	pricing: "Free",
+});
+
+registerTtsProviderMeta({
 	id: "edge",
 	name: "Microsoft Edge TTS",
-	description: "Free, no API key needed. Good quality voices for 14+ languages.",
+	description:
+		"Free, no API key needed. Good quality voices for 14+ languages.",
 	requiresApiKey: false,
 	isFree: true,
 	pricing: "Free",
@@ -70,7 +99,8 @@ registerTtsProviderMeta({
 registerTtsProviderMeta({
 	id: "nextain",
 	name: "Naia Cloud TTS",
-	description: "Cloud TTS without API key. Currently Google Chirp 3 HD + Neural2.",
+	description:
+		"Cloud TTS without API key. Currently Google Chirp 3 HD + Neural2.",
 	requiresApiKey: false,
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
@@ -80,7 +110,8 @@ registerTtsProviderMeta({
 registerTtsProviderMeta({
 	id: "google",
 	name: "Google Cloud TTS",
-	description: "High-quality Neural2 + Chirp 3 HD voices. Requires Google API key.",
+	description:
+		"High-quality Neural2 + Chirp 3 HD voices. Requires Google API key.",
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
 	pricing: "$0.016/1K 글자",
@@ -121,18 +152,30 @@ registerTtsProviderMeta({
 	pricing: "$0.30/1K 글자",
 	async fetchVoices(apiKey) {
 		try {
-			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=50", {
-				headers: { "xi-api-key": apiKey },
-			});
+			const resp = await fetch(
+				"https://api.elevenlabs.io/v1/voices?page_size=50",
+				{
+					headers: { "xi-api-key": apiKey },
+				},
+			);
 			if (!resp.ok) return null;
 			const data = await resp.json();
-			return (data.voices ?? []).map((v: { voice_id: string; name: string; labels?: { gender?: string } }) => ({
-				id: v.voice_id,
-				label: v.name,
-				gender: v.labels?.gender === "female" ? "female" as const
-					: v.labels?.gender === "male" ? "male" as const
-					: "neutral" as const,
-			}));
+			return (data.voices ?? []).map(
+				(v: {
+					voice_id: string;
+					name: string;
+					labels?: { gender?: string };
+				}) => ({
+					id: v.voice_id,
+					label: v.name,
+					gender:
+						v.labels?.gender === "female"
+							? ("female" as const)
+							: v.labels?.gender === "male"
+								? ("male" as const)
+								: ("neutral" as const),
+				}),
+			);
 		} catch {
 			return null;
 		}
