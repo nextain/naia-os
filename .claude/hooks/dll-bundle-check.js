@@ -45,11 +45,11 @@ async function main() {
 	if (toolName !== "Bash") process.exit(0);
 	if (
 		!command.includes("cargo build") &&
-		!command.includes("tauri build") &&
-		!command.includes("tauri dev")
+		!command.includes("tauri build")
 	) {
 		process.exit(0);
 	}
+	// Only check release builds — dev builds don't produce NSIS bundles
 	if (!command.includes("release") && !command.includes("tauri build")) {
 		process.exit(0);
 	}
