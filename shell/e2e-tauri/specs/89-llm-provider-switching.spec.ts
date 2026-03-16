@@ -148,9 +148,9 @@ const TEST_PROVIDERS: {
 	},
 	{
 		provider: "vllm",
-		model: "qwen3.5:9b",
-		label: "vLLM (Ollama compat, localhost:11434)",
-		extraConfig: { vllmHost: "http://localhost:11434" },
+		model: "Qwen/Qwen2.5-1.5B-Instruct",
+		label: "vLLM (localhost:8000)",
+		extraConfig: { vllmHost: "http://localhost:8000" },
 	},
 	{
 		provider: "claude-code-cli",
