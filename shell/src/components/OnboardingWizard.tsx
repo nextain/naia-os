@@ -1,28 +1,30 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
+import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { directToolCall } from "../lib/chat-service";
 import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
+	DEFAULT_VLLM_HOST,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
-import {
-	listLlmProviders,
-	getDefaultLlmModel,
-	fetchOllamaModels,
-} from "../lib/llm";
-import { saveSecretKey } from "../lib/secure-store";
-import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { validateApiKey } from "../lib/db";
+import { persistDiscordDefaults } from "../lib/discord-auth";
 import { getLocale, t } from "../lib/i18n";
+import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
+import {
+	fetchOllamaModels,
+	fetchVllmModels,
+	getDefaultLlmModel,
+	listLlmProviders,
+} from "../lib/llm";
 import { Logger } from "../lib/logger";
 import { syncToOpenClaw } from "../lib/openclaw-sync";
-import { persistDiscordDefaults } from "../lib/discord-auth";
-import { fetchLabConfig, pushConfigToLab } from "../lib/lab-sync";
 import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
+import { saveSecretKey } from "../lib/secure-store";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
 import { VrmPreview } from "./VrmPreview";
@@ -121,12 +123,13 @@ Personality:
 ];
 
 // Providers for onboarding (exclude nextain — handled as Lab login)
-const ONBOARDING_PROVIDERS = listLlmProviders().filter((p) => p.id !== "nextain");
+const ONBOARDING_PROVIDERS = listLlmProviders().filter(
+	(p) => p.id !== "nextain",
+);
 
 function getNaiaWebBaseUrl() {
 	return (
-		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() ||
-		"https://naia.nextain.io"
+		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() || "https://naia.nextain.io"
 	);
 }
 
@@ -156,9 +159,17 @@ export function OnboardingWizard({
 	const [discordConnectLoading, setDiscordConnectLoading] = useState(false);
 	const [discordConnected, setDiscordConnected] = useState(false);
 	const [ollamaHost, setOllamaHost] = useState(DEFAULT_OLLAMA_HOST);
-	const [ollamaModels, setOllamaModels] = useState<{ id: string; label: string }[]>([]);
+	const [ollamaModels, setOllamaModels] = useState<
+		{ id: string; label: string }[]
+	>([]);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
 	const [selectedOllamaModel, setSelectedOllamaModel] = useState("");
+	const [vllmHost, setVllmHost] = useState(DEFAULT_VLLM_HOST);
+	const [vllmModels, setVllmModels] = useState<{ id: string; label: string }[]>(
+		[],
+	);
+	const [vllmConnected, setVllmConnected] = useState(false);
+	const [selectedVllmModel, setSelectedVllmModel] = useState("");
 
 	// Listen for deep-link Lab auth callback
 	useEffect(() => {
@@ -185,7 +196,8 @@ export function OnboardingWizard({
 				}
 				if (source?.userName) setUserName(source.userName as string);
 				if (onlineConfig?.honorific) setHonorificInput(onlineConfig.honorific);
-				if (onlineConfig?.speechStyle) setSelectedSpeechStyle(onlineConfig.speechStyle);
+				if (onlineConfig?.speechStyle)
+					setSelectedSpeechStyle(onlineConfig.speechStyle);
 
 				const vrmSource = existing?.vrmModel;
 				if (vrmSource) {
@@ -212,11 +224,21 @@ export function OnboardingWizard({
 						provider: "nextain" as ProviderId,
 						model: getDefaultLlmModel("nextain"),
 						apiKey: "",
-						userName: (onlineConfig?.userName ?? existing?.userName ?? source.userName) as string,
-						agentName: (onlineConfig?.agentName ?? existing?.agentName ?? source.agentName) as string,
-						persona: (onlineConfig?.persona ?? existing?.persona) as string | undefined,
-						honorific: (onlineConfig?.honorific ?? existing?.honorific) as string | undefined,
-						speechStyle: (onlineConfig?.speechStyle ?? existing?.speechStyle) as string | undefined,
+						userName: (onlineConfig?.userName ??
+							existing?.userName ??
+							source.userName) as string,
+						agentName: (onlineConfig?.agentName ??
+							existing?.agentName ??
+							source.agentName) as string,
+						persona: (onlineConfig?.persona ?? existing?.persona) as
+							| string
+							| undefined,
+						honorific: (onlineConfig?.honorific ?? existing?.honorific) as
+							| string
+							| undefined,
+						speechStyle: (onlineConfig?.speechStyle ?? existing?.speechStyle) as
+							| string
+							| undefined,
 						enableTools: true,
 						onboardingComplete: true,
 						naiaKey: key,
@@ -235,7 +257,23 @@ export function OnboardingWizard({
 						discordDefaultUserId: restored.discordDefaultUserId,
 						discordDmChannelId: restored.discordDmChannelId,
 					});
-					syncToOpenClaw(restored.provider, restored.model, restored.apiKey, restored.persona, restored.agentName, restored.userName, fullPrompt, restored.locale || getLocale(), restored.discordDmChannelId, restored.discordDefaultUserId, undefined, undefined, undefined, undefined, key);
+					syncToOpenClaw(
+						restored.provider,
+						restored.model,
+						restored.apiKey,
+						restored.persona,
+						restored.agentName,
+						restored.userName,
+						fullPrompt,
+						restored.locale || getLocale(),
+						restored.discordDmChannelId,
+						restored.discordDefaultUserId,
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						key,
+					);
 
 					// Push to Lab if not yet saved online
 					if (!onlineConfig) {
@@ -323,8 +361,12 @@ export function OnboardingWizard({
 	}
 
 	function goNext() {
-		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
-		const skipOllamaConfig = provider !== "ollama";
+		const skipApiKey =
+			naiaKey ||
+			provider === "claude-code-cli" ||
+			provider === "ollama" ||
+			provider === "vllm";
+		const skipOllamaConfig = provider !== "ollama" && provider !== "vllm";
 		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex < STEPS.length - 1) {
 			let next = stepIndex + 1;
@@ -336,8 +378,12 @@ export function OnboardingWizard({
 	}
 
 	function goBack() {
-		const skipApiKey = naiaKey || provider === "claude-code-cli" || provider === "ollama";
-		const skipOllamaConfig = provider !== "ollama";
+		const skipApiKey =
+			naiaKey ||
+			provider === "claude-code-cli" ||
+			provider === "ollama" ||
+			provider === "vllm";
+		const skipOllamaConfig = provider !== "ollama" && provider !== "vllm";
 		const skipSpeechStyle = !FORMALITY_LOCALES.has(getLocale());
 		if (stepIndex > 0) {
 			let prev = stepIndex - 1;
@@ -352,7 +398,9 @@ export function OnboardingWizard({
 		setLabWaiting(true);
 		setLabTimeout(false);
 		try {
-			await openUrl(`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`);
+			await openUrl(
+				`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`,
+			);
 		} catch {
 			setLabWaiting(false);
 			return;
@@ -400,9 +448,17 @@ export function OnboardingWizard({
 		const config = {
 			...existing,
 			provider: effectiveProvider,
-			model: effectiveProvider === "ollama" ? selectedOllamaModel : getDefaultLlmModel(effectiveProvider),
+			model:
+				effectiveProvider === "ollama"
+					? selectedOllamaModel
+					: effectiveProvider === "vllm"
+						? selectedVllmModel
+						: getDefaultLlmModel(effectiveProvider),
 			apiKey:
-				naiaKey || provider === "claude-code-cli" || provider === "ollama"
+				naiaKey ||
+				provider === "claude-code-cli" ||
+				provider === "ollama" ||
+				provider === "vllm"
 					? ""
 					: apiKey.trim(),
 			userName: userName.trim() || undefined,
@@ -416,6 +472,7 @@ export function OnboardingWizard({
 			naiaKey: naiaKey || undefined,
 			naiaUserId: naiaUserId || undefined,
 			ollamaHost: effectiveProvider === "ollama" ? ollamaHost : undefined,
+			vllmHost: effectiveProvider === "vllm" ? vllmHost : undefined,
 		};
 		saveConfig(config);
 		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
@@ -430,7 +487,24 @@ export function OnboardingWizard({
 			discordDefaultUserId: config.discordDefaultUserId,
 			discordDmChannelId: config.discordDmChannelId,
 		});
-		syncToOpenClaw(config.provider, config.model, config.apiKey, config.persona, config.agentName, config.userName, fullPrompt, config.locale || getLocale(), config.discordDmChannelId, config.discordDefaultUserId, undefined, undefined, undefined, undefined, naiaKey || undefined, config.ollamaHost || undefined);
+		syncToOpenClaw(
+			config.provider,
+			config.model,
+			config.apiKey,
+			config.persona,
+			config.agentName,
+			config.userName,
+			fullPrompt,
+			config.locale || getLocale(),
+			config.discordDmChannelId,
+			config.discordDefaultUserId,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			naiaKey || undefined,
+			config.ollamaHost || undefined,
+		);
 
 		// Sync to Lab if connected
 		if (naiaKey && naiaUserId) {
@@ -450,9 +524,11 @@ export function OnboardingWizard({
 					!!apiKey.trim() ||
 					!!naiaKey ||
 					provider === "claude-code-cli" ||
-					provider === "ollama"
+					provider === "ollama" ||
+					provider === "vllm"
 				);
 			case "ollamaConfig":
+				if (provider === "vllm") return vllmConnected && !!selectedVllmModel;
 				return ollamaConnected && !!selectedOllamaModel;
 			case "agentName":
 				return !!sanitizeName(agentName);
@@ -541,7 +617,9 @@ export function OnboardingWizard({
 									}}
 								>
 									<span className="provider-card-label">{p.name}</span>
-									<span className="provider-card-desc">{t((p.descKey ?? "provider.apiKeyRequired") as any)}</span>
+									<span className="provider-card-desc">
+										{t((p.descKey ?? "provider.apiKeyRequired") as any)}
+									</span>
 								</button>
 							))}
 						</div>
@@ -561,7 +639,6 @@ export function OnboardingWizard({
 								setValidationResult("idle");
 							}}
 							placeholder="API key..."
-							autoFocus
 						/>
 						<button
 							type="button"
@@ -586,8 +663,8 @@ export function OnboardingWizard({
 					</div>
 				)}
 
-				{/* Step: Ollama Config */}
-				{step === "ollamaConfig" && (
+				{/* Step: Local Server Config (Ollama / vLLM) */}
+				{step === "ollamaConfig" && provider === "ollama" && (
 					<div className="onboarding-content">
 						<h2>Ollama 설정</h2>
 						<div className="settings-field">
@@ -598,7 +675,6 @@ export function OnboardingWizard({
 								value={ollamaHost}
 								onChange={(e) => setOllamaHost(e.target.value)}
 								placeholder={DEFAULT_OLLAMA_HOST}
-								autoFocus
 							/>
 						</div>
 						<button
@@ -640,6 +716,58 @@ export function OnboardingWizard({
 						)}
 					</div>
 				)}
+				{step === "ollamaConfig" && provider === "vllm" && (
+					<div className="onboarding-content">
+						<h2>vLLM 설정</h2>
+						<div className="settings-field">
+							<label>Server URL</label>
+							<input
+								type="text"
+								className="onboarding-input"
+								value={vllmHost}
+								onChange={(e) => setVllmHost(e.target.value)}
+								placeholder={DEFAULT_VLLM_HOST}
+							/>
+						</div>
+						<button
+							type="button"
+							className="onboarding-validate-btn"
+							onClick={async () => {
+								const result = await fetchVllmModels(vllmHost);
+								setVllmConnected(result.connected);
+								setVllmModels(result.models);
+								if (result.models.length > 0 && !selectedVllmModel) {
+									setSelectedVllmModel(result.models[0].id);
+								}
+							}}
+						>
+							연결 확인
+						</button>
+						{vllmConnected && vllmModels.length > 0 && (
+							<select
+								className="onboarding-input"
+								value={selectedVllmModel}
+								onChange={(e) => setSelectedVllmModel(e.target.value)}
+							>
+								{vllmModels.map((m) => (
+									<option key={m.id} value={m.id}>
+										{m.label}
+									</option>
+								))}
+							</select>
+						)}
+						{vllmConnected && vllmModels.length === 0 && (
+							<div className="onboarding-validation-error">
+								모델 없음 — vLLM 서버에 모델이 로드되어 있는지 확인하세요
+							</div>
+						)}
+						{!vllmConnected && vllmModels.length === 0 && (
+							<div className="settings-hint">
+								vLLM 서버에 연결하려면 위 버튼을 클릭하세요
+							</div>
+						)}
+					</div>
+				)}
 
 				{/* Step: Agent Name */}
 				{step === "agentName" && (
@@ -651,7 +779,6 @@ export function OnboardingWizard({
 							value={agentName}
 							onChange={(e) => setAgentName(e.target.value)}
 							placeholder={t("onboard.name.placeholder")}
-							autoFocus
 						/>
 					</div>
 				)}
@@ -668,7 +795,6 @@ export function OnboardingWizard({
 							value={userName}
 							onChange={(e) => setUserName(e.target.value)}
 							placeholder={t("onboard.name.placeholder")}
-							autoFocus
 						/>
 					</div>
 				)}
@@ -750,12 +876,20 @@ export function OnboardingWizard({
 									type="button"
 									className={`onboarding-personality-card${selectedPersonality === p.id ? " selected" : ""}`}
 									onClick={() => {
-									setSelectedPersonality(p.id);
-									setSelectedSpeechStyle(p.id === "polite" || p.id === "calm" ? "formal" : "casual");
-								}}
+										setSelectedPersonality(p.id);
+										setSelectedSpeechStyle(
+											p.id === "polite" || p.id === "calm"
+												? "formal"
+												: "casual",
+										);
+									}}
 								>
-									<span className="personality-card-label">{t(p.labelKey as any)}</span>
-									<span className="personality-card-desc">{t(p.descKey as any)}</span>
+									<span className="personality-card-label">
+										{t(p.labelKey as any)}
+									</span>
+									<span className="personality-card-desc">
+										{t(p.descKey as any)}
+									</span>
 								</button>
 							))}
 						</div>
@@ -777,16 +911,24 @@ export function OnboardingWizard({
 								className={`onboarding-personality-card${selectedSpeechStyle === "casual" ? " selected" : ""}`}
 								onClick={() => setSelectedSpeechStyle("casual")}
 							>
-								<span className="personality-card-label">{t("onboard.speechStyle.casual")}</span>
-								<span className="personality-card-desc">{t("onboard.speechStyle.casualDesc")}</span>
+								<span className="personality-card-label">
+									{t("onboard.speechStyle.casual")}
+								</span>
+								<span className="personality-card-desc">
+									{t("onboard.speechStyle.casualDesc")}
+								</span>
 							</button>
 							<button
 								type="button"
 								className={`onboarding-personality-card${selectedSpeechStyle === "formal" ? " selected" : ""}`}
 								onClick={() => setSelectedSpeechStyle("formal")}
 							>
-								<span className="personality-card-label">{t("onboard.speechStyle.formal")}</span>
-								<span className="personality-card-desc">{t("onboard.speechStyle.formalDesc")}</span>
+								<span className="personality-card-label">
+									{t("onboard.speechStyle.formal")}
+								</span>
+								<span className="personality-card-desc">
+									{t("onboard.speechStyle.formalDesc")}
+								</span>
 							</button>
 						</div>
 						<div className="settings-field" style={{ marginTop: 16 }}>
@@ -876,7 +1018,6 @@ export function OnboardingWizard({
 							className="onboarding-next-btn"
 							onClick={goNext}
 							disabled={!canProceed()}
-							autoFocus={step === "character" || step === "personality"}
 						>
 							{t("onboard.next")}
 						</button>
