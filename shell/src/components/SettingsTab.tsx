@@ -4,51 +4,63 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLongPress } from "../hooks/useLongPress";
+import {
+	AVATAR_PRESETS,
+	DEFAULT_AVATAR_MODEL,
+	getDefaultTtsVoiceForAvatar,
+	getDefaultVoiceForAvatar,
+} from "../lib/avatar-presets";
+import { syncLinkedChannels } from "../lib/channel-sync";
 import { directToolCall } from "../lib/chat-service";
 import {
 	DEFAULT_GATEWAY_URL,
 	DEFAULT_OLLAMA_HOST,
+	DEFAULT_VLLM_HOST,
 	LAB_GATEWAY_URL,
 	type PanelPosition,
-	type ThemeId,
 	type SttProviderId,
+	type ThemeId,
 	type TtsProviderId,
 	clearAllowedTools,
+	getNaiaKeySecure,
 	loadConfig,
 	resolveGatewayUrl,
 	saveConfig,
-	getNaiaKeySecure,
 } from "../lib/config";
-import {
-	listLlmProviders,
-	getLlmProvider,
-	isOmniModel,
-	getDefaultLlmModel,
-	isApiKeyOptional,
-	getStaticModelsRecord,
-	fetchOllamaModels,
-	formatModelLabel,
-	type LlmModelMeta,
-} from "../lib/llm";
-import { saveSecretKey, deleteSecretKey } from "../lib/secure-store";
-import {
-	type Fact,
-	deleteFact,
-	getAllFacts,
-} from "../lib/db";
+import { type Fact, deleteFact, getAllFacts } from "../lib/db";
+import { resetGatewaySession } from "../lib/gateway-sessions";
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
+import {
+	clearLabConfig,
+	diffConfigs,
+	fetchLabConfig,
+	pushConfigToLab,
+} from "../lib/lab-sync";
+import {
+	type LlmModelMeta,
+	fetchOllamaModels,
+	fetchVllmModels,
+	formatModelLabel,
+	getDefaultLlmModel,
+	getLlmProvider,
+	getStaticModelsRecord,
+	isApiKeyOptional,
+	isOmniModel,
+	listLlmProviders,
+} from "../lib/llm";
 import { Logger } from "../lib/logger";
-import { syncToOpenClaw, restartGateway } from "../lib/openclaw-sync";
-import { syncLinkedChannels } from "../lib/channel-sync";
-import { fetchLabConfig, pushConfigToLab, clearLabConfig, diffConfigs } from "../lib/lab-sync";
-import { DEFAULT_PERSONA, FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
-import { resetGatewaySession } from "../lib/gateway-sessions";
-import type { ProviderId } from "../lib/types";
-import { type UpdateInfo, checkForUpdate } from "../lib/updater";
-import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL, getDefaultVoiceForAvatar, getDefaultTtsVoiceForAvatar } from "../lib/avatar-presets";
+import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
+import {
+	DEFAULT_PERSONA,
+	FORMALITY_LOCALES,
+	buildSystemPrompt,
+} from "../lib/persona";
+import { deleteSecretKey, saveSecretKey } from "../lib/secure-store";
 import { listSttProviders } from "../lib/stt/registry";
 import { listTtsProviderMetas } from "../lib/tts/registry";
+import type { ProviderId } from "../lib/types";
+import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 
@@ -149,12 +161,11 @@ const ALL_EDGE_VOICES: string[] = [
 
 /** Filter Edge voices by locale; multilingual voices always included */
 function getEdgeVoicesForLocale(loc: string): string[] {
-	const langPrefix = loc.slice(0, 2).toLowerCase() + "-";
+	const langPrefix = `${loc.slice(0, 2).toLowerCase()}-`;
 	return ALL_EDGE_VOICES.filter(
 		(v) => v.toLowerCase().startsWith(langPrefix) || v.includes("Multilingual"),
 	);
 }
-
 
 const LOCALES: { id: Locale; label: string }[] = [
 	{ id: "ko", label: "한국어" },
@@ -175,8 +186,7 @@ const LOCALES: { id: Locale; label: string }[] = [
 
 function getNaiaWebBaseUrl() {
 	return (
-		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() ||
-		"https://naia.nextain.io"
+		import.meta.env.VITE_NAIA_WEB_BASE_URL?.trim() || "https://naia.nextain.io"
 	);
 }
 
@@ -298,7 +308,9 @@ function CustomAssetCard({
 		const loadLocalPreview = async () => {
 			try {
 				const targetPaths =
-					type === "bg" ? [normalized] : buildLocalVrmPreviewCandidates(normalized);
+					type === "bg"
+						? [normalized]
+						: buildLocalVrmPreviewCandidates(normalized);
 				for (const targetPath of targetPaths) {
 					try {
 						const bytes = await invoke<number[]>("read_local_binary", {
@@ -603,10 +615,10 @@ export function SettingsTab() {
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
 	const setAvatarBackgroundImage = useAvatarStore((s) => s.setBackgroundImage);
 	const [savedVrmModel, setSavedVrmModel] = useState(
-		normalizeLocalPath(existing?.vrmModel ?? DEFAULT_AVATAR_MODEL)
+		normalizeLocalPath(existing?.vrmModel ?? DEFAULT_AVATAR_MODEL),
 	);
 	const [savedBgImage, setSavedBgImage] = useState(
-		normalizeLocalPath(existing?.backgroundImage ?? "")
+		normalizeLocalPath(existing?.backgroundImage ?? ""),
 	);
 	const [provider, setProvider] = useState<ProviderId>(
 		existing?.provider ?? "gemini",
@@ -614,7 +626,9 @@ export function SettingsTab() {
 	const initProvider = existing?.provider ?? "gemini";
 	const savedModel = existing?.model;
 	const modelValid =
-		savedModel && (getLlmProvider(initProvider)?.models.some((m) => m.id === savedModel) ?? false);
+		savedModel &&
+		(getLlmProvider(initProvider)?.models.some((m) => m.id === savedModel) ??
+			false);
 	const [model, setModel] = useState(
 		modelValid ? savedModel : getDefaultLlmModel(initProvider),
 	);
@@ -623,7 +637,9 @@ export function SettingsTab() {
 		existing?.locale ?? getLocale(),
 	);
 	const [theme, setTheme] = useState<ThemeId>(existing?.theme ?? "espresso");
-	const [panelPos, setPanelPos] = useState<PanelPosition>(existing?.panelPosition ?? "bottom");
+	const [panelPos, setPanelPos] = useState<PanelPosition>(
+		existing?.panelPosition ?? "bottom",
+	);
 	const [vrmModel, setVrmModel] = useState(savedVrmModel);
 	const [customVrms, setCustomVrms] = useState<string[]>(
 		(existing?.customVrms ?? []).map(normalizeLocalPath),
@@ -635,7 +651,8 @@ export function SettingsTab() {
 		normalizeLocalPath(existing?.backgroundImage ?? ""),
 	);
 	const defaultVoiceForProvider = getDefaultTtsVoiceForAvatar(
-		existing?.ttsProvider ?? "edge", existing?.vrmModel,
+		existing?.ttsProvider ?? "edge",
+		existing?.vrmModel,
 	);
 	const [ttsVoice, setTtsVoice] = useState(
 		existing?.ttsVoice ?? defaultVoiceForProvider,
@@ -645,10 +662,15 @@ export function SettingsTab() {
 	);
 	const [ttsProvider, setTtsProvider] = useState<TtsProviderId>(
 		existing?.ttsProvider ??
-			(existing?.ttsEngine === "openclaw" ? "edge" :
-			 existing?.ttsEngine === "google" ? "google" : "edge"),
+			(existing?.ttsEngine === "openclaw"
+				? "edge"
+				: existing?.ttsEngine === "google"
+					? "google"
+					: "edge"),
 	);
-	const [sttProvider, setSttProvider] = useState<SttProviderId>(existing?.sttProvider ?? "");
+	const [sttProvider, setSttProvider] = useState<SttProviderId>(
+		existing?.sttProvider ?? "",
+	);
 	const [sttModel, setSttModel] = useState(existing?.sttModel ?? "");
 	const [sttModels, setSttModels] = useState<SttModelInfo[]>([]);
 	const [sttDownloading, setSttDownloading] = useState<string | null>(null);
@@ -659,19 +681,27 @@ export function SettingsTab() {
 	const [userName, setUserName] = useState(existing?.userName ?? "");
 	const [agentName, setAgentName] = useState(existing?.agentName ?? "");
 	const [honorific, setHonorific] = useState(existing?.honorific ?? "");
-	const [speechStyle, setSpeechStyle] = useState(existing?.speechStyle ?? "casual");
-	const [enableTools, setEnableTools] = useState(
-		existing?.enableTools ?? true,
+	const [speechStyle, setSpeechStyle] = useState(
+		existing?.speechStyle ?? "casual",
 	);
+	const [enableTools, setEnableTools] = useState(existing?.enableTools ?? true);
 	const [voice, setVoice] = useState(
 		existing?.voice ?? getDefaultVoiceForAvatar(existing?.vrmModel),
 	);
 	const [openaiRealtimeApiKey, setOpenaiRealtimeApiKey] = useState(
 		existing?.openaiRealtimeApiKey ?? "",
 	);
-	const [dynamicModels, setDynamicModels] = useState<Record<string, LlmModelMeta[]>>(getStaticModelsRecord);
-	const [ollamaHost, setOllamaHost] = useState(existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST);
+	const [dynamicModels, setDynamicModels] = useState<
+		Record<string, LlmModelMeta[]>
+	>(getStaticModelsRecord);
+	const [ollamaHost, setOllamaHost] = useState(
+		existing?.ollamaHost ?? DEFAULT_OLLAMA_HOST,
+	);
 	const [ollamaConnected, setOllamaConnected] = useState(false);
+	const [vllmHost, setVllmHost] = useState(
+		existing?.vllmHost ?? DEFAULT_VLLM_HOST,
+	);
+	const [vllmConnected, setVllmConnected] = useState(false);
 	const [gatewayUrl, setGatewayUrl] = useState(
 		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
@@ -690,21 +720,32 @@ export function SettingsTab() {
 	const [error, setError] = useState("");
 	const [saved, setSaved] = useState(false);
 	const [isPreviewing, setIsPreviewing] = useState(false);
-	const [dynamicTtsVoices, setDynamicTtsVoices] = useState<{ id: string; label: string; gender?: string }[]>([]);
+	const [dynamicTtsVoices, setDynamicTtsVoices] = useState<
+		{ id: string; label: string; gender?: string }[]
+	>([]);
 	const [facts, setFacts] = useState<Fact[]>([]);
-	const [allowedToolsCount, setAllowedToolsCount] = useState(existing?.allowedTools?.length ?? 0);
+	const [allowedToolsCount, setAllowedToolsCount] = useState(
+		existing?.allowedTools?.length ?? 0,
+	);
 	const [naiaKey, setNaiaKeyState] = useState(existing?.naiaKey ?? "");
 	const [naiaUserId, setNaiaUserIdState] = useState(existing?.naiaUserId ?? "");
 	const [sttModelModalOpen, setSttModelModalOpen] = useState(false);
 	const [syncDialogOpen, setSyncDialogOpen] = useState(false);
-	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<string, unknown> | null>(null);
+	const [syncDialogOnlineConfig, setSyncDialogOnlineConfig] = useState<Record<
+		string,
+		unknown
+	> | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Load STT model catalog on mount
 	useEffect(() => {
 		invoke<SttModelInfo[]>("list_stt_models")
 			.then(setSttModels)
-			.catch((e) => Logger.warn("Settings", "Failed to load STT models", { error: String(e) }));
+			.catch((e) =>
+				Logger.warn("Settings", "Failed to load STT models", {
+					error: String(e),
+				}),
+			);
 	}, []);
 
 	// Listen for download progress events
@@ -724,8 +765,12 @@ export function SettingsTab() {
 						.catch(() => {});
 				}
 			},
-		).then((fn) => { unlisten = fn; });
-		return () => { unlisten?.(); };
+		).then((fn) => {
+			unlisten = fn;
+		});
+		return () => {
+			unlisten?.();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -824,7 +869,10 @@ export function SettingsTab() {
 					if (models.length === 0) return;
 
 					const grouped = Object.fromEntries(
-						Object.entries(getStaticModelsRecord()).map(([k, v]) => [k, [...v]]),
+						Object.entries(getStaticModelsRecord()).map(([k, v]) => [
+							k,
+							[...v],
+						]),
 					) as Record<string, LlmModelMeta[]>;
 
 					for (const m of models) {
@@ -841,26 +889,31 @@ export function SettingsTab() {
 							}
 						};
 
-			const mappedProvider =
-				resolveProvider(m.provider) || resolveProviderFromId(m.id);
-			if (mappedProvider) pushModel(mappedProvider);
-			// Claude Code CLI uses subscription — add models without pricing
-			if (mappedProvider === "anthropic") {
-				const nameOnly = m.name || modelId;
-				if (!grouped["claude-code-cli"]?.some((x) => x.id === modelId)) {
-					grouped["claude-code-cli"].push({ id: modelId, label: nameOnly, type: "llm" as const });
-				}
-			}
-			// Naia only supports curated Gemini models (from registry)
-			if (mappedProvider === "gemini") {
-				const nextainModelIds = getLlmProvider("nextain")?.models
-					.filter((nm) => nm.type === "llm")
-					.map((nm) => nm.id) ?? [];
-				if (nextainModelIds.includes(modelId)) {
-					pushModel("nextain");
-				}
-			}
-		}
+						const mappedProvider =
+							resolveProvider(m.provider) || resolveProviderFromId(m.id);
+						if (mappedProvider) pushModel(mappedProvider);
+						// Claude Code CLI uses subscription — add models without pricing
+						if (mappedProvider === "anthropic") {
+							const nameOnly = m.name || modelId;
+							if (!grouped["claude-code-cli"]?.some((x) => x.id === modelId)) {
+								grouped["claude-code-cli"].push({
+									id: modelId,
+									label: nameOnly,
+									type: "llm" as const,
+								});
+							}
+						}
+						// Naia only supports curated Gemini models (from registry)
+						if (mappedProvider === "gemini") {
+							const nextainModelIds =
+								getLlmProvider("nextain")
+									?.models.filter((nm) => nm.type === "llm")
+									.map((nm) => nm.id) ?? [];
+							if (nextainModelIds.includes(modelId)) {
+								pushModel("nextain");
+							}
+						}
+					}
 
 					setDynamicModels(grouped);
 				}
@@ -885,6 +938,19 @@ export function SettingsTab() {
 	}, [provider, ollamaHost]);
 
 	useEffect(() => {
+		if (provider !== "vllm") return;
+		fetchVllmModels(vllmHost).then(({ models, connected }) => {
+			setVllmConnected(connected);
+			if (models.length > 0) {
+				setDynamicModels((prev) => ({ ...prev, vllm: models }));
+				if (!model || !models.some((m) => m.id === model)) {
+					setModel(models[0].id);
+				}
+			}
+		});
+	}, [provider, vllmHost]);
+
+	useEffect(() => {
 		getNaiaKeySecure().then((key) => {
 			if (key && key !== naiaKey) {
 				setNaiaKeyState(key);
@@ -898,8 +964,8 @@ export function SettingsTab() {
 
 	const startLabLogin = () => {
 		setLabWaiting(true);
-		openUrl(`https://naia.nextain.io/${locale}/login?redirect=desktop`).catch(() =>
-			setLabWaiting(false),
+		openUrl(`https://naia.nextain.io/${locale}/login?redirect=desktop`).catch(
+			() => setLabWaiting(false),
 		);
 		setTimeout(() => setLabWaiting(false), 60_000);
 	};
@@ -1011,7 +1077,10 @@ export function SettingsTab() {
 			.then((res) => {
 				if (res.status === 401) {
 					// Key is invalid/expired — clear it so login screen shows
-					Logger.warn("SettingsTab", "Naia key invalid (401), clearing stored key");
+					Logger.warn(
+						"SettingsTab",
+						"Naia key invalid (401), clearing stored key",
+					);
 					setNaiaKeyState("");
 					deleteSecretKey("naiaKey").catch(() => {});
 					const cfg = loadConfig();
@@ -1074,7 +1143,8 @@ export function SettingsTab() {
 				const nextModel = current?.model || getDefaultLlmModel("nextain");
 				if (current) {
 					// Auto-set default voice based on VRM avatar gender if not previously configured
-					const defaultVoice = current.voice ?? getDefaultVoiceForAvatar(current.vrmModel);
+					const defaultVoice =
+						current.voice ?? getDefaultVoiceForAvatar(current.vrmModel);
 					saveConfig({
 						...current,
 						provider: "nextain",
@@ -1095,7 +1165,23 @@ export function SettingsTab() {
 					discordDefaultUserId: current?.discordDefaultUserId,
 					discordDmChannelId: current?.discordDmChannelId,
 				});
-				await syncToOpenClaw("nextain", nextModel, undefined, current?.persona, current?.agentName, current?.userName, naiaFullPrompt, current?.locale || getLocale(), current?.discordDmChannelId, current?.discordDefaultUserId, undefined, undefined, undefined, undefined, nextNaiaKey);
+				await syncToOpenClaw(
+					"nextain",
+					nextModel,
+					undefined,
+					current?.persona,
+					current?.agentName,
+					current?.userName,
+					naiaFullPrompt,
+					current?.locale || getLocale(),
+					current?.discordDmChannelId,
+					current?.discordDefaultUserId,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					nextNaiaKey,
+				);
 				await restartGateway();
 
 				// Sync linked channels (e.g. Discord) after login
@@ -1106,11 +1192,16 @@ export function SettingsTab() {
 
 				// Try Lab pull — show diff dialog if settings differ
 				if (nextNaiaUserId) {
-					const onlineConfig = await fetchLabConfig(nextNaiaKey, nextNaiaUserId);
+					const onlineConfig = await fetchLabConfig(
+						nextNaiaKey,
+						nextNaiaUserId,
+					);
 					if (onlineConfig && current) {
 						const diffs = diffConfigs(current, onlineConfig);
 						if (diffs.length > 0) {
-							setSyncDialogOnlineConfig(onlineConfig as Record<string, unknown>);
+							setSyncDialogOnlineConfig(
+								onlineConfig as Record<string, unknown>,
+							);
 							setSyncDialogOpen(true);
 						}
 					}
@@ -1167,7 +1258,12 @@ export function SettingsTab() {
 				setAvatarBackgroundImage(savedBgImage);
 			}
 		};
-	}, [savedVrmModel, savedBgImage, setAvatarModelPath, setAvatarBackgroundImage]);
+	}, [
+		savedVrmModel,
+		savedBgImage,
+		setAvatarModelPath,
+		setAvatarBackgroundImage,
+	]);
 
 	function handleProviderChange(id: ProviderId) {
 		setProvider(id);
@@ -1235,8 +1331,6 @@ export function SettingsTab() {
 		}
 	}
 
-
-
 	function debouncedLabSync() {
 		if (labSyncTimerRef.current) clearTimeout(labSyncTimerRef.current);
 		labSyncTimerRef.current = setTimeout(() => {
@@ -1245,10 +1339,20 @@ export function SettingsTab() {
 			if (naiaKey && naiaUserId) pushConfigToLab(naiaKey, naiaUserId, cfg);
 			// Also sync TTS settings to OpenClaw gateway config
 			syncToOpenClaw(
-				cfg.provider, cfg.model,
-				undefined, undefined, undefined, undefined, undefined, undefined,
-				undefined, undefined,
-				undefined, undefined, undefined, undefined,
+				cfg.provider,
+				cfg.model,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
 				naiaKey || undefined,
 			);
 		}, 2000);
@@ -1265,21 +1369,36 @@ export function SettingsTab() {
 	function getPreviewText(_voice?: string): string {
 		const lang = locale.slice(0, 2).toLowerCase();
 		switch (lang) {
-			case "ko": return "안녕하세요, 반갑습니다. 오늘도 좋은 하루 되세요.";
-			case "en": return "Hello, nice to meet you. Have a great day!";
-			case "ja": return "こんにちは、はじめまして。良い一日をお過ごしください。";
-			case "zh": return "你好，很高兴认识你。祝你有美好的一天！";
-			case "fr": return "Bonjour, enchanté. Passez une bonne journée !";
-			case "de": return "Hallo, freut mich. Einen schönen Tag noch!";
-			case "es": return "Hola, mucho gusto. ¡Que tengas un buen día!";
-			case "ru": return "Здравствуйте, приятно познакомиться. Хорошего дня!";
-			case "ar": return "مرحباً، سعيد بلقائك. أتمنى لك يوماً سعيداً!";
-			case "hi": return "नमस्ते, आपसे मिलकर खुशी हुई। आपका दिन शुभ हो!";
-			case "bn": return "নমস্কার, আপনার সাথে দেখা হয়ে ভালো লাগলো। শুভ দিন!";
-			case "pt": return "Olá, prazer em conhecê-lo. Tenha um ótimo dia!";
-			case "id": return "Halo, senang bertemu Anda. Semoga hari Anda menyenangkan!";
-			case "vi": return "Xin chào, rất vui được gặp bạn. Chúc bạn một ngày tốt lành!";
-			default: return "Hello, nice to meet you. Have a great day!";
+			case "ko":
+				return "안녕하세요, 반갑습니다. 오늘도 좋은 하루 되세요.";
+			case "en":
+				return "Hello, nice to meet you. Have a great day!";
+			case "ja":
+				return "こんにちは、はじめまして。良い一日をお過ごしください。";
+			case "zh":
+				return "你好，很高兴认识你。祝你有美好的一天！";
+			case "fr":
+				return "Bonjour, enchanté. Passez une bonne journée !";
+			case "de":
+				return "Hallo, freut mich. Einen schönen Tag noch!";
+			case "es":
+				return "Hola, mucho gusto. ¡Que tengas un buen día!";
+			case "ru":
+				return "Здравствуйте, приятно познакомиться. Хорошего дня!";
+			case "ar":
+				return "مرحباً، سعيد بلقائك. أتمنى لك يوماً سعيداً!";
+			case "hi":
+				return "नमस्ते, आपसे मिलकर खुशी हुई। आपका दिन शुभ हो!";
+			case "bn":
+				return "নমস্কার, আপনার সাথে দেখা হয়ে ভালো লাগলো। শুভ দিন!";
+			case "pt":
+				return "Olá, prazer em conhecê-lo. Tenha um ótimo dia!";
+			case "id":
+				return "Halo, senang bertemu Anda. Semoga hari Anda menyenangkan!";
+			case "vi":
+				return "Xin chào, rất vui được gặp bạn. Chúc bạn một ngày tốt lành!";
+			default:
+				return "Hello, nice to meet you. Have a great day!";
 		}
 	}
 
@@ -1289,7 +1408,9 @@ export function SettingsTab() {
 		setIsPreviewing(true);
 		try {
 			let base64 = "";
-			const modelMeta = (dynamicModels[provider] ?? []).find((m) => m.id === model);
+			const modelMeta = (dynamicModels[provider] ?? []).find(
+				(m) => m.id === model,
+			);
 			const isOmni = modelMeta?.type === "omni";
 
 			if (isOmni && (provider === "nextain" || provider === "gemini")) {
@@ -1313,9 +1434,11 @@ export function SettingsTab() {
 					});
 					if (!resp.ok) {
 						const body = await resp.text().catch(() => "");
-						throw new Error(`미리듣기 실패 (${resp.status}): ${body.slice(0, 200)}`);
+						throw new Error(
+							`미리듣기 실패 (${resp.status}): ${body.slice(0, 200)}`,
+						);
 					}
-					const data = await resp.json() as { audio_content?: string };
+					const data = (await resp.json()) as { audio_content?: string };
 					base64 = data.audio_content ?? "";
 				} else {
 					setError("미리듣기를 사용하려면 Naia 로그인이 필요합니다.");
@@ -1330,7 +1453,10 @@ export function SettingsTab() {
 					provider: "openai",
 					text: previewText,
 					voice: previewVoice,
-					apiKey: openaiRealtimeApiKey.trim() || existing?.openaiTtsApiKey || undefined,
+					apiKey:
+						openaiRealtimeApiKey.trim() ||
+						existing?.openaiTtsApiKey ||
+						undefined,
 				};
 				const effectiveGatewayUrl = gatewayUrl.trim() || DEFAULT_GATEWAY_URL;
 				const result = await directToolCall({
@@ -1341,7 +1467,9 @@ export function SettingsTab() {
 					gatewayToken,
 				});
 				if (!result.success || !result.output) {
-					throw new Error("OpenAI 미리듣기에 실패했습니다. API Key를 확인하세요.");
+					throw new Error(
+						"OpenAI 미리듣기에 실패했습니다. API Key를 확인하세요.",
+					);
 				}
 				const parsedOai = JSON.parse(result.output) as { audio?: string };
 				if (!parsedOai.audio) {
@@ -1378,8 +1506,12 @@ export function SettingsTab() {
 					gatewayToken,
 				});
 				if (!result.success || !result.output) {
-					const providerName = listTtsProviderMetas().find((p) => p.id === selectedProvider)?.name ?? selectedProvider;
-					throw new Error(`${providerName} 미리듣기에 실패했습니다.${selectedProvider !== "edge" ? " API Key를 확인하세요." : ""}`);
+					const providerName =
+						listTtsProviderMetas().find((p) => p.id === selectedProvider)
+							?.name ?? selectedProvider;
+					throw new Error(
+						`${providerName} 미리듣기에 실패했습니다.${selectedProvider !== "edge" ? " API Key를 확인하세요." : ""}`,
+					);
 				}
 				const parsed = JSON.parse(result.output) as { audio?: string };
 				if (!parsed.audio) {
@@ -1397,7 +1529,6 @@ export function SettingsTab() {
 			setIsPreviewing(false);
 		}
 	}
-
 
 	function handleVoiceWakeAdd() {
 		const trimmed = voiceWakeInput.trim();
@@ -1454,7 +1585,9 @@ export function SettingsTab() {
 		try {
 			await invoke("download_stt_model", { modelId });
 		} catch (e) {
-			Logger.warn("Settings", "STT model download failed", { error: String(e) });
+			Logger.warn("Settings", "STT model download failed", {
+				error: String(e),
+			});
 			setSttDownloading(null);
 			setSttDownloadProgress(0);
 		}
@@ -1523,7 +1656,8 @@ export function SettingsTab() {
 			...existing,
 			provider,
 			model,
-			apiKey: isNextainProvider || isApiKeyOptional(provider) ? "" : resolvedApiKey,
+			apiKey:
+				isNextainProvider || isApiKeyOptional(provider) ? "" : resolvedApiKey,
 			naiaKey: naiaKey || undefined,
 			naiaUserId: naiaUserId || undefined,
 			locale,
@@ -1538,15 +1672,18 @@ export function SettingsTab() {
 			ttsVoice,
 			ttsProvider,
 			ttsEngine: derivedTtsEngine as "google" | "openclaw",
-			googleApiKey: (ttsProvider === "google" && gatewayTtsApiKey.trim())
-				? gatewayTtsApiKey.trim()
-				: (googleApiKey.trim() || existing?.googleApiKey || undefined),
-			openaiTtsApiKey: (ttsProvider === "openai" && gatewayTtsApiKey.trim())
-				? gatewayTtsApiKey.trim()
-				: (existing?.openaiTtsApiKey || undefined),
-			elevenlabsApiKey: (ttsProvider === "elevenlabs" && gatewayTtsApiKey.trim())
-				? gatewayTtsApiKey.trim()
-				: (existing?.elevenlabsApiKey || undefined),
+			googleApiKey:
+				ttsProvider === "google" && gatewayTtsApiKey.trim()
+					? gatewayTtsApiKey.trim()
+					: googleApiKey.trim() || existing?.googleApiKey || undefined,
+			openaiTtsApiKey:
+				ttsProvider === "openai" && gatewayTtsApiKey.trim()
+					? gatewayTtsApiKey.trim()
+					: existing?.openaiTtsApiKey || undefined,
+			elevenlabsApiKey:
+				ttsProvider === "elevenlabs" && gatewayTtsApiKey.trim()
+					? gatewayTtsApiKey.trim()
+					: existing?.elevenlabsApiKey || undefined,
 			persona:
 				persona.trim() !== DEFAULT_PERSONA.trim() ? persona.trim() : undefined,
 			userName: userName.trim() || undefined,
@@ -1561,7 +1698,14 @@ export function SettingsTab() {
 			discordDefaultUserId: discordDefaultUserId.trim() || undefined,
 			discordDefaultTarget: discordDefaultTarget.trim() || undefined,
 			discordDmChannelId: discordDmChannelId.trim() || undefined,
-				ollamaHost: provider === "ollama" ? ollamaHost.trim() || undefined : existing?.ollamaHost,
+			ollamaHost:
+				provider === "ollama"
+					? ollamaHost.trim() || undefined
+					: existing?.ollamaHost,
+			vllmHost:
+				provider === "vllm"
+					? vllmHost.trim() || undefined
+					: existing?.vllmHost,
 			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
 		};
@@ -1585,8 +1729,24 @@ export function SettingsTab() {
 			discordDefaultUserId: newConfig.discordDefaultUserId,
 			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(newConfig.provider, newConfig.model, resolvedApiKey, newConfig.persona, newConfig.agentName, newConfig.userName, fullPrompt, newConfig.locale || getLocale(), newConfig.discordDmChannelId, newConfig.discordDefaultUserId, undefined, undefined, undefined, undefined, naiaKey || undefined, newConfig.ollamaHost || undefined)
-			.then(() => restartGateway());
+		syncToOpenClaw(
+			newConfig.provider,
+			newConfig.model,
+			resolvedApiKey,
+			newConfig.persona,
+			newConfig.agentName,
+			newConfig.userName,
+			fullPrompt,
+			newConfig.locale || getLocale(),
+			newConfig.discordDmChannelId,
+			newConfig.discordDefaultUserId,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			naiaKey || undefined,
+			newConfig.ollamaHost || undefined,
+		).then(() => restartGateway());
 
 		// Auto-sync to Lab if connected
 		if (naiaKey && naiaUserId) {
@@ -1847,8 +2007,12 @@ export function SettingsTab() {
 							value={speechStyle}
 							onChange={(e) => setSpeechStyle(e.target.value)}
 						>
-							<option value="casual">{t("onboard.speechStyle.casual")} (Casual)</option>
-							<option value="formal">{t("onboard.speechStyle.formal")} (Formal)</option>
+							<option value="casual">
+								{t("onboard.speechStyle.casual")} (Casual)
+							</option>
+							<option value="formal">
+								{t("onboard.speechStyle.formal")} (Formal)
+							</option>
 						</select>
 					</div>
 				</>
@@ -1866,165 +2030,172 @@ export function SettingsTab() {
 				<div className="settings-hint">{t("settings.personaHint")}</div>
 			</div>
 
-				{provider !== "nextain" && (
-					<>
-						<div className="settings-section-divider">
-							<span>{t("settings.labSection")}</span>
-						</div>
+			{provider !== "nextain" && (
+				<>
+					<div className="settings-section-divider">
+						<span>{t("settings.labSection")}</span>
+					</div>
 
-						<div className="settings-field">
-							<label>
-								{naiaKey
-									? t("settings.labConnected")
-									: t("settings.labDisconnected")}
-							</label>
-							{naiaKey ? (
-								<div className="lab-info-block">
-							{naiaUserId && <span className="lab-user-id">{naiaUserId}</span>}
-							<div className="lab-balance-row">
-								<span className="lab-balance-label">
-								{t("settings.labBalance")}
-							</span>
-							<span className="lab-balance-value">
-								{labBalanceLoading
-									? t("settings.labBalanceLoading")
-									: labBalanceError
-										? t("cost.labError")
-										: labBalance !== null
-											? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
-											: "-"}
-							</span>
-						</div>
-						<div className="lab-actions-row">
-							<button
-								type="button"
-								className="voice-preview-btn"
-								onClick={() =>
-									openUrl(`https://naia.nextain.io/${locale}/dashboard`).catch(
-										() => {},
-									)
-								}
-							>
-								{t("settings.labDashboard")}
-							</button>
-							<button
-								type="button"
-								className="voice-preview-btn"
-								onClick={() =>
-									openUrl(`https://naia.nextain.io/${locale}/billing`).catch(() => {})
-								}
-							>
-								{t("cost.labCharge")}
-							</button>
-							{showLabDisconnect ? (
-								<div className="reset-confirm-panel" style={{ marginTop: 8 }}>
-									<p className="reset-confirm-msg">
-										{t("settings.labDisconnectConfirm")}
-									</p>
-									<div className="reset-confirm-actions">
+					<div className="settings-field">
+						<label>
+							{naiaKey
+								? t("settings.labConnected")
+								: t("settings.labDisconnected")}
+						</label>
+						{naiaKey ? (
+							<div className="lab-info-block">
+								{naiaUserId && (
+									<span className="lab-user-id">{naiaUserId}</span>
+								)}
+								<div className="lab-balance-row">
+									<span className="lab-balance-label">
+										{t("settings.labBalance")}
+									</span>
+									<span className="lab-balance-value">
+										{labBalanceLoading
+											? t("settings.labBalanceLoading")
+											: labBalanceError
+												? t("cost.labError")
+												: labBalance !== null
+													? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
+													: "-"}
+									</span>
+								</div>
+								<div className="lab-actions-row">
+									<button
+										type="button"
+										className="voice-preview-btn"
+										onClick={() =>
+											openUrl(
+												`https://naia.nextain.io/${locale}/dashboard`,
+											).catch(() => {})
+										}
+									>
+										{t("settings.labDashboard")}
+									</button>
+									<button
+										type="button"
+										className="voice-preview-btn"
+										onClick={() =>
+											openUrl(
+												`https://naia.nextain.io/${locale}/billing`,
+											).catch(() => {})
+										}
+									>
+										{t("cost.labCharge")}
+									</button>
+									{showLabDisconnect ? (
+										<div
+											className="reset-confirm-panel"
+											style={{ marginTop: 8 }}
+										>
+											<p className="reset-confirm-msg">
+												{t("settings.labDisconnectConfirm")}
+											</p>
+											<div className="reset-confirm-actions">
+												<button
+													type="button"
+													className="settings-reset-btn"
+													onClick={async () => {
+														setNaiaKeyState("");
+														setNaiaUserIdState("");
+														setLabBalance(null);
+														setProvider("gemini");
+														setModel(getDefaultLlmModel("gemini"));
+														setDiscordDefaultUserId("");
+														setDiscordDmChannelId("");
+														setDiscordDefaultTarget("");
+														setShowLabDisconnect(false);
+														await deleteSecretKey("naiaKey");
+														const current = loadConfig();
+														if (current) {
+															saveConfig({
+																...current,
+																provider:
+																	current.provider === "nextain"
+																		? "gemini"
+																		: current.provider,
+																model:
+																	current.provider === "nextain"
+																		? getDefaultLlmModel("gemini")
+																		: current.model,
+																// Reset Naia-dependent STT/TTS to defaults
+																ttsProvider:
+																	current.ttsProvider === "nextain"
+																		? "edge"
+																		: current.ttsProvider,
+																sttProvider:
+																	current.sttProvider === "nextain"
+																		? ""
+																		: current.sttProvider,
+																naiaKey: undefined,
+																naiaUserId: undefined,
+																discordDefaultUserId: undefined,
+																discordDmChannelId: undefined,
+																discordDefaultTarget: undefined,
+															});
+														}
+														// Sync cleared Discord config to Gateway
+														const updated = loadConfig();
+														if (updated) {
+															await syncToOpenClaw(
+																updated.provider || "gemini",
+																updated.model || getDefaultLlmModel("gemini"),
+																updated.apiKey,
+																updated.persona,
+																updated.agentName,
+																updated.userName,
+																undefined,
+																updated.locale,
+																undefined, // discordDmChannelId cleared
+																undefined, // discordDefaultUserId cleared
+																updated.ttsProvider,
+																updated.ttsVoice,
+																undefined,
+																undefined,
+																undefined, // naiaKey cleared
+															);
+															await restartGateway();
+														}
+													}}
+												>
+													{t("settings.labDisconnect")}
+												</button>
+												<button
+													type="button"
+													className="settings-cancel-btn"
+													onClick={() => setShowLabDisconnect(false)}
+												>
+													{t("settings.cancel")}
+												</button>
+											</div>
+										</div>
+									) : (
 										<button
 											type="button"
-											className="settings-reset-btn"
-											onClick={async () => {
-												setNaiaKeyState("");
-												setNaiaUserIdState("");
-												setLabBalance(null);
-													setProvider("gemini");
-													setModel(getDefaultLlmModel("gemini"));
-												setDiscordDefaultUserId("");
-												setDiscordDmChannelId("");
-												setDiscordDefaultTarget("");
-												setShowLabDisconnect(false);
-												await deleteSecretKey("naiaKey");
-												const current = loadConfig();
-												if (current) {
-													saveConfig({
-														...current,
-														provider:
-															current.provider === "nextain"
-																? "gemini"
-																: current.provider,
-														model:
-															current.provider === "nextain"
-																? getDefaultLlmModel("gemini")
-																: current.model,
-														// Reset Naia-dependent STT/TTS to defaults
-														ttsProvider:
-															current.ttsProvider === "nextain"
-																? "edge"
-																: current.ttsProvider,
-														sttProvider:
-															current.sttProvider === "nextain"
-																? ""
-																: current.sttProvider,
-														naiaKey: undefined,
-														naiaUserId: undefined,
-														discordDefaultUserId: undefined,
-														discordDmChannelId: undefined,
-														discordDefaultTarget: undefined,
-													});
-												}
-												// Sync cleared Discord config to Gateway
-												const updated = loadConfig();
-												if (updated) {
-													await syncToOpenClaw(
-														updated.provider || "gemini",
-														updated.model || getDefaultLlmModel("gemini"),
-														updated.apiKey,
-														updated.persona,
-														updated.agentName,
-														updated.userName,
-														undefined,
-														updated.locale,
-														undefined, // discordDmChannelId cleared
-														undefined, // discordDefaultUserId cleared
-														updated.ttsProvider,
-														updated.ttsVoice,
-														undefined,
-														undefined,
-														undefined, // naiaKey cleared
-													);
-													await restartGateway();
-												}
-											}}
+											className="voice-preview-btn lab-disconnect-btn"
+											onClick={() => setShowLabDisconnect(true)}
 										>
 											{t("settings.labDisconnect")}
 										</button>
-										<button
-											type="button"
-											className="settings-cancel-btn"
-											onClick={() => setShowLabDisconnect(false)}
-										>
-											{t("settings.cancel")}
-										</button>
-									</div>
+									)}
 								</div>
-							) : (
-								<button
-									type="button"
-									className="voice-preview-btn lab-disconnect-btn"
-									onClick={() => setShowLabDisconnect(true)}
-								>
-									{t("settings.labDisconnect")}
-								</button>
-							)}
-						</div>
-								</div>
-							) : (
-								<button
-									type="button"
-									className="voice-preview-btn"
-									disabled={labWaiting}
-									onClick={startLabLogin}
-								>
-									{labWaiting
-										? t("onboard.lab.waiting")
-										: t("settings.labConnect")}
-								</button>
-							)}
-						</div>
-					</>
-				)}
+							</div>
+						) : (
+							<button
+								type="button"
+								className="voice-preview-btn"
+								disabled={labWaiting}
+								onClick={startLabLogin}
+							>
+								{labWaiting
+									? t("onboard.lab.waiting")
+									: t("settings.labConnect")}
+							</button>
+						)}
+					</div>
+				</>
+			)}
 
 			<div className="settings-section-divider">
 				<span>{t("settings.aiSection")}</span>
@@ -2056,7 +2227,9 @@ export function SettingsTab() {
 						// When switching to an omni model, set default voice if not already set
 						const newMeta = providerModels.find((m) => m.id === e.target.value);
 						if (newMeta?.type === "omni" && newMeta.voices?.length) {
-							const currentVoiceValid = newMeta.voices.some((v) => v.id === voice);
+							const currentVoiceValid = newMeta.voices.some(
+								(v) => v.id === voice,
+							);
 							if (!currentVoiceValid) {
 								setVoice(newMeta.voices[0].id);
 							}
@@ -2072,9 +2245,7 @@ export function SettingsTab() {
 						</option>
 					))}
 				</select>
-				<div className="settings-hint">
-					{selectedModelMeta?.label ?? model}
-				</div>
+				<div className="settings-hint">{selectedModelMeta?.label ?? model}</div>
 			</div>
 
 			{/* Omni model voice selection */}
@@ -2087,11 +2258,14 @@ export function SettingsTab() {
 							value={voice}
 							onChange={(e) => {
 								setVoice(e.target.value);
-								if (existing) saveConfig({ ...existing, voice: e.target.value });
+								if (existing)
+									saveConfig({ ...existing, voice: e.target.value });
 							}}
 						>
 							{omniVoices.map((v) => (
-								<option key={v.id} value={v.id}>{v.label}</option>
+								<option key={v.id} value={v.id}>
+									{v.label}
+								</option>
 							))}
 						</select>
 						<button
@@ -2118,7 +2292,8 @@ export function SettingsTab() {
 						value={googleApiKey}
 						onChange={(e) => {
 							setGoogleApiKey(e.target.value);
-							if (existing) saveConfig({ ...existing, googleApiKey: e.target.value });
+							if (existing)
+								saveConfig({ ...existing, googleApiKey: e.target.value });
 						}}
 						placeholder="AIza..."
 					/>
@@ -2134,7 +2309,11 @@ export function SettingsTab() {
 						value={openaiRealtimeApiKey}
 						onChange={(e) => {
 							setOpenaiRealtimeApiKey(e.target.value);
-							if (existing) saveConfig({ ...existing, openaiRealtimeApiKey: e.target.value });
+							if (existing)
+								saveConfig({
+									...existing,
+									openaiRealtimeApiKey: e.target.value,
+								});
 						}}
 						placeholder="sk-..."
 					/>
@@ -2147,29 +2326,33 @@ export function SettingsTab() {
 					<div className="settings-hint">
 						Naia 계정 로그인으로 API 키 없이 사용할 수 있습니다.
 					</div>
-						{naiaKey ? (
-							<div className="lab-info-block">
-								<span className="settings-hint">
-									로그인됨{naiaUserId ? ` (${naiaUserId})` : ""}
+					{naiaKey ? (
+						<div className="lab-info-block">
+							<span className="settings-hint">
+								로그인됨{naiaUserId ? ` (${naiaUserId})` : ""}
+							</span>
+							<div className="lab-balance-row">
+								<span className="lab-balance-label">
+									{t("settings.labBalance")}
 								</span>
-								<div className="lab-balance-row">
-									<span className="lab-balance-label">{t("settings.labBalance")}</span>
-									<span className="lab-balance-value">
-										{labBalanceLoading
-											? t("settings.labBalanceLoading")
-											: labBalanceError
-												? t("cost.labError")
-												: labBalance !== null
-													? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
-													: "-"}
-									</span>
-								</div>
-								<div className="lab-actions-row">
+								<span className="lab-balance-value">
+									{labBalanceLoading
+										? t("settings.labBalanceLoading")
+										: labBalanceError
+											? t("cost.labError")
+											: labBalance !== null
+												? `${labBalance.toFixed(2)} ${t("cost.labCredits")}`
+												: "-"}
+								</span>
+							</div>
+							<div className="lab-actions-row">
 								<button
 									type="button"
 									className="voice-preview-btn"
 									onClick={() =>
-										openUrl(`https://naia.nextain.io/${locale}/dashboard`).catch(() => {})
+										openUrl(
+											`https://naia.nextain.io/${locale}/dashboard`,
+										).catch(() => {})
 									}
 								>
 									{t("settings.labDashboard")}
@@ -2178,7 +2361,9 @@ export function SettingsTab() {
 									type="button"
 									className="voice-preview-btn"
 									onClick={() =>
-										openUrl(`https://naia.nextain.io/${locale}/billing`).catch(() => {})
+										openUrl(`https://naia.nextain.io/${locale}/billing`).catch(
+											() => {},
+										)
 									}
 								>
 									{t("cost.labCharge")}
@@ -2325,9 +2510,9 @@ export function SettingsTab() {
 										{t("settings.reOnboarding")}
 									</button>
 								)}
-								</div>
 							</div>
-						) : (
+						</div>
+					) : (
 						<button
 							type="button"
 							className="voice-preview-btn"
@@ -2339,33 +2524,49 @@ export function SettingsTab() {
 					)}
 					{error && <div className="settings-error">{error}</div>}
 				</div>
-				) : provider === "ollama" ? (
-					<div className="settings-field">
-						<label>Ollama Host</label>
-						<input
-							type="text"
-							value={ollamaHost}
-							onChange={(e) => setOllamaHost(e.target.value)}
-							placeholder={DEFAULT_OLLAMA_HOST}
-						/>
-						<div className="settings-hint">
-							{ollamaConnected
-								? `연결됨 — ${(dynamicModels.ollama ?? []).length}개 모델`
-								: "연결 안 됨 — Ollama 서버가 실행 중인지 확인하세요"}
-						</div>
-						{error && <div className="settings-error">{error}</div>}
+			) : provider === "ollama" ? (
+				<div className="settings-field">
+					<label>Ollama Host</label>
+					<input
+						type="text"
+						value={ollamaHost}
+						onChange={(e) => setOllamaHost(e.target.value)}
+						placeholder={DEFAULT_OLLAMA_HOST}
+					/>
+					<div className="settings-hint">
+						{ollamaConnected
+							? `연결됨 — ${(dynamicModels.ollama ?? []).length}개 모델`
+							: "연결 안 됨 — Ollama 서버가 실행 중인지 확인하세요"}
 					</div>
-				) : provider === "claude-code-cli" ? (
-					<div className="settings-field">
-						<label>{t("settings.apiKey")}</label>
-						<div className="settings-hint">
-							Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다.
-						</div>
-						{error && <div className="settings-error">{error}</div>}
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			) : provider === "vllm" ? (
+				<div className="settings-field">
+					<label>vLLM Host</label>
+					<input
+						type="text"
+						value={vllmHost}
+						onChange={(e) => setVllmHost(e.target.value)}
+						placeholder={DEFAULT_VLLM_HOST}
+					/>
+					<div className="settings-hint">
+						{vllmConnected
+							? `연결됨 — ${(dynamicModels.vllm ?? []).length}개 모델`
+							: "연결 안 됨 — vLLM 서버가 실행 중인지 확인하세요"}
 					</div>
-				) : (
-					<div className="settings-field">
-						<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			) : provider === "claude-code-cli" ? (
+				<div className="settings-field">
+					<label>{t("settings.apiKey")}</label>
+					<div className="settings-hint">
+						Claude Code CLI provider는 로컬 CLI 로그인 세션을 사용합니다.
+					</div>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			) : (
+				<div className="settings-field">
+					<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
 					<input
 						id="apikey-input"
 						type="password"
@@ -2388,11 +2589,22 @@ export function SettingsTab() {
 					</div>
 
 					{/* Voice status summary */}
-					<div className="settings-field" style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}>
+					<div
+						className="settings-field"
+						style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}
+					>
 						{!sttProvider && <div>{t("settings.voiceStatusSttNeeded")}</div>}
-						{sttProvider && !sttModel && <div>{t("settings.voiceStatusModelNeeded")}</div>}
-						{sttProvider && sttModel && !ttsEnabled && <div>{t("settings.voiceStatusTtsOff")}</div>}
-						{sttProvider && sttModel && ttsEnabled && <div style={{ color: "var(--success-color, #4caf50)" }}>{t("settings.voiceStatusReady")}</div>}
+						{sttProvider && !sttModel && (
+							<div>{t("settings.voiceStatusModelNeeded")}</div>
+						)}
+						{sttProvider && sttModel && !ttsEnabled && (
+							<div>{t("settings.voiceStatusTtsOff")}</div>
+						)}
+						{sttProvider && sttModel && ttsEnabled && (
+							<div style={{ color: "var(--success-color, #4caf50)" }}>
+								{t("settings.voiceStatusReady")}
+							</div>
+						)}
 					</div>
 
 					{/* STT Provider */}
@@ -2409,8 +2621,16 @@ export function SettingsTab() {
 						>
 							<option value="">{t("settings.sttNone")}</option>
 							{listSttProviders().map((p) => (
-								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
+								<option
+									key={p.id}
+									value={p.id}
+									disabled={p.requiresNaiaKey && !naiaKey}
+								>
+									{p.name}
+									{p.pricing ? ` — ${p.pricing}` : ""}
+									{p.requiresNaiaKey && !naiaKey
+										? ` (${t("settings.ttsNaiaRequired")})`
+										: ""}
 								</option>
 							))}
 						</select>
@@ -2422,7 +2642,11 @@ export function SettingsTab() {
 							<select
 								value={existing?.naiaCloudSttBackend ?? "google-cloud-stt"}
 								onChange={(e) => {
-									if (existing) saveConfig({ ...existing, naiaCloudSttBackend: e.target.value });
+									if (existing)
+										saveConfig({
+											...existing,
+											naiaCloudSttBackend: e.target.value,
+										});
 								}}
 							>
 								<option value="google-cloud-stt">Google Cloud STT</option>
@@ -2431,20 +2655,25 @@ export function SettingsTab() {
 					)}
 					{/* STT API key — shown for API-based providers */}
 					{(() => {
-						const sttMeta = listSttProviders().find((p) => p.id === sttProvider);
+						const sttMeta = listSttProviders().find(
+							(p) => p.id === sttProvider,
+						);
 						if (sttMeta?.requiresNaiaKey && !naiaKey) {
 							return (
 								<div className="settings-field">
-									<span className="settings-hint">{t("settings.ttsNaiaRequired")}</span>
+									<span className="settings-hint">
+										{t("settings.ttsNaiaRequired")}
+									</span>
 								</div>
 							);
 						}
 						if (sttMeta?.requiresApiKey) {
-							const currentKey = sttMeta.apiKeyConfigField === "googleApiKey"
-								? (existing?.googleApiKey ?? "")
-								: sttMeta.apiKeyConfigField === "elevenlabsApiKey"
-									? (existing?.elevenlabsApiKey ?? "")
-									: "";
+							const currentKey =
+								sttMeta.apiKeyConfigField === "googleApiKey"
+									? (existing?.googleApiKey ?? "")
+									: sttMeta.apiKeyConfigField === "elevenlabsApiKey"
+										? (existing?.elevenlabsApiKey ?? "")
+										: "";
 							return (
 								<div className="settings-field">
 									<label htmlFor="stt-api-key">{t("settings.sttApiKey")}</label>
@@ -2469,10 +2698,13 @@ export function SettingsTab() {
 					{(sttProvider === "vosk" || sttProvider === "whisper") && (
 						<div className="settings-field">
 							<label>{t("settings.sttCurrentModel")}</label>
-							<div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+							<div
+								style={{ display: "flex", alignItems: "center", gap: "8px" }}
+							>
 								<span style={{ fontSize: "0.9em" }}>
 									{sttModel
-										? sttModels.find((m) => m.modelId === sttModel)?.modelName ?? sttModel
+										? (sttModels.find((m) => m.modelId === sttModel)
+												?.modelName ?? sttModel)
 										: "—"}
 								</span>
 								<button
@@ -2499,7 +2731,9 @@ export function SettingsTab() {
 					</div>
 					{/* TTS Provider selector */}
 					<div className="settings-field">
-						<label htmlFor="tts-provider-select">{t("settings.ttsProvider")}</label>
+						<label htmlFor="tts-provider-select">
+							{t("settings.ttsProvider")}
+						</label>
 						<select
 							id="tts-provider-select"
 							data-testid="gateway-tts-provider"
@@ -2509,9 +2743,12 @@ export function SettingsTab() {
 								setTtsProvider(next);
 								setDynamicTtsVoices([]);
 								// Load API key for the selected provider
-								if (next === "openai") setGatewayTtsApiKey(existing?.openaiTtsApiKey ?? "");
-								else if (next === "elevenlabs") setGatewayTtsApiKey(existing?.elevenlabsApiKey ?? "");
-								else if (next === "google") setGatewayTtsApiKey(existing?.googleApiKey ?? "");
+								if (next === "openai")
+									setGatewayTtsApiKey(existing?.openaiTtsApiKey ?? "");
+								else if (next === "elevenlabs")
+									setGatewayTtsApiKey(existing?.elevenlabsApiKey ?? "");
+								else if (next === "google")
+									setGatewayTtsApiKey(existing?.googleApiKey ?? "");
 								else setGatewayTtsApiKey("");
 								// Reset voice to provider default
 								const meta = listTtsProviderMetas().find((p) => p.id === next);
@@ -2522,24 +2759,37 @@ export function SettingsTab() {
 									persistTtsVoice("");
 								}
 								// Fetch dynamic voices — use saved key or current input
-								const savedKey = next === "openai" ? (existing?.openaiTtsApiKey ?? "")
-									: next === "elevenlabs" ? (existing?.elevenlabsApiKey ?? "")
-									: next === "google" ? (existing?.googleApiKey ?? "")
-									: "";
+								const savedKey =
+									next === "openai"
+										? (existing?.openaiTtsApiKey ?? "")
+										: next === "elevenlabs"
+											? (existing?.elevenlabsApiKey ?? "")
+											: next === "google"
+												? (existing?.googleApiKey ?? "")
+												: "";
 								const effectiveKey = savedKey || gatewayTtsApiKey;
 								if (meta?.fetchVoices && effectiveKey) {
 									meta.fetchVoices(effectiveKey).then((voices) => {
 										if (voices && voices.length > 0) {
 											setDynamicTtsVoices(voices);
-											if (voices[0] && !meta.voices?.length) persistTtsVoice(voices[0].id);
+											if (voices[0] && !meta.voices?.length)
+												persistTtsVoice(voices[0].id);
 										}
 									});
 								}
 							}}
 						>
 							{listTtsProviderMetas().map((p) => (
-								<option key={p.id} value={p.id} disabled={p.requiresNaiaKey && !naiaKey}>
-									{p.name}{p.pricing ? ` — ${p.pricing}` : ""}{p.requiresNaiaKey && !naiaKey ? ` (${t("settings.ttsNaiaRequired")})` : ""}
+								<option
+									key={p.id}
+									value={p.id}
+									disabled={p.requiresNaiaKey && !naiaKey}
+								>
+									{p.name}
+									{p.pricing ? ` — ${p.pricing}` : ""}
+									{p.requiresNaiaKey && !naiaKey
+										? ` (${t("settings.ttsNaiaRequired")})`
+										: ""}
 								</option>
 							))}
 						</select>
@@ -2551,7 +2801,11 @@ export function SettingsTab() {
 							<select
 								value={existing?.naiaCloudTtsBackend ?? "google-chirp3-hd"}
 								onChange={(e) => {
-									if (existing) saveConfig({ ...existing, naiaCloudTtsBackend: e.target.value });
+									if (existing)
+										saveConfig({
+											...existing,
+											naiaCloudTtsBackend: e.target.value,
+										});
 								}}
 							>
 								<option value="google-chirp3-hd">Google Chirp 3 HD</option>
@@ -2560,7 +2814,9 @@ export function SettingsTab() {
 					)}
 					{/* TTS API key input — shown when provider requires it */}
 					{(() => {
-						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+						const providerMeta = listTtsProviderMetas().find(
+							(p) => p.id === ttsProvider,
+						);
 						if (providerMeta?.requiresApiKey) {
 							return (
 								<div className="settings-field">
@@ -2572,10 +2828,13 @@ export function SettingsTab() {
 										onChange={(e) => {
 											const val = e.target.value;
 											setGatewayTtsApiKey(val);
-											const meta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+											const meta = listTtsProviderMetas().find(
+												(p) => p.id === ttsProvider,
+											);
 											if (meta?.fetchVoices && val.length > 10) {
 												meta.fetchVoices(val).then((voices) => {
-													if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+													if (voices && voices.length > 0)
+														setDynamicTtsVoices(voices);
 												});
 											}
 										}}
@@ -2584,9 +2843,12 @@ export function SettingsTab() {
 											setTimeout(() => {
 												const val = (e.target as HTMLInputElement).value;
 												if (val.length > 10) {
-													const meta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+													const meta = listTtsProviderMetas().find(
+														(p) => p.id === ttsProvider,
+													);
 													meta?.fetchVoices?.(val).then((voices) => {
-														if (voices && voices.length > 0) setDynamicTtsVoices(voices);
+														if (voices && voices.length > 0)
+															setDynamicTtsVoices(voices);
 													});
 												}
 											}, 100);
@@ -2599,7 +2861,9 @@ export function SettingsTab() {
 						if (providerMeta?.requiresNaiaKey && !naiaKey) {
 							return (
 								<div className="settings-field">
-									<span className="settings-hint">{t("settings.ttsNaiaRequired")}</span>
+									<span className="settings-hint">
+										{t("settings.ttsNaiaRequired")}
+									</span>
 								</div>
 							);
 						}
@@ -2607,13 +2871,17 @@ export function SettingsTab() {
 					})()}
 					{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
-						const providerMeta = listTtsProviderMetas().find((p) => p.id === ttsProvider);
+						const providerMeta = listTtsProviderMetas().find(
+							(p) => p.id === ttsProvider,
+						);
 						// Edge: use locale-based hardcoded voice list
 						if (ttsProvider === "edge") {
 							const voices = getEdgeVoicesForLocale(locale);
 							return voices.length > 0 ? (
 								<div className="settings-field">
-									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+									<label htmlFor="tts-voice-select">
+										{t("settings.ttsVoice")}
+									</label>
 									<div className="voice-picker">
 										<select
 											id="tts-voice-select"
@@ -2622,7 +2890,9 @@ export function SettingsTab() {
 											onChange={(e) => persistTtsVoice(e.target.value)}
 										>
 											{voices.map((v) => (
-												<option key={v} value={v}>{v}</option>
+												<option key={v} value={v}>
+													{v}
+												</option>
 											))}
 										</select>
 										<button
@@ -2640,11 +2910,16 @@ export function SettingsTab() {
 							) : null;
 						}
 						// Other providers: use dynamic voices (if fetched) or static registry voices
-						const voiceList = dynamicTtsVoices.length > 0 ? dynamicTtsVoices : (providerMeta?.voices ?? []);
+						const voiceList =
+							dynamicTtsVoices.length > 0
+								? dynamicTtsVoices
+								: (providerMeta?.voices ?? []);
 						if (voiceList.length > 0) {
 							return (
 								<div className="settings-field">
-									<label htmlFor="tts-voice-select">{t("settings.ttsVoice")}</label>
+									<label htmlFor="tts-voice-select">
+										{t("settings.ttsVoice")}
+									</label>
 									<div className="voice-picker">
 										<select
 											id="tts-voice-select"
@@ -2652,7 +2927,9 @@ export function SettingsTab() {
 											onChange={(e) => persistTtsVoice(e.target.value)}
 										>
 											{voiceList.map((v) => (
-												<option key={v.id} value={v.id}>{v.label}</option>
+												<option key={v.id} value={v.id}>
+													{v.label}
+												</option>
 											))}
 										</select>
 										<button
@@ -2763,7 +3040,11 @@ export function SettingsTab() {
 									onClick={handleDiscordBotConnect}
 									disabled={discordBotLoading}
 								>
-									{discordBotLoading ? t("settings.discordBotConnecting") : discordBotConnected ? t("settings.discordBotReconnect") : t("settings.discordBotConnect")}
+									{discordBotLoading
+										? t("settings.discordBotConnecting")
+										: discordBotConnected
+											? t("settings.discordBotReconnect")
+											: t("settings.discordBotConnect")}
 								</button>
 								<button
 									type="button"
@@ -2786,7 +3067,9 @@ export function SettingsTab() {
 							/>
 						</div>
 						<div className="settings-field">
-							<label htmlFor="discord-dm-channel-id">Discord DM Channel ID</label>
+							<label htmlFor="discord-dm-channel-id">
+								Discord DM Channel ID
+							</label>
 							<input
 								id="discord-dm-channel-id"
 								type="text"
@@ -2958,8 +3241,15 @@ export function SettingsTab() {
 
 			{/* STT Model Manager Modal */}
 			{sttModelModalOpen && (
-				<div className="sync-dialog-overlay" onClick={() => setSttModelModalOpen(false)}>
-					<div className="sync-dialog-card" style={{ maxWidth: "520px", maxHeight: "85vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+				<div
+					className="sync-dialog-overlay"
+					onClick={() => setSttModelModalOpen(false)}
+				>
+					<div
+						className="sync-dialog-card"
+						style={{ maxWidth: "520px", maxHeight: "85vh", overflow: "auto" }}
+						onClick={(e) => e.stopPropagation()}
+					>
 						<h3>{t("settings.sttModelManagerTitle")}</h3>
 						{sttModels
 							.filter((m) => m.engine === sttProvider)
@@ -2977,7 +3267,13 @@ export function SettingsTab() {
 									}}
 								>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+										<div
+											style={{
+												display: "flex",
+												alignItems: "center",
+												gap: "6px",
+											}}
+										>
 											<input
 												type="radio"
 												name="stt-model-modal"
@@ -2986,34 +3282,75 @@ export function SettingsTab() {
 												disabled={!m.downloaded || !m.ready}
 												onChange={() => setSttModel(m.modelId)}
 											/>
-											<strong style={{ fontSize: "0.9em" }}>{m.modelName}</strong>
-											{m.downloaded && <span style={{ color: "var(--success-color, #4caf50)", fontSize: "0.75em" }}>✓</span>}
+											<strong style={{ fontSize: "0.9em" }}>
+												{m.modelName}
+											</strong>
+											{m.downloaded && (
+												<span
+													style={{
+														color: "var(--success-color, #4caf50)",
+														fontSize: "0.75em",
+													}}
+												>
+													✓
+												</span>
+											)}
 										</div>
-										<div style={{ fontSize: "0.75em", opacity: 0.7, marginLeft: "22px" }}>
-											{m.language === "multilingual" ? t("settings.sttLangMultilingual") : m.language} · {m.sizeMb}MB{m.wer && m.wer !== "—" ? ` · WER ${m.wer}` : ""}
-											{m.description && ` · ${
-												({
-													"Fast, low quality. Not recommended for Korean.": t("settings.sttDescWhisperTiny"),
-													"Similar quality to Vosk small.": t("settings.sttDescWhisperBase"),
-													"Noticeable improvement over Vosk.": t("settings.sttDescWhisperSmall"),
-													"Recommended. Good accuracy for Korean.": t("settings.sttDescWhisperMedium"),
-													"Best quality. Large download.": t("settings.sttDescWhisperLarge"),
-												} as Record<string, string>)[m.description] || m.description
-											}`}
+										<div
+											style={{
+												fontSize: "0.75em",
+												opacity: 0.7,
+												marginLeft: "22px",
+											}}
+										>
+											{m.language === "multilingual"
+												? t("settings.sttLangMultilingual")
+												: m.language}{" "}
+											· {m.sizeMb}MB
+											{m.wer && m.wer !== "—" ? ` · WER ${m.wer}` : ""}
+											{m.description &&
+												` · ${
+													(
+														{
+															"Fast, low quality. Not recommended for Korean.":
+																t("settings.sttDescWhisperTiny"),
+															"Similar quality to Vosk small.": t(
+																"settings.sttDescWhisperBase",
+															),
+															"Noticeable improvement over Vosk.": t(
+																"settings.sttDescWhisperSmall",
+															),
+															"Recommended. Good accuracy for Korean.": t(
+																"settings.sttDescWhisperMedium",
+															),
+															"Best quality. Large download.": t(
+																"settings.sttDescWhisperLarge",
+															),
+														} as Record<string, string>
+													)[m.description] || m.description
+												}`}
 										</div>
 									</div>
 									<div style={{ flexShrink: 0, display: "flex", gap: "4px" }}>
-										{!m.downloaded && m.ready && sttDownloading !== m.modelId && (
-											<button
-												type="button"
-												style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer" }}
-												onClick={() => handleSttModelDownload(m.modelId)}
-											>
-												{t("settings.sttModelDownload")}
-											</button>
-										)}
+										{!m.downloaded &&
+											m.ready &&
+											sttDownloading !== m.modelId && (
+												<button
+													type="button"
+													style={{
+														fontSize: "0.8em",
+														padding: "2px 8px",
+														cursor: "pointer",
+													}}
+													onClick={() => handleSttModelDownload(m.modelId)}
+												>
+													{t("settings.sttModelDownload")}
+												</button>
+											)}
 										{!m.downloaded && !m.ready && (
-											<span style={{ fontSize: "0.75em", opacity: 0.5 }}>{t("settings.sttModelNotReady")}</span>
+											<span style={{ fontSize: "0.75em", opacity: 0.5 }}>
+												{t("settings.sttModelNotReady")}
+											</span>
 										)}
 										{sttDownloading === m.modelId && (
 											<span style={{ fontSize: "0.8em" }}>
@@ -3023,7 +3360,12 @@ export function SettingsTab() {
 										{m.downloaded && (
 											<button
 												type="button"
-												style={{ fontSize: "0.8em", padding: "2px 8px", cursor: "pointer", color: "var(--error-color, #f44)" }}
+												style={{
+													fontSize: "0.8em",
+													padding: "2px 8px",
+													cursor: "pointer",
+													color: "var(--error-color, #f44)",
+												}}
 												onClick={() => handleSttModelDelete(m.modelId)}
 											>
 												{t("settings.sttModelDelete")}
@@ -3120,7 +3462,11 @@ function VersionFooter() {
 				{t("update.version")} {appVersion || "—"}
 			</span>
 			{updateStatus === "idle" && (
-				<button type="button" className="version-footer-btn" onClick={handleCheckUpdate}>
+				<button
+					type="button"
+					className="version-footer-btn"
+					onClick={handleCheckUpdate}
+				>
 					{t("update.checkNow")}
 				</button>
 			)}
@@ -3131,7 +3477,11 @@ function VersionFooter() {
 				<span className="version-footer-status">{t("update.upToDate")}</span>
 			)}
 			{updateStatus === "available" && updateInfo && (
-				<button type="button" className="version-footer-btn" onClick={handleInstall}>
+				<button
+					type="button"
+					className="version-footer-btn"
+					onClick={handleInstall}
+				>
 					{t("update.now")} ({updateInfo.version})
 				</button>
 			)}

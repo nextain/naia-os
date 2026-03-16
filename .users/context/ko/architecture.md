@@ -77,7 +77,7 @@ OpenClaw이 제공하는 것:
 ### 축 2: project-careti (에이전트 지능)
 
 Careti가 제공하는 것:
-- **멀티 LLM (레지스트리)**: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama
+- **멀티 LLM (레지스트리)**: Naia, Claude Code CLI, Gemini, OpenAI, Anthropic, xAI, Zhipu, Ollama, vLLM
 - **도구 정의**: GATEWAY_TOOLS (8개 도구)
 - **Function calling**: Gemini 네이티브 (xAI/Claude = 기술 부채)
 - **Alpha 페르소나**: 시스템 프롬프트, 감정 매핑

@@ -7,6 +7,7 @@ export interface ProviderConfig {
 	apiKey: string;
 	naiaKey?: string;
 	ollamaHost?: string;
+	vllmHost?: string;
 }
 
 /** Tool call info returned by LLM function calling */

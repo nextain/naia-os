@@ -466,6 +466,7 @@ voice_architecture:
       - "xai (xAI Grok — XAI_API_KEY)"
       - "zai (Zhipu GLM — ZHIPU_API_KEY)"
       - "ollama (local, no API key)"
+      - "vllm (local vLLM server — OpenAI-compatible API, no API key, vllmHost configurable)"
     adding_provider: "See CONTRIBUTING.md 'Adding an LLM provider' section"
     type_system: "ProviderId = string (extensible via registry, no hardcoded union)"
 

@@ -147,6 +147,12 @@ const TEST_PROVIDERS: {
 		extraConfig: { ollamaHost: "http://localhost:11434" },
 	},
 	{
+		provider: "vllm",
+		model: "qwen3.5:9b",
+		label: "vLLM (Ollama compat, localhost:11434)",
+		extraConfig: { vllmHost: "http://localhost:11434" },
+	},
+	{
 		provider: "claude-code-cli",
 		model: "claude-sonnet-4-6",
 		label: "Claude Code CLI",

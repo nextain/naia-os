@@ -18,7 +18,10 @@ export function listLlmProviders(): LlmProviderMeta[] {
 }
 
 /** Get model metadata. */
-export function getLlmModel(providerId: string, modelId: string): LlmModelMeta | undefined {
+export function getLlmModel(
+	providerId: string,
+	modelId: string,
+): LlmModelMeta | undefined {
 	return providers.get(providerId)?.models.find((m) => m.id === modelId);
 }
 
@@ -49,8 +52,20 @@ export function getStaticModelsRecord(): Record<string, LlmModelMeta[]> {
 }
 
 /** Fetch Ollama models with connection status. */
-export async function fetchOllamaModels(host: string): Promise<{ models: LlmModelMeta[]; connected: boolean }> {
+export async function fetchOllamaModels(
+	host: string,
+): Promise<{ models: LlmModelMeta[]; connected: boolean }> {
 	const provider = providers.get("ollama");
+	if (!provider?.fetchModels) return { models: [], connected: false };
+	const models = await provider.fetchModels(host);
+	return { models: models ?? [], connected: models !== null };
+}
+
+/** Fetch vLLM models with connection status. */
+export async function fetchVllmModels(
+	host: string,
+): Promise<{ models: LlmModelMeta[]; connected: boolean }> {
+	const provider = providers.get("vllm");
 	if (!provider?.fetchModels) return { models: [], connected: false };
 	const models = await provider.fetchModels(host);
 	return { models: models ?? [], connected: models !== null };
@@ -137,10 +152,30 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "gemini-3-flash-preview",
 	models: [
-		{ id: "gemini-3-pro-preview", label: "Gemini 3 Pro", type: "llm", pricing: [2.00, 12.00] },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", type: "llm", pricing: [0.50, 3.00] },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", type: "llm", pricing: [1.25, 10.00] },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", type: "llm", pricing: [0.30, 2.50] },
+		{
+			id: "gemini-3-pro-preview",
+			label: "Gemini 3 Pro",
+			type: "llm",
+			pricing: [2.0, 12.0],
+		},
+		{
+			id: "gemini-3-flash-preview",
+			label: "Gemini 3.0 Flash",
+			type: "llm",
+			pricing: [0.5, 3.0],
+		},
+		{
+			id: "gemini-2.5-pro",
+			label: "Gemini 2.5 Pro",
+			type: "llm",
+			pricing: [1.25, 10.0],
+		},
+		{
+			id: "gemini-2.5-flash",
+			label: "Gemini 2.5 Flash",
+			type: "llm",
+			pricing: [0.3, 2.5],
+		},
 		{
 			id: "gemini-2.5-flash-live",
 			label: "Gemini 2.5 Flash Live 🗣️ (~$0.03/min)",
@@ -160,7 +195,7 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "gpt-4o",
 	models: [
-		{ id: "gpt-4o", label: "GPT-4o", type: "llm", pricing: [2.50, 10.00] },
+		{ id: "gpt-4o", label: "GPT-4o", type: "llm", pricing: [2.5, 10.0] },
 		{
 			id: "gpt-4o-realtime",
 			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
@@ -180,9 +215,24 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "claude-sonnet-4-6",
 	models: [
-		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", type: "llm", pricing: [15.00, 75.00] },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", type: "llm", pricing: [3.00, 15.00] },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", type: "llm", pricing: [0.80, 4.00] },
+		{
+			id: "claude-opus-4-6",
+			label: "Claude Opus 4.6",
+			type: "llm",
+			pricing: [15.0, 75.0],
+		},
+		{
+			id: "claude-sonnet-4-6",
+			label: "Claude Sonnet 4.6",
+			type: "llm",
+			pricing: [3.0, 15.0],
+		},
+		{
+			id: "claude-haiku-4-5-20251001",
+			label: "Claude Haiku 4.5",
+			type: "llm",
+			pricing: [0.8, 4.0],
+		},
 	],
 });
 
@@ -194,7 +244,12 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "grok-3-mini",
 	models: [
-		{ id: "grok-3-mini", label: "Grok 3 Mini", type: "llm", pricing: [0.30, 0.50] },
+		{
+			id: "grok-3-mini",
+			label: "Grok 3 Mini",
+			type: "llm",
+			pricing: [0.3, 0.5],
+		},
 	],
 });
 
@@ -206,7 +261,7 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "glm-4.7",
 	models: [
-		{ id: "glm-4.7", label: "GLM 4.7", type: "llm", pricing: [0.60, 2.20] },
+		{ id: "glm-4.7", label: "GLM 4.7", type: "llm", pricing: [0.6, 2.2] },
 	],
 });
 
@@ -224,17 +279,48 @@ registerLlmProvider({
 			const resp = await fetch(`${host}/api/tags`);
 			if (!resp.ok) return null;
 			const data = await resp.json();
-			return (data.models ?? []).map((m: { name: string; size?: number; details?: { quantization_level?: string; parameter_size?: string } }) => {
-				const sizeGB = m.size ? `${(m.size / 1e9).toFixed(1)}GB` : "";
-				const quant = m.details?.quantization_level ?? "";
-				const params = m.details?.parameter_size ?? "";
-				const extra = [params, sizeGB, quant].filter(Boolean).join(", ");
-				return {
-					id: m.name,
-					label: extra ? `${m.name} (${extra})` : m.name,
-					type: "llm" as const,
-				};
-			});
+			return (data.models ?? []).map(
+				(m: {
+					name: string;
+					size?: number;
+					details?: { quantization_level?: string; parameter_size?: string };
+				}) => {
+					const sizeGB = m.size ? `${(m.size / 1e9).toFixed(1)}GB` : "";
+					const quant = m.details?.quantization_level ?? "";
+					const params = m.details?.parameter_size ?? "";
+					const extra = [params, sizeGB, quant].filter(Boolean).join(", ");
+					return {
+						id: m.name,
+						label: extra ? `${m.name} (${extra})` : m.name,
+						type: "llm" as const,
+					};
+				},
+			);
+		} catch {
+			return null;
+		}
+	},
+});
+
+registerLlmProvider({
+	id: "vllm",
+	name: "vLLM",
+	description: "Local vLLM server — OpenAI-compatible API, no API key required.",
+	descKey: "provider.localRequired",
+	requiresApiKey: false,
+	isLocal: true,
+	defaultModel: "",
+	models: [],
+	async fetchModels(host) {
+		try {
+			const resp = await fetch(`${host}/v1/models`);
+			if (!resp.ok) return null;
+			const data = await resp.json();
+			return (data.data ?? []).map((m: { id: string }) => ({
+				id: m.id,
+				label: m.id,
+				type: "llm" as const,
+			}));
 		} catch {
 			return null;
 		}

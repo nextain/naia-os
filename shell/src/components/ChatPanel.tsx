@@ -650,6 +650,8 @@ export function ChatPanel() {
 					naiaKey: activeProvider === "nextain" ? config.naiaKey : undefined,
 					ollamaHost:
 						activeProvider === "ollama" ? config.ollamaHost : undefined,
+					vllmHost:
+						activeProvider === "vllm" ? config.vllmHost : undefined,
 				},
 				naiaKey: config.naiaKey || undefined,
 				history: history.slice(0, -1),
