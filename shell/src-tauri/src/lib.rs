@@ -2032,6 +2032,17 @@ async fn setup_wsl(app: AppHandle) -> Result<String, String> {
         .map_err(|e| format!("WSL setup task failed: {}", e))?
 }
 
+/// Called by frontend after first paint to show the window.
+/// Prevents white flash while React is mounting.
+#[tauri::command]
+async fn show_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        log_verbose("[Naia] Window shown (frontend ready)");
+    }
+    Ok(())
+}
+
 /// Reboot the computer (Windows: shutdown /r /t 3).
 /// Used after WSL feature activation requires a restart.
 #[tauri::command]
@@ -2622,6 +2633,7 @@ pub fn run() {
             fetch_linked_channels,
             get_platform_tier,
             setup_wsl,
+            show_window,
             reboot_computer,
             gemini_live_connect,
             gemini_live_send_audio,
@@ -2718,7 +2730,9 @@ pub fn run() {
                     let _ = window.set_position(PhysicalPosition::new(x, y));
                     log_verbose(&format!("[Naia] Window docked: {}x{} at ({},{})", width, height, x, y));
                 }
-                let _ = window.show();
+                // Don't show window yet — wait for frontend to signal readiness
+                // to avoid white flash before React renders.
+                // Frontend calls `show_window` command after first paint.
             }
 
             // Platform-specific WebView configuration (Linux: WebKit permissions)

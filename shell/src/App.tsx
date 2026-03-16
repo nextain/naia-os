@@ -68,6 +68,13 @@ export function App() {
 				if (needsOnboarding) {
 					setShowOnboarding(true);
 				}
+			})
+			.finally(() => {
+				// Show window after React has rendered the correct screen.
+				// Prevents white flash before first paint.
+				requestAnimationFrame(() => {
+					invoke("show_window").catch(() => {});
+				});
 			});
 	}, []);
 
