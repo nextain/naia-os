@@ -54,21 +54,29 @@ async function main() {
 		process.exit(0);
 	}
 
-	// Find project root (look for tauri.conf.windows.json)
-	let projectRoot = cwd;
-	for (let i = 0; i < 5; i++) {
-		const candidate = path.join(projectRoot, "shell", "src-tauri", "tauri.conf.windows.json");
-		if (fs.existsSync(candidate)) break;
-		const candidate2 = path.join(projectRoot, "src-tauri", "tauri.conf.windows.json");
-		if (fs.existsSync(candidate2)) {
-			projectRoot = path.join(projectRoot, "..");
-			break;
+	// Find tauri.conf.windows.json by walking up from cwd
+	// Handles cwd = project root, shell/, shell/src-tauri, etc.
+	let confPath = null;
+	let searchDir = path.resolve(cwd);
+	for (let i = 0; i < 6; i++) {
+		const candidates = [
+			path.join(searchDir, "tauri.conf.windows.json"),
+			path.join(searchDir, "src-tauri", "tauri.conf.windows.json"),
+			path.join(searchDir, "shell", "src-tauri", "tauri.conf.windows.json"),
+		];
+		for (const c of candidates) {
+			if (fs.existsSync(c)) { confPath = c; break; }
 		}
-		projectRoot = path.join(projectRoot, "..");
+		if (confPath) break;
+		const parent = path.dirname(searchDir);
+		if (parent === searchDir) break; // reached filesystem root
+		searchDir = parent;
 	}
 
-	const confPath = path.join(projectRoot, "shell", "src-tauri", "tauri.conf.windows.json");
-	const releaseDir = path.join(projectRoot, "shell", "src-tauri", "target", "release");
+	if (!confPath) process.exit(0);
+
+	const srcTauriDir = path.dirname(confPath);
+	const releaseDir = path.join(srcTauriDir, "target", "release");
 
 	if (!fs.existsSync(confPath) || !fs.existsSync(releaseDir)) {
 		process.exit(0); // Not a Tauri Windows project

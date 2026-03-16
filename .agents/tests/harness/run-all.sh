@@ -551,6 +551,114 @@ fi
 
 rm -rf "$TMPDIR_INT"
 
+# ─── 6. dll-bundle-check.js ──────────────────────────────
+
+echo ""
+echo -e "${YELLOW}═══ Test: dll-bundle-check.js ═══${NC}"
+
+# Setup: create a fake project structure with Tauri conf + DLLs
+# Use cygpath -m on Windows (MSYS mktemp returns /tmp/... which Node can't resolve)
+_raw_tmpdir="$(mktemp -d)"
+if command -v cygpath &>/dev/null; then
+    TMPDIR_DLL="$(cygpath -m "$_raw_tmpdir")"
+else
+    TMPDIR_DLL="$_raw_tmpdir"
+fi
+mkdir -p "$TMPDIR_DLL/shell/src-tauri/target/release"
+mkdir -p "$TMPDIR_DLL/shell/src-tauri"
+
+# Test 6.1: Non-build command → should be silent (no output)
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"npm install\"},\"cwd\":\"$TMPDIR_DLL\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "6.1 Non-build command is ignored"
+else
+    fail "6.1 Non-build command is ignored" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.2: Non-Bash tool → should be silent
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Edit\",\"tool_input\":{\"command\":\"cargo build --release\"},\"cwd\":\"$TMPDIR_DLL\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "6.2 Non-Bash tool is ignored"
+else
+    fail "6.2 Non-Bash tool is ignored" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.3: All DLLs declared → should be silent
+cat > "$TMPDIR_DLL/shell/src-tauri/tauri.conf.windows.json" << 'CONFEOF'
+{
+    "bundle": {
+        "resources": {
+            "target/release/libvosk.dll": "libvosk.dll",
+            "target/release/libgcc_s_seh-1.dll": "libgcc_s_seh-1.dll"
+        }
+    }
+}
+CONFEOF
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/libvosk.dll"
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/libgcc_s_seh-1.dll"
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/naia_shell_lib.dll"  # auto-bundled, should skip
+
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cargo build --release\"},\"cwd\":\"$TMPDIR_DLL/shell/src-tauri\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "6.3 All DLLs declared → silent"
+else
+    fail "6.3 All DLLs declared → silent" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.4: Missing DLL → should warn with DLL name
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/new-native-dep.dll"
+
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cargo build --release\"},\"cwd\":\"$TMPDIR_DLL/shell/src-tauri\"}")
+if echo "$OUTPUT" | grep -q "new-native-dep.dll"; then
+    pass "6.4 Missing DLL detected: new-native-dep.dll"
+else
+    fail "6.4 Missing DLL detected: new-native-dep.dll" "warning containing new-native-dep.dll" "$OUTPUT"
+fi
+
+# Test 6.5: Warning should NOT include auto-skip DLLs (naia_*)
+if echo "$OUTPUT" | grep -q "naia_shell_lib.dll"; then
+    fail "6.5 Auto-bundled DLL skipped (naia_*)" "not in output" "naia_shell_lib.dll found in output"
+else
+    pass "6.5 Auto-bundled DLL skipped (naia_*)"
+fi
+
+# Test 6.6: Multiple missing DLLs → all listed
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/another-dep.dll"
+
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"pnpm run tauri build --config src-tauri/tauri.conf.windows.json\"},\"cwd\":\"$TMPDIR_DLL/shell\"}")
+if echo "$OUTPUT" | grep -q "new-native-dep.dll" && echo "$OUTPUT" | grep -q "another-dep.dll"; then
+    pass "6.6 Multiple missing DLLs all listed"
+else
+    fail "6.6 Multiple missing DLLs all listed" "both new-native-dep.dll and another-dep.dll" "$OUTPUT"
+fi
+
+# Test 6.7: Warning includes fix instructions
+if echo "$OUTPUT" | grep -q "tauri.conf.windows.json"; then
+    pass "6.7 Warning includes fix instructions"
+else
+    fail "6.7 Warning includes fix instructions" "tauri.conf.windows.json in output" "$OUTPUT"
+fi
+
+# Test 6.8: debug build (no --release, no tauri build) → should be silent
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cargo build\"},\"cwd\":\"$TMPDIR_DLL/shell/src-tauri\"}")
+if [ -z "$OUTPUT" ]; then
+    pass "6.8 Debug build is ignored"
+else
+    fail "6.8 Debug build is ignored" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.9: WebView2 DLLs are auto-skipped
+touch "$TMPDIR_DLL/shell/src-tauri/target/release/WebView2Loader.dll"
+
+OUTPUT=$(run_hook "dll-bundle-check.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cargo build --release\"},\"cwd\":\"$TMPDIR_DLL/shell/src-tauri\"}")
+if echo "$OUTPUT" | grep -q "WebView2"; then
+    fail "6.9 WebView2 DLLs auto-skipped" "not in output" "WebView2 found in output"
+else
+    pass "6.9 WebView2 DLLs auto-skipped"
+fi
+
+rm -rf "$TMPDIR_DLL"
+
 # ─── Summary ──────────────────────────────────────────────
 
 echo ""
