@@ -4,7 +4,7 @@
 	"version": "0.1.2",
 	"type": "module",
 	"scripts": {
-		"dev": "node -e \"try{const p=require('child_process').execSync('lsof -ti:1420',{encoding:'utf8'}).trim();if(p)require('child_process').execSync('kill '+p,{stdio:'ignore'})}catch{}\" && sleep 0.5 && vite",
+		"dev": "node -e \"try{const p=require('child_process').execSync(process.platform==='win32'?'netstat -ano | findstr :1420':'lsof -ti:1420',{encoding:'utf8'}).trim();if(p&&process.platform!=='win32')require('child_process').execSync('kill '+p,{stdio:'ignore'})}catch{}\" && vite",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
 		"tauri": "cargo tauri",
