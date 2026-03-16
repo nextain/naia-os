@@ -15,7 +15,7 @@ keywords = ["tauri", "speech", "recognition", "stt", "vosk"]
 categories = ["multimedia::audio", "api-bindings"]
 
 [features]
-default = []
+default = ["whisper"]
 whisper = ["dep:whisper-rs"]
 cuda = ["whisper", "whisper-rs/cuda"]
 cuda-dynamic = ["whisper", "whisper-rs/cuda-dynamic"]

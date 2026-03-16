@@ -47,7 +47,7 @@ license = "MIT"
 repository = "https://github.com/brenogonzaga/tauri-plugin-stt"
 
 [features]
-default = []
+default = ["whisper"]
 whisper = ["dep:whisper-rs"]
 cuda = ["whisper", "whisper-rs/cuda"]
 cuda-dynamic = ["whisper", "whisper-rs/cuda-dynamic"]
