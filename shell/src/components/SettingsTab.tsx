@@ -611,6 +611,7 @@ interface SttModelInfo {
 	gpuRequired: boolean;
 	minVramMb: number;
 	ramMb: number;
+	recommendation: string;
 }
 
 export function SettingsTab() {
@@ -3282,24 +3283,20 @@ export function SettingsTab() {
 												name="stt-model-modal"
 												value={m.modelId}
 												checked={sttModel === m.modelId}
-												disabled={!m.downloaded || !m.ready}
+												disabled={!m.downloaded || !m.ready || m.recommendation === "not-recommended"}
 												onChange={() => setSttModel(m.modelId)}
 											/>
 											<strong style={{ fontSize: "0.9em" }}>
 												{m.modelName}
 											</strong>
-											{m.gpuRequired && (
-												<span
-													style={{
-														color: "#ff9800",
-														fontSize: "0.65em",
-														padding: "1px 4px",
-														border: "1px solid #ff9800",
-														borderRadius: "3px",
-														marginLeft: "2px",
-													}}
-												>
-													GPU
+											{m.recommendation === "slow" && (
+												<span style={{ color: "#ff9800", fontSize: "0.65em", padding: "1px 4px", border: "1px solid #ff9800", borderRadius: "3px", marginLeft: "2px" }}>
+													SLOW
+												</span>
+											)}
+											{m.recommendation === "not-recommended" && (
+												<span style={{ color: "#f44336", fontSize: "0.65em", padding: "1px 4px", border: "1px solid #f44336", borderRadius: "3px", marginLeft: "2px" }}>
+													GPU REQUIRED
 												</span>
 											)}
 											{m.downloaded && (
@@ -3356,10 +3353,12 @@ export function SettingsTab() {
 											sttDownloading !== m.modelId && (
 												<button
 													type="button"
+													disabled={m.recommendation === "not-recommended"}
 													style={{
 														fontSize: "0.8em",
 														padding: "2px 8px",
-														cursor: "pointer",
+														cursor: m.recommendation === "not-recommended" ? "not-allowed" : "pointer",
+														opacity: m.recommendation === "not-recommended" ? 0.4 : 1,
 													}}
 													onClick={() => handleSttModelDownload(m.modelId)}
 												>

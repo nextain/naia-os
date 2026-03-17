@@ -32,15 +32,79 @@ pub struct SttModelInfo {
     pub gpu_required: bool,   // true if GPU recommended for real-time
     pub min_vram_mb: u32,     // minimum VRAM (MB) for GPU inference, 0 = CPU ok
     pub ram_mb: u32,          // peak RAM for CPU inference
+    pub recommendation: String, // "recommended" | "slow" | "not-recommended" | ""
 }
 
-/// Returns the full model catalog with download status.
+/// Detect system GPU VRAM and total RAM for model recommendations.
+/// Cached after first call to avoid repeated nvidia-smi spawns.
+fn detect_hardware() -> (u32, u32) {
+    use std::sync::OnceLock;
+    static HW: OnceLock<(u32, u32)> = OnceLock::new();
+    *HW.get_or_init(|| {
+        let total_ram_mb = {
+            let mut sys = sysinfo::System::new();
+            sys.refresh_memory();
+            (sys.total_memory() / 1024 / 1024) as u32
+        };
+        let gpu_vram_mb = detect_nvidia_vram().unwrap_or(0);
+        info!("[STT] Hardware detected: RAM={}MB, GPU VRAM={}MB", total_ram_mb, gpu_vram_mb);
+        (total_ram_mb, gpu_vram_mb)
+    })
+}
+
+fn detect_nvidia_vram() -> Option<u32> {
+    let mut cmd = std::process::Command::new("nvidia-smi");
+    cmd.args(["--query-gpu=memory.total", "--format=csv,noheader,nounits"]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    let output = cmd.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.trim().lines().next()?.trim().parse::<u32>().ok()
+}
+
+/// Compute recommendation for each model based on hardware.
+fn compute_recommendation(model: &SttModelInfo, total_ram_mb: u32, gpu_vram_mb: u32) -> String {
+    let has_gpu = gpu_vram_mb > 0;
+
+    if model.engine == "vosk" {
+        return "recommended".into();
+    }
+
+    // GPU can handle this model — recommended
+    if has_gpu && gpu_vram_mb >= model.min_vram_mb {
+        return "recommended".into();
+    }
+
+    // No sufficient GPU — check CPU feasibility
+    // gpu_required means RTF > 1.0 on typical CPUs (i5 class)
+    if model.gpu_required {
+        // This model needs GPU for real-time, CPU fallback is too slow
+        return "not-recommended".into();
+    }
+
+    // CPU-capable model — check RAM
+    if total_ram_mb >= model.ram_mb + 2000 {
+        "recommended".into()
+    } else {
+        "slow".into()
+    }
+}
+
+/// Returns the full model catalog with download status and hardware-based recommendations.
 pub fn get_model_catalog(app: &AppHandle) -> Vec<SttModelInfo> {
     let models_dir = get_stt_models_dir(app);
+    let (total_ram_mb, gpu_vram_mb) = detect_hardware();
     let mut catalog = build_catalog();
     for model in &mut catalog {
         let model_path = models_dir.join(&model.model_id);
         model.downloaded = model_path.exists();
+        model.recommendation = compute_recommendation(model, total_ram_mb, gpu_vram_mb);
     }
     catalog
 }
@@ -60,6 +124,7 @@ fn vosk(id: &str, name: &str, lang: &str, size_mb: u32, wer: &str) -> SttModelIn
         gpu_required: false,
         min_vram_mb: 0,
         ram_mb: size_mb * 2, // vosk RAM ≈ 2x model size
+        recommendation: String::new(), // filled at runtime
     }
 }
 
@@ -93,6 +158,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             gpu_required: false,
             min_vram_mb: 150,
             ram_mb: 273,
+            recommendation: String::new(),
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -108,6 +174,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             gpu_required: false,
             min_vram_mb: 300,
             ram_mb: 388,
+            recommendation: String::new(),
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -123,6 +190,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             gpu_required: true,
             min_vram_mb: 900,
             ram_mb: 852,
+            recommendation: String::new(),
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -138,6 +206,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             gpu_required: true,
             min_vram_mb: 2500,
             ram_mb: 2100,
+            recommendation: String::new(),
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -153,6 +222,7 @@ fn build_catalog() -> Vec<SttModelInfo> {
             gpu_required: true,
             min_vram_mb: 5000,
             ram_mb: 3900,
+            recommendation: String::new(),
         },
     ]
 }
