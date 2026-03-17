@@ -363,7 +363,7 @@ CREATE TABLE facts (id TEXT PK, key TEXT UNIQUE, value TEXT,
 
 - **RPC 파라미터**: `skills.status: { agentId? }`, `skills.install: { name, installId }` — `installId` 필수 (`install[].id`에서 가져옴)
 - **directToolCall 흐름**: Shell → Tauri stdin → Agent `handleToolRequest()` → `executeTool(skill_skill_manager)` → Gateway RPC → Shell로 결과 반환
-- **이벤트 정리**: `delegateStreaming` 완료 후 `GatewayClient.offEvent(handler)` 호출 필수 (이벤트 핸들러 메모리 누수 방지).
+- **이벤트 정리**: `delegateStreaming` 완료 후 `GatewayAdapter.offEvent(handler)` 호출 필수 (이벤트 핸들러 메모리 누수 방지).
 
 ---
 
@@ -377,6 +377,24 @@ CREATE TABLE facts (id TEXT PK, key TEXT UNIQUE, value TEXT,
 | **Shell** | 사용자 승인 모달 + 도구 on/off 토글 | 사용자가 직접 제어 |
 
 **원칙: 각 계층이 독립적. 한 계층이 뚫려도 나머지가 방어.**
+
+---
+
+## GatewayAdapter 추상화
+
+> **#64 (2026-03-17)** — OpenClaw 직접 의존 탈피를 위한 인터페이스 레이어
+
+| 항목 | 내용 |
+|------|------|
+| 인터페이스 | `GatewayAdapter` (`agent/src/gateway/types.ts`) |
+| 현재 구현체 | `GatewayClient implements GatewayAdapter` (`client.ts`) |
+| 사용 범위 | proxy 14개, tool-bridge, skills/types, skills/loader, index.ts — `GatewayAdapter`만 참조 |
+| 예외 | `connectGatewayWithRetry` 내부에서만 `new GatewayClient()` 사용 |
+| 다음 이슈 | `#78` — 첫 실행 시 게이트웨이 선택 + 온디맨드 버전 고정 설치 |
+
+**인터페이스 메서드:** `request`, `onEvent`, `offEvent`, `close`, `isConnected`, `availableMethods`
+
+**배경:** OpenAI가 OpenClaw 인수 → 프로토콜 변경/유료화 리스크. 추상화 레이어 없으면 전면 재작업 필요.
 
 ---
 

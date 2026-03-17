@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Model info from models.list */
 export interface ModelInfo {
@@ -10,7 +10,7 @@ export interface ModelInfo {
 
 /** Get Gateway configuration */
 export async function getConfig(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<Record<string, unknown>> {
 	const payload = await client.request("config.get", {});
 	return payload as Record<string, unknown>;
@@ -18,7 +18,7 @@ export async function getConfig(
 
 /** Set Gateway configuration */
 export async function setConfig(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	patch: Record<string, unknown>,
 ): Promise<{ updated: boolean }> {
 	const payload = await client.request("config.set", patch);
@@ -27,7 +27,7 @@ export async function setConfig(
 
 /** Get Gateway config schema */
 export async function getConfigSchema(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<Record<string, unknown>> {
 	const payload = await client.request("config.schema", {});
 	return payload as Record<string, unknown>;
@@ -35,7 +35,7 @@ export async function getConfigSchema(
 
 /** List available models from Gateway */
 export async function listModels(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ models: ModelInfo[] }> {
 	const payload = await client.request("models.list", {});
 	return payload as { models: ModelInfo[] };
@@ -43,7 +43,7 @@ export async function listModels(
 
 /** Patch Gateway configuration (merge partial updates) */
 export async function patchConfig(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	patch: Record<string, unknown>,
 ): Promise<{ patched: boolean }> {
 	const snapshot = (await client.request("config.get", {})) as {

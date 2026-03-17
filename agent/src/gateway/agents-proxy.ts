@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Agent info from agents.list RPC */
 export interface AgentInfo {
@@ -17,7 +17,7 @@ export interface AgentsListResult {
 
 /** List all agents */
 export async function listAgents(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<AgentsListResult> {
 	const payload = await client.request("agents.list", {});
 	return payload as AgentsListResult;
@@ -25,7 +25,7 @@ export async function listAgents(
 
 /** Create a new agent */
 export async function createAgent(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	params: { name: string; description?: string; model?: string },
 ): Promise<{ id: string; name: string; created: boolean }> {
 	const payload = await client.request("agents.create", params);
@@ -34,7 +34,7 @@ export async function createAgent(
 
 /** Update an agent */
 export async function updateAgent(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	id: string,
 	params: { name?: string; description?: string; model?: string },
 ): Promise<{ id: string; updated: boolean }> {
@@ -44,7 +44,7 @@ export async function updateAgent(
 
 /** Delete an agent */
 export async function deleteAgent(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	id: string,
 ): Promise<{ id: string; deleted: boolean }> {
 	const payload = await client.request("agents.delete", { id });
@@ -60,7 +60,7 @@ export interface AgentFileInfo {
 
 /** List files belonging to an agent */
 export async function listAgentFiles(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	agentId: string,
 ): Promise<{ files: AgentFileInfo[] }> {
 	const payload = await client.request("agents.files.list", { agentId });
@@ -69,7 +69,7 @@ export async function listAgentFiles(
 
 /** Get content of an agent file */
 export async function getAgentFile(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	agentId: string,
 	path: string,
 ): Promise<{ path: string; content: string }> {
@@ -82,7 +82,7 @@ export async function getAgentFile(
 
 /** Set (create/update) content of an agent file */
 export async function setAgentFile(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	agentId: string,
 	path: string,
 	content: string,

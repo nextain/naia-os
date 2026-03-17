@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Approval rules from exec.approvals.get */
 export interface ApprovalRules {
@@ -9,7 +9,7 @@ export interface ApprovalRules {
 
 /** Get approval rules from Gateway */
 export async function getApprovalRules(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<ApprovalRules> {
 	const payload = await client.request("exec.approvals.get", {});
 	return payload as ApprovalRules;
@@ -17,7 +17,7 @@ export async function getApprovalRules(
 
 /** Set approval rules on Gateway */
 export async function setApprovalRules(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	rules: { allowedTools?: string[]; blockedPatterns?: string[] },
 ): Promise<{ updated: boolean }> {
 	const payload = await client.request("exec.approvals.set", rules);
@@ -26,7 +26,7 @@ export async function setApprovalRules(
 
 /** Resolve a pending Gateway approval request */
 export async function resolveApproval(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	requestId: string,
 	decision: "approve" | "reject",
 ): Promise<{ requestId: string; resolved: boolean }> {

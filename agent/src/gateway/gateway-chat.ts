@@ -17,7 +17,7 @@
  * If chat.send is unavailable, falls back to agent → agent.wait → transcript.
  */
 import { randomUUID } from "node:crypto";
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 import type { GatewayEvent } from "./types.js";
 
 export interface GatewayChatOptions {
@@ -46,7 +46,7 @@ const DEFAULT_SESSION_KEY = "agent:main:main";
  * Tries chat.send (streaming) first. Falls back to agent (batch).
  */
 export async function handleChatViaGateway(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options: GatewayChatOptions,
 ): Promise<void> {
 	const methods = new Set(client.availableMethods);
@@ -71,7 +71,7 @@ export async function handleChatViaGateway(
  * - event:"chat" state:"final" → final message (also signals completion)
  */
 async function handleChatStreaming(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options: GatewayChatOptions,
 ): Promise<void> {
 	const { message, requestId, writeLine, signal } = options;
@@ -184,7 +184,7 @@ async function handleChatStreaming(
  * Used when chat.send is not available.
  */
 async function handleChatBatch(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options: GatewayChatOptions,
 ): Promise<void> {
 	const { message, requestId, writeLine } = options;

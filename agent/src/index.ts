@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
+import type { GatewayAdapter } from "./gateway/types.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
 import { createGatewayEventHandler } from "./gateway/event-handler.js";
 import { executeTool, getAllTools } from "./gateway/tool-bridge.js";
@@ -89,7 +90,7 @@ function delay(ms: number): Promise<void> {
 async function connectGatewayWithRetry(
 	gatewayUrl: string,
 	gatewayToken: string | undefined,
-): Promise<GatewayClient> {
+): Promise<GatewayAdapter> {
 	const device = loadDeviceIdentity();
 	const tokenCandidates = resolveGatewayTokenCandidates(gatewayToken);
 	let lastError: unknown;
@@ -242,7 +243,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 	const controller = new AbortController();
 	activeStreams.set(requestId, controller);
 
-	let gateway: GatewayClient | null = null;
+	let gateway: GatewayAdapter | null = null;
 	const requestStart = Date.now();
 
 	try {
@@ -662,7 +663,7 @@ export async function handleToolRequest(req: ToolRequest): Promise<void> {
 		discordDmChannelId,
 	});
 
-	let gateway: GatewayClient | null = null;
+	let gateway: GatewayAdapter | null = null;
 
 	try {
 		if (gatewayUrl) {

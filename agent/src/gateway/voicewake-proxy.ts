@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Result from voicewake.get/set RPC */
 export interface VoiceWakeResult {
@@ -7,7 +7,7 @@ export interface VoiceWakeResult {
 
 /** Get current voice wake triggers */
 export async function getVoiceWakeTriggers(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<VoiceWakeResult> {
 	const payload = await client.request("voicewake.get", {});
 	return payload as VoiceWakeResult;
@@ -15,7 +15,7 @@ export async function getVoiceWakeTriggers(
 
 /** Set voice wake triggers */
 export async function setVoiceWakeTriggers(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	triggers: string[],
 ): Promise<VoiceWakeResult> {
 	const payload = await client.request("voicewake.set", { triggers });

@@ -1,8 +1,8 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Start the onboarding wizard on Gateway */
 export async function startWizard(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ started: boolean; step: string; totalSteps: number }> {
 	const payload = await client.request("wizard.start", {});
 	return payload as { started: boolean; step: string; totalSteps: number };
@@ -10,7 +10,7 @@ export async function startWizard(
 
 /** Advance to the next wizard step */
 export async function nextWizardStep(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	data: Record<string, unknown>,
 ): Promise<{ step: string; stepIndex: number; totalSteps: number }> {
 	const payload = await client.request("wizard.next", data);
@@ -19,14 +19,14 @@ export async function nextWizardStep(
 
 /** Cancel the wizard */
 export async function cancelWizard(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ cancelled: boolean }> {
 	const payload = await client.request("wizard.cancel", {});
 	return payload as { cancelled: boolean };
 }
 
 /** Get wizard status */
-export async function getWizardStatus(client: GatewayClient): Promise<{
+export async function getWizardStatus(client: GatewayAdapter): Promise<{
 	active: boolean;
 	step: string;
 	stepIndex: number;

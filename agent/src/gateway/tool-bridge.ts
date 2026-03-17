@@ -25,7 +25,8 @@ import { createVoiceWakeSkill } from "../skills/built-in/voicewake.js";
 import { createWeatherSkill } from "../skills/built-in/weather.js";
 import { bootstrapDefaultSkills, loadCustomSkills } from "../skills/loader.js";
 import { SkillRegistry } from "../skills/registry.js";
-import { type GatewayClient, GatewayRequestError } from "./client.js";
+import { GatewayRequestError } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
 
 export type { ToolDefinition };
@@ -264,7 +265,7 @@ function isBlockedCommand(command: string): boolean {
 	return BLOCKED_PATTERNS.some((pattern) => pattern.test(command.trim()));
 }
 
-function hasMethod(client: GatewayClient, method: string): boolean {
+function hasMethod(client: GatewayAdapter, method: string): boolean {
 	const methods = client.availableMethods;
 	// Backward-compatible default for tests/mocks that do not provide
 	// method capability metadata from hello-ok.
@@ -274,7 +275,7 @@ function hasMethod(client: GatewayClient, method: string): boolean {
 	return methods.includes(method);
 }
 
-function hasAllMethods(client: GatewayClient, methods: string[]): boolean {
+function hasAllMethods(client: GatewayAdapter, methods: string[]): boolean {
 	return methods.every((method) => hasMethod(client, method));
 }
 
@@ -376,9 +377,9 @@ function toToolResult(result: CommandResult): ToolResult {
 }
 
 /** Per-client nodeId cache to avoid repeated node.list RPC calls */
-const nodeIdCache = new WeakMap<GatewayClient, string | null>();
+const nodeIdCache = new WeakMap<GatewayAdapter, string | null>();
 
-async function resolveNodeId(client: GatewayClient): Promise<string | null> {
+async function resolveNodeId(client: GatewayAdapter): Promise<string | null> {
 	if (nodeIdCache.has(client)) {
 		return nodeIdCache.get(client)!;
 	}
@@ -414,7 +415,7 @@ async function resolveNodeId(client: GatewayClient): Promise<string | null> {
 }
 
 async function runExecBash(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	command: string,
 	workdir?: string,
 ): Promise<ToolResult> {
@@ -426,7 +427,7 @@ async function runExecBash(
 }
 
 async function runNodeInvoke(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	command: string,
 	workdir?: string,
 ): Promise<ToolResult> {
@@ -453,7 +454,7 @@ async function runNodeInvoke(
 }
 
 async function runShellCommand(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	command: string,
 	workdir?: string,
 ): Promise<ToolResult> {
@@ -508,7 +509,7 @@ async function runShellCommand(
 }
 
 async function invokeBrowserRequest(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	url: string,
 ): Promise<unknown> {
 	const attempts: Array<Record<string, unknown>> = [
@@ -547,7 +548,7 @@ export interface ExecuteToolContext {
 
 /** Execute a tool call (gateway tools need client; skills may not) */
 export async function executeTool(
-	client: GatewayClient | null,
+	client: GatewayAdapter | null,
 	toolName: string,
 	args: Record<string, unknown>,
 	ctx?: ExecuteToolContext,

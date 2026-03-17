@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 export type TtsProvider = "google" | "openai" | "elevenlabs" | "edge";
 export type TtsMode = "final" | "all";
@@ -33,7 +33,7 @@ export interface TtsConvertResult {
 
 /** Get current TTS status and configuration */
 export async function getTtsStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<TtsStatusResult> {
 	const payload = await client.request("tts.status", {});
 	return payload as TtsStatusResult;
@@ -41,7 +41,7 @@ export async function getTtsStatus(
 
 /** List available TTS providers with configuration status */
 export async function getTtsProviders(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<TtsProviderInfo[]> {
 	const payload = await client.request("tts.providers", {});
 	// Gateway may return { providers: [...], active: "..." } or a plain array
@@ -54,7 +54,7 @@ export async function getTtsProviders(
 
 /** Change the active TTS provider */
 export async function setTtsProvider(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	provider: TtsProvider,
 ): Promise<{ provider: string; applied: boolean }> {
 	const payload = await client.request("tts.setProvider", { provider });
@@ -63,7 +63,7 @@ export async function setTtsProvider(
 
 /** Convert text to speech audio */
 export async function convertTts(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	text: string,
 	options?: { voice?: string },
 ): Promise<TtsConvertResult> {
@@ -99,7 +99,7 @@ export async function convertTts(
 
 /** Enable TTS */
 export async function enableTts(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ enabled: boolean }> {
 	const payload = await client.request("tts.enable", {});
 	return payload as { enabled: boolean };
@@ -107,7 +107,7 @@ export async function enableTts(
 
 /** Disable TTS */
 export async function disableTts(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ enabled: boolean }> {
 	const payload = await client.request("tts.disable", {});
 	return payload as { enabled: boolean };
@@ -118,7 +118,7 @@ export async function disableTts(
  * OpenClaw requires baseHash for config writes when config exists.
  */
 async function patchMessagesTts(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	patch: Record<string, unknown>,
 ): Promise<void> {
 	const snapshot = (await client.request("config.get", {})) as {
@@ -136,7 +136,7 @@ async function patchMessagesTts(
 
 /** Set OpenClaw auto TTS mode (messages.tts.auto) */
 export async function setTtsAutoMode(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	auto: TtsAutoMode,
 ): Promise<{ auto: TtsAutoMode }> {
 	await patchMessagesTts(client, { auto });
@@ -145,7 +145,7 @@ export async function setTtsAutoMode(
 
 /** Set OpenClaw output mode (messages.tts.mode) */
 export async function setTtsOutputMode(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	mode: TtsMode,
 ): Promise<{ mode: TtsMode }> {
 	await patchMessagesTts(client, { mode });

@@ -1,6 +1,7 @@
 import { createPrivateKey, randomUUID, sign } from "node:crypto";
 import WebSocket from "ws";
 import type {
+	GatewayAdapter,
 	GatewayConnectOptions,
 	GatewayEvent,
 	GatewayFrame,
@@ -29,7 +30,7 @@ export class GatewayRequestError extends Error {
 	}
 }
 
-export class GatewayClient {
+export class GatewayClient implements GatewayAdapter {
 	private ws: WebSocket | null = null;
 	private pending = new Map<string, PendingRequest>();
 	private eventHandlers: EventHandler[] = [];

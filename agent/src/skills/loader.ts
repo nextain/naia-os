@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { GatewayClient } from "../gateway/client.js";
+import type { GatewayAdapter } from "../gateway/types.js";
 import type { GatewayEvent } from "../gateway/types.js";
 import type { SkillRegistry } from "./registry.js";
 import type {
@@ -24,7 +24,7 @@ interface SkillManifest {
  * Resolve the first paired node ID from the Gateway.
  */
 async function resolveNodeId(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<string | undefined> {
 	if (!client.availableMethods.includes("node.list")) return undefined;
 	try {
@@ -42,7 +42,7 @@ async function resolveNodeId(
  * Execute a shell command via exec.bash (if available) or node.invoke fallback.
  */
 async function runCommand(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	command: string,
 ): Promise<SkillResult> {
 	const methods = client.availableMethods;
@@ -184,7 +184,7 @@ function makeGatewayHandler(
  * Tries chat.send (streaming) first, falls back to agent (batch).
  */
 async function delegateToGatewayAgent(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	message: string,
 	sessionKey: string,
 	idempotencyKey: string,
@@ -207,7 +207,7 @@ async function delegateToGatewayAgent(
 }
 
 async function delegateStreaming(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	message: string,
 	sessionKey: string,
 	idempotencyKey: string,
@@ -279,7 +279,7 @@ async function delegateStreaming(
 }
 
 async function delegateBatch(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	message: string,
 	sessionKey: string,
 	idempotencyKey: string,

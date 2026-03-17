@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 import type { ToolResult } from "./tool-bridge.js";
 
 export interface SessionsSpawnArgs {
@@ -24,7 +24,7 @@ const AGENT_WAIT_TIMEOUT_MS = 120_000;
  * The sub-agent runs in a separate session and cannot spawn further sub-agents (depth=1).
  */
 export async function executeSessionsSpawn(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	args: SessionsSpawnArgs,
 ): Promise<ToolResult> {
 	if (!client.isConnected()) {

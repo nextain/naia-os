@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Skill eligibility info from skills.status RPC */
 export interface SkillStatusInfo {
@@ -21,7 +21,7 @@ export interface SkillsBinsResult {
 
 /** Get all skills with eligibility status from Gateway */
 export async function getSkillsStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<SkillsStatusResult> {
 	const payload = await client.request("skills.status", {});
 	return payload as SkillsStatusResult;
@@ -29,7 +29,7 @@ export async function getSkillsStatus(
 
 /** Get available skill binaries from Gateway */
 export async function getSkillsBins(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<SkillsBinsResult> {
 	const payload = await client.request("skills.bins", {});
 	return payload as SkillsBinsResult;
@@ -37,7 +37,7 @@ export async function getSkillsBins(
 
 /** Install a skill's missing dependencies via Gateway */
 export async function installSkill(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	name: string,
 	installId: string,
 ): Promise<{ installed: boolean; name: string }> {
@@ -50,7 +50,7 @@ export async function installSkill(
 
 /** Update skill configuration (enable/disable, API key, env) */
 export async function updateSkillConfig(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	name: string,
 	patch: { enabled?: boolean; apiKey?: string; env?: Record<string, string> },
 ): Promise<{ updated: boolean; name: string }> {

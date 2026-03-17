@@ -363,7 +363,7 @@ Skill management: built-in skills, Gateway skills, and install flow. *(Updated: 
 
 - **RPC params**: `skills.status: { agentId? }`, `skills.install: { name, installId }` — `installId` is REQUIRED (from `install[].id`)
 - **directToolCall flow**: Shell → Tauri stdin → Agent `handleToolRequest()` → `executeTool(skill_skill_manager)` → Gateway RPC → result back to Shell
-- **Event cleanup**: `GatewayClient.offEvent(handler)` must be called after `delegateStreaming` completes to prevent event handler memory leaks.
+- **Event cleanup**: `GatewayAdapter.offEvent(handler)` must be called after `delegateStreaming` completes to prevent event handler memory leaks.
 
 ---
 
@@ -377,6 +377,24 @@ Skill management: built-in skills, Gateway skills, and install flow. *(Updated: 
 | **Shell** | User approval modal + tool on/off toggle | User-controlled |
 
 **Principle: Each layer is independent. If one layer is breached, the rest still defend.**
+
+---
+
+## GatewayAdapter Abstraction
+
+> **#64 (2026-03-17)** — Interface layer to decouple agent from OpenClaw-specific code
+
+| Item | Detail |
+|------|--------|
+| Interface | `GatewayAdapter` (`agent/src/gateway/types.ts`) |
+| Current impl | `GatewayClient implements GatewayAdapter` (`client.ts`) |
+| Scope | 14 proxy files, tool-bridge, skills/types, skills/loader, index.ts — reference `GatewayAdapter` only |
+| Exception | `connectGatewayWithRetry` uses `new GatewayClient()` internally |
+| Next issue | `#78` — first-run gateway selection + on-demand version-pinned install |
+
+**Interface methods:** `request`, `onEvent`, `offEvent`, `close`, `isConnected`, `availableMethods`
+
+**Rationale:** OpenAI acquired OpenClaw → protocol change/paywall risk. Without abstraction, any breaking change requires full rewrite.
 
 ---
 

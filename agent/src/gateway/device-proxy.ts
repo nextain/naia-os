@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Node info from node.list */
 export interface NodeInfo {
@@ -19,7 +19,7 @@ export interface DevicePairing {
 
 /** List all nodes */
 export async function listNodes(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ nodes: NodeInfo[] }> {
 	const payload = await client.request("node.list", {});
 	return payload as { nodes: NodeInfo[] };
@@ -27,7 +27,7 @@ export async function listNodes(
 
 /** List device pairings */
 export async function listDevicePairings(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ pairings: DevicePairing[] }> {
 	const payload = await client.request("device.pair.list", {});
 	return payload as { pairings: DevicePairing[] };
@@ -52,7 +52,7 @@ export interface PairRequest {
 
 /** Get detailed info about a node */
 export async function describeNode(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	nodeId: string,
 ): Promise<NodeDetail> {
 	const payload = await client.request("node.describe", { nodeId });
@@ -61,7 +61,7 @@ export async function describeNode(
 
 /** Rename a node */
 export async function renameNode(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	nodeId: string,
 	name: string,
 ): Promise<{ nodeId: string; renamed: boolean }> {
@@ -71,7 +71,7 @@ export async function renameNode(
 
 /** Request pairing with a node */
 export async function requestNodePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	nodeId: string,
 ): Promise<PairRequest> {
 	const payload = await client.request("node.pair.request", { nodeId });
@@ -80,7 +80,7 @@ export async function requestNodePair(
 
 /** List pending node pair requests */
 export async function listNodePairRequests(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<{ requests: PairRequest[] }> {
 	const payload = await client.request("node.pair.list", {});
 	return payload as { requests: PairRequest[] };
@@ -88,7 +88,7 @@ export async function listNodePairRequests(
 
 /** Approve a node pair request */
 export async function approveNodePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	requestId: string,
 ): Promise<{ requestId: string; approved: boolean }> {
 	const payload = await client.request("node.pair.approve", { requestId });
@@ -97,7 +97,7 @@ export async function approveNodePair(
 
 /** Reject a node pair request */
 export async function rejectNodePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	requestId: string,
 ): Promise<{ requestId: string; rejected: boolean }> {
 	const payload = await client.request("node.pair.reject", { requestId });
@@ -106,7 +106,7 @@ export async function rejectNodePair(
 
 /** Verify a node pair request with a code */
 export async function verifyNodePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	requestId: string,
 	code: string,
 ): Promise<{ requestId: string; verified: boolean }> {
@@ -119,7 +119,7 @@ export async function verifyNodePair(
 
 /** Approve a device pairing */
 export async function approveDevicePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	deviceId: string,
 ): Promise<{ deviceId: string; approved: boolean }> {
 	const payload = await client.request("device.pair.approve", { deviceId });
@@ -128,7 +128,7 @@ export async function approveDevicePair(
 
 /** Reject a device pairing */
 export async function rejectDevicePair(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	deviceId: string,
 ): Promise<{ deviceId: string; rejected: boolean }> {
 	const payload = await client.request("device.pair.reject", { deviceId });
@@ -137,7 +137,7 @@ export async function rejectDevicePair(
 
 /** Rotate a device token */
 export async function rotateDeviceToken(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	deviceId: string,
 ): Promise<{ deviceId: string; token: string }> {
 	const payload = await client.request("device.token.rotate", { deviceId });
@@ -146,7 +146,7 @@ export async function rotateDeviceToken(
 
 /** Revoke a device token */
 export async function revokeDeviceToken(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	deviceId: string,
 ): Promise<{ deviceId: string; revoked: boolean }> {
 	const payload = await client.request("device.token.revoke", { deviceId });

@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Account info within a channel */
 export interface ChannelAccount {
@@ -43,7 +43,7 @@ export interface ChannelLogoutResult {
 
 /** Fetch status of all channels and their accounts */
 export async function getChannelsStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options?: { probe?: boolean; timeoutMs?: number },
 ): Promise<ChannelsStatusResult> {
 	const payload = await client.request("channels.status", options ?? {});
@@ -52,7 +52,7 @@ export async function getChannelsStatus(
 
 /** Log out a specific channel (and optionally a specific account) */
 export async function logoutChannel(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	channel: string,
 	accountId?: string,
 ): Promise<ChannelLogoutResult> {
@@ -66,7 +66,7 @@ export async function logoutChannel(
 
 /** Start web login flow (QR code) for a channel */
 export async function startWebLogin(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options?: {
 		force?: boolean;
 		timeoutMs?: number;
@@ -79,7 +79,7 @@ export async function startWebLogin(
 
 /** Wait for web login completion (user scans QR) */
 export async function waitWebLogin(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options?: { timeoutMs?: number; accountId?: string },
 ): Promise<{ connected: boolean; [key: string]: unknown }> {
 	const payload = await client.request("web.login.wait", options ?? {});

@@ -1,4 +1,4 @@
-import type { GatewayClient } from "../gateway/client.js";
+import type { GatewayAdapter } from "../gateway/types.js";
 
 /** Result from skill execution */
 export interface SkillResult {
@@ -9,7 +9,7 @@ export interface SkillResult {
 
 /** Context passed to skill handlers */
 export interface SkillExecutionContext {
-	gateway?: GatewayClient;
+	gateway?: GatewayAdapter;
 	/** Send a JSON chunk to the shell (for config_update etc.) */
 	writeLine?: (data: unknown) => void;
 	/** Current request ID (for addressable chunks) */

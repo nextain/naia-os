@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Cron job info from Gateway */
 export interface CronJobInfo {
@@ -28,7 +28,7 @@ export interface CronStatusResult {
 
 /** List all cron jobs on Gateway */
 export async function listCronJobs(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<CronListResult> {
 	const payload = await client.request("cron.list", {});
 	return payload as CronListResult;
@@ -36,7 +36,7 @@ export async function listCronJobs(
 
 /** Get cron scheduler status from Gateway */
 export async function getCronStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<CronStatusResult> {
 	const payload = await client.request("cron.status", {});
 	return payload as CronStatusResult;
@@ -44,7 +44,7 @@ export async function getCronStatus(
 
 /** Add a new cron job on Gateway */
 export async function addCronJob(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	params: {
 		name: string;
 		schedule: {
@@ -62,7 +62,7 @@ export async function addCronJob(
 
 /** Remove a cron job from Gateway */
 export async function removeCronJob(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	jobId: string,
 ): Promise<{ removed: boolean; jobId: string }> {
 	const payload = await client.request("cron.remove", { jobId });
@@ -71,7 +71,7 @@ export async function removeCronJob(
 
 /** Run a cron job manually on Gateway */
 export async function runCronJob(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	jobId: string,
 	mode?: string,
 ): Promise<{ jobId: string; executed: boolean; result?: string }> {
@@ -81,7 +81,7 @@ export async function runCronJob(
 
 /** Get run history for a cron job from Gateway */
 export async function getCronRuns(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	jobId: string,
 	limit?: number,
 ): Promise<{

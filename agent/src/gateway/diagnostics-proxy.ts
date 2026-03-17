@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Health check result */
 export interface HealthResult {
@@ -24,14 +24,14 @@ export interface UsageCostResult {
 }
 
 /** Get Gateway health status */
-export async function getHealth(client: GatewayClient): Promise<HealthResult> {
+export async function getHealth(client: GatewayAdapter): Promise<HealthResult> {
 	const payload = await client.request("health", {});
 	return payload as HealthResult;
 }
 
 /** Get usage statistics */
 export async function getUsageStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<UsageStatusResult> {
 	const payload = await client.request("usage.status", {});
 	return payload as UsageStatusResult;
@@ -39,7 +39,7 @@ export async function getUsageStatus(
 
 /** Get usage cost breakdown */
 export async function getUsageCost(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<UsageCostResult> {
 	const payload = await client.request("usage.cost", {});
 	return payload as UsageCostResult;
@@ -55,7 +55,7 @@ export interface GatewayStatusResult {
 
 /** Get overall Gateway status */
 export async function getGatewayStatus(
-	client: GatewayClient,
+	client: GatewayAdapter,
 ): Promise<GatewayStatusResult> {
 	const payload = await client.request("status", {});
 	return payload as GatewayStatusResult;
@@ -74,7 +74,7 @@ export interface LogsTailResult {
  * Subsequent calls with cursor return only new lines since that cursor.
  */
 export async function pollLogsTail(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	cursor?: number,
 ): Promise<LogsTailResult> {
 	const params = cursor != null ? { cursor } : {};

@@ -1,4 +1,4 @@
-import type { GatewayClient } from "./client.js";
+import type { GatewayAdapter } from "./types.js";
 
 /** Session info from sessions.list RPC */
 export interface SessionInfo {
@@ -17,7 +17,7 @@ export interface SessionsListResult {
 
 /** List all gateway sessions, enriched with message counts */
 export async function listSessions(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	options?: { limit?: number },
 ): Promise<SessionsListResult> {
 	const raw = (await client.request("sessions.list", options ?? {})) as {
@@ -60,7 +60,7 @@ export async function listSessions(
 
 /** Delete a gateway session */
 export async function deleteSession(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	key: string,
 ): Promise<{ deleted: boolean; key: string }> {
 	const payload = await client.request("sessions.delete", { key });
@@ -69,7 +69,7 @@ export async function deleteSession(
 
 /** Compact a gateway session (remove old messages) */
 export async function compactSession(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	key: string,
 ): Promise<{ compacted: boolean; key: string; removedMessages?: number }> {
 	const payload = await client.request("sessions.compact", { key });
@@ -82,7 +82,7 @@ export async function compactSession(
 
 /** Preview a gateway session (summary) */
 export async function previewSession(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	key: string,
 ): Promise<{ key: string; summary: string; [k: string]: unknown }> {
 	const payload = await client.request("sessions.preview", { key });
@@ -91,7 +91,7 @@ export async function previewSession(
 
 /** Patch (partially update) a gateway session */
 export async function patchSession(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	key: string,
 	patch: Record<string, unknown>,
 ): Promise<{ key: string; patched: boolean }> {
@@ -101,7 +101,7 @@ export async function patchSession(
 
 /** Reset a gateway session (clear messages, keep metadata) */
 export async function resetSession(
-	client: GatewayClient,
+	client: GatewayAdapter,
 	key: string,
 ): Promise<{ key: string; reset: boolean }> {
 	const payload = await client.request("sessions.reset", { key });

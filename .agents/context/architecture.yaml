@@ -347,7 +347,7 @@ skill_system:
     → Gateway skills.install RPC → result back to Shell
 
   event_cleanup: |
-    GatewayClient.offEvent(handler) must be called after delegateStreaming completes
+    GatewayAdapter.offEvent(handler) must be called after delegateStreaming completes
     to prevent event handler memory leaks. Added in 2026-03-05 fix.
 
 security_layers:
@@ -356,6 +356,22 @@ security_layers:
   layer_3_agent: "Permission tiers 0-3 + tool-level blocking"
   layer_4_shell: "User approval modal + tools on/off toggle"
   principle: "Defense in depth. Every layer is independent."
+
+gateway_adapter_abstraction:
+  description: "GatewayAdapter interface decouples agent code from OpenClaw-specific implementation"
+  added: "2026-03-17 (#64)"
+  interface_file: "agent/src/gateway/types.ts — GatewayAdapter"
+  interface_methods:
+    - "request(method, params): Promise<unknown>"
+    - "onEvent(handler): void"
+    - "offEvent(handler): void"
+    - "close(): void"
+    - "isConnected(): boolean"
+    - "availableMethods: string[] (readonly)"
+  current_implementation: "GatewayClient implements GatewayAdapter (agent/src/gateway/client.ts)"
+  usage: "All proxy files, tool-bridge, skills/types, skills/loader, index.ts use GatewayAdapter — never GatewayClient directly (except new GatewayClient() in connectGatewayWithRetry)"
+  future: "#78 — first-run gateway selection + on-demand version-pinned install"
+  rationale: "OpenAI acquired OpenClaw — protocol change risk. Abstraction layer isolates impact."
 
 gateway_client_protocol:
   description: "How Naia Agent connects to OpenClaw Gateway"

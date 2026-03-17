@@ -1,3 +1,13 @@
+/** Abstract interface for any gateway implementation */
+export interface GatewayAdapter {
+	request(method: string, params: unknown): Promise<unknown>;
+	onEvent(handler: (event: GatewayEvent) => void): void;
+	offEvent(handler: (event: GatewayEvent) => void): void;
+	close(): void;
+	isConnected(): boolean;
+	readonly availableMethods: string[];
+}
+
 /** Gateway WebSocket protocol frame types */
 
 export interface GatewayRequest {
