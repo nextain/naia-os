@@ -429,9 +429,9 @@ Naia Agent가 OpenClaw Gateway에 연결하는 과정:
 
 ### 개요
 
-음성 상호작용은 **LLM 모델 유형**에 따라 결정된다:
+음성 상호작용은 **LLM 모델 capabilities**에 따라 결정된다:
 
-- **Omni 모델** (Gemini Live, OpenAI Realtime): 음성 I/O가 LLM에 내장. 별도 STT/TTS 불필요 — 모델이 음성 입출력을 직접 처리한다.
+- **Omni 모델** (Gemini Live, OpenAI Realtime): 음성 I/O가 LLM에 내장. 별도 STT/TTS 불필요 — 모델이 음성 입출력을 직접 처리한다. `capabilities.includes("omni")`로 감지.
 - **일반 LLM 모델**: 독립적인 **STT → LLM → TTS 파이프라인**을 통한 음성 대화. STT와 TTS는 각각 독립 프로바이더.
 
 Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된다. **STT 프로바이더, TTS 프로바이더, LLM 프로바이더는 세 개의 독립 카테고리**이다.
@@ -475,8 +475,12 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 독립적인 STT 프로바이더 레지스트리 — 일반 LLM 모델용 파이프라인 모드에서만 사용. Omni 모델은 내장 음성 인식을 사용하며 이 프로바이더를 사용하지 않는다.
 
 **레지스트리 파일:**
-- `shell/src/lib/stt/types.ts` — `SttProviderMeta`, `SttModelMeta`
+- `shell/src/lib/stt/types.ts` — `SttProviderMeta`, `SttModelMeta`, `SttEngineType`
 - `shell/src/lib/stt/registry.ts` — `registerSttProvider()`, `getSttProvider()`, `listSttProviders()`
+
+**`SttEngineType`:** `"tauri"` (오프라인 Rust) | `"api"` (클라우드 API) | `"web"` (Web Speech) | `"vllm"` (로컬 vLLM 서버)
+
+`SttProviderMeta`는 로컬 서버 프로바이더(예: vLLM 기반 ASR)를 위해 `isLocal?`, `requiresEndpointUrl?`, `endpointUrlConfigField?` 필드를 지원한다.
 
 #### 프로바이더
 

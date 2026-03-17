@@ -469,10 +469,18 @@ voice_architecture:
     description: "Extensible LLM provider registry — Settings UI and Agent factory auto-discover from registry"
     registry:
       shell_types: "shell/src/lib/llm/types.ts — LlmProviderMeta, LlmModelMeta, LlmVoiceMeta"
-      shell_registry: "shell/src/lib/llm/registry.ts — registerLlmProvider(), listLlmProviders(), isOmniModel(), formatModelLabel()"
+      shell_registry: "shell/src/lib/llm/registry.ts — registerLlmProvider(), listLlmProviders(), isOmniModel(), modelHasCapability(), formatModelLabel()"
       shell_barrel: "shell/src/lib/llm/index.ts"
       agent_types: "agent/src/providers/registry.ts — LlmProviderDefinition, registerLlmProvider()"
       agent_factory: "agent/src/providers/factory.ts — provider registrations + buildProvider()"
+    model_capability_system:
+      description: "Extensible capability tag system on LlmModelMeta — replaces binary type field"
+      shared_type: "shell/src/lib/types.ts — ModelCapability = 'llm' | 'omni' | 'asr' | 'stt' | 'tts' | 'vlm' | 'world'"
+      field: "capabilities: ModelCapability[] (array, may hold multiple tags)"
+      helper: "modelHasCapability(providerId, modelId, cap) — check single capability"
+      isOmniModel: "delegates to modelHasCapability(p, m, 'omni') — backward-compatible"
+      rationale: "#45 — future model types (ASR-only, VLM, world models) need no interface change"
+      omni_models: "Gemini 2.5 Flash Live, GPT-4o Realtime — capabilities: ['llm', 'omni']"
     providers:
       - "nextain (Naia Cloud — naiaKey, Gemini models via gateway)"
       - "claude-code-cli (local Claude CLI subscription — no API key)"
