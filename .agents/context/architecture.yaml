@@ -473,6 +473,7 @@ voice_architecture:
       - "xai (xAI Grok — XAI_API_KEY)"
       - "zai (Zhipu GLM — ZHIPU_API_KEY)"
       - "ollama (local, no API key)"
+      - "vllm (local vLLM server — OpenAI-compatible API, no API key, vllmHost configurable)"
     adding_provider: "See CONTRIBUTING.md 'Adding an LLM provider' section"
     type_system: "ProviderId = string (extensible via registry, no hardcoded union)"
 
@@ -662,7 +663,7 @@ voice_architecture:
         - Direct API (google/openai/elevenlabs): Shell estimateTtsCost(provider, length, voice) — voice tier-based for Google, flat rate for others
         Agent TtsSynthesizeResult carries { audio, costUsd? } through pipeline.
         Accumulated on assistant message via addCostEntry.
-      stt: "Shell estimateSttCost() — per-API-call, session total only (not per message)"
+      stt: "Shell estimateSttCost() — per-API-call, stored in sessionCostEntries[] via addSessionCostEntry(). Shown in CostDashboard breakdown by provider/model (e.g. stt:nextain). Not attached to messages."
       note: "Client estimates may differ from gateway actual (e.g. Gemini free tier = $0)"
     files:
       - "shell/src/components/ChatPanel.tsx — pipeline refs, handleVoiceToggle, handleChunk pipeline logic"

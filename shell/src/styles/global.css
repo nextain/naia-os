@@ -738,16 +738,20 @@ body.resizing-row {
 }
 
 @keyframes hearing-pulse {
-	0%, 100% {
-		box-shadow: 0 0 0 3px rgba(42, 157, 42, 0.3), 0 0 12px rgba(42, 157, 42, 0.4);
+	0%,
+	100% {
+		box-shadow: 0 0 0 3px rgba(42, 157, 42, 0.3), 0 0 12px
+			rgba(42, 157, 42, 0.4);
 	}
 	50% {
-		box-shadow: 0 0 0 6px rgba(42, 157, 42, 0.15), 0 0 20px rgba(42, 157, 42, 0.5);
+		box-shadow: 0 0 0 6px rgba(42, 157, 42, 0.15), 0 0 20px
+			rgba(42, 157, 42, 0.5);
 	}
 }
 
 @keyframes voice-wave-hearing {
-	0%, 100% {
+	0%,
+	100% {
 		height: 6px;
 	}
 	50% {
@@ -798,7 +802,8 @@ body.resizing-row {
 }
 
 @keyframes voice-wave-speaking {
-	0%, 100% {
+	0%,
+	100% {
 		height: 8px;
 	}
 	50% {
@@ -2999,19 +3004,24 @@ body.resizing-row {
 /* Onboarding Wizard */
 .onboarding-overlay {
 	flex: 1;
+	min-height: 0;
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	justify-content: center;
 	background: var(--espresso);
 	padding: 20px;
+	overflow: hidden;
 }
 
 .onboarding-card {
 	width: 100%;
 	max-width: 400px;
+	height: 100%;
+	max-height: calc(100vh - 40px);
 	display: flex;
 	flex-direction: column;
 	gap: 20px;
+	overflow: hidden;
 }
 
 .onboarding-steps {
@@ -3038,6 +3048,9 @@ body.resizing-row {
 	align-items: center;
 	text-align: center;
 	gap: 12px;
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .onboarding-content h2 {
@@ -3070,15 +3083,15 @@ body.resizing-row {
 .onboarding-provider-cards {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 4px;
 	width: 100%;
 }
 
 .onboarding-provider-card {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
-	padding: 12px;
+	gap: 1px;
+	padding: 6px 10px;
 	background: var(--espresso-dark);
 	border: 2px solid var(--espresso-light);
 	border-radius: 8px;
@@ -3105,12 +3118,12 @@ body.resizing-row {
 }
 
 .provider-card-label {
-	font-size: 14px;
+	font-size: 13px;
 	font-weight: 600;
 }
 
 .provider-card-desc {
-	font-size: 11px;
+	font-size: 10px;
 	color: var(--cream-dim);
 }
 
@@ -3274,6 +3287,7 @@ body.resizing-row {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	flex-shrink: 0;
 }
 
 .onboarding-nav-spacer {

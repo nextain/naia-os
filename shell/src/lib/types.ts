@@ -9,6 +9,7 @@ export interface ProviderConfig {
 	apiKey: string;
 	naiaKey?: string;
 	ollamaHost?: string;
+	vllmHost?: string;
 }
 
 // === Chat Messages ===

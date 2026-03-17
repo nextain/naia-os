@@ -22,7 +22,13 @@ export type ThemeId =
 	| "sakura"
 	| "cloud";
 
-export type SttProviderId = "" | "vosk" | "whisper" | "google" | "elevenlabs" | "nextain";
+export type SttProviderId =
+	| ""
+	| "vosk"
+	| "whisper"
+	| "google"
+	| "elevenlabs"
+	| "nextain";
 
 /** Map app locale to Vosk STT language code. */
 const LOCALE_TO_STT: Record<string, string> = {
@@ -106,6 +112,7 @@ export interface AppConfig {
 	panelSize?: number;
 	discordSessionMigrated?: boolean;
 	ollamaHost?: string;
+	vllmHost?: string;
 	voiceConversation?: boolean;
 	liveProvider?: LiveProviderId;
 	liveVoice?: string;
@@ -141,11 +148,12 @@ export function hasApiKey(): boolean {
 export function isReadyToChat(): boolean {
 	const config = loadConfig();
 	if (!config) return false;
-	// Import-free check: provider needs no key if it's claude-code-cli or ollama
-	const noKeyNeeded = config.provider === "claude-code-cli" || config.provider === "ollama";
-	return (
-		noKeyNeeded || !!config.apiKey || !!config.naiaKey
-	);
+	// Import-free check: provider needs no key if it's claude-code-cli, ollama, or vllm
+	const noKeyNeeded =
+		config.provider === "claude-code-cli" ||
+		config.provider === "ollama" ||
+		config.provider === "vllm";
+	return noKeyNeeded || !!config.apiKey || !!config.naiaKey;
 }
 
 export function hasNaiaKey(): boolean {
@@ -294,7 +302,9 @@ export async function migrateLabKeyToNaiaKey(): Promise<void> {
 // ── Speech style migration ──
 
 /** Normalize legacy Korean speech style values to locale-neutral keys */
-export function normalizeSpeechStyle(val: string | undefined): string | undefined {
+export function normalizeSpeechStyle(
+	val: string | undefined,
+): string | undefined {
 	if (!val) return val;
 	if (val === "반말") return "casual";
 	if (val === "존댓말") return "formal";
@@ -367,9 +377,9 @@ export function migrateLiveProviderToUnifiedModel(): void {
 	}
 
 	if (changed) {
-		delete raw.liveProvider;
-		delete raw.liveVoice;
-		delete raw.liveModel;
+		raw.liveProvider = undefined;
+		raw.liveVoice = undefined;
+		raw.liveModel = undefined;
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
 	}
 }
@@ -432,3 +442,4 @@ export const LAB_GATEWAY_URL =
 	"https://naia-gateway-181404717065.asia-northeast3.run.app";
 
 export const DEFAULT_OLLAMA_HOST = "http://localhost:11434";
+export const DEFAULT_VLLM_HOST = "http://localhost:8000";

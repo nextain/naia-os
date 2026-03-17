@@ -17,35 +17,83 @@ export function listSttProviders(): SttProviderMeta[] {
 	return Array.from(providers.values());
 }
 
+// ── Browser built-in (free, no download) ──
+
+registerSttProvider({
+	id: "web-speech",
+	name: "Web Speech API",
+	description:
+		"Browser built-in speech recognition. No model download, no API key. Availability depends on browser/WebKit version.",
+	engineType: "web",
+	isOffline: false,
+	pricing: "Free",
+	supportedLanguages: [
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+	],
+});
+
 // ── Offline providers (free, Tauri plugin) ──
 
 registerSttProvider({
 	id: "vosk",
 	name: "Vosk",
-	description: "Offline speech recognition. Small models (~40-80MB), real-time streaming.",
+	description:
+		"Offline speech recognition. Small models (~40-80MB), real-time streaming.",
 	engineType: "tauri",
 	engine: "vosk",
 	isOffline: true,
 	pricing: "Free",
 	supportedLanguages: [
-		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+		"vi-VN",
+		"hi-IN",
 	],
 });
 
 registerSttProvider({
 	id: "whisper",
 	name: "Whisper",
-	description: "OpenAI Whisper (local). Higher accuracy, batch inference every 2s.",
+	description:
+		"OpenAI Whisper (local). Higher accuracy, batch inference every 2s.",
 	engineType: "tauri",
 	engine: "whisper",
 	isOffline: true,
 	gpuAccelerated: true,
 	pricing: "Free",
 	supportedLanguages: [
-		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
-		"ar-SA", "bn-IN", "id-ID",
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+		"vi-VN",
+		"hi-IN",
+		"ar-SA",
+		"bn-IN",
+		"id-ID",
 	],
 });
 
@@ -54,14 +102,25 @@ registerSttProvider({
 registerSttProvider({
 	id: "nextain",
 	name: "Naia Cloud STT",
-	description: "Cloud STT without API key. Currently Google Cloud STT, more providers coming.",
+	description:
+		"Cloud STT without API key. Currently Google Cloud STT, more providers coming.",
 	engineType: "api",
 	isOffline: false,
 	requiresNaiaKey: true,
 	pricing: "Naia credit",
 	supportedLanguages: [
-		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+		"vi-VN",
+		"hi-IN",
 	],
 });
 
@@ -70,16 +129,29 @@ registerSttProvider({
 registerSttProvider({
 	id: "google",
 	name: "Google Cloud STT",
-	description: "Google Cloud Speech-to-Text API. High accuracy, streaming support.",
+	description:
+		"Google Cloud Speech-to-Text API. High accuracy, streaming support.",
 	engineType: "api",
 	isOffline: false,
 	requiresApiKey: true,
 	apiKeyConfigField: "googleApiKey",
 	pricing: "$0.024/분",
 	supportedLanguages: [
-		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-		"de-DE", "ru-RU", "pt-BR", "it-IT", "vi-VN", "hi-IN",
-		"ar-SA", "bn-IN", "id-ID",
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+		"vi-VN",
+		"hi-IN",
+		"ar-SA",
+		"bn-IN",
+		"id-ID",
 	],
 });
 
@@ -93,7 +165,13 @@ registerSttProvider({
 	apiKeyConfigField: "elevenlabsApiKey",
 	pricing: "$0.007/분",
 	supportedLanguages: [
-		"ko-KR", "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-		"de-DE", "ru-RU",
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
 	],
 });

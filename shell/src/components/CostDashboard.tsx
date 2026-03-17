@@ -9,7 +9,7 @@ import {
 import { getLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
 import { Logger } from "../lib/logger";
-import type { ChatMessage } from "../lib/types";
+import type { ChatMessage, CostEntry } from "../lib/types";
 
 interface CostGroup {
 	provider: string;
@@ -20,7 +20,10 @@ interface CostGroup {
 	cost: number;
 }
 
-function groupCosts(messages: ChatMessage[]): CostGroup[] {
+function groupCosts(
+	messages: ChatMessage[],
+	sessionCostEntries: CostEntry[] = [],
+): CostGroup[] {
 	const map = new Map<string, CostGroup>();
 	for (const msg of messages) {
 		if (!msg.cost) continue;
@@ -39,6 +42,25 @@ function groupCosts(messages: ChatMessage[]): CostGroup[] {
 				inputTokens: msg.cost.inputTokens,
 				outputTokens: msg.cost.outputTokens,
 				cost: msg.cost.cost,
+			});
+		}
+	}
+	// Merge session-level entries (e.g. STT costs not attached to messages)
+	for (const entry of sessionCostEntries) {
+		const key = `${entry.provider}|${entry.model}`;
+		const existing = map.get(key);
+		if (existing) {
+			existing.inputTokens += entry.inputTokens;
+			existing.outputTokens += entry.outputTokens;
+			existing.cost += entry.cost;
+		} else {
+			map.set(key, {
+				provider: entry.provider,
+				model: entry.model,
+				count: 0,
+				inputTokens: entry.inputTokens,
+				outputTokens: entry.outputTokens,
+				cost: entry.cost,
 			});
 		}
 	}
@@ -153,8 +175,14 @@ function LabBalanceSection() {
 	);
 }
 
-export function CostDashboard({ messages }: { messages: ChatMessage[] }) {
-	const groups = groupCosts(messages);
+export function CostDashboard({
+	messages,
+	sessionCostEntries = [],
+}: {
+	messages: ChatMessage[];
+	sessionCostEntries?: CostEntry[];
+}) {
+	const groups = groupCosts(messages, sessionCostEntries);
 	const [showLabBalance, setShowLabBalance] = useState(false);
 
 	useEffect(() => {
@@ -198,9 +226,9 @@ export function CostDashboard({ messages }: { messages: ChatMessage[] }) {
 						<tr key={`${g.provider}|${g.model}`}>
 							<td>{g.provider}</td>
 							<td>{g.model}</td>
-							<td>{g.count}</td>
-							<td>{g.inputTokens.toLocaleString()}</td>
-							<td>{g.outputTokens.toLocaleString()}</td>
+							<td>{g.count > 0 ? g.count : "-"}</td>
+							<td>{g.inputTokens > 0 ? g.inputTokens.toLocaleString() : "-"}</td>
+							<td>{g.outputTokens > 0 ? g.outputTokens.toLocaleString() : "-"}</td>
 							<td>{formatCost(g.cost)}</td>
 						</tr>
 					))}

@@ -8,6 +8,7 @@ export {
 	isApiKeyOptional,
 	getStaticModelsRecord,
 	fetchOllamaModels,
+	fetchVllmModels,
 	formatModelLabel,
 } from "./registry";
 export type { LlmProviderMeta, LlmModelMeta, LlmVoiceMeta } from "./types";

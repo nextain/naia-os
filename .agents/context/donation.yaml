@@ -21,7 +21,7 @@ rationale:
 # Donation platforms
 platforms:
   primary:
-    url: "https://github.com/sponsors/luke-n-alpha"
+    url: "https://github.com/sponsors/nextain"
     description: "GitHub Sponsors — primary donation method"
   secondary:
     url: "https://naia.nextain.io/donation"

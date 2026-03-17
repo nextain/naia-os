@@ -63,6 +63,13 @@ registerLlmProvider({
 });
 
 registerLlmProvider({
+	id: "vllm",
+	name: "vLLM",
+	create: (_apiKey, model, opts) =>
+		createOpenAIProvider("vllm", model, opts?.vllmHost),
+});
+
+registerLlmProvider({
 	id: "lab-proxy",
 	name: "Naia Lab Proxy",
 	create: (naiaKey, model) => createLabProxyProvider(naiaKey, model),
@@ -89,5 +96,6 @@ export function buildProvider(config: ProviderConfig): LLMProvider {
 		config.apiKey || (def.envVar ? process.env[def.envVar] || "" : "");
 	return def.create(apiKey, config.model, {
 		ollamaHost: config.ollamaHost,
+		vllmHost: config.vllmHost,
 	});
 }
