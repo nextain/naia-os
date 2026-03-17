@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTtsCost, estimateSttCost } from "../cost";
+import { estimateSttCost, estimateTtsCost } from "../cost";
 
 describe("estimateTtsCost", () => {
 	it("edge is free", () => {
@@ -17,23 +17,35 @@ describe("estimateTtsCost", () => {
 
 	// Voice tier-based providers
 	it("google Neural2 voice = $16/1M", () => {
-		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Neural2-A")).toBeCloseTo(16, 5);
+		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Neural2-A")).toBeCloseTo(
+			16,
+			5,
+		);
 	});
 
 	it("google Wavenet voice = $16/1M", () => {
-		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Wavenet-B")).toBeCloseTo(16, 5);
+		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Wavenet-B")).toBeCloseTo(
+			16,
+			5,
+		);
 	});
 
 	it("google Standard voice = $4/1M", () => {
-		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Standard-A")).toBeCloseTo(4, 5);
+		expect(
+			estimateTtsCost("google", 1_000_000, "ko-KR-Standard-A"),
+		).toBeCloseTo(4, 5);
 	});
 
 	it("google Chirp3-HD voice = $16/1M", () => {
-		expect(estimateTtsCost("google", 1_000_000, "ko-KR-Chirp3-HD-Kore")).toBeCloseTo(16, 5);
+		expect(
+			estimateTtsCost("google", 1_000_000, "ko-KR-Chirp3-HD-Kore"),
+		).toBeCloseTo(16, 5);
 	});
 
 	it("nextain (fallback) Neural2 = $16/1M", () => {
-		expect(estimateTtsCost("nextain", 1_000_000, "ko-KR-Neural2-C")).toBeCloseTo(16, 5);
+		expect(
+			estimateTtsCost("nextain", 1_000_000, "ko-KR-Neural2-C"),
+		).toBeCloseTo(16, 5);
 	});
 
 	it("nextain without voice defaults to conservative neural2", () => {
@@ -47,12 +59,18 @@ describe("estimateTtsCost", () => {
 	// Matches gateway _voice_tier exactly
 	it("matches gateway tier: 12 chars of Neural2 text", () => {
 		// Gateway: (12 / 1_000_000) * 16 = 0.000192
-		expect(estimateTtsCost("google", 12, "ko-KR-Neural2-A")).toBeCloseTo(0.000192, 8);
+		expect(estimateTtsCost("google", 12, "ko-KR-Neural2-A")).toBeCloseTo(
+			0.000192,
+			8,
+		);
 	});
 
 	it("matches gateway tier: 12 chars of Standard text", () => {
 		// Gateway: (12 / 1_000_000) * 4 = 0.000048
-		expect(estimateTtsCost("google", 12, "ko-KR-Standard-A")).toBeCloseTo(0.000048, 8);
+		expect(estimateTtsCost("google", 12, "ko-KR-Standard-A")).toBeCloseTo(
+			0.000048,
+			8,
+		);
 	});
 });
 

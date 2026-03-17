@@ -25,6 +25,7 @@ import {
 	loadConfig,
 	loadConfigWithSecrets,
 	localeToSttLanguage,
+	DEFAULT_VLLM_HOST,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
@@ -1129,13 +1130,17 @@ export function ChatPanel() {
 			const naiaKey = config?.naiaKey;
 			const modelMeta = getLlmModel(config.provider, config.model);
 			const isOmni = modelMeta?.capabilities.includes("omni") ?? false;
+			// ASR mode: STT provider is vllm, or LLM model has "asr" capability
+			const isAsrModel = config.sttProvider === "vllm" ||
+				(modelMeta?.capabilities.includes("asr") ?? false);
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
 				// Guard: STT provider must be configured; model required only for offline engines
+				// ASR models are self-contained — skip guard
 				const sttProviderMeta = getSttProvider(config.sttProvider || "");
 				const needsModel = sttProviderMeta?.engineType === "tauri";
-				if (!config.sttProvider || (needsModel && !config.sttModel)) {
+				if (!isAsrModel && (!config.sttProvider || (needsModel && !config.sttModel))) {
 					setVoiceMode("off");
 					if (
 						globalThis.confirm(
@@ -1148,6 +1153,7 @@ export function ChatPanel() {
 				}
 
 				const queue = new AudioQueue({
+					outputDeviceId: config.ttsOutputDeviceId || undefined,
 					onPlaybackStart: () => {
 						useAvatarStore.getState().setSpeaking(true);
 						ttsPlayingRef.current = true;
@@ -1186,9 +1192,9 @@ export function ChatPanel() {
 				setSttState("initializing");
 				try {
 					const sttLang = localeToSttLanguage(getLocale());
-					const sttEngine = config.sttProvider || "vosk";
+					const sttEngine = isAsrModel ? "vllm" : (config.sttProvider || "vosk");
 					const sttMeta = getSttProvider(sttEngine);
-					const isApiBased = sttMeta?.engineType === "api";
+					const isApiBased = sttMeta?.engineType === "api" || sttMeta?.engineType === "vllm";
 					const isWebBased = sttMeta?.engineType === "web";
 
 					// Shared result handler for both offline and API-based STT
@@ -1259,17 +1265,29 @@ export function ChatPanel() {
 								: sttMeta?.apiKeyConfigField === "elevenlabsApiKey"
 									? config.elevenlabsApiKey
 									: "";
-						if (!apiKey) {
+						if (!apiKey && !isAsrModel) {
 							Logger.warn("ChatPanel", "API STT requires API key", {
 								provider: sttEngine,
 							});
 							setSttState("idle");
 							return;
 						}
+						const endpointUrl = isAsrModel
+							? (config.vllmSttHost || config.vllmHost || DEFAULT_VLLM_HOST)
+							: (sttMeta?.requiresEndpointUrl && sttMeta.endpointUrlConfigField
+								? (config[sttMeta.endpointUrlConfigField as keyof typeof config] as string | undefined)
+								: undefined);
+						// vLLM model: ASR model (LLM=ASR) → config.model, STT=vllm → config.vllmSttModel
+						const vllmSttModel = sttEngine === "vllm"
+							? ((modelMeta?.capabilities.includes("asr") ? config.model : config.vllmSttModel) || undefined)
+							: undefined;
 						const session = createApiSttSession({
-							provider: sttEngine as "google" | "elevenlabs" | "nextain",
-							apiKey,
+							provider: sttEngine as "google" | "elevenlabs" | "nextain" | "vllm",
+							apiKey: apiKey ?? "",
 							language: sttLang,
+							endpointUrl,
+							model: vllmSttModel,
+							inputDeviceId: config.sttInputDeviceId || undefined,
 						});
 						const cleanupResult = session.onResult(handleSttResult);
 						sttCleanupRef.current.push(cleanupResult);

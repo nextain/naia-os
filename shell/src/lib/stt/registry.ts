@@ -155,6 +155,54 @@ registerSttProvider({
 	],
 });
 
+// ── Local vLLM providers (no API key, user-managed server) ──
+
+registerSttProvider({
+	id: "vllm",
+	name: "vLLM ASR",
+	description:
+		"Local vLLM server — supports any ASR model (Qwen3-ASR, Whisper, etc.)",
+	engineType: "vllm",
+	isOffline: true,
+	isLocal: true,
+	requiresEndpointUrl: true,
+	endpointUrlConfigField: "vllmSttHost",
+	gpuAccelerated: true,
+	pricing: "Free (local)",
+	supportedLanguages: [
+		"ko-KR",
+		"en-US",
+		"zh-CN",
+		"ja-JP",
+		"es-ES",
+		"fr-FR",
+		"de-DE",
+		"ru-RU",
+		"pt-BR",
+		"it-IT",
+		"vi-VN",
+		"hi-IN",
+		"ar-SA",
+		"tr-TR",
+		"pl-PL",
+		"nl-NL",
+		"sv-SE",
+		"da-DK",
+		"fi-FI",
+		"no-NO",
+		"cs-CZ",
+		"sk-SK",
+		"hu-HU",
+		"ro-RO",
+		"bg-BG",
+		"uk-UA",
+		"ms-MY",
+		"th-TH",
+		"bn-IN",
+		"id-ID",
+	],
+});
+
 registerSttProvider({
 	id: "elevenlabs",
 	name: "ElevenLabs STT",

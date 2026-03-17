@@ -11,6 +11,8 @@ import { Logger } from "../logger";
 export interface AudioQueueCallbacks {
 	onPlaybackStart?: () => void;
 	onPlaybackEnd?: () => void;
+	/** Audio output device ID (from enumerateDevices). Applied via setSinkId. */
+	outputDeviceId?: string;
 }
 
 export class AudioQueue {
@@ -109,6 +111,11 @@ export class AudioQueue {
 		this.playing = true;
 
 		const audio = new Audio(`data:audio/mp3;base64,${mp3Base64}`);
+		// Apply output device if specified (setSinkId is non-standard, guarded)
+		const setSinkId = (audio as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+		if (this.callbacks.outputDeviceId && setSinkId) {
+			setSinkId.call(audio, this.callbacks.outputDeviceId).catch(() => {});
+		}
 		this.current = audio;
 
 		audio.onplay = () => {

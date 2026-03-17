@@ -28,7 +28,8 @@ export type SttProviderId =
 	| "whisper"
 	| "google"
 	| "elevenlabs"
-	| "nextain";
+	| "nextain"
+	| "vllm";
 
 /** Map app locale to Vosk STT language code. */
 const LOCALE_TO_STT: Record<string, string> = {
@@ -58,7 +59,8 @@ export type TtsProviderId =
 	| "edge"
 	| "openai"
 	| "elevenlabs"
-	| "nextain";
+	| "nextain"
+	| "vllm";
 
 export type PanelPosition = "left" | "right" | "bottom";
 
@@ -113,6 +115,16 @@ export interface AppConfig {
 	discordSessionMigrated?: boolean;
 	ollamaHost?: string;
 	vllmHost?: string;
+	/** vLLM endpoint for STT/ASR (e.g. Qwen3-ASR). */
+	vllmSttHost?: string;
+	/** vLLM endpoint for TTS (e.g. Kokoro). */
+	vllmTtsHost?: string;
+	/** Selected ASR model ID on the vLLM STT server. */
+	vllmSttModel?: string;
+	/** Selected microphone device ID for STT input (from enumerateDevices). */
+	sttInputDeviceId?: string;
+	/** Selected speaker/output device ID for TTS output (from enumerateDevices). */
+	ttsOutputDeviceId?: string;
 	voiceConversation?: boolean;
 	liveProvider?: LiveProviderId;
 	liveVoice?: string;

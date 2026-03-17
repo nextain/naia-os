@@ -702,6 +702,17 @@ export function SettingsTab() {
 		existing?.vllmHost ?? DEFAULT_VLLM_HOST,
 	);
 	const [vllmConnected, setVllmConnected] = useState(false);
+	const [vllmSttHost, setVllmSttHost] = useState(
+		existing?.vllmSttHost ?? "",
+	);
+	const [vllmTtsHost, setVllmTtsHost] = useState(
+		existing?.vllmTtsHost ?? "",
+	);
+	const [vllmSttModels, setVllmSttModels] = useState<import("../lib/llm/types").LlmModelMeta[]>([]);
+	const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
+	const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
+	const [sttInputDeviceId, setSttInputDeviceId] = useState(existing?.sttInputDeviceId ?? "");
+	const [ttsOutputDeviceId, setTtsOutputDeviceId] = useState(existing?.ttsOutputDeviceId ?? "");
 	const [gatewayUrl, setGatewayUrl] = useState(
 		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
@@ -943,12 +954,34 @@ export function SettingsTab() {
 			setVllmConnected(connected);
 			if (models.length > 0) {
 				setDynamicModels((prev) => ({ ...prev, vllm: models }));
-				if (!model || !models.some((m) => m.id === model)) {
-					setModel(models[0].id);
+				// Auto-select: skip ASR-only models (they belong in STT, not LLM)
+				const nonAsrModels = models.filter((m) => !m.capabilities.includes("asr"));
+				const currentValid = nonAsrModels.some((m) => m.id === model);
+				if (!currentValid) {
+					setModel(nonAsrModels[0]?.id ?? "");
 				}
 			}
 		});
 	}, [provider, vllmHost]);
+
+	// Fetch ASR models from vLLM STT host (separate from LLM vllmHost)
+	useEffect(() => {
+		if (sttProvider !== "vllm") return;
+		const host = vllmSttHost || DEFAULT_VLLM_HOST;
+		fetchVllmModels(host).then(({ models }) => {
+			const asrModels = models.filter((m) => m.capabilities.includes("asr"));
+			setVllmSttModels(asrModels);
+		});
+	}, [sttProvider, vllmSttHost]);
+
+	// Enumerate audio input/output devices
+	useEffect(() => {
+		if (!navigator.mediaDevices?.enumerateDevices) return;
+		navigator.mediaDevices.enumerateDevices().then((devices) => {
+			setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
+			setAudioOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
+		}).catch(() => {});
+	}, []);
 
 	useEffect(() => {
 		getNaiaKeySecure().then((key) => {
@@ -1708,6 +1741,8 @@ export function SettingsTab() {
 					: existing?.vllmHost,
 			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
+			sttInputDeviceId: sttInputDeviceId || undefined,
+			ttsOutputDeviceId: ttsOutputDeviceId || undefined,
 		};
 		saveConfig(newConfig);
 		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
@@ -1758,6 +1793,11 @@ export function SettingsTab() {
 	const selectedModelMeta = providerModels.find((m) => m.id === model);
 	const hasSelectedModel = Boolean(selectedModelMeta);
 	const isSelectedOmni = selectedModelMeta?.capabilities.includes("omni") ?? false;
+	const modelIdLower = model?.toLowerCase() ?? "";
+	const isSelectedAsr =
+		(selectedModelMeta?.capabilities.includes("asr") ?? false) ||
+		(provider === "vllm" &&
+			(modelIdLower.includes("asr") || modelIdLower.includes("whisper")));
 	const omniVoices = selectedModelMeta?.voices;
 	const manualUrl = `https://naia.nextain.io/${locale}/manual`;
 
@@ -2216,6 +2256,42 @@ export function SettingsTab() {
 				</select>
 			</div>
 
+			{/* Ollama/vLLM: host URL first — models load dynamically after connection */}
+			{provider === "ollama" && (
+				<div className="settings-field">
+					<label>Ollama Host</label>
+					<input
+						type="text"
+						value={ollamaHost}
+						onChange={(e) => setOllamaHost(e.target.value)}
+						placeholder={DEFAULT_OLLAMA_HOST}
+					/>
+					<div className="settings-hint">
+						{ollamaConnected
+							? `연결됨 — ${(dynamicModels.ollama ?? []).length}개 모델`
+							: "연결 안 됨 — Ollama 서버가 실행 중인지 확인하세요"}
+					</div>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			)}
+			{provider === "vllm" && (
+				<div className="settings-field">
+					<label>vLLM Host</label>
+					<input
+						type="text"
+						value={vllmHost}
+						onChange={(e) => setVllmHost(e.target.value)}
+						placeholder={DEFAULT_VLLM_HOST}
+					/>
+					<div className="settings-hint">
+						{vllmConnected
+							? `연결됨 — ${(dynamicModels.vllm ?? []).length}개 모델`
+							: "연결 안 됨 — vLLM 서버가 실행 중인지 확인하세요"}
+					</div>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			)}
+
 			<div className="settings-field">
 				<label htmlFor="model-select">{t("settings.model")}</label>
 				<select
@@ -2237,9 +2313,9 @@ export function SettingsTab() {
 					}}
 				>
 					{!hasSelectedModel && model ? (
-						<option value="__custom__">{`${model} (현재값)`}</option>
+						<option value="__custom__">{`${model}${isSelectedAsr ? " 🎤" : ""} (현재값)`}</option>
 					) : null}
-					{providerModels.map((m) => (
+					{providerModels.filter((m) => !m.capabilities.includes("asr")).map((m) => (
 						<option key={m.id} value={m.id}>
 							{formatModelLabel(m)}
 						</option>
@@ -2524,38 +2600,8 @@ export function SettingsTab() {
 					)}
 					{error && <div className="settings-error">{error}</div>}
 				</div>
-			) : provider === "ollama" ? (
-				<div className="settings-field">
-					<label>Ollama Host</label>
-					<input
-						type="text"
-						value={ollamaHost}
-						onChange={(e) => setOllamaHost(e.target.value)}
-						placeholder={DEFAULT_OLLAMA_HOST}
-					/>
-					<div className="settings-hint">
-						{ollamaConnected
-							? `연결됨 — ${(dynamicModels.ollama ?? []).length}개 모델`
-							: "연결 안 됨 — Ollama 서버가 실행 중인지 확인하세요"}
-					</div>
-					{error && <div className="settings-error">{error}</div>}
-				</div>
-			) : provider === "vllm" ? (
-				<div className="settings-field">
-					<label>vLLM Host</label>
-					<input
-						type="text"
-						value={vllmHost}
-						onChange={(e) => setVllmHost(e.target.value)}
-						placeholder={DEFAULT_VLLM_HOST}
-					/>
-					<div className="settings-hint">
-						{vllmConnected
-							? `연결됨 — ${(dynamicModels.vllm ?? []).length}개 모델`
-							: "연결 안 됨 — vLLM 서버가 실행 중인지 확인하세요"}
-					</div>
-					{error && <div className="settings-error">{error}</div>}
-				</div>
+			) : provider === "ollama" || provider === "vllm" ? (
+				<>{/* host shown above model selector */}</>
 			) : provider === "claude-code-cli" ? (
 				<div className="settings-field">
 					<label>{t("settings.apiKey")}</label>
@@ -2588,6 +2634,7 @@ export function SettingsTab() {
 						<span>{t("settings.voiceSection")}</span>
 					</div>
 
+					{!isSelectedAsr && (<>
 					{/* Voice status summary */}
 					<div
 						className="settings-field"
@@ -2695,6 +2742,45 @@ export function SettingsTab() {
 					})()}
 
 					{/* STT Model — current selection + manage button (offline engines only) */}
+					{/* vLLM ASR: endpoint URL + ASR model picker */}
+					{sttProvider === "vllm" && (
+						<>
+							<div className="settings-field">
+								<label>vLLM STT Host</label>
+								<input
+									type="text"
+									value={vllmSttHost}
+									onChange={(e) => {
+										setVllmSttHost(e.target.value);
+									if (existing) saveConfig({ ...existing, vllmSttHost: e.target.value });
+									}}
+									placeholder={DEFAULT_VLLM_HOST}
+								/>
+							</div>
+							{(() => {
+								const asrModels = vllmSttModels;
+								if (asrModels.length === 0) return (
+									<div className="settings-field"><span className="settings-hint">ASR 모델 불러오는 중... (Host URL 확인)</span></div>
+								);
+								return (
+									<div className="settings-field">
+										<label>ASR 모델</label>
+										<select
+											value={existing?.vllmSttModel ?? ""}
+											onChange={(e) => {
+												if (existing) saveConfig({ ...existing, vllmSttModel: e.target.value });
+											}}
+										>
+											{asrModels.map((m) => (
+												<option key={m.id} value={m.id}>{m.label} 🎤</option>
+											))}
+										</select>
+									</div>
+								);
+							})()}
+						</>
+					)}
+
 					{(sttProvider === "vosk" || sttProvider === "whisper") && (
 						<div className="settings-field">
 							<label>{t("settings.sttCurrentModel")}</label>
@@ -2718,6 +2804,29 @@ export function SettingsTab() {
 							</div>
 						</div>
 					)}
+
+					{/* STT Input Device */}
+					{sttProvider && audioInputDevices.length > 0 && (
+						<div className="settings-field">
+							<label>마이크 (입력 장치)</label>
+							<select
+								value={sttInputDeviceId}
+								onChange={(e) => {
+									setSttInputDeviceId(e.target.value);
+									if (existing) saveConfig({ ...existing, sttInputDeviceId: e.target.value || undefined });
+								}}
+							>
+								<option value="">기본 장치</option>
+								{audioInputDevices.map((d) => (
+									<option key={d.deviceId} value={d.deviceId}>
+										{d.label || `마이크 ${d.deviceId.slice(0, 8)}`}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
+
+					</>)}
 
 					{/* TTS */}
 					<div className="settings-field settings-toggle-row">
@@ -2869,7 +2978,45 @@ export function SettingsTab() {
 						}
 						return null;
 					})()}
-					{/* TTS Voice picker — dynamic based on provider */}
+					{/* vLLM TTS: host URL input */}
+					{ttsProvider === "vllm" && (
+						<div className="settings-field">
+							<label>vLLM TTS Host</label>
+							<input
+								type="text"
+								value={vllmTtsHost}
+								onChange={(e) => {
+									setVllmTtsHost(e.target.value);
+									if (existing) saveConfig({ ...existing, vllmTtsHost: e.target.value });
+								}}
+								placeholder={DEFAULT_VLLM_HOST}
+							/>
+							<div className="settings-hint">Free (local) — e.g. Kokoro</div>
+						</div>
+					)}
+
+					{/* TTS Output Device */}
+				{audioOutputDevices.length > 0 && (
+					<div className="settings-field">
+						<label>스피커 (출력 장치)</label>
+						<select
+							value={ttsOutputDeviceId}
+							onChange={(e) => {
+								setTtsOutputDeviceId(e.target.value);
+								if (existing) saveConfig({ ...existing, ttsOutputDeviceId: e.target.value || undefined });
+							}}
+						>
+							<option value="">기본 장치</option>
+							{audioOutputDevices.map((d) => (
+								<option key={d.deviceId} value={d.deviceId}>
+									{d.label || `스피커 ${d.deviceId.slice(0, 8)}`}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
+
+				{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
 						const providerMeta = listTtsProviderMetas().find(
 							(p) => p.id === ttsProvider,

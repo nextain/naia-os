@@ -181,3 +181,16 @@ registerTtsProviderMeta({
 		}
 	},
 });
+
+// ── Local vLLM TTS (OpenAI-compatible /v1/audio/speech) ──
+
+registerTtsProviderMeta({
+	id: "vllm",
+	name: "vLLM TTS",
+	description:
+		"Local vLLM TTS server — supports Kokoro and other TTS models via /v1/audio/speech.",
+	requiresApiKey: false,
+	isFree: true,
+	pricing: "Free (local)",
+	isLocal: true,
+});

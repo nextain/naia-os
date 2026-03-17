@@ -1,3 +1,4 @@
+import type { ModelCapability } from "../types.js";
 import type { LlmModelMeta, LlmProviderMeta, LlmVoiceMeta } from "./types";
 
 const providers = new Map<string, LlmProviderMeta>();
@@ -82,11 +83,13 @@ export async function fetchVllmModels(
 	return { models: models ?? [], connected: models !== null };
 }
 
-/** Format model label with pricing (e.g. "Gemini 3 Pro ($2.00 / $12.00)"). */
+/** Format model label with pricing (e.g. "Gemini 3 Pro ($2.00 / $12.00)") and capability icons. */
 export function formatModelLabel(model: LlmModelMeta): string {
-	if (!model.pricing) return model.label;
+	const isAsr = model.capabilities.includes("asr");
+	const base = isAsr ? `${model.label} 🎤` : model.label;
+	if (!model.pricing) return base;
 	const [input, output] = model.pricing;
-	return `${model.label} ($${input.toFixed(2)} / $${output.toFixed(2)})`;
+	return `${base} ($${input.toFixed(2)} / $${output.toFixed(2)})`;
 }
 
 // ── Shared voice lists ──
@@ -327,11 +330,15 @@ registerLlmProvider({
 			const resp = await fetch(`${host}/v1/models`);
 			if (!resp.ok) return null;
 			const data = await resp.json();
-			return (data.data ?? []).map((m: { id: string }) => ({
-				id: m.id,
-				label: m.id,
-				capabilities: ["llm"] as const,
-			}));
+			return (data.data ?? []).map((m: { id: string }) => {
+				const mid = m.id.toLowerCase();
+				const isAsr = mid.includes("asr") || mid.includes("whisper");
+				return {
+					id: m.id,
+					label: m.id,
+					capabilities: (isAsr ? ["asr"] : ["llm"]) as ModelCapability[],
+				};
+			});
 		} catch {
 			return null;
 		}

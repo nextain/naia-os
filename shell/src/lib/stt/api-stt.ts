@@ -8,12 +8,18 @@ import { Logger } from "../logger";
 import type { SttResult, SttSession } from "./types";
 
 interface ApiSttOptions {
-	provider: "google" | "elevenlabs" | "nextain";
+	provider: "google" | "elevenlabs" | "nextain" | "vllm";
 	apiKey: string;
 	language: string;
+	/** Endpoint URL for local vLLM providers (e.g. "http://localhost:8000"). */
+	endpointUrl?: string;
+	/** Model ID for vLLM ASR (e.g. "qwen/qwen3-asr-1.7b"). If omitted, vLLM uses its default. */
+	model?: string;
+	/** Microphone device ID from enumerateDevices. If omitted, browser default is used. */
+	inputDeviceId?: string;
 }
 
-const SAMPLE_RATE = 16000;
+const TARGET_SAMPLE_RATE = 16000;
 const BUFFER_SIZE = 4096;
 const SEND_INTERVAL_MS = 3000;
 
@@ -22,7 +28,7 @@ const SEND_INTERVAL_MS = 3000;
  * Captures mic via AudioContext (WebKitGTK compatible), sends PCM chunks to API.
  */
 export function createApiSttSession(options: ApiSttOptions): SttSession {
-	const { provider, apiKey, language } = options;
+	const { provider, apiKey, language, endpointUrl, model, inputDeviceId } = options;
 	let resultCallbacks: ((result: SttResult) => void)[] = [];
 	let errorCallbacks: ((error: { code: string; message: string }) => void)[] = [];
 	let costCallbacks: ((cost: { durationSeconds: number }) => void)[] = [];
@@ -68,18 +74,19 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 		const pcm = mergePcmChunks();
 		pcmChunks = [];
 
-		// Skip silence (RMS below threshold — higher = fewer unnecessary API calls)
+		// Skip silence — SW_GAIN=0.3 reduces signal ~3x, so threshold 150 not 500
 		let sumSq = 0;
 		for (let i = 0; i < pcm.length; i++) sumSq += pcm[i] * pcm[i];
 		const rms = Math.sqrt(sumSq / pcm.length);
-		if (rms < 500) {
+		if (rms < 150) {
 			Logger.info("api-stt", "Skipping silence", { rms: Math.round(rms), samples: pcm.length });
 			return;
 		}
 
-		const durationSeconds = pcm.length / SAMPLE_RATE;
+		const durationSeconds = pcm.length / TARGET_SAMPLE_RATE;
 		const base64 = int16ToBase64(pcm);
-		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, durationSeconds: Math.round(durationSeconds) });
+		const peak = Math.max(...Array.from(pcm).map(Math.abs));
+		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, durationSeconds: Math.round(durationSeconds), rms: Math.round(rms), peak });
 
 		// Notify cost BEFORE API call (API call = billing)
 		for (const cb of costCallbacks) cb({ durationSeconds });
@@ -92,6 +99,8 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 				result = await transcribeNextain(base64, apiKey, language);
 			} else if (provider === "elevenlabs") {
 				result = await transcribeElevenLabs(base64, apiKey, language);
+			} else if (provider === "vllm") {
+				result = await transcribeLocalVllm(base64, endpointUrl ?? "http://localhost:8000", language, model);
 			}
 			Logger.info("api-stt", "transcribeChunk result", { provider, result: result?.slice(0, 50) ?? "(null)" });
 			if (result && result.trim()) {
@@ -112,23 +121,52 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 
 			try {
 				mediaStream = await navigator.mediaDevices.getUserMedia({
-					audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+					// autoGainControl causes clipping in WebKitGTK (rms saturates to ~32767)
+					// All processing disabled — WebKitGTK DSP can cause clipping
+					audio: {
+						echoCancellation: false,
+						noiseSuppression: false,
+						autoGainControl: false,
+						...(inputDeviceId ? { deviceId: { exact: inputDeviceId } } : {}),
+					},
 				});
 			} catch (err) {
 				for (const cb of errorCallbacks) cb({ code: "MIC_ERROR", message: String(err) });
 				throw err;
 			}
 
-			audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+			// No sampleRate constraint — WebKitGTK freezes (returns zeros) when requesting
+			// non-native rate (e.g. 16000 Hz vs device native 48000 Hz). Downsample in SW.
+			audioCtx = new AudioContext();
+			const nativeSampleRate = audioCtx.sampleRate;
+			const downsampleRatio = Math.max(1, Math.round(nativeSampleRate / TARGET_SAMPLE_RATE));
 			const source = audioCtx.createMediaStreamSource(mediaStream);
 			const processor = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
+			// NOTE: GainNode must NOT be inserted between source and processor in WebKitGTK.
+			// It causes frozen (constant DC) audio. Apply gain in SW instead.
+			const SW_GAIN = 0.3;
 
+			let firstChunkLogged = false;
 			processor.onaudioprocess = (e) => {
 				if (stopped) return;
-				const float32 = e.inputBuffer.getChannelData(0);
+				const raw = e.inputBuffer.getChannelData(0);
+				if (!firstChunkLogged) {
+					firstChunkLogged = true;
+					const f32min = Math.min(...raw).toFixed(4);
+					const f32max = Math.max(...raw).toFixed(4);
+					const f32rms = Math.sqrt(raw.reduce((s, v) => s + v * v, 0) / raw.length).toFixed(4);
+					Logger.info("api-stt", "First audio chunk (float32 raw)", { f32min, f32max, f32rms, swGain: SW_GAIN, nativeSampleRate, downsampleRatio });
+				}
+				// Downsample: decimate by ratio to reach TARGET_SAMPLE_RATE
+				const outLen = Math.floor(raw.length / downsampleRatio);
+				const float32 = new Float32Array(outLen);
+				for (let i = 0; i < outLen; i++) {
+					float32[i] = raw[i * downsampleRatio] * SW_GAIN;
+				}
 				pcmChunks.push(float32ToInt16(float32));
 			};
 
+			// Direct connection: source → processor (no graph nodes between them)
 			source.connect(processor);
 			processor.connect(audioCtx.destination);
 
@@ -137,7 +175,7 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 				if (!stopped) sendAndTranscribe();
 			}, SEND_INTERVAL_MS);
 
-			Logger.info("api-stt", `${provider} STT started`, { language, sampleRate: SAMPLE_RATE });
+			Logger.info("api-stt", `${provider} STT started`, { language, nativeSampleRate, targetSampleRate: TARGET_SAMPLE_RATE, downsampleRatio });
 		},
 
 		async stop() {
@@ -188,7 +226,7 @@ async function transcribeGoogle(pcmBase64: string, apiKey: string, language: str
 			body: JSON.stringify({
 				config: {
 					encoding: "LINEAR16",
-					sampleRateHertz: SAMPLE_RATE,
+					sampleRateHertz: TARGET_SAMPLE_RATE,
 					languageCode: language,
 					model: "latest_long",
 					enableAutomaticPunctuation: true,
@@ -216,7 +254,7 @@ async function transcribeGoogle(pcmBase64: string, apiKey: string, language: str
 async function transcribeNextain(pcmBase64: string, naiaKey: string, language: string): Promise<string | null> {
 	// Convert PCM base64 to WAV blob for gateway upload
 	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
-	const wavBlob = pcmToWavBlob(pcmBytes, SAMPLE_RATE);
+	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
 
 	const formData = new FormData();
 	formData.append("file", wavBlob, "audio.wav");
@@ -243,7 +281,7 @@ async function transcribeNextain(pcmBase64: string, naiaKey: string, language: s
 async function transcribeElevenLabs(pcmBase64: string, apiKey: string, language: string): Promise<string | null> {
 	// Convert PCM base64 to WAV blob for ElevenLabs upload
 	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
-	const wavBlob = pcmToWavBlob(pcmBytes, SAMPLE_RATE);
+	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
 
 	const formData = new FormData();
 	formData.append("file", wavBlob, "audio.wav");
@@ -259,6 +297,32 @@ async function transcribeElevenLabs(pcmBase64: string, apiKey: string, language:
 	if (!response.ok) {
 		const text = await response.text();
 		throw new Error(`ElevenLabs STT HTTP ${response.status}: ${text}`);
+	}
+
+	const data = await response.json();
+	return data.text?.trim() || null;
+}
+
+// ── Local vLLM STT (OpenAI-compatible /v1/audio/transcriptions) ──
+
+async function transcribeLocalVllm(pcmBase64: string, baseUrl: string, language: string, model?: string): Promise<string | null> {
+	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
+	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
+
+	const formData = new FormData();
+	formData.append("file", wavBlob, "audio.wav");
+	formData.append("language", language.split("-")[0]);
+	if (model) formData.append("model", model);
+
+	const url = `${baseUrl.replace(/\/$/, "")}/v1/audio/transcriptions`;
+	const response = await fetch(url, {
+		method: "POST",
+		body: formData,
+	});
+
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(`Local vLLM STT HTTP ${response.status}: ${text}`);
 	}
 
 	const data = await response.json();

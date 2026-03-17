@@ -18,7 +18,7 @@ const GOOGLE_TIER_PRICING: Record<string, number> = {
 const FLAT_RATE_PER_CHAR: Record<string, number> = {
 	edge: 0,
 	openai: 15 / 1_000_000, // $15/1M chars (tts-1)
-	elevenlabs: 0.30 / 1_000, // $0.30/1K chars
+	elevenlabs: 0.3 / 1_000, // $0.30/1K chars
 };
 
 /** Detect Google TTS voice tier from voice name (mirrors gateway _voice_tier). */
@@ -35,7 +35,11 @@ function voiceTier(voice: string): string {
  * For Google/Nextain: uses voice tier pricing. For OpenAI/ElevenLabs: flat rate.
  * For Naia Cloud, prefer server-reported cost (costUsd from gateway response).
  */
-export function estimateTtsCost(provider: string, textLength: number, voice?: string): number {
+export function estimateTtsCost(
+	provider: string,
+	textLength: number,
+	voice?: string,
+): number {
 	if (provider in FLAT_RATE_PER_CHAR) {
 		return (FLAT_RATE_PER_CHAR[provider] ?? 0) * textLength;
 	}
@@ -46,7 +50,10 @@ export function estimateTtsCost(provider: string, textLength: number, voice?: st
 }
 
 /** Estimate STT cost in USD. $0.006 per 15-second increment. */
-export function estimateSttCost(provider: string, durationSeconds: number): number {
+export function estimateSttCost(
+	provider: string,
+	durationSeconds: number,
+): number {
 	if (provider === "vosk" || provider === "whisper") return 0; // offline, free
 	if (provider === "edge") return 0;
 	// Google / Naia Cloud / ElevenLabs — billed per 15s increment
