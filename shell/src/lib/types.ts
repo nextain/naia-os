@@ -1,3 +1,20 @@
+// === Model Capabilities ===
+
+/**
+ * Model capability tags — extensible set describing what a model can do.
+ * A model declares all applicable capabilities; UI and runtime logic branch on these.
+ *
+ * Current values:
+ *   "llm"   — text generation (chat, reasoning)
+ *   "omni"  — built-in voice I/O (disables separate STT/TTS)
+ *   "asr"   — audio → text only (no generation, no TTS)
+ *   "stt"   — speech-to-text component (may coexist with other caps)
+ *   "tts"   — text-to-speech component
+ *   "vlm"   — vision-language (image understanding)
+ *   "world" — world model (future)
+ */
+export type ModelCapability = "llm" | "omni" | "asr" | "stt" | "tts" | "vlm" | "world";
+
 // === Provider ===
 
 /** Provider ID — extensible via LLM registry. */

@@ -1,4 +1,6 @@
-/** Voice option for omni models. */
+import type { ModelCapability } from "../types.js";
+
+/** Voice option for omni/tts models. */
 export interface LlmVoiceMeta {
 	id: string;
 	label: string;
@@ -8,8 +10,8 @@ export interface LlmVoiceMeta {
 export interface LlmModelMeta {
 	id: string;
 	label: string;
-	/** "llm" = text-only, "omni" = built-in voice I/O (disables STT/TTS). */
-	type: "llm" | "omni";
+	/** Capability tags (e.g. ["llm"], ["llm","omni"], ["llm","omni","stt","tts"]). */
+	capabilities: ModelCapability[];
 	/** Per-1M-token pricing: [input, output]. */
 	pricing?: [number, number];
 	/** Omni: user can select voice in settings. */

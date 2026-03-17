@@ -1,5 +1,5 @@
-/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based, "web" for Web Speech API. */
-export type SttEngineType = "tauri" | "api" | "web";
+/** STT engine identifier — "tauri" for offline Rust engines, "api" for cloud API-based, "web" for Web Speech API, "vllm" for local vLLM server. */
+export type SttEngineType = "tauri" | "api" | "web" | "vllm";
 
 /** STT provider metadata for settings UI and runtime selection. */
 export interface SttProviderMeta {
@@ -9,12 +9,18 @@ export interface SttProviderMeta {
 	name: string;
 	/** Brief description for settings UI. */
 	description: string;
-	/** Engine type: "tauri" (offline Rust) or "api" (cloud API). */
+	/** Engine type: "tauri" (offline Rust), "api" (cloud API), "web" (Web Speech), or "vllm" (local vLLM server). */
 	engineType: SttEngineType;
 	/** Rust engine name for tauri-based providers (vosk/whisper). */
 	engine?: string;
-	/** Whether this runs entirely offline. */
+	/** Whether this runs entirely offline (or on local network). */
 	isOffline: boolean;
+	/** Whether this provider is local (e.g. vLLM, Whisper). */
+	isLocal?: boolean;
+	/** Whether this provider requires an endpoint URL (e.g. vLLM host). */
+	requiresEndpointUrl?: boolean;
+	/** Config field name for the endpoint URL (e.g. "vllmHost"). */
+	endpointUrlConfigField?: string;
 	/** Whether GPU acceleration is available/beneficial. */
 	gpuAccelerated?: boolean;
 	/** Whether this provider requires an API key. */

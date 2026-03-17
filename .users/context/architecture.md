@@ -429,9 +429,9 @@ How Naia Agent connects to OpenClaw Gateway:
 
 ### Overview
 
-Voice interaction depends on the **LLM model type**:
+Voice interaction depends on the **LLM model capabilities**:
 
-- **Omni models** (Gemini Live, OpenAI Realtime): Voice I/O is built into the LLM. No separate STT/TTS needed — the model handles speech input and output natively.
+- **Omni models** (Gemini Live, OpenAI Realtime): Voice I/O is built into the LLM. No separate STT/TTS needed — the model handles speech input and output natively. Detected via `capabilities.includes("omni")`.
 - **Standard LLM models**: Voice via independent **STT → LLM → TTS pipeline**. STT and TTS are separate, independently selectable providers.
 
 When an omni model is active, STT/TTS provider settings are disabled. **STT providers, TTS providers, and LLM providers are three independent categories.**
@@ -475,8 +475,12 @@ Available voices: Kore (female, calm), Puck (male, lively), Charon (male, deep),
 Independent STT provider registry — used only in pipeline mode for standard LLM models. Omni models have built-in speech recognition and do NOT use these providers.
 
 **Registry files:**
-- `shell/src/lib/stt/types.ts` — `SttProviderMeta`, `SttModelMeta`
+- `shell/src/lib/stt/types.ts` — `SttProviderMeta`, `SttModelMeta`, `SttEngineType`
 - `shell/src/lib/stt/registry.ts` — `registerSttProvider()`, `getSttProvider()`, `listSttProviders()`
+
+**`SttEngineType`:** `"tauri"` (offline Rust) | `"api"` (cloud API) | `"web"` (Web Speech) | `"vllm"` (local vLLM server)
+
+`SttProviderMeta` supports `isLocal?`, `requiresEndpointUrl?`, `endpointUrlConfigField?` for local server providers (e.g., vLLM-based ASR).
 
 #### Providers
 

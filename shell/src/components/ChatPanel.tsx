@@ -1128,7 +1128,7 @@ export function ChatPanel() {
 			}
 			const naiaKey = config?.naiaKey;
 			const modelMeta = getLlmModel(config.provider, config.model);
-			const isOmni = modelMeta?.type === "omni";
+			const isOmni = modelMeta?.capabilities.includes("omni") ?? false;
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
 			if (!isOmni) {
