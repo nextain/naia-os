@@ -1,10 +1,10 @@
 [env]
-# whisper-rs-sys: generate bindings via bindgen (requires LLVM/libclang).
-# On Linux: install libclang-dev. On Windows: install LLVM (winget install LLVM.LLVM).
-# Previously WHISPER_DONT_GENERATE_BINDINGS=1 was used, but bundled bindings.rs
-# contains Linux-only structs that fail on Windows (#63).
-LIBCLANG_PATH = { value = "", force = false }
+# whisper-rs-sys requires LLVM/libclang for bindgen at build time.
+# Linux: apt install libclang-dev
+# Windows: winget install LLVM.LLVM
+# CI (windows-latest): LLVM pre-installed
+#
 # CUDA paths — only needed when building with `--features cuda`.
-# Set via environment variables instead of hardcoding:
+# Set via environment variables:
 #   export CUDA_PATH=/usr/local/cuda-12.8
 #   export CUDACXX=/usr/local/cuda-12.8/bin/nvcc
