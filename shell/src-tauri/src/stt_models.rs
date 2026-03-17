@@ -29,6 +29,9 @@ pub struct SttModelInfo {
     pub description: String,  // short note
     pub downloaded: bool,     // filled at runtime
     pub ready: bool,          // engine backend available
+    pub gpu_required: bool,   // true if GPU recommended for real-time
+    pub min_vram_mb: u32,     // minimum VRAM (MB) for GPU inference, 0 = CPU ok
+    pub ram_mb: u32,          // peak RAM for CPU inference
 }
 
 /// Returns the full model catalog with download status.
@@ -54,6 +57,9 @@ fn vosk(id: &str, name: &str, lang: &str, size_mb: u32, wer: &str) -> SttModelIn
         description: String::new(),
         downloaded: false,
         ready: true,
+        gpu_required: false,
+        min_vram_mb: 0,
+        ram_mb: size_mb * 2, // vosk RAM ≈ 2x model size
     }
 }
 
@@ -84,6 +90,9 @@ fn build_catalog() -> Vec<SttModelInfo> {
             description: "Fast, low quality. Not recommended for Korean.".into(),
             downloaded: false,
             ready: true,
+            gpu_required: false,
+            min_vram_mb: 150,
+            ram_mb: 273,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -96,6 +105,9 @@ fn build_catalog() -> Vec<SttModelInfo> {
             description: "Similar quality to Vosk small.".into(),
             downloaded: false,
             ready: true,
+            gpu_required: false,
+            min_vram_mb: 300,
+            ram_mb: 388,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -108,6 +120,9 @@ fn build_catalog() -> Vec<SttModelInfo> {
             description: "Noticeable improvement over Vosk.".into(),
             downloaded: false,
             ready: true,
+            gpu_required: true,
+            min_vram_mb: 900,
+            ram_mb: 852,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -120,6 +135,9 @@ fn build_catalog() -> Vec<SttModelInfo> {
             description: "Recommended. Good accuracy for Korean.".into(),
             downloaded: false,
             ready: true,
+            gpu_required: true,
+            min_vram_mb: 2500,
+            ram_mb: 2100,
         },
         SttModelInfo {
             engine: "whisper".into(),
@@ -132,6 +150,9 @@ fn build_catalog() -> Vec<SttModelInfo> {
             description: "Best quality. Large download.".into(),
             downloaded: false,
             ready: true,
+            gpu_required: true,
+            min_vram_mb: 5000,
+            ram_mb: 3900,
         },
     ]
 }

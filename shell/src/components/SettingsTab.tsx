@@ -608,6 +608,9 @@ interface SttModelInfo {
 	description: string;
 	downloaded: boolean;
 	ready: boolean;
+	gpuRequired: boolean;
+	minVramMb: number;
+	ramMb: number;
 }
 
 export function SettingsTab() {
@@ -3285,6 +3288,20 @@ export function SettingsTab() {
 											<strong style={{ fontSize: "0.9em" }}>
 												{m.modelName}
 											</strong>
+											{m.gpuRequired && (
+												<span
+													style={{
+														color: "#ff9800",
+														fontSize: "0.65em",
+														padding: "1px 4px",
+														border: "1px solid #ff9800",
+														borderRadius: "3px",
+														marginLeft: "2px",
+													}}
+												>
+													GPU
+												</span>
+											)}
 											{m.downloaded && (
 												<span
 													style={{
@@ -3307,6 +3324,8 @@ export function SettingsTab() {
 												? t("settings.sttLangMultilingual")
 												: m.language}{" "}
 											· {m.sizeMb}MB
+											{m.ramMb > 0 ? ` · RAM ${m.ramMb >= 1000 ? `${(m.ramMb / 1000).toFixed(1)}GB` : `${m.ramMb}MB`}` : ""}
+											{m.minVramMb > 0 ? ` · VRAM ${m.minVramMb >= 1000 ? `${(m.minVramMb / 1000).toFixed(1)}GB` : `${m.minVramMb}MB`}` : ""}
 											{m.wer && m.wer !== "—" ? ` · WER ${m.wer}` : ""}
 											{m.description &&
 												` · ${
