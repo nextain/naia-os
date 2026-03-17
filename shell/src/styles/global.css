@@ -1,3 +1,10 @@
+/* Korean font fallback via @font-face local() — WebKitGTK can't always resolve CJK TTC fonts from CSS font-family */
+@font-face {
+	font-family: "KoreanUI";
+	src: local("나눔바른고딕"), local("NanumBarunGothic"), local("나눔고딕"), local("NanumGothic"), local("Noto Sans CJK KR");
+	unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+A960-A97F, U+D7B0-D7FF, U+FFA0-FFDC;
+}
+
 :root,
 [data-theme="espresso"] {
 	--espresso: #ffffff;
@@ -134,7 +141,7 @@ body,
 	height: 100%;
 	overflow: hidden;
 	background: var(--espresso);
-	font-family: "Pretendard", "Inter", "Noto Sans CJK KR", "Noto Sans CJK JP",
+	font-family: "Pretendard", "Inter", "KoreanUI", "NanumBarunGothic", "나눔바른고딕", "NanumGothic", "나눔고딕", "Noto Sans CJK KR", "Noto Sans CJK JP",
 		"Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, sans-serif;
 	color: var(--cream);
 }
@@ -924,6 +931,83 @@ body.resizing-row {
 	margin-bottom: 12px;
 }
 
+.audio-device-test-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+/* Custom device dropdown — avoids WebKitGTK native select popup which ignores CSS font-family */
+.device-select {
+	position: relative;
+	width: 100%;
+}
+
+.device-select-trigger {
+	width: 100%;
+	padding: 8px 10px;
+	background: var(--espresso-dark);
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	color: var(--cream);
+	font-size: 13px;
+	cursor: pointer;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	box-sizing: border-box;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.device-select-trigger:hover {
+	border-color: var(--wood);
+}
+
+.device-select-dropdown {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	background: var(--espresso-dark);
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	z-index: 200;
+	max-height: 200px;
+	overflow-y: auto;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.device-select-option {
+	padding: 8px 10px;
+	font-size: 13px;
+	color: var(--cream);
+	cursor: pointer;
+}
+
+.device-select-option:hover {
+	background: var(--espresso-medium);
+}
+
+.device-select-option.selected {
+	color: var(--wood);
+}
+
+.mic-level-bar-outer {
+	flex: 1;
+	height: 8px;
+	background: var(--espresso-medium);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.mic-level-bar-inner {
+	height: 100%;
+	background: var(--sage);
+	border-radius: 4px;
+	transition: width 0.08s ease-out;
+}
+
 .settings-field label {
 	display: block;
 	font-size: 12px;
@@ -950,6 +1034,7 @@ body.resizing-row {
 }
 
 .settings-field select {
+	font-family: inherit;
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23b8b0a3' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: right 10px center;
@@ -957,6 +1042,7 @@ body.resizing-row {
 }
 
 .settings-field select option {
+	font-family: inherit;
 	background: var(--espresso-dark);
 	color: var(--cream);
 }

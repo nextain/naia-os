@@ -46,6 +46,11 @@ export function App() {
 		if (!isOnboardingComplete()) {
 			setShowOnboarding(true);
 		}
+
+		// Request microphone permission early so enumerateDevices returns labeled devices
+		navigator.mediaDevices?.getUserMedia({ audio: true })
+			.then((stream) => { for (const track of stream.getTracks()) track.stop(); })
+			.catch(() => {}); // Permission denied is fine — devices will still list without labels
 	}, []);
 
 	// Check for updates after onboarding is complete

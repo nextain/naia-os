@@ -31,3 +31,16 @@ iso-download/
 work-logs/
 *~
 *.pid
+
+# Build artifacts
+*.AppImage
+shell/cargo
+shell/node
+shell/naia-shell@*
+
+# Python cache
+**/__pycache__/
+*.pyc
+
+# Reference repos (unregistered submodules)
+ref-nemoclaw/

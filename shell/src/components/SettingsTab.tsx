@@ -610,6 +610,58 @@ interface SttModelInfo {
 	ready: boolean;
 }
 
+/** Custom dropdown for audio device selection.
+ * Replaces native <select> to avoid WebKitGTK native popup ignoring CSS font-family (Korean garbling). */
+function DeviceSelect({ value, options, onChange, placeholder = "기본 장치" }: {
+	value: string;
+	options: { value: string; label: string }[];
+	onChange: (value: string) => void;
+	placeholder?: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!open) return;
+		const handler = (e: MouseEvent) => {
+			if (!ref.current?.contains(e.target as Node)) setOpen(false);
+		};
+		window.addEventListener("mousedown", handler);
+		return () => window.removeEventListener("mousedown", handler);
+	}, [open]);
+
+	const selected = options.find((o) => o.value === value);
+	const label = selected?.label ?? placeholder;
+
+	return (
+		<div ref={ref} className="device-select">
+			<div className="device-select-trigger" onClick={() => setOpen((v) => !v)}>
+				<span>{label}</span>
+				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4"/></svg>
+			</div>
+			{open && (
+				<div className="device-select-dropdown">
+					<div
+						className={`device-select-option${!value ? " selected" : ""}`}
+						onClick={() => { onChange(""); setOpen(false); }}
+					>
+						{placeholder}
+					</div>
+					{options.map((o) => (
+						<div
+							key={o.value}
+							className={`device-select-option${o.value === value ? " selected" : ""}`}
+							onClick={() => { onChange(o.value); setOpen(false); }}
+						>
+							{o.label}
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function SettingsTab() {
 	const existing = loadConfig();
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
@@ -713,6 +765,9 @@ export function SettingsTab() {
 	const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
 	const [sttInputDeviceId, setSttInputDeviceId] = useState(existing?.sttInputDeviceId ?? "");
 	const [ttsOutputDeviceId, setTtsOutputDeviceId] = useState(existing?.ttsOutputDeviceId ?? "");
+	const [micTestActive, setMicTestActive] = useState(false);
+	const [micTestLevel, setMicTestLevel] = useState(0);
+	const micTestCleanupRef = useRef<(() => void) | null>(null);
 	const [gatewayUrl, setGatewayUrl] = useState(
 		existing?.gatewayUrl ?? "ws://localhost:18789",
 	);
@@ -974,14 +1029,104 @@ export function SettingsTab() {
 		});
 	}, [sttProvider, vllmSttHost]);
 
-	// Enumerate audio input/output devices
+	// Enumerate audio input/output devices (re-runs on devicechange — fires when permission granted)
 	useEffect(() => {
 		if (!navigator.mediaDevices?.enumerateDevices) return;
-		navigator.mediaDevices.enumerateDevices().then((devices) => {
-			setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
-			setAudioOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
-		}).catch(() => {});
+		const enumerate = () => {
+			navigator.mediaDevices.enumerateDevices().then((devices) => {
+				setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
+				setAudioOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
+			}).catch(() => {});
+		};
+		enumerate();
+		navigator.mediaDevices.addEventListener("devicechange", enumerate);
+		return () => navigator.mediaDevices.removeEventListener("devicechange", enumerate);
 	}, []);
+
+	async function startMicTest() {
+		if (micTestActive) return;
+		setMicTestActive(true);
+		setMicTestLevel(0);
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({
+				audio: {
+					echoCancellation: false,
+					noiseSuppression: false,
+					autoGainControl: false,
+					...(sttInputDeviceId ? { deviceId: { exact: sttInputDeviceId } } : {}),
+				},
+			});
+			const ctx = new AudioContext();
+			const source = ctx.createMediaStreamSource(stream);
+			const processor = ctx.createScriptProcessor(4096, 1, 1);
+			processor.onaudioprocess = (e) => {
+				const raw = e.inputBuffer.getChannelData(0);
+				let sumSq = 0;
+				for (let i = 0; i < raw.length; i++) sumSq += raw[i] * raw[i];
+				const rms = Math.sqrt(sumSq / raw.length);
+				setMicTestLevel(Math.min(100, rms * 1000));
+			};
+			source.connect(processor);
+			processor.connect(ctx.destination);
+			const stopTimeout = setTimeout(() => stopMicTest(), 8000);
+			micTestCleanupRef.current = () => {
+				clearTimeout(stopTimeout);
+				processor.disconnect();
+				source.disconnect();
+				ctx.close().catch(() => {});
+				for (const track of stream.getTracks()) track.stop();
+				setMicTestActive(false);
+				setMicTestLevel(0);
+			};
+		} catch {
+			setMicTestActive(false);
+		}
+	}
+
+	function stopMicTest() {
+		micTestCleanupRef.current?.();
+		micTestCleanupRef.current = null;
+	}
+
+	function playTestBeep() {
+		const sampleRate = 44100;
+		// C major arpeggio: C4 → E4 → G4 → C5
+		const notes = [
+			{ freq: 261.63, dur: 0.15 },
+			{ freq: 329.63, dur: 0.15 },
+			{ freq: 392.00, dur: 0.15 },
+			{ freq: 523.25, dur: 0.30 },
+		];
+		const allSamples: number[] = [];
+		for (const { freq, dur } of notes) {
+			const n = Math.floor(sampleRate * dur);
+			for (let i = 0; i < n; i++) {
+				const t = i / sampleRate;
+				const attack = Math.min(1, t / 0.01);
+				const release = Math.min(1, (dur - t) / 0.04);
+				allSamples.push(Math.round(0.35 * 32767 * attack * release * Math.sin(2 * Math.PI * freq * t)));
+			}
+		}
+		const pcm = new Int16Array(allSamples);
+		const wavBuffer = new ArrayBuffer(44 + pcm.byteLength);
+		const view = new DataView(wavBuffer);
+		const ws = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+		ws(0, "RIFF"); view.setUint32(4, 36 + pcm.byteLength, true);
+		ws(8, "WAVE"); ws(12, "fmt "); view.setUint32(16, 16, true);
+		view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+		view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
+		view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+		ws(36, "data"); view.setUint32(40, pcm.byteLength, true);
+		new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm.buffer));
+		const url = URL.createObjectURL(new Blob([wavBuffer], { type: "audio/wav" }));
+		const audio = new Audio(url);
+		const setSinkId = (audio as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+		if (ttsOutputDeviceId && setSinkId) {
+			setSinkId.call(audio, ttsOutputDeviceId).catch(() => {});
+		}
+		audio.play().catch(() => {});
+		audio.onended = () => URL.revokeObjectURL(url);
+	}
 
 	useEffect(() => {
 		getNaiaKeySecure().then((key) => {
@@ -2805,27 +2950,6 @@ export function SettingsTab() {
 						</div>
 					)}
 
-					{/* STT Input Device */}
-					{sttProvider && audioInputDevices.length > 0 && (
-						<div className="settings-field">
-							<label>마이크 (입력 장치)</label>
-							<select
-								value={sttInputDeviceId}
-								onChange={(e) => {
-									setSttInputDeviceId(e.target.value);
-									if (existing) saveConfig({ ...existing, sttInputDeviceId: e.target.value || undefined });
-								}}
-							>
-								<option value="">기본 장치</option>
-								{audioInputDevices.map((d) => (
-									<option key={d.deviceId} value={d.deviceId}>
-										{d.label || `마이크 ${d.deviceId.slice(0, 8)}`}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
-
 					</>)}
 
 					{/* TTS */}
@@ -2995,26 +3119,6 @@ export function SettingsTab() {
 						</div>
 					)}
 
-					{/* TTS Output Device */}
-				{audioOutputDevices.length > 0 && (
-					<div className="settings-field">
-						<label>스피커 (출력 장치)</label>
-						<select
-							value={ttsOutputDeviceId}
-							onChange={(e) => {
-								setTtsOutputDeviceId(e.target.value);
-								if (existing) saveConfig({ ...existing, ttsOutputDeviceId: e.target.value || undefined });
-							}}
-						>
-							<option value="">기본 장치</option>
-							{audioOutputDevices.map((d) => (
-								<option key={d.deviceId} value={d.deviceId}>
-									{d.label || `스피커 ${d.deviceId.slice(0, 8)}`}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
 
 				{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
@@ -3097,6 +3201,66 @@ export function SettingsTab() {
 					})()}
 				</>
 			)}
+
+			{/* 오디오 장치 */}
+			<div className="settings-section-divider">
+				<span>오디오 장치</span>
+			</div>
+
+			<div className="settings-field">
+				<label>마이크 (입력 장치)</label>
+				<DeviceSelect
+					value={sttInputDeviceId}
+					options={audioInputDevices.map((d) => ({ value: d.deviceId, label: d.label || `마이크 ${d.deviceId.slice(0, 8)}` }))}
+					onChange={(v) => {
+						setSttInputDeviceId(v);
+						if (existing) saveConfig({ ...existing, sttInputDeviceId: v || undefined });
+					}}
+				/>
+			</div>
+
+			<div className="settings-field audio-device-test-row">
+				<button
+					type="button"
+					className="onboarding-next-btn"
+					style={{ fontSize: "0.8em", padding: "4px 12px" }}
+					onClick={micTestActive ? stopMicTest : startMicTest}
+				>
+					{micTestActive ? "중지" : "마이크 테스트"}
+				</button>
+				{micTestActive && (
+					<div className="mic-level-bar-outer">
+						<div
+							className="mic-level-bar-inner"
+							style={{ width: `${Math.min(100, micTestLevel)}%` }}
+						/>
+					</div>
+				)}
+			</div>
+
+			<div className="settings-field">
+				<label>스피커 (출력 장치)</label>
+				<DeviceSelect
+					value={ttsOutputDeviceId}
+					options={audioOutputDevices.map((d) => ({ value: d.deviceId, label: d.label || `스피커 ${d.deviceId.slice(0, 8)}` }))}
+					onChange={(v) => {
+						setTtsOutputDeviceId(v);
+						if (existing) saveConfig({ ...existing, ttsOutputDeviceId: v || undefined });
+					}}
+					placeholder="기본 장치"
+				/>
+			</div>
+
+			<div className="settings-field">
+				<button
+					type="button"
+					className="onboarding-next-btn"
+					style={{ fontSize: "0.8em", padding: "4px 12px" }}
+					onClick={playTestBeep}
+				>
+					스피커 테스트
+				</button>
+			</div>
 
 			<div className="settings-section-divider">
 				<span>{t("settings.toolsSection")}</span>
