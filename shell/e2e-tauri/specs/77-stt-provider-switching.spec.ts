@@ -15,7 +15,13 @@ import {
  * 4. Naia Cloud STT shows login prompt when not authenticated
  * 5. Switching providers updates UI correctly
  */
-const EXPECTED_STT_PROVIDERS = ["vosk", "whisper", "nextain", "google", "elevenlabs"];
+const EXPECTED_STT_PROVIDERS = [
+	"vosk",
+	"whisper",
+	"nextain",
+	"google",
+	"elevenlabs",
+];
 
 describe("77 — STT provider switching", () => {
 	before(async () => {
@@ -149,7 +155,9 @@ describe("77 — STT provider switching", () => {
 		await browser.pause(500);
 
 		// No API key input or model manager
-		const hasApiKey = await browser.execute(() => !!document.querySelector("#stt-api-key"));
+		const hasApiKey = await browser.execute(
+			() => !!document.querySelector("#stt-api-key"),
+		);
 		expect(hasApiKey).toBe(false);
 	});
 

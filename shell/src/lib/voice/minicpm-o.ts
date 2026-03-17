@@ -53,8 +53,11 @@ export function createMiniCpmOSession(): VoiceSession {
 				}, 15000);
 
 				ws.onopen = () => {
-					Logger.info("MiniCPM-o", "WebSocket connected, sending session.config");
-					ws!.send(
+					Logger.info(
+						"MiniCPM-o",
+						"WebSocket connected, sending session.config",
+					);
+					ws?.send(
 						JSON.stringify({
 							type: "session.config",
 							config: {

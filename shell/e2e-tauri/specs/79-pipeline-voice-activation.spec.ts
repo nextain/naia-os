@@ -50,7 +50,9 @@ describe("79 — pipeline voice activation", () => {
 		await scrollToSection(S.ttsToggle);
 
 		const isEnabled = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 
 		if (!isEnabled) {
@@ -62,7 +64,9 @@ describe("79 — pipeline voice activation", () => {
 		}
 
 		const finalState = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 		expect(finalState).toBe(true);
 	});
@@ -72,7 +76,10 @@ describe("79 — pipeline voice activation", () => {
 		const saved = await browser.execute(() => {
 			const btns = document.querySelectorAll("button");
 			for (const btn of btns) {
-				if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
+				if (
+					btn.textContent?.includes("저장") ||
+					btn.textContent?.includes("Save")
+				) {
 					btn.click();
 					return true;
 				}
@@ -127,13 +134,18 @@ describe("79 — pipeline voice activation", () => {
 
 		// It should be in some active state (connecting, active, or preparing)
 		// Or it may have failed (returned to idle) if no STT model is downloaded
-		const isActivated = classes.includes("connecting") || classes.includes("active") || classes.includes("preparing");
+		const isActivated =
+			classes.includes("connecting") ||
+			classes.includes("active") ||
+			classes.includes("preparing");
 		const isIdle = !isActivated;
 
 		if (isIdle) {
 			// Voice activation may have failed due to missing STT model
 			// This is expected in CI — the important thing is it tried
-			console.log("[INFO] Voice activation returned to idle — likely no STT model downloaded");
+			console.log(
+				"[INFO] Voice activation returned to idle — likely no STT model downloaded",
+			);
 		}
 
 		// Either way, the UI should not crash
@@ -164,11 +176,17 @@ describe("79 — pipeline voice activation", () => {
 			for (const sheet of document.styleSheets) {
 				try {
 					for (const rule of sheet.cssRules) {
-						if (rule instanceof CSSStyleRule && rule.selectorText?.includes("voice-btn") && rule.selectorText?.includes("preparing")) {
+						if (
+							rule instanceof CSSStyleRule &&
+							rule.selectorText?.includes("voice-btn") &&
+							rule.selectorText?.includes("preparing")
+						) {
 							return true;
 						}
 					}
-				} catch { /* cross-origin sheet */ }
+				} catch {
+					/* cross-origin sheet */
+				}
 			}
 			return false;
 		});
@@ -180,11 +198,17 @@ describe("79 — pipeline voice activation", () => {
 			for (const sheet of document.styleSheets) {
 				try {
 					for (const rule of sheet.cssRules) {
-						if (rule instanceof CSSStyleRule && rule.selectorText?.includes("voice-btn") && rule.selectorText?.includes("active")) {
+						if (
+							rule instanceof CSSStyleRule &&
+							rule.selectorText?.includes("voice-btn") &&
+							rule.selectorText?.includes("active")
+						) {
 							return true;
 						}
 					}
-				} catch { /* cross-origin sheet */ }
+				} catch {
+					/* cross-origin sheet */
+				}
 			}
 			return false;
 		});

@@ -26,13 +26,23 @@ describe("85 — voice actual recording", () => {
 	it("should check MediaRecorder.isTypeSupported in WebKitGTK", async () => {
 		const support = await browser.execute(() => {
 			return {
-				webmOpus: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus"),
-				oggOpus: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus"),
-				webm: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm"),
-				ogg: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg"),
-				mp4: typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/mp4"),
+				webmOpus:
+					typeof MediaRecorder !== "undefined" &&
+					MediaRecorder.isTypeSupported("audio/webm;codecs=opus"),
+				oggOpus:
+					typeof MediaRecorder !== "undefined" &&
+					MediaRecorder.isTypeSupported("audio/ogg;codecs=opus"),
+				webm:
+					typeof MediaRecorder !== "undefined" &&
+					MediaRecorder.isTypeSupported("audio/webm"),
+				ogg:
+					typeof MediaRecorder !== "undefined" &&
+					MediaRecorder.isTypeSupported("audio/ogg"),
+				mp4:
+					typeof MediaRecorder !== "undefined" &&
+					MediaRecorder.isTypeSupported("audio/mp4"),
 				noType: typeof MediaRecorder !== "undefined",
-				hasGetUserMedia: !!(navigator.mediaDevices?.getUserMedia),
+				hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia,
 			};
 		});
 
@@ -47,12 +57,14 @@ describe("85 — voice actual recording", () => {
 	it("should verify at least one recording mimeType is supported", async () => {
 		const anySupported = await browser.execute(() => {
 			if (typeof MediaRecorder === "undefined") return false;
-			return MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-				|| MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-				|| MediaRecorder.isTypeSupported("audio/webm")
-				|| MediaRecorder.isTypeSupported("audio/ogg")
+			return (
+				MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ||
+				MediaRecorder.isTypeSupported("audio/ogg;codecs=opus") ||
+				MediaRecorder.isTypeSupported("audio/webm") ||
+				MediaRecorder.isTypeSupported("audio/ogg") ||
 				// empty mimeType = browser default, always works if MediaRecorder exists
-				|| true;
+				true
+			);
 		});
 
 		expect(anySupported).toBe(true);
@@ -61,18 +73,28 @@ describe("85 — voice actual recording", () => {
 	it("should create MediaRecorder with fallback mimeType", async () => {
 		const result = await browser.execute(async () => {
 			try {
-				const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+				const stream = await navigator.mediaDevices.getUserMedia({
+					audio: true,
+				});
 				const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
 					? "audio/webm;codecs=opus"
 					: MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
 						? "audio/ogg;codecs=opus"
 						: "";
-				const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+				const recorder = new MediaRecorder(
+					stream,
+					mimeType ? { mimeType } : undefined,
+				);
 				const actualMimeType = recorder.mimeType;
 				const state = recorder.state;
 				// Stop stream
 				for (const track of stream.getTracks()) track.stop();
-				return { success: true, mimeType: actualMimeType, state, requestedMimeType: mimeType };
+				return {
+					success: true,
+					mimeType: actualMimeType,
+					state,
+					requestedMimeType: mimeType,
+				};
 			} catch (err) {
 				return { success: false, error: String(err) };
 			}
@@ -109,11 +131,17 @@ describe("85 — voice actual recording", () => {
 
 		// Enable TTS
 		await scrollToSection(S.ttsToggle);
-		const ttsOn = await browser.execute((sel: string) =>
-			(document.querySelector(sel) as HTMLInputElement)?.checked ?? false, S.ttsToggle);
+		const ttsOn = await browser.execute(
+			(sel: string) =>
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
+			S.ttsToggle,
+		);
 		if (!ttsOn) {
-			await browser.execute((sel: string) =>
-				(document.querySelector(sel) as HTMLInputElement)?.click(), S.ttsToggle);
+			await browser.execute(
+				(sel: string) =>
+					(document.querySelector(sel) as HTMLInputElement)?.click(),
+				S.ttsToggle,
+			);
 		}
 		await browser.pause(300);
 
@@ -121,8 +149,12 @@ describe("85 — voice actual recording", () => {
 		await browser.execute(() => {
 			const btns = document.querySelectorAll("button");
 			for (const btn of btns) {
-				if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
-					btn.click(); return;
+				if (
+					btn.textContent?.includes("저장") ||
+					btn.textContent?.includes("Save")
+				) {
+					btn.click();
+					return;
 				}
 			}
 		});
@@ -130,19 +162,23 @@ describe("85 — voice actual recording", () => {
 	});
 
 	it("should click voice button and check STT initialization", async () => {
-		await browser.execute((sel: string) =>
-			(document.querySelector(sel) as HTMLElement)?.click(), S.chatTab);
+		await browser.execute(
+			(sel: string) => (document.querySelector(sel) as HTMLElement)?.click(),
+			S.chatTab,
+		);
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForDisplayed({ timeout: 5_000 });
 
 		// Click voice button
 		await browser.execute(() =>
-			(document.querySelector(".chat-voice-btn") as HTMLElement)?.click());
+			(document.querySelector(".chat-voice-btn") as HTMLElement)?.click(),
+		);
 		await browser.pause(3000);
 
 		// Check voice button state
-		const btnClasses = await browser.execute(() =>
-			document.querySelector(".chat-voice-btn")?.className ?? "");
+		const btnClasses = await browser.execute(
+			() => document.querySelector(".chat-voice-btn")?.className ?? "",
+		);
 
 		console.log("[Voice button classes]", btnClasses);
 
@@ -160,7 +196,8 @@ describe("85 — voice actual recording", () => {
 
 		// Deactivate
 		await browser.execute(() =>
-			(document.querySelector(".chat-voice-btn") as HTMLElement)?.click());
+			(document.querySelector(".chat-voice-btn") as HTMLElement)?.click(),
+		);
 		await browser.pause(1000);
 	});
 
@@ -171,7 +208,10 @@ describe("85 — voice actual recording", () => {
 		await browser.execute((sel: string) => {
 			const textarea = document.querySelector(sel) as HTMLTextAreaElement;
 			if (!textarea) return;
-			const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+			const setter = Object.getOwnPropertyDescriptor(
+				HTMLTextAreaElement.prototype,
+				"value",
+			)?.set;
 			setter?.call(textarea, "한마디만.");
 			textarea.dispatchEvent(new Event("input", { bubbles: true }));
 		}, S.chatInput);
@@ -182,9 +222,12 @@ describe("85 — voice actual recording", () => {
 		}, S.chatSendBtn);
 
 		// Wait for response
-		await browser.waitUntil(async () => {
-			return browser.execute(() => !document.querySelector(".cursor-blink"));
-		}, { timeout: 60_000, timeoutMsg: "Chat response did not finish" });
+		await browser.waitUntil(
+			async () => {
+				return browser.execute(() => !document.querySelector(".cursor-blink"));
+			},
+			{ timeout: 60_000, timeoutMsg: "Chat response did not finish" },
+		);
 
 		await browser.pause(1000);
 
@@ -199,8 +242,10 @@ describe("85 — voice actual recording", () => {
 	});
 
 	it("should navigate back to chat tab", async () => {
-		await browser.execute((sel: string) =>
-			(document.querySelector(sel) as HTMLElement)?.click(), S.chatTab);
+		await browser.execute(
+			(sel: string) => (document.querySelector(sel) as HTMLElement)?.click(),
+			S.chatTab,
+		);
 		const chatInput = await $(S.chatInput);
 		await chatInput.waitForDisplayed({ timeout: 5_000 });
 	});

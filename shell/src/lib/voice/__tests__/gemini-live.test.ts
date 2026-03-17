@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGeminiLiveSession } from "../gemini-live";
 import type { GeminiLiveConfig } from "../types";
 
@@ -94,9 +94,7 @@ describe("GeminiLive", () => {
 			const setupMsg = JSON.parse(lastWs.send.mock.calls[0][0]);
 			expect(setupMsg.setup.apiKey).toBe("Bearer test-key");
 			expect(setupMsg.setup.voice).toBe("Kore");
-			expect(setupMsg.setup.model).toBe(
-				"gemini-live-2.5-flash-native-audio",
-			);
+			expect(setupMsg.setup.model).toBe("gemini-live-2.5-flash-native-audio");
 		});
 
 		it("is connected after setupComplete", async () => {

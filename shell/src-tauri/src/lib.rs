@@ -1431,35 +1431,41 @@ async fn gateway_health() -> Result<bool, String> {
 #[tauri::command]
 async fn restart_gateway(state: tauri::State<'_, AppState>) -> Result<bool, String> {
     log_verbose("[Naia] restart_gateway requested");
-    let guard_result = state.gateway.lock();
-    if let Ok(mut guard) = guard_result {
-        // Kill existing processes
-        if let Some(mut old) = guard.take() {
-            if let Some(ref mut nh) = old.node_host {
-                let _ = nh.kill();
+    // spawn_gateway calls check_gateway_health_sync which uses reqwest::blocking::Client.
+    // Dropping that client's internal runtime inside an async context panics with
+    // "Cannot drop a runtime in a context where blocking is not allowed".
+    // block_in_place signals Tokio that this thread may block, preventing the panic.
+    tokio::task::block_in_place(|| {
+        let guard_result = state.gateway.lock();
+        if let Ok(mut guard) = guard_result {
+            // Kill existing processes
+            if let Some(mut old) = guard.take() {
+                if let Some(ref mut nh) = old.node_host {
+                    let _ = nh.kill();
+                }
+                if old.we_spawned {
+                    let _ = old.child.kill();
+                }
+                // Give processes time to exit cleanly
+                std::thread::sleep(std::time::Duration::from_millis(500));
             }
-            if old.we_spawned {
-                let _ = old.child.kill();
+            // Respawn
+            match spawn_gateway() {
+                Ok(process) => {
+                    let managed = process.we_spawned;
+                    *guard = Some(process);
+                    log_both(&format!("[Naia] Gateway restarted (managed={})", managed));
+                    Ok(true)
+                }
+                Err(e) => {
+                    log_both(&format!("[Naia] Gateway restart failed: {}", e));
+                    Err(e)
+                }
             }
-            // Give processes time to exit cleanly
-            std::thread::sleep(std::time::Duration::from_millis(500));
+        } else {
+            Err("Failed to acquire gateway lock".to_string())
         }
-        // Respawn
-        match spawn_gateway() {
-            Ok(process) => {
-                let managed = process.we_spawned;
-                *guard = Some(process);
-                log_both(&format!("[Naia] Gateway restarted (managed={})", managed));
-                Ok(true)
-            }
-            Err(e) => {
-                log_both(&format!("[Naia] Gateway restart failed: {}", e));
-                Err(e)
-            }
-        }
-    } else {
-        Err("Failed to acquire gateway lock".to_string())
-    }
+    })
 }
 
 /// Generate a random state token for OAuth deep link CSRF protection.

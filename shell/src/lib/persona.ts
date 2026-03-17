@@ -13,7 +13,17 @@ Keep responses concise (1-3 sentences for casual chat, longer for complex topics
 
 /** Locales with a meaningful formal/informal speech distinction */
 export const FORMALITY_LOCALES = new Set([
-	"ko", "ja", "de", "fr", "es", "hi", "vi", "ru", "pt", "id", "ar",
+	"ko",
+	"ja",
+	"de",
+	"fr",
+	"es",
+	"hi",
+	"vi",
+	"ru",
+	"pt",
+	"id",
+	"ar",
 ]);
 
 function localeToLanguage(locale: string): string {
@@ -144,8 +154,13 @@ export function buildSystemPrompt(
 			);
 		}
 
-		if (context.honorific && (!context.locale || FORMALITY_LOCALES.has(context.locale))) {
-			const lang = context.locale ? localeToLanguage(context.locale) : "the user's language";
+		if (
+			context.honorific &&
+			(!context.locale || FORMALITY_LOCALES.has(context.locale))
+		) {
+			const lang = context.locale
+				? localeToLanguage(context.locale)
+				: "the user's language";
 			contextLines.push(
 				`Address the user as "${context.honorific} ${context.userName || ""}" or "${context.userName || ""}${context.honorific}" as appropriate for ${lang}.`,
 			);
@@ -158,7 +173,10 @@ export function buildSystemPrompt(
 			);
 		}
 
-		if (context.speechStyle && (!context.locale || FORMALITY_LOCALES.has(context.locale))) {
+		if (
+			context.speechStyle &&
+			(!context.locale || FORMALITY_LOCALES.has(context.locale))
+		) {
 			contextLines.push(
 				getSpeechStyleInstruction(context.locale || "ko", context.speechStyle),
 			);

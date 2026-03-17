@@ -2,19 +2,35 @@ import { S } from "../helpers/selectors.js";
 import { navigateToSettings, safeRefresh } from "../helpers/settings.js";
 
 /** Locales with formal/informal distinction — must match FORMALITY_LOCALES in persona.ts */
-const FORMALITY_LOCALES = ["ko", "ja", "de", "fr", "es", "hi", "vi", "ru", "pt", "id", "ar"];
+const FORMALITY_LOCALES = [
+	"ko",
+	"ja",
+	"de",
+	"fr",
+	"es",
+	"hi",
+	"vi",
+	"ru",
+	"pt",
+	"id",
+	"ar",
+];
 /** Locales WITHOUT formal/informal distinction */
 const NON_FORMALITY_LOCALES = ["en", "zh", "bn"];
 
 /** Helper: set locale (and optionally speechStyle) in config and refresh */
 async function setLocale(locale: string, speechStyle?: string) {
-	await browser.execute((loc: string, ss?: string) => {
-		const raw = localStorage.getItem("naia-config");
-		const config = raw ? JSON.parse(raw) : {};
-		config.locale = loc;
-		if (ss) config.speechStyle = ss;
-		localStorage.setItem("naia-config", JSON.stringify(config));
-	}, locale, speechStyle);
+	await browser.execute(
+		(loc: string, ss?: string) => {
+			const raw = localStorage.getItem("naia-config");
+			const config = raw ? JSON.parse(raw) : {};
+			config.locale = loc;
+			if (ss) config.speechStyle = ss;
+			localStorage.setItem("naia-config", JSON.stringify(config));
+		},
+		locale,
+		speechStyle,
+	);
 	await safeRefresh();
 	await browser.pause(2000);
 }
@@ -79,7 +95,7 @@ describe("54 — Locale affects system prompt config", () => {
 
 		const speechSelect = await findSpeechStyleSelect();
 		expect(speechSelect).toBeDefined();
-		const val = await speechSelect!.getValue();
+		const val = await speechSelect?.getValue();
 		expect(val).toBe("casual");
 	});
 
@@ -136,15 +152,19 @@ describe("54b — Onboarding speechStyle step skip by locale", () => {
 
 	/** Set input value using React-compatible native setter */
 	async function jsSetValue(selector: string, value: string) {
-		await browser.execute((sel: string, val: string) => {
-			const el = document.querySelector(sel) as HTMLInputElement | null;
-			if (!el) return;
-			const proto = HTMLInputElement.prototype;
-			const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
-			if (setter) setter.call(el, val);
-			else el.value = val;
-			el.dispatchEvent(new Event("input", { bubbles: true }));
-		}, selector, value);
+		await browser.execute(
+			(sel: string, val: string) => {
+				const el = document.querySelector(sel) as HTMLInputElement | null;
+				if (!el) return;
+				const proto = HTMLInputElement.prototype;
+				const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+				if (setter) setter.call(el, val);
+				else el.value = val;
+				el.dispatchEvent(new Event("input", { bubbles: true }));
+			},
+			selector,
+			value,
+		);
 	}
 
 	/**
@@ -188,7 +208,9 @@ describe("54b — Onboarding speechStyle step skip by locale", () => {
 
 		// Now we're on speechStyle OR complete (if skipped)
 		await browser.pause(500);
-		const discordBtn = await $('[data-testid="onboarding-discord-connect-btn"]');
+		const discordBtn = await $(
+			'[data-testid="onboarding-discord-connect-btn"]',
+		);
 		if (await discordBtn.isExisting()) return "complete";
 
 		const settingsField = await $(".onboarding-content .settings-field");

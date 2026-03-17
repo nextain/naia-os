@@ -18,8 +18,19 @@ import { createGeminiLiveProxySession } from "./gemini-live-proxy";
 import { createOpenAIRealtimeSession } from "./openai-realtime";
 import type { LiveProviderId, VoiceSession } from "./types";
 
-export { type LiveProviderId, type LiveProviderConfig, type VoiceSession, LIVE_PROVIDER_LABELS, LIVE_PROVIDER_COST_HINTS } from "./types";
-export type { GeminiLiveConfig, MiniCpmOConfig, OpenAIRealtimeConfig, ToolDeclaration } from "./types";
+export {
+	type LiveProviderId,
+	type LiveProviderConfig,
+	type VoiceSession,
+	LIVE_PROVIDER_LABELS,
+	LIVE_PROVIDER_COST_HINTS,
+} from "./types";
+export type {
+	GeminiLiveConfig,
+	MiniCpmOConfig,
+	OpenAIRealtimeConfig,
+	ToolDeclaration,
+} from "./types";
 // Re-export voice options from LLM registry
 export { OPENAI_REALTIME_VOICES, GEMINI_LIVE_VOICES } from "../llm/registry";
 
@@ -28,13 +39,18 @@ interface CreateOptions {
 	useProxy?: boolean;
 }
 
-export function createVoiceSession(provider: LiveProviderId, options?: CreateOptions): VoiceSession {
+export function createVoiceSession(
+	provider: LiveProviderId,
+	options?: CreateOptions,
+): VoiceSession {
 	switch (provider) {
 		case "naia":
 			return createGeminiLiveSession();
 		case "gemini-live":
 			// Direct mode: use Rust proxy to bypass WebKitGTK WebSocket limitation
-			return options?.useProxy ? createGeminiLiveProxySession() : createGeminiLiveSession();
+			return options?.useProxy
+				? createGeminiLiveProxySession()
+				: createGeminiLiveSession();
 		case "openai-realtime":
 			return createOpenAIRealtimeSession();
 		// MiniCPM-o: disabled until pipeline voice support (#33)

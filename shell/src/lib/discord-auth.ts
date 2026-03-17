@@ -1,10 +1,6 @@
-import {
-	type AppConfig,
-	loadConfig,
-	saveConfig,
-} from "./config";
-import { getDefaultLlmModel } from "./llm";
+import { type AppConfig, loadConfig, saveConfig } from "./config";
 import { openDmChannel } from "./discord-api";
+import { getDefaultLlmModel } from "./llm";
 import { Logger } from "./logger";
 
 export interface DiscordAuthPayload {

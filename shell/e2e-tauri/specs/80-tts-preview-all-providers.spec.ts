@@ -15,7 +15,8 @@ import {
  * Google Cloud TTS requires separate GOOGLE_CLOUD_TTS_KEY (not GEMINI_API_KEY).
  */
 const OPENAI_KEY = process.env.OPENAI_API_KEY ?? "";
-const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY ?? process.env.ELEVENLAPS_API_KEY ?? "";
+const ELEVENLABS_KEY =
+	process.env.ELEVENLABS_API_KEY ?? process.env.ELEVENLAPS_API_KEY ?? "";
 
 function setSelectValue(sel: string, value: string) {
 	return browser.execute(
@@ -37,7 +38,8 @@ function setInputValue(sel: string, value: string) {
 			const input = document.querySelector(s) as HTMLInputElement | null;
 			if (!input) return false;
 			const setter = Object.getOwnPropertyDescriptor(
-				window.HTMLInputElement.prototype, "value",
+				window.HTMLInputElement.prototype,
+				"value",
 			)?.set;
 			setter?.call(input, v);
 			input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -65,10 +67,11 @@ async function previewAndCheckError(timeout = 45_000): Promise<string> {
 
 	// Wait for preview to finish (button re-enables)
 	await browser.waitUntil(
-		async () => browser.execute((sel: string) => {
-			const btn = document.querySelector(sel) as HTMLButtonElement | null;
-			return btn ? !btn.disabled : true;
-		}, S.voicePreviewBtn),
+		async () =>
+			browser.execute((sel: string) => {
+				const btn = document.querySelector(sel) as HTMLButtonElement | null;
+				return btn ? !btn.disabled : true;
+			}, S.voicePreviewBtn),
 		{ timeout, timeoutMsg: `Preview did not finish in ${timeout / 1000}s` },
 	);
 
@@ -99,7 +102,10 @@ describe("80 — TTS preview all providers", () => {
 	});
 
 	it("OpenAI TTS: preview succeeds with API key", async () => {
-		if (!OPENAI_KEY) { console.log("[SKIP] no OPENAI_API_KEY"); return; }
+		if (!OPENAI_KEY) {
+			console.log("[SKIP] no OPENAI_API_KEY");
+			return;
+		}
 		await setSelectValue(S.ttsProviderSelect, "openai");
 		await browser.pause(500);
 		await setInputValue(S.ttsApiKeyInput, OPENAI_KEY);
@@ -111,7 +117,10 @@ describe("80 — TTS preview all providers", () => {
 	});
 
 	it("ElevenLabs TTS: preview succeeds with API key (default voice)", async () => {
-		if (!ELEVENLABS_KEY) { console.log("[SKIP] no ELEVENLABS_API_KEY"); return; }
+		if (!ELEVENLABS_KEY) {
+			console.log("[SKIP] no ELEVENLABS_API_KEY");
+			return;
+		}
 		await setSelectValue(S.ttsProviderSelect, "elevenlabs");
 		await browser.pause(500);
 		await setInputValue(S.ttsApiKeyInput, ELEVENLABS_KEY);
@@ -124,7 +133,10 @@ describe("80 — TTS preview all providers", () => {
 
 	it("Google Cloud TTS: preview succeeds with GEMINI_API_KEY", async () => {
 		const googleKey = process.env.GEMINI_API_KEY ?? "";
-		if (!googleKey) { console.log("[SKIP] no GEMINI_API_KEY"); return; }
+		if (!googleKey) {
+			console.log("[SKIP] no GEMINI_API_KEY");
+			return;
+		}
 		await setSelectValue(S.ttsProviderSelect, "google");
 		await browser.pause(500);
 		await setInputValue(S.ttsApiKeyInput, googleKey);

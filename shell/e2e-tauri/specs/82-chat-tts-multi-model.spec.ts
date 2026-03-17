@@ -35,7 +35,9 @@ describe("82 — chat TTS multi-model", () => {
 		// Enable TTS
 		await scrollToSection(S.ttsToggle);
 		const isEnabled = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 		if (!isEnabled) {
 			await browser.execute((sel: string) => {
@@ -63,7 +65,10 @@ describe("82 — chat TTS multi-model", () => {
 		await browser.execute(() => {
 			const btns = document.querySelectorAll("button");
 			for (const btn of btns) {
-				if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
+				if (
+					btn.textContent?.includes("저장") ||
+					btn.textContent?.includes("Save")
+				) {
 					btn.click();
 					return;
 				}
@@ -86,7 +91,12 @@ describe("82 — chat TTS multi-model", () => {
 		// Verify TTS config in localStorage
 		const config1 = await browser.execute(() => {
 			const cfg = JSON.parse(localStorage.getItem("naia-config") ?? "{}");
-			return { provider: cfg.provider, model: cfg.model, ttsEnabled: cfg.ttsEnabled, ttsProvider: cfg.ttsProvider };
+			return {
+				provider: cfg.provider,
+				model: cfg.model,
+				ttsEnabled: cfg.ttsEnabled,
+				ttsProvider: cfg.ttsProvider,
+			};
 		});
 		expect(config1.ttsEnabled).toBe(true);
 		expect(config1.ttsProvider).toBe("edge");
@@ -101,16 +111,25 @@ describe("82 — chat TTS multi-model", () => {
 
 		// Read current model
 		const currentModel = await browser.execute(() => {
-			return (document.querySelector("#model-select") as HTMLSelectElement)?.value ?? "";
+			return (
+				(document.querySelector("#model-select") as HTMLSelectElement)?.value ??
+				""
+			);
 		});
 
 		// Get available models and pick a different one
 		const switched = await browser.execute((current: string) => {
-			const select = document.querySelector("#model-select") as HTMLSelectElement | null;
+			const select = document.querySelector(
+				"#model-select",
+			) as HTMLSelectElement | null;
 			if (!select) return false;
 			for (const opt of select.options) {
 				// Pick a different LLM model (not omni, not current)
-				if (opt.value !== current && !opt.textContent?.includes("🗣️") && opt.value !== "__custom__") {
+				if (
+					opt.value !== current &&
+					!opt.textContent?.includes("🗣️") &&
+					opt.value !== "__custom__"
+				) {
 					select.value = opt.value;
 					select.dispatchEvent(new Event("change", { bubbles: true }));
 					return true;
@@ -123,7 +142,9 @@ describe("82 — chat TTS multi-model", () => {
 
 		// Verify TTS is still enabled after model switch
 		const ttsStillEnabled = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 		expect(ttsStillEnabled).toBe(true);
 	});
@@ -133,7 +154,10 @@ describe("82 — chat TTS multi-model", () => {
 		await browser.execute(() => {
 			const btns = document.querySelectorAll("button");
 			for (const btn of btns) {
-				if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
+				if (
+					btn.textContent?.includes("저장") ||
+					btn.textContent?.includes("Save")
+				) {
 					btn.click();
 					return;
 				}
@@ -160,7 +184,9 @@ describe("82 — chat TTS multi-model", () => {
 		await settingsTab.waitForDisplayed({ timeout: 10_000 });
 
 		const hasOmni = await browser.execute(() => {
-			const select = document.querySelector("#model-select") as HTMLSelectElement | null;
+			const select = document.querySelector(
+				"#model-select",
+			) as HTMLSelectElement | null;
 			if (!select) return false;
 			for (const opt of select.options) {
 				if (opt.textContent?.includes("🗣️")) return true;

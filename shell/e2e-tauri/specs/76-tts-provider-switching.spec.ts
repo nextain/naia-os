@@ -18,7 +18,13 @@ import {
  *
  * Requires: Gateway running. OPENAI_API_KEY env var for OpenAI test.
  */
-const EXPECTED_PROVIDERS = ["edge", "google", "openai", "elevenlabs", "nextain"];
+const EXPECTED_PROVIDERS = [
+	"edge",
+	"google",
+	"openai",
+	"elevenlabs",
+	"nextain",
+];
 
 describe("76 — TTS provider switching", () => {
 	before(async () => {
@@ -118,7 +124,10 @@ describe("76 — TTS provider switching", () => {
 		const voices = await browser.execute((sel: string) => {
 			const select = document.querySelector(sel) as HTMLSelectElement | null;
 			if (!select) return [];
-			return Array.from(select.options).map((o) => ({ id: o.value, label: o.textContent }));
+			return Array.from(select.options).map((o) => ({
+				id: o.value,
+				label: o.textContent,
+			}));
 		}, S.ttsVoiceSelect);
 
 		expect(voices.length).toBeGreaterThan(0);
@@ -141,7 +150,8 @@ describe("76 — TTS provider switching", () => {
 				const input = document.querySelector(sel) as HTMLInputElement | null;
 				if (!input) return;
 				const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-					window.HTMLInputElement.prototype, "value",
+					window.HTMLInputElement.prototype,
+					"value",
 				)?.set;
 				nativeInputValueSetter?.call(input, key);
 				input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -178,7 +188,10 @@ describe("76 — TTS provider switching", () => {
 					return btn ? !btn.disabled : true;
 				}, S.voicePreviewBtn);
 			},
-			{ timeout: 45_000, timeoutMsg: "OpenAI TTS preview did not finish in 45s" },
+			{
+				timeout: 45_000,
+				timeoutMsg: "OpenAI TTS preview did not finish in 45s",
+			},
 		);
 	});
 

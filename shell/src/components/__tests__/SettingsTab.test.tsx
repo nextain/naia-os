@@ -109,7 +109,9 @@ describe("SettingsTab", () => {
 		render(<SettingsTab />);
 
 		// STT provider selector is always visible in voice section
-		const sttSelect = screen.getByText(/Vosk/)?.closest("select") as HTMLSelectElement;
+		const sttSelect = screen
+			.getByText(/Vosk/)
+			?.closest("select") as HTMLSelectElement;
 		expect(sttSelect).toBeDefined();
 		// Default is empty (no provider set) — vosk is an available option
 		expect(sttSelect.querySelector('option[value="vosk"]')).toBeDefined();

@@ -6,9 +6,13 @@
  * WebSocket through Rust (tokio-tungstenite), forwarding events via Tauri emit.
  */
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { Logger } from "../logger";
-import type { GeminiLiveConfig, LiveProviderConfig, VoiceSession } from "./types";
+import type {
+	GeminiLiveConfig,
+	LiveProviderConfig,
+	VoiceSession,
+} from "./types";
 
 export function createGeminiLiveProxySession(): VoiceSession {
 	let connected = false;
@@ -63,16 +67,23 @@ export function createGeminiLiveProxySession(): VoiceSession {
 				}),
 			);
 			unlisteners.push(
-				await listen<{ id: string; name: string; args: Record<string, unknown> }>(
-					"gemini-live:tool-call",
-					(e) => {
-						session.onToolCall?.(e.payload.id, e.payload.name, e.payload.args ?? {});
-					},
-				),
+				await listen<{
+					id: string;
+					name: string;
+					args: Record<string, unknown>;
+				}>("gemini-live:tool-call", (e) => {
+					session.onToolCall?.(
+						e.payload.id,
+						e.payload.name,
+						e.payload.args ?? {},
+					);
+				}),
 			);
 			unlisteners.push(
 				await listen<string>("gemini-live:error", (e) => {
-					Logger.warn("GeminiLiveProxy", "error from Rust", { error: e.payload });
+					Logger.warn("GeminiLiveProxy", "error from Rust", {
+						error: e.payload,
+					});
 					session.onError?.(new Error(e.payload));
 				}),
 			);
@@ -102,22 +113,30 @@ export function createGeminiLiveProxySession(): VoiceSession {
 		sendAudio(pcmBase64: string) {
 			if (!connected) return;
 			invoke("gemini_live_send_audio", { pcmBase64 }).catch((err) => {
-				Logger.warn("GeminiLiveProxy", "sendAudio error", { error: String(err) });
+				Logger.warn("GeminiLiveProxy", "sendAudio error", {
+					error: String(err),
+				});
 			});
 		},
 
 		sendText(text: string) {
 			if (!connected) return;
 			invoke("gemini_live_send_text", { text }).catch((err) => {
-				Logger.warn("GeminiLiveProxy", "sendText error", { error: String(err) });
+				Logger.warn("GeminiLiveProxy", "sendText error", {
+					error: String(err),
+				});
 			});
 		},
 
 		sendToolResponse(callId: string, result: unknown) {
 			if (!connected) return;
-			invoke("gemini_live_send_tool_response", { callId, result }).catch((err) => {
-				Logger.warn("GeminiLiveProxy", "sendToolResponse error", { error: String(err) });
-			});
+			invoke("gemini_live_send_tool_response", { callId, result }).catch(
+				(err) => {
+					Logger.warn("GeminiLiveProxy", "sendToolResponse error", {
+						error: String(err),
+					});
+				},
+			);
 		},
 
 		disconnect() {

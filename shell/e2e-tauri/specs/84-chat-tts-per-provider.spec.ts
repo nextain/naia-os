@@ -24,13 +24,19 @@ import {
  * Tests the FULL flow: UI settings → save → chat → TTS audio response
  */
 const OPENAI_KEY = process.env.OPENAI_API_KEY ?? "";
-const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY ?? process.env.ELEVENLAPS_API_KEY ?? "";
+const ELEVENLABS_KEY =
+	process.env.ELEVENLABS_API_KEY ?? process.env.ELEVENLAPS_API_KEY ?? "";
 const GOOGLE_KEY = process.env.GEMINI_API_KEY ?? "";
 
 const TTS_PROVIDERS = [
 	{ id: "edge", name: "Edge TTS", key: "", voice: "" },
 	{ id: "openai", name: "OpenAI TTS", key: OPENAI_KEY, voice: "alloy" },
-	{ id: "google", name: "Google Cloud TTS", key: GOOGLE_KEY, voice: "ko-KR-Neural2-A" },
+	{
+		id: "google",
+		name: "Google Cloud TTS",
+		key: GOOGLE_KEY,
+		voice: "ko-KR-Neural2-A",
+	},
 	{ id: "elevenlabs", name: "ElevenLabs", key: ELEVENLABS_KEY, voice: "" },
 ];
 
@@ -42,7 +48,9 @@ describe("84 — chat TTS per provider", () => {
 		dispose = autoApprovePermissions().dispose;
 	});
 
-	after(() => { dispose?.(); });
+	after(() => {
+		dispose?.();
+	});
 
 	for (const prov of TTS_PROVIDERS) {
 		describe(prov.name, () => {
@@ -60,46 +68,74 @@ describe("84 — chat TTS per provider", () => {
 
 				// Enable TTS
 				await scrollToSection(S.ttsToggle);
-				const ttsOn = await browser.execute((sel: string) =>
-					(document.querySelector(sel) as HTMLInputElement)?.checked ?? false, S.ttsToggle);
+				const ttsOn = await browser.execute(
+					(sel: string) =>
+						(document.querySelector(sel) as HTMLInputElement)?.checked ?? false,
+					S.ttsToggle,
+				);
 				if (!ttsOn) {
-					await browser.execute((sel: string) =>
-						(document.querySelector(sel) as HTMLInputElement)?.click(), S.ttsToggle);
+					await browser.execute(
+						(sel: string) =>
+							(document.querySelector(sel) as HTMLInputElement)?.click(),
+						S.ttsToggle,
+					);
 					await browser.pause(200);
 				}
 
 				// Select provider
 				await scrollToSection(S.ttsProviderSelect);
-				await browser.execute((sel: string, val: string) => {
-					const s = document.querySelector(sel) as HTMLSelectElement;
-					if (s) { s.value = val; s.dispatchEvent(new Event("change", { bubbles: true })); }
-				}, S.ttsProviderSelect, prov.id);
+				await browser.execute(
+					(sel: string, val: string) => {
+						const s = document.querySelector(sel) as HTMLSelectElement;
+						if (s) {
+							s.value = val;
+							s.dispatchEvent(new Event("change", { bubbles: true }));
+						}
+					},
+					S.ttsProviderSelect,
+					prov.id,
+				);
 				await browser.pause(500);
 
 				// Enter API key if needed
 				if (prov.key) {
-					const hasInput = await browser.execute((sel: string) =>
-						!!document.querySelector(sel), S.ttsApiKeyInput);
+					const hasInput = await browser.execute(
+						(sel: string) => !!document.querySelector(sel),
+						S.ttsApiKeyInput,
+					);
 					if (hasInput) {
-						await browser.execute((sel: string, val: string) => {
-							const input = document.querySelector(sel) as HTMLInputElement;
-							if (!input) return;
-							const setter = Object.getOwnPropertyDescriptor(
-								window.HTMLInputElement.prototype, "value")?.set;
-							setter?.call(input, val);
-							input.dispatchEvent(new Event("input", { bubbles: true }));
-							input.dispatchEvent(new Event("change", { bubbles: true }));
-						}, S.ttsApiKeyInput, prov.key);
+						await browser.execute(
+							(sel: string, val: string) => {
+								const input = document.querySelector(sel) as HTMLInputElement;
+								if (!input) return;
+								const setter = Object.getOwnPropertyDescriptor(
+									window.HTMLInputElement.prototype,
+									"value",
+								)?.set;
+								setter?.call(input, val);
+								input.dispatchEvent(new Event("input", { bubbles: true }));
+								input.dispatchEvent(new Event("change", { bubbles: true }));
+							},
+							S.ttsApiKeyInput,
+							prov.key,
+						);
 						await browser.pause(200);
 					}
 				}
 
 				// Select voice if specified
 				if (prov.voice) {
-					await browser.execute((sel: string, val: string) => {
-						const s = document.querySelector(sel) as HTMLSelectElement;
-						if (s) { s.value = val; s.dispatchEvent(new Event("change", { bubbles: true })); }
-					}, S.ttsVoiceSelect, prov.voice);
+					await browser.execute(
+						(sel: string, val: string) => {
+							const s = document.querySelector(sel) as HTMLSelectElement;
+							if (s) {
+								s.value = val;
+								s.dispatchEvent(new Event("change", { bubbles: true }));
+							}
+						},
+						S.ttsVoiceSelect,
+						prov.voice,
+					);
 					await browser.pause(200);
 				}
 
@@ -107,8 +143,12 @@ describe("84 — chat TTS per provider", () => {
 				await browser.execute(() => {
 					const btns = document.querySelectorAll("button");
 					for (const btn of btns) {
-						if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
-							btn.click(); return;
+						if (
+							btn.textContent?.includes("저장") ||
+							btn.textContent?.includes("Save")
+						) {
+							btn.click();
+							return;
 						}
 					}
 				});
@@ -116,8 +156,11 @@ describe("84 — chat TTS per provider", () => {
 			});
 
 			it("should send chat message and get response with TTS", async () => {
-				await browser.execute((sel: string) =>
-					(document.querySelector(sel) as HTMLElement)?.click(), S.chatTab);
+				await browser.execute(
+					(sel: string) =>
+						(document.querySelector(sel) as HTMLElement)?.click(),
+					S.chatTab,
+				);
 				const chatInput = await $(S.chatInput);
 				await chatInput.waitForDisplayed({ timeout: 5_000 });
 
@@ -135,7 +178,9 @@ describe("84 — chat TTS per provider", () => {
 
 				// Check no settings error visible
 				const error = await browser.execute(() => {
-					return document.querySelector(".settings-error")?.textContent?.trim() ?? "";
+					return (
+						document.querySelector(".settings-error")?.textContent?.trim() ?? ""
+					);
 				});
 				expect(error).toBe("");
 			});

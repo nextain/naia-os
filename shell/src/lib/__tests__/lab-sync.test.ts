@@ -34,12 +34,12 @@ describe("lab-sync", () => {
 
 			const result = await fetchLabConfig("test-key", "user-123");
 			expect(result).not.toBeNull();
-			expect(result!.userName).toBe("Luke");
-			expect(result!.agentName).toBe("Naia");
-			expect(result!.honorific).toBe("오빠");
+			expect(result?.userName).toBe("Luke");
+			expect(result?.agentName).toBe("Naia");
+			expect(result?.honorific).toBe("오빠");
 			// Legacy "반말" normalized to "casual" by fetchLabConfig
-			expect(result!.speechStyle).toBe("casual");
-			expect(result!.provider).toBe("nextain");
+			expect(result?.speechStyle).toBe("casual");
+			expect(result?.provider).toBe("nextain");
 			// Excluded fields should not be present
 			expect((result as Record<string, unknown>).apiKey).toBeUndefined();
 			expect((result as Record<string, unknown>).gatewayUrl).toBeUndefined();

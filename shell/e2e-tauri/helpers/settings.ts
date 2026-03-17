@@ -257,7 +257,10 @@ export async function ensureAppReady(): Promise<void> {
 		const config = JSON.parse(raw);
 		const noKeyProviders = ["claude-code-cli", "ollama"];
 		const apiKeyOptional = noKeyProviders.includes(config.provider ?? "");
-		return !!config.onboardingComplete && (!!config.apiKey || !!config.naiaKey || apiKeyOptional);
+		return (
+			!!config.onboardingComplete &&
+			(!!config.apiKey || !!config.naiaKey || apiKeyOptional)
+		);
 	});
 
 	if (!alreadyConfigured) {

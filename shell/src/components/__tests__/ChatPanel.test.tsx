@@ -356,7 +356,10 @@ describe("ChatPanel", () => {
 
 	it("loads session from Gateway on mount", async () => {
 		// Set discordSessionMigrated so it skips migration and loads history
-		localStorage.setItem("naia-config", JSON.stringify({ discordSessionMigrated: true }));
+		localStorage.setItem(
+			"naia-config",
+			JSON.stringify({ discordSessionMigrated: true }),
+		);
 		const { getGatewayHistory } = await import("../../lib/gateway-sessions");
 		(getGatewayHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
 			{

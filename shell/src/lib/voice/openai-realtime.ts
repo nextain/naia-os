@@ -7,7 +7,11 @@
  * Reference: https://platform.openai.com/docs/api-reference/realtime
  */
 import { Logger } from "../logger";
-import type { LiveProviderConfig, OpenAIRealtimeConfig, VoiceSession } from "./types";
+import type {
+	LiveProviderConfig,
+	OpenAIRealtimeConfig,
+	VoiceSession,
+} from "./types";
 
 const DEFAULT_MODEL = "gpt-4o-mini-realtime-preview";
 
@@ -58,9 +62,12 @@ export function createOpenAIRealtimeSession(): VoiceSession {
 				}, 15000);
 
 				ws.onopen = () => {
-					Logger.info("OpenAIRealtime", "WebSocket connected, sending session.update");
+					Logger.info(
+						"OpenAIRealtime",
+						"WebSocket connected, sending session.update",
+					);
 					// Send session configuration
-					ws!.send(
+					ws?.send(
 						JSON.stringify({
 							type: "session.update",
 							session: {
@@ -79,7 +86,10 @@ export function createOpenAIRealtimeSession(): VoiceSession {
 									type: "function",
 									name: t.name,
 									description: t.description,
-									parameters: t.parameters ?? { type: "object", properties: {} },
+									parameters: t.parameters ?? {
+										type: "object",
+										properties: {},
+									},
 								})),
 							},
 						}),
@@ -89,7 +99,10 @@ export function createOpenAIRealtimeSession(): VoiceSession {
 				ws.onmessage = (event) => {
 					try {
 						const msg = JSON.parse(event.data);
-						if (msg.type === "session.created" || msg.type === "session.updated") {
+						if (
+							msg.type === "session.created" ||
+							msg.type === "session.updated"
+						) {
 							clearTimeout(timeout);
 							connected = true;
 							Logger.info("OpenAIRealtime", "session ready");
@@ -163,7 +176,8 @@ export function createOpenAIRealtimeSession(): VoiceSession {
 					item: {
 						type: "function_call_output",
 						call_id: callId,
-						output: typeof result === "string" ? result : JSON.stringify(result),
+						output:
+							typeof result === "string" ? result : JSON.stringify(result),
 					},
 				}),
 			);

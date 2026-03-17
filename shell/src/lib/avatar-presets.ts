@@ -49,7 +49,9 @@ const TTS_VOICE_DEFAULTS: Record<string, Record<AvatarGender, string>> = {
 /** Resolves the VRM avatar's gender from its path. */
 export function getAvatarGender(vrmPath?: string): AvatarGender {
 	const resolved = vrmPath || DEFAULT_AVATAR_MODEL;
-	const preset = AVATAR_PRESETS.find((p) => resolved.endsWith(p.path.replace(/^\//, "")));
+	const preset = AVATAR_PRESETS.find((p) =>
+		resolved.endsWith(p.path.replace(/^\//, "")),
+	);
 	return preset?.gender ?? "female";
 }
 
@@ -59,7 +61,12 @@ export function getDefaultVoiceForAvatar(vrmPath?: string): string {
 }
 
 /** Returns the default TTS voice for a given provider based on the VRM avatar's gender. */
-export function getDefaultTtsVoiceForAvatar(provider: string, vrmPath?: string): string {
+export function getDefaultTtsVoiceForAvatar(
+	provider: string,
+	vrmPath?: string,
+): string {
 	const gender = getAvatarGender(vrmPath);
-	return TTS_VOICE_DEFAULTS[provider]?.[gender] ?? TTS_VOICE_DEFAULTS.edge[gender];
+	return (
+		TTS_VOICE_DEFAULTS[provider]?.[gender] ?? TTS_VOICE_DEFAULTS.edge[gender]
+	);
 }

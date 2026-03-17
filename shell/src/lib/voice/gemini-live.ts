@@ -6,7 +6,11 @@
  * - Direct mode: connect to Gemini API directly (user's googleApiKey)
  */
 import { Logger } from "../logger";
-import type { GeminiLiveConfig, LiveProviderConfig, VoiceSession } from "./types";
+import type {
+	GeminiLiveConfig,
+	LiveProviderConfig,
+	VoiceSession,
+} from "./types";
 
 const GEMINI_LIVE_WS_BASE = "wss://generativelanguage.googleapis.com/ws";
 /** Direct mode: Google AI Studio model name */
@@ -36,16 +40,21 @@ export function createGeminiLiveSession(): VoiceSession {
 			const gemini = config as GeminiLiveConfig;
 			const isDirect = !!gemini.googleApiKey && !gemini.naiaKey;
 
-			const defaultModel = isDirect ? DEFAULT_MODEL_DIRECT : DEFAULT_MODEL_GATEWAY;
+			const defaultModel = isDirect
+				? DEFAULT_MODEL_DIRECT
+				: DEFAULT_MODEL_GATEWAY;
 			let wsUrl: string;
 			if (isDirect) {
 				// Direct mode: connect to Gemini API with user's own API key
 				wsUrl = `${GEMINI_LIVE_WS_BASE}/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${gemini.googleApiKey}`;
-				Logger.info("GeminiLive", "connecting direct", { model: gemini.model ?? defaultModel, wsUrl: wsUrl.replace(/key=.*/, "key=***") });
+				Logger.info("GeminiLive", "connecting direct", {
+					model: gemini.model ?? defaultModel,
+					wsUrl: wsUrl.replace(/key=.*/, "key=***"),
+				});
 			} else {
 				// Gateway mode: relay via any-llm gateway
 				const base = gemini.gatewayUrl ?? "";
-				wsUrl = base.replace(/^http/, "ws") + "/v1/live";
+				wsUrl = `${base.replace(/^http/, "ws")}/v1/live`;
 				Logger.info("GeminiLive", "connecting via gateway", {
 					gateway: base,
 					model: gemini.model ?? defaultModel,
@@ -69,7 +78,7 @@ export function createGeminiLiveSession(): VoiceSession {
 					if (isDirect) {
 						// Direct mode: Gemini API native setup format
 						const langCode = gemini.locale ?? "ko-KR";
-						ws!.send(
+						ws?.send(
 							JSON.stringify({
 								setup: {
 									model: `models/${model}`,
@@ -103,7 +112,7 @@ export function createGeminiLiveSession(): VoiceSession {
 						);
 					} else {
 						// Gateway mode: any-llm gateway format
-						ws!.send(
+						ws?.send(
 							JSON.stringify({
 								setup: {
 									apiKey: `Bearer ${gemini.naiaKey}`,
@@ -122,7 +131,9 @@ export function createGeminiLiveSession(): VoiceSession {
 					try {
 						const msg = JSON.parse(event.data);
 						if (!connected) {
-							Logger.info("GeminiLive", "pre-setup message", { keys: Object.keys(msg) });
+							Logger.info("GeminiLive", "pre-setup message", {
+								keys: Object.keys(msg),
+							});
 						}
 						if (msg.setupComplete) {
 							clearTimeout(timeout);
@@ -133,9 +144,7 @@ export function createGeminiLiveSession(): VoiceSession {
 						}
 						if (msg.error) {
 							clearTimeout(timeout);
-							const err = new Error(
-								msg.error.message || "Setup failed",
-							);
+							const err = new Error(msg.error.message || "Setup failed");
 							reject(err);
 							session.onError?.(err);
 							return;
@@ -158,7 +167,10 @@ export function createGeminiLiveSession(): VoiceSession {
 					clearTimeout(timeout);
 					const wasConnected = connected;
 					connected = false;
-					Logger.info("GeminiLive", "disconnected", { code: ev.code, reason: ev.reason });
+					Logger.info("GeminiLive", "disconnected", {
+						code: ev.code,
+						reason: ev.reason,
+					});
 					if (!wasConnected) {
 						reject(
 							new Error(
@@ -204,9 +216,7 @@ export function createGeminiLiveSession(): VoiceSession {
 			ws.send(
 				JSON.stringify({
 					toolResponse: {
-						functionResponses: [
-							{ id: callId, response: { result } },
-						],
+						functionResponses: [{ id: callId, response: { result } }],
 					},
 				}),
 			);
@@ -222,9 +232,7 @@ export function createGeminiLiveSession(): VoiceSession {
 	};
 
 	function handleMessage(msg: Record<string, unknown>) {
-		const sc = msg.serverContent as
-			| Record<string, unknown>
-			| undefined;
+		const sc = msg.serverContent as Record<string, unknown> | undefined;
 		if (sc) {
 			const mt = sc.modelTurn as
 				| {
@@ -232,7 +240,7 @@ export function createGeminiLiveSession(): VoiceSession {
 							inlineData?: { data: string };
 							text?: string;
 						}[];
-					}
+				  }
 				| undefined;
 			if (mt?.parts) {
 				for (const part of mt.parts) {
@@ -242,16 +250,12 @@ export function createGeminiLiveSession(): VoiceSession {
 				}
 			}
 
-			const itx = sc.inputTranscription as
-				| { text?: string }
-				| undefined;
+			const itx = sc.inputTranscription as { text?: string } | undefined;
 			if (itx?.text) {
 				session.onInputTranscript?.(itx.text);
 			}
 
-			const otx = sc.outputTranscription as
-				| { text?: string }
-				| undefined;
+			const otx = sc.outputTranscription as { text?: string } | undefined;
 			if (otx?.text) {
 				session.onOutputTranscript?.(otx.text);
 			}
@@ -272,7 +276,7 @@ export function createGeminiLiveSession(): VoiceSession {
 						name: string;
 						args: Record<string, unknown>;
 					}[];
-				}
+			  }
 			| undefined;
 		if (tc?.functionCalls) {
 			for (const fc of tc.functionCalls) {

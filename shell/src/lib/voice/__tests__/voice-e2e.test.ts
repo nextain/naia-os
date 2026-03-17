@@ -43,9 +43,7 @@ function loadEnvKeys(): Record<string, string> {
 				keys[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
 			}
 			return keys;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return {};
 }
@@ -109,7 +107,10 @@ describe.skipIf(!VOICE_E2E)("Voice E2E — Real API connections", () => {
 				const audio = await Promise.race([
 					audioReceived,
 					new Promise<string>((_, reject) =>
-						setTimeout(() => reject(new Error("No audio received within timeout")), 20000),
+						setTimeout(
+							() => reject(new Error("No audio received within timeout")),
+							20000,
+						),
 					),
 				]);
 				expect(audio.length).toBeGreaterThan(0);
@@ -166,7 +167,10 @@ describe.skipIf(!VOICE_E2E)("Voice E2E — Real API connections", () => {
 				const audio = await Promise.race([
 					audioReceived,
 					new Promise<string>((_, reject) =>
-						setTimeout(() => reject(new Error("No audio received within timeout")), 20000),
+						setTimeout(
+							() => reject(new Error("No audio received within timeout")),
+							20000,
+						),
 					),
 				]);
 				expect(audio.length).toBeGreaterThan(0);

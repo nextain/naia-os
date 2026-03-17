@@ -10,7 +10,12 @@
 
 // ── Provider ID ──
 
-export type LiveProviderId = "naia" | "gemini-live" | "openai-realtime" | "minicpm-o" | "edge-tts";
+export type LiveProviderId =
+	| "naia"
+	| "gemini-live"
+	| "openai-realtime"
+	| "minicpm-o"
+	| "edge-tts";
 
 export const LIVE_PROVIDER_LABELS: Record<LiveProviderId, string> = {
 	naia: "Naia OS",
@@ -22,7 +27,10 @@ export const LIVE_PROVIDER_LABELS: Record<LiveProviderId, string> = {
 
 // ── Provider Cost Hints (approximate per-minute voice conversation cost) ──
 
-export const LIVE_PROVIDER_COST_HINTS: Record<LiveProviderId, { cost: string; note: string }> = {
+export const LIVE_PROVIDER_COST_HINTS: Record<
+	LiveProviderId,
+	{ cost: string; note: string }
+> = {
 	naia: { cost: "~$0.03/min", note: "Naia credits" },
 	"gemini-live": { cost: "~$0.03/min", note: "Google API Key" },
 	"openai-realtime": { cost: "~$0.10/min", note: "OpenAI API Key" },

@@ -29,12 +29,16 @@ describe("78 — voice pipeline mode", () => {
 		await settingsTab.waitForDisplayed({ timeout: 10_000 });
 
 		const sectionLabels = await browser.execute(() => {
-			const dividers = document.querySelectorAll(".settings-section-divider span");
+			const dividers = document.querySelectorAll(
+				".settings-section-divider span",
+			);
 			return Array.from(dividers).map((el) => el.textContent?.trim() ?? "");
 		});
 
 		// Should contain brain(LLM) and voice-related sections
-		const hasLlmSection = sectionLabels.some((l) => l.includes("LLM") || l.includes("두뇌") || l.includes("Brain"));
+		const hasLlmSection = sectionLabels.some(
+			(l) => l.includes("LLM") || l.includes("두뇌") || l.includes("Brain"),
+		);
 		expect(hasLlmSection).toBe(true);
 	});
 

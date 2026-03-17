@@ -5,6 +5,7 @@ import { ChatPanel } from "./components/ChatPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { syncLinkedChannels } from "./lib/channel-sync";
 import {
 	type PanelPosition,
 	type ThemeId,
@@ -16,7 +17,6 @@ import {
 	saveConfig,
 } from "./lib/config";
 import { persistDiscordDefaults } from "./lib/discord-auth";
-import { syncLinkedChannels } from "./lib/channel-sync";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 
 function applyTheme(theme: ThemeId) {
@@ -51,9 +51,13 @@ export function App() {
 	// Check for updates after onboarding is complete
 	useEffect(() => {
 		if (showOnboarding) return;
-		checkForUpdate().then((info) => {
-			if (info) setUpdateInfo(info);
-		}).catch(() => { /* updater not available (Flatpak) or network error */ });
+		checkForUpdate()
+			.then((info) => {
+				if (info) setUpdateInfo(info);
+			})
+			.catch(() => {
+				/* updater not available (Flatpak) or network error */
+			});
 	}, [showOnboarding]);
 
 	// Ctrl+B: toggle panel visibility

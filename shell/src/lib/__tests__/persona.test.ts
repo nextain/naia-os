@@ -138,25 +138,37 @@ describe("buildSystemPrompt", () => {
 		});
 
 		it("skips speechStyle when locale has no formality distinction", () => {
-			const result = buildSystemPrompt(undefined, { locale: "en", speechStyle: "casual" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "en",
+				speechStyle: "casual",
+			});
 			expect(result).not.toContain("Speak casually");
 			expect(result).toContain("Respond in English");
 		});
 
 		it("applies speechStyle when locale is Korean", () => {
-			const result = buildSystemPrompt(undefined, { locale: "ko", speechStyle: "casual" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "ko",
+				speechStyle: "casual",
+			});
 			expect(result).toContain("반말");
 			expect(result).toContain("Respond in Korean");
 		});
 
 		it("applies speechStyle for Japanese locale", () => {
-			const result = buildSystemPrompt(undefined, { locale: "ja", speechStyle: "formal" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "ja",
+				speechStyle: "formal",
+			});
 			expect(result).toContain("敬語");
 			expect(result).toContain("Respond in Japanese");
 		});
 
 		it("applies speechStyle for German locale", () => {
-			const result = buildSystemPrompt(undefined, { locale: "de", speechStyle: "casual" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "de",
+				speechStyle: "casual",
+			});
 			expect(result).toContain("'du'");
 			expect(result).toContain("Respond in German");
 		});
@@ -185,18 +197,30 @@ describe("buildSystemPrompt", () => {
 		});
 
 		it("skips honorific when locale has no formality distinction", () => {
-			const result = buildSystemPrompt(undefined, { locale: "en", userName: "Luke", honorific: "오빠" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "en",
+				userName: "Luke",
+				honorific: "오빠",
+			});
 			expect(result).not.toContain("오빠");
 		});
 
 		it("applies honorific when locale is Korean", () => {
-			const result = buildSystemPrompt(undefined, { locale: "ko", userName: "Luke", honorific: "오빠" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "ko",
+				userName: "Luke",
+				honorific: "오빠",
+			});
 			expect(result).toContain("오빠");
 			expect(result).toContain("Luke");
 		});
 
 		it("applies honorific for Japanese locale", () => {
-			const result = buildSystemPrompt(undefined, { locale: "ja", userName: "Luke", honorific: "先輩" });
+			const result = buildSystemPrompt(undefined, {
+				locale: "ja",
+				userName: "Luke",
+				honorific: "先輩",
+			});
 			expect(result).toContain("先輩");
 			expect(result).toContain("Luke");
 		});

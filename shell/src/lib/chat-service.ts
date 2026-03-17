@@ -149,7 +149,12 @@ export async function requestTts(opts: {
 				typeof event.payload === "string"
 					? event.payload
 					: JSON.stringify(event.payload);
-			const chunk = JSON.parse(raw) as { type: string; requestId: string; data?: string; costUsd?: number };
+			const chunk = JSON.parse(raw) as {
+				type: string;
+				requestId: string;
+				data?: string;
+				costUsd?: number;
+			};
 			if (chunk.requestId !== requestId) return;
 
 			if (chunk.type === "audio" && chunk.data) {

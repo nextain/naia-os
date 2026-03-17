@@ -36,7 +36,9 @@ describe("81 — chat TTS response", () => {
 		// Enable TTS toggle
 		await scrollToSection(S.ttsToggle);
 		const isEnabled = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 
 		if (!isEnabled) {
@@ -62,7 +64,10 @@ describe("81 — chat TTS response", () => {
 		await browser.execute(() => {
 			const btns = document.querySelectorAll("button");
 			for (const btn of btns) {
-				if (btn.textContent?.includes("저장") || btn.textContent?.includes("Save")) {
+				if (
+					btn.textContent?.includes("저장") ||
+					btn.textContent?.includes("Save")
+				) {
 					btn.click();
 					return;
 				}
@@ -155,7 +160,9 @@ describe("81 — chat TTS response", () => {
 
 		await scrollToSection(S.ttsToggle);
 		const isEnabled = await browser.execute((sel: string) => {
-			return (document.querySelector(sel) as HTMLInputElement)?.checked ?? false;
+			return (
+				(document.querySelector(sel) as HTMLInputElement)?.checked ?? false
+			);
 		}, S.ttsToggle);
 
 		if (isEnabled) {
