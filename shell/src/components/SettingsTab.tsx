@@ -885,7 +885,7 @@ export function SettingsTab() {
 
 						const pushModel = (key: string) => {
 							if (!grouped[key]?.some((x) => x.id === modelId)) {
-								grouped[key].push({ id: modelId, label, type: "llm" as const });
+								grouped[key].push({ id: modelId, label, capabilities: ["llm"] as const });
 							}
 						};
 
@@ -899,7 +899,7 @@ export function SettingsTab() {
 								grouped["claude-code-cli"].push({
 									id: modelId,
 									label: nameOnly,
-									type: "llm" as const,
+									capabilities: ["llm"] as const,
 								});
 							}
 						}
@@ -907,7 +907,7 @@ export function SettingsTab() {
 						if (mappedProvider === "gemini") {
 							const nextainModelIds =
 								getLlmProvider("nextain")
-									?.models.filter((nm) => nm.type === "llm")
+									?.models.filter((nm) => !nm.capabilities.includes("omni"))
 									.map((nm) => nm.id) ?? [];
 							if (nextainModelIds.includes(modelId)) {
 								pushModel("nextain");
@@ -1411,7 +1411,7 @@ export function SettingsTab() {
 			const modelMeta = (dynamicModels[provider] ?? []).find(
 				(m) => m.id === model,
 			);
-			const isOmni = modelMeta?.type === "omni";
+			const isOmni = modelMeta?.capabilities.includes("omni") ?? false;
 
 			if (isOmni && (provider === "nextain" || provider === "gemini")) {
 				// Gemini voice preview via Chirp 3 HD
@@ -1757,7 +1757,7 @@ export function SettingsTab() {
 	const providerModels = dynamicModels[provider] ?? [];
 	const selectedModelMeta = providerModels.find((m) => m.id === model);
 	const hasSelectedModel = Boolean(selectedModelMeta);
-	const isSelectedOmni = selectedModelMeta?.type === "omni";
+	const isSelectedOmni = selectedModelMeta?.capabilities.includes("omni") ?? false;
 	const omniVoices = selectedModelMeta?.voices;
 	const manualUrl = `https://naia.nextain.io/${locale}/manual`;
 
@@ -2226,7 +2226,7 @@ export function SettingsTab() {
 						setModel(e.target.value);
 						// When switching to an omni model, set default voice if not already set
 						const newMeta = providerModels.find((m) => m.id === e.target.value);
-						if (newMeta?.type === "omni" && newMeta.voices?.length) {
+						if (newMeta?.capabilities.includes("omni") && newMeta.voices?.length) {
 							const currentVoiceValid = newMeta.voices.some(
 								(v) => v.id === voice,
 							);

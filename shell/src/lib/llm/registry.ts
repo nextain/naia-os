@@ -25,9 +25,20 @@ export function getLlmModel(
 	return providers.get(providerId)?.models.find((m) => m.id === modelId);
 }
 
+/** Check if a model has a specific capability. */
+export function modelHasCapability(
+	providerId: string,
+	modelId: string,
+	capability: import("../types.js").ModelCapability,
+): boolean {
+	return (
+		getLlmModel(providerId, modelId)?.capabilities.includes(capability) ?? false
+	);
+}
+
 /** Check if a model is omni (built-in voice). */
 export function isOmniModel(providerId: string, modelId: string): boolean {
-	return getLlmModel(providerId, modelId)?.type === "omni";
+	return modelHasCapability(providerId, modelId, "omni");
 }
 
 /** Get default model for a provider. */
@@ -115,14 +126,14 @@ registerLlmProvider({
 	requiresNaiaKey: true,
 	defaultModel: "gemini-3-flash-preview",
 	models: [
-		{ id: "gemini-3-pro-preview", label: "Gemini 3 Pro", type: "llm" },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", type: "llm" },
-		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", type: "llm" },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", type: "llm" },
+		{ id: "gemini-3-pro-preview", label: "Gemini 3 Pro", capabilities: ["llm"] },
+		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", capabilities: ["llm"] },
+		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", capabilities: ["llm"] },
+		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", capabilities: ["llm"] },
 		{
 			id: "gemini-2.5-flash-live",
 			label: "Gemini 2.5 Flash Live 🗣️",
-			type: "omni",
+			capabilities: ["llm", "omni"],
 			voiceSelectable: true,
 			voices: [...GEMINI_LIVE_VOICES],
 			transcriptProvided: true,
@@ -138,9 +149,9 @@ registerLlmProvider({
 	requiresApiKey: false,
 	defaultModel: "claude-sonnet-4-6",
 	models: [
-		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", type: "llm" },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", type: "llm" },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", type: "llm" },
+		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["llm"] },
+		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["llm"] },
+		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", capabilities: ["llm"] },
 	],
 });
 
@@ -155,31 +166,31 @@ registerLlmProvider({
 		{
 			id: "gemini-3-pro-preview",
 			label: "Gemini 3 Pro",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [2.0, 12.0],
 		},
 		{
 			id: "gemini-3-flash-preview",
 			label: "Gemini 3.0 Flash",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [0.5, 3.0],
 		},
 		{
 			id: "gemini-2.5-pro",
 			label: "Gemini 2.5 Pro",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [1.25, 10.0],
 		},
 		{
 			id: "gemini-2.5-flash",
 			label: "Gemini 2.5 Flash",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [0.3, 2.5],
 		},
 		{
 			id: "gemini-2.5-flash-live",
 			label: "Gemini 2.5 Flash Live 🗣️ (~$0.03/min)",
-			type: "omni",
+			capabilities: ["llm", "omni"],
 			voiceSelectable: true,
 			voices: [...GEMINI_LIVE_VOICES],
 			transcriptProvided: true,
@@ -195,11 +206,11 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "gpt-4o",
 	models: [
-		{ id: "gpt-4o", label: "GPT-4o", type: "llm", pricing: [2.5, 10.0] },
+		{ id: "gpt-4o", label: "GPT-4o", capabilities: ["llm"], pricing: [2.5, 10.0] },
 		{
 			id: "gpt-4o-realtime",
 			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
-			type: "omni",
+			capabilities: ["llm", "omni"],
 			voiceSelectable: true,
 			voices: [...OPENAI_REALTIME_VOICES],
 			transcriptProvided: true,
@@ -218,19 +229,19 @@ registerLlmProvider({
 		{
 			id: "claude-opus-4-6",
 			label: "Claude Opus 4.6",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [15.0, 75.0],
 		},
 		{
 			id: "claude-sonnet-4-6",
 			label: "Claude Sonnet 4.6",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [3.0, 15.0],
 		},
 		{
 			id: "claude-haiku-4-5-20251001",
 			label: "Claude Haiku 4.5",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [0.8, 4.0],
 		},
 	],
@@ -247,7 +258,7 @@ registerLlmProvider({
 		{
 			id: "grok-3-mini",
 			label: "Grok 3 Mini",
-			type: "llm",
+			capabilities: ["llm"],
 			pricing: [0.3, 0.5],
 		},
 	],
@@ -261,7 +272,7 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "glm-4.7",
 	models: [
-		{ id: "glm-4.7", label: "GLM 4.7", type: "llm", pricing: [0.6, 2.2] },
+		{ id: "glm-4.7", label: "GLM 4.7", capabilities: ["llm"], pricing: [0.6, 2.2] },
 	],
 });
 
@@ -292,7 +303,7 @@ registerLlmProvider({
 					return {
 						id: m.name,
 						label: extra ? `${m.name} (${extra})` : m.name,
-						type: "llm" as const,
+						capabilities: ["llm"] as const,
 					};
 				},
 			);
@@ -319,7 +330,7 @@ registerLlmProvider({
 			return (data.data ?? []).map((m: { id: string }) => ({
 				id: m.id,
 				label: m.id,
-				type: "llm" as const,
+				capabilities: ["llm"] as const,
 			}));
 		} catch {
 			return null;
