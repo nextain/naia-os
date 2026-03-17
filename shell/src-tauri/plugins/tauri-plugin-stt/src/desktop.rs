@@ -12,6 +12,25 @@ use vosk::{Model, Recognizer};
 #[cfg(feature = "whisper")]
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
 
+#[cfg(feature = "whisper")]
+mod ggml_ffi {
+    extern "C" {
+        pub fn ggml_backend_load_all();
+    }
+
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    /// Load all available GGML backends (CUDA, Vulkan, etc.) from shared libraries
+    /// next to the executable. Safe to call multiple times — only runs once.
+    pub fn load_backends() {
+        INIT.call_once(|| {
+            log::info!("[STT] Loading GGML backends (CUDA, Vulkan, etc.)...");
+            unsafe { ggml_backend_load_all(); }
+            log::info!("[STT] GGML backend loading complete");
+        });
+    }
+}
+
 use crate::models::*;
 
 /// Default Vosk model configuration (small model for fast download)
@@ -239,6 +258,9 @@ impl<R: Runtime> Stt<R> {
 
         info!("[STT] Loading Whisper model: {:?}", model_path);
         let path_str = model_path.to_str().unwrap();
+
+        // Load CUDA/Vulkan backends from shared libs next to the executable
+        ggml_ffi::load_backends();
 
         // Try GPU first, fall back to CPU if unavailable
         let ctx = {
