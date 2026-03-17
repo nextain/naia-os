@@ -382,6 +382,10 @@ git_integration:
       when: "Default — concurrent work (multiple issues active in the same project)"
       command: "git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc}"
       note: "Creates an independent working directory with its own branch. No stash/switch needed."
+      cleanup: "After merge into main — remove worktree and delete branch"
+      cleanup_commands:
+        - "git worktree remove ../{project}-issue-{N}-{desc}"
+        - "git branch -d issue-{N}-{desc}"
     branch_only:
       when: "Solo work — only one issue at a time in the repository"
       command: "git checkout -b issue-{N}-{desc}"

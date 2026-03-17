@@ -139,6 +139,12 @@ Detail: `.agents/context/harness.yaml`
 - Investigation results, scope, plan posted as Issue comments (English)
 - PR links back to Issue on completion
 
+**Worktree cleanup (after merge into main):**
+```bash
+git worktree remove ../{project}-issue-{N}-{desc}
+git branch -d issue-{N}-{desc}
+```
+
 ---
 
 ## Related Files
