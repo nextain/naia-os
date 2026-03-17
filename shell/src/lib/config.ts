@@ -26,6 +26,7 @@ export type SttProviderId =
 	| ""
 	| "vosk"
 	| "whisper"
+	| "web-speech"
 	| "google"
 	| "elevenlabs"
 	| "nextain";
@@ -131,8 +132,12 @@ export function loadConfig(): AppConfig | null {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return null;
 		const config = JSON.parse(raw) as AppConfig;
-		// Default STT provider: web-speech (free, no model download, works everywhere)
-		if (!config.sttProvider) config.sttProvider = "web-speech";
+		// Default STT provider: web-speech on Windows/macOS (Chromium WebView),
+		// vosk on Linux (WebKitGTK doesn't support Web Speech API)
+		if (!config.sttProvider) {
+			const isLinux = navigator.userAgent.includes("Linux");
+			config.sttProvider = isLinux ? "vosk" : "web-speech";
+		}
 		return config;
 	} catch {
 		return null;
