@@ -130,7 +130,10 @@ export function loadConfig(): AppConfig | null {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return null;
-		return JSON.parse(raw) as AppConfig;
+		const config = JSON.parse(raw) as AppConfig;
+		// Default STT provider: web-speech (free, no model download, works everywhere)
+		if (!config.sttProvider) config.sttProvider = "web-speech";
+		return config;
 	} catch {
 		return null;
 	}

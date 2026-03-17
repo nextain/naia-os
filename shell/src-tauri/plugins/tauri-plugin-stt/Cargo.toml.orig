@@ -25,6 +25,7 @@ serde = "1.0"
 thiserror = "2"
 serde_json = "1.0"
 log = "0.4"
+sysinfo = { version = "0.34", default-features = false, features = ["system"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 cpal = "0.17"
