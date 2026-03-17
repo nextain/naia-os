@@ -1189,11 +1189,33 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
         .map(|p| p.to_path_buf());
 
     let mut child = if use_tsx {
-        let mut cmd = Command::new(&runner);
-        cmd.arg("tsx")
-            .arg(&agent_script)
-            .arg("--stdio")
-            .stdin(Stdio::piped())
+        // On Windows, run tsx via node directly (tsx.cmd batch file fails under CREATE_NO_WINDOW).
+        // On Linux, use npx tsx as before.
+        let (tsx_runner, tsx_args): (String, Vec<String>) = {
+            #[cfg(windows)]
+            {
+                if let Some(ref dir) = agent_dir {
+                    if let Some((node, tsx_cli)) = platform::resolve_tsx_from_agent(dir) {
+                        log_verbose(&format!("[Naia] Using direct node+tsx: {} {}", node, tsx_cli));
+                        (node, vec![tsx_cli, agent_script.clone(), "--stdio".to_string()])
+                    } else {
+                        (runner.clone(), vec!["tsx".to_string(), agent_script.clone(), "--stdio".to_string()])
+                    }
+                } else {
+                    (runner.clone(), vec!["tsx".to_string(), agent_script.clone(), "--stdio".to_string()])
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                (runner.clone(), vec!["tsx".to_string(), agent_script.clone(), "--stdio".to_string()])
+            }
+        };
+
+        let mut cmd = Command::new(&tsx_runner);
+        for arg in &tsx_args {
+            cmd.arg(arg);
+        }
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
         if let Some(ref dir) = agent_dir {

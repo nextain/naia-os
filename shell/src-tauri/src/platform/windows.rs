@@ -529,6 +529,32 @@ pub(crate) fn resolve_npx() -> String {
     "npx.cmd".to_string()
 }
 
+/// Resolve tsx as a direct node invocation from agent's node_modules.
+/// Returns (node_exe, tsx_cli_mjs_path) if found, None otherwise.
+/// .cmd batch files fail under CREATE_NO_WINDOW, so we invoke node directly.
+pub(crate) fn resolve_tsx_from_agent(agent_dir: &std::path::Path) -> Option<(String, String)> {
+    // Find tsx cli.mjs inside pnpm store (version-agnostic glob)
+    let pnpm_dir = agent_dir.join("node_modules").join(".pnpm");
+    if pnpm_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&pnpm_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with("tsx@") {
+                    let cli_mjs = entry.path()
+                        .join("node_modules")
+                        .join("tsx")
+                        .join("dist")
+                        .join("cli.mjs");
+                    if cli_mjs.exists() {
+                        return Some(("node".to_string(), cli_mjs.to_string_lossy().to_string()));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Start a background thread that watches for deep link URLs written to a
 /// pending file by a second instance (see main.rs).  This is needed because
 /// Chromium browsers launch the protocol handler in a sandboxed context where
