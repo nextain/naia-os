@@ -8,7 +8,8 @@
  *   2. T2 Rejected: reminds to add Rejected: trailers when rejected_alternatives are recorded
  *   3. T2 Constraint: reminds to add Constraint: trailers when constraints_discovered are recorded
  *
- * Phase order: issue → understand → scope → investigate → plan →
+ * Phase order: issue → understand → scope → investigate →
+ *   research_artifact → annotation_cycle → plan →
  *   build → review → e2e_test → post_test_review → sync → sync_verify → report → commit
  */
 
@@ -20,6 +21,8 @@ const PHASE_ORDER = [
 	"understand",
 	"scope",
 	"investigate",
+	"research_artifact",
+	"annotation_cycle",
 	"plan",
 	"build",
 	"review",

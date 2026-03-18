@@ -84,6 +84,8 @@ hooks:
       - understand
       - scope
       - investigate
+      - research_artifact
+      - annotation_cycle
       - plan
       - build
       - review
@@ -225,12 +227,12 @@ tests:
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
     sync_entry_points: 11
-    commit_guard: 28
+    commit_guard: 31
     cascade_check: 12
     progress_schema: 7
     integration_lifecycle: 2
     process_guard: 14
-    total: 74
+    total: 77
 
 directory_structure:
   committed:

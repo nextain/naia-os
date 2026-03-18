@@ -80,7 +80,8 @@ Inspired by the [open-swe `ensure_no_empty_msg` pattern](https://github.com/lang
 
 Phase order (must reach `sync_verify` before commit):
 ```
-issue → understand → scope → investigate → plan →
+issue → understand → scope → investigate →
+research_artifact → annotation_cycle → plan →
 build → review → e2e_test → post_test_review →
 sync → sync_verify → report → commit
 ```
@@ -206,9 +207,9 @@ When the same mistake appears twice in `lessons-learned.yaml`:
 bash .agents/tests/harness/run-all.sh
 ```
 
-74 tests covering:
+77 tests covering:
 - Entry point sync (11 tests)
-- Commit guard (28 tests — includes T2 Decision Shadow advisory + gate approval checks + upstream contribution advisory)
+- Commit guard (31 tests — includes T2 Decision Shadow advisory + gate approval checks + upstream contribution advisory + new phase 4.5/4.7 coverage)
 - Cascade check (12 tests)
 - Progress schema (7 tests)
 - Integration lifecycle (2 tests)

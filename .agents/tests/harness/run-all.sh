@@ -451,6 +451,35 @@ else
     fail "2.27 upstream_issue_ref advisory" "mention of 'upstream'" "$OUTPUT"
 fi
 
+# ── New phases (4.5 / 4.7) tests ──
+
+# Test 2.29: Phase 'research_artifact' → should warn (phase 4.5, before plan)
+echo '{"issue":"#87","current_phase":"research_artifact"}' > "$TMPDIR_CG/.agents/progress/87.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "Committing at phase"; then
+    pass "2.29 Phase 'research_artifact' → warns (before plan)"
+else
+    fail "2.29 Phase 'research_artifact' → warning" "Warning about premature commit" "$OUTPUT"
+fi
+
+# Test 2.30: Phase 'annotation_cycle' → should warn (phase 4.7, before plan)
+echo '{"issue":"#87","current_phase":"annotation_cycle"}' > "$TMPDIR_CG/.agents/progress/87.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "Committing at phase"; then
+    pass "2.30 Phase 'annotation_cycle' → warns (before plan)"
+else
+    fail "2.30 Phase 'annotation_cycle' → warning" "Warning about premature commit" "$OUTPUT"
+fi
+
+# Test 2.31: research_artifact warning includes annotation_cycle in remaining phases
+echo '{"issue":"#87","current_phase":"research_artifact"}' > "$TMPDIR_CG/.agents/progress/87.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG\"}")
+if echo "$OUTPUT" | grep -q "annotation_cycle"; then
+    pass "2.31 research_artifact warning includes annotation_cycle in remaining phases"
+else
+    fail "2.31 research_artifact remaining phases" "annotation_cycle mentioned" "$OUTPUT"
+fi
+
 # Test 2.28: upstream_issue_ref absent → no advisory
 echo '{"issue":"#42","current_phase":"report","gate_approvals":{"understand":"2026-03-18T10:00Z","scope":"2026-03-18T10:15Z","plan":"2026-03-18T11:00Z","sync":"2026-03-18T12:00Z"}}' > "$TMPDIR_CG4/.agents/progress/42.json"
 rm "$TMPDIR_CG4/.agents/progress/73.json"
@@ -605,7 +634,7 @@ fi
 
 # Test 4.3: current_phase is a valid phase name
 PHASE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$TMPDIR_PF/42.json','utf8')).current_phase)" 2>/dev/null)
-VALID_PHASES="issue understand scope investigate plan build review e2e_test post_test_review sync sync_verify report commit"
+VALID_PHASES="issue understand scope investigate research_artifact annotation_cycle plan build review e2e_test post_test_review sync sync_verify report commit"
 if echo "$VALID_PHASES" | grep -qw "$PHASE"; then
     pass "4.3 current_phase '$PHASE' is valid"
 else
@@ -660,7 +689,7 @@ TMPDIR_INT="$(mktemp -d)"
 mkdir -p "$TMPDIR_INT/.agents/progress"
 
 # Test 5.1: Simulate full lifecycle — phase progression should affect guard
-PHASES_THAT_WARN=("issue" "understand" "scope" "investigate" "plan" "build" "review" "e2e_test" "post_test_review" "sync")
+PHASES_THAT_WARN=("issue" "understand" "scope" "investigate" "research_artifact" "annotation_cycle" "plan" "build" "review" "e2e_test" "post_test_review" "sync")
 PHASES_THAT_PASS=("sync_verify" "report" "commit")
 
 WARN_OK=true
