@@ -610,6 +610,37 @@ interface SttModelInfo {
 	ready: boolean;
 }
 
+/**
+ * Sanitize USB/audio device label strings.
+ * USB device names stored in EUC-KR (common for Korean audio hardware) are misread as UTF-8
+ * by Linux/PipeWire, producing mojibake:
+ *   - Some byte pairs form valid 2-byte UTF-8 → Latin-1 Supplement chars (ï, ë, é, ñ…)
+ *   - Invalid byte pairs → U+FFFD replacement chars (■ boxes)
+ * Fix: strip U+007F–U+00FF (Latin-1 Supplement) and U+FFFD entirely, then remove
+ * short leftover tokens (≤2 non-CJK chars) that are stray ASCII bytes from Korean sequences.
+ * The ASCII prefix ("USB Audio", "Realtek HD"…) survives intact.
+ */
+function sanitizeDeviceLabel(label: string): string {
+	// 1. Strip C0/C1 controls, Latin-1 Supplement (0x7F–0xFF), U+FFFD
+	const stripped = [...label]
+		.filter((c) => {
+			const cp = c.codePointAt(0) ?? 0;
+			return !(cp <= 0x1F || (cp >= 0x7F && cp <= 0x00FF) || cp === 0xFFFD);
+		})
+		.join("")
+		// 2. Punctuation isolated by stripping → collapse to space
+		.replace(/[,.\-_·•]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	// 3. Remove short tokens (≤2 chars) that aren't Korean/CJK — EUC-KR byte remnants
+	const result = stripped
+		.split(" ")
+		.filter((tok) => tok.length >= 3 || /[\uAC00-\uD7A3\u4E00-\u9FFF\uFF00-\uFFEF]/.test(tok))
+		.join(" ")
+		.trim();
+	return result || label.trim();
+}
+
 /** Custom dropdown for audio device selection.
  * Replaces native <select> to avoid WebKitGTK native popup ignoring CSS font-family (Korean garbling). */
 function DeviceSelect({ value, options, onChange, placeholder = "기본 장치" }: {
@@ -760,6 +791,7 @@ export function SettingsTab() {
 	const [vllmTtsHost, setVllmTtsHost] = useState(
 		existing?.vllmTtsHost ?? "",
 	);
+
 	const [vllmSttModels, setVllmSttModels] = useState<import("../lib/llm/types").LlmModelMeta[]>([]);
 	const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
 	const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -1029,16 +1061,40 @@ export function SettingsTab() {
 		});
 	}, [sttProvider, vllmSttHost]);
 
-	// Enumerate audio input/output devices (re-runs on devicechange — fires when permission granted)
+	// Enumerate audio input/output devices
 	useEffect(() => {
 		if (!navigator.mediaDevices?.enumerateDevices) return;
+
+		// Output devices: WebKitGTK does not expose audiooutput via enumerateDevices().
+		// Use wpctl (Tauri) to list PipeWire sinks directly.
+		const refreshOutputDevices = () => {
+			invoke<{ id: string; label: string }[]>("list_audio_output_devices")
+				.then((sinks) => {
+					Logger.debug("SettingsTab", "wpctl sinks", { count: sinks.length });
+					setAudioOutputDevices(
+						sinks.map((s) => ({ deviceId: s.id, label: s.label, kind: "audiooutput", groupId: "" }) as MediaDeviceInfo),
+					);
+				})
+				.catch((e) => Logger.warn("SettingsTab", "list_audio_output_devices failed", { e }));
+		};
+		refreshOutputDevices();
+
 		const enumerate = () => {
+			refreshOutputDevices();
 			navigator.mediaDevices.enumerateDevices().then((devices) => {
-				setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
-				setAudioOutputDevices(devices.filter((d) => d.kind === "audiooutput"));
+				const inputs = devices.filter((d) => d.kind === "audioinput");
+				// Debug: check raw label encoding — if Korean appears garbled, chars will show wrong codepoints
+				Logger.debug("SettingsTab", "Audio input devices enumerated", {
+					inputs: inputs.map((d) => ({ label: d.label, codes: [...d.label].map((c) => c.codePointAt(0)) })),
+				});
+				setAudioInputDevices(inputs);
 			}).catch(() => {});
 		};
-		enumerate();
+		// Request mic permission briefly — WebKitGTK requires this before enumerating input labels.
+		navigator.mediaDevices.getUserMedia({ audio: true })
+			.then((stream) => { stream.getTracks().forEach((t) => t.stop()); enumerate(); })
+			.catch(() => enumerate());
+
 		navigator.mediaDevices.addEventListener("devicechange", enumerate);
 		return () => navigator.mediaDevices.removeEventListener("devicechange", enumerate);
 	}, []);
@@ -2401,7 +2457,24 @@ export function SettingsTab() {
 				</select>
 			</div>
 
-			{/* Ollama/vLLM: host URL first — models load dynamically after connection */}
+			{/* API key — shown before model selector so user can enter key first */}
+			{provider !== "nextain" && provider !== "ollama" && provider !== "vllm" && provider !== "claude-code-cli" && (
+				<div className="settings-field">
+					<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
+					<input
+						id="apikey-input"
+						type="password"
+						value={apiKey}
+						onChange={(e) => {
+							setApiKey(e.target.value);
+							setError("");
+						}}
+						placeholder="sk-..."
+					/>
+					{error && <div className="settings-error">{error}</div>}
+				</div>
+			)}
+
 			{provider === "ollama" && (
 				<div className="settings-field">
 					<label>Ollama Host</label>
@@ -2538,6 +2611,15 @@ export function SettingsTab() {
 						}}
 						placeholder="sk-..."
 					/>
+				</div>
+			)}
+
+			{/* vLLM provider: voice mode uses /ws endpoint on the same host */}
+			{provider === "vllm" && (
+				<div className="settings-field">
+					<span className="settings-hint">
+						음성 버튼 → <code>ws://[vLLM Host]/ws</code> 자동 연결 (MiniCPM-o audio output)
+					</span>
 				</div>
 			)}
 
@@ -2756,20 +2838,7 @@ export function SettingsTab() {
 					{error && <div className="settings-error">{error}</div>}
 				</div>
 			) : (
-				<div className="settings-field">
-					<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
-					<input
-						id="apikey-input"
-						type="password"
-						value={apiKey}
-						onChange={(e) => {
-							setApiKey(e.target.value);
-							setError("");
-						}}
-						placeholder="sk-..."
-					/>
-					{error && <div className="settings-error">{error}</div>}
-				</div>
+				<>{/* API key shown above, before model selector */}</>
 			)}
 
 			{/* Voice settings — only for LLM models (omni models have built-in STT/TTS) */}
@@ -3211,7 +3280,7 @@ export function SettingsTab() {
 				<label>마이크 (입력 장치)</label>
 				<DeviceSelect
 					value={sttInputDeviceId}
-					options={audioInputDevices.map((d) => ({ value: d.deviceId, label: d.label || `마이크 ${d.deviceId.slice(0, 8)}` }))}
+					options={audioInputDevices.map((d) => ({ value: d.deviceId, label: sanitizeDeviceLabel(d.label) || `마이크 ${d.deviceId.slice(0, 8)}` }))}
 					onChange={(v) => {
 						setSttInputDeviceId(v);
 						if (existing) saveConfig({ ...existing, sttInputDeviceId: v || undefined });
@@ -3242,7 +3311,7 @@ export function SettingsTab() {
 				<label>스피커 (출력 장치)</label>
 				<DeviceSelect
 					value={ttsOutputDeviceId}
-					options={audioOutputDevices.map((d) => ({ value: d.deviceId, label: d.label || `스피커 ${d.deviceId.slice(0, 8)}` }))}
+					options={audioOutputDevices.map((d) => ({ value: d.deviceId, label: sanitizeDeviceLabel(d.label) || `스피커 ${d.deviceId.slice(0, 8)}` }))}
 					onChange={(v) => {
 						setTtsOutputDeviceId(v);
 						if (existing) saveConfig({ ...existing, ttsOutputDeviceId: v || undefined });

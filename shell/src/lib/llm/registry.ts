@@ -333,10 +333,11 @@ registerLlmProvider({
 			return (data.data ?? []).map((m: { id: string }) => {
 				const mid = m.id.toLowerCase();
 				const isAsr = mid.includes("asr") || mid.includes("whisper");
+				const isOmni = mid.includes("minicpm-o") || mid.includes("minicpmo");
 				return {
 					id: m.id,
-					label: m.id,
-					capabilities: (isAsr ? ["asr"] : ["llm"]) as ModelCapability[],
+					label: isOmni ? `${m.id} 🗣️` : m.id,
+					capabilities: (isAsr ? ["asr"] : isOmni ? ["llm", "omni"] : ["llm"]) as ModelCapability[],
 				};
 			});
 		} catch {

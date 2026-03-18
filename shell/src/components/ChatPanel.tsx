@@ -579,6 +579,7 @@ export function ChatPanel() {
 		if (chatTtsEnabled) {
 			if (!audioQueueRef.current) {
 				audioQueueRef.current = new AudioQueue({
+					outputDeviceId: config.ttsOutputDeviceId || undefined,
 					onPlaybackStart: () => {
 						useAvatarStore.getState().setSpeaking(true);
 						ttsPlayingRef.current = true;
@@ -1417,8 +1418,9 @@ export function ChatPanel() {
 			}
 
 			// Determine the live provider from the current model/provider
-			const liveProvider =
-				config.provider === "openai"
+			const liveProvider = config.provider === "vllm"
+				? ("minicpm-o" as const)
+				: config.provider === "openai"
 					? ("openai-realtime" as const)
 					: naiaKey
 						? ("naia" as const)
@@ -1559,7 +1561,18 @@ export function ChatPanel() {
 			// Build provider-specific config and connect
 			const selectedVoice =
 				config.voice ?? getDefaultVoiceForAvatar(config.vrmModel);
-			if (liveProvider === "openai-realtime") {
+			if (liveProvider === "minicpm-o") {
+				// Derive WebSocket base URL from vllmHost: http://host:port → ws://host:port
+				// minicpm-o.ts appends /ws to form the final endpoint
+				const vllmBase = (config.vllmHost ?? DEFAULT_VLLM_HOST).replace(/\/+$/, "");
+				const wsBase = vllmBase.replace(/^http/, "ws");
+				await session.connect({
+					provider: "minicpm-o",
+					serverUrl: wsBase,
+					systemInstruction: systemPrompt,
+					voice: selectedVoice,
+				});
+			} else if (liveProvider === "openai-realtime") {
 				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
 				await session.connect({
 					provider: "openai-realtime",

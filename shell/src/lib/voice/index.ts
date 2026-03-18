@@ -13,8 +13,7 @@
  */
 import { createGeminiLiveSession } from "./gemini-live";
 import { createGeminiLiveProxySession } from "./gemini-live-proxy";
-// MiniCPM-o: disabled until pipeline voice support (#33)
-// import { createMiniCpmOSession } from "./minicpm-o";
+import { createMiniCpmOSession } from "./minicpm-o";
 import { createOpenAIRealtimeSession } from "./openai-realtime";
 import type { LiveProviderId, VoiceSession } from "./types";
 
@@ -53,9 +52,8 @@ export function createVoiceSession(
 				: createGeminiLiveSession();
 		case "openai-realtime":
 			return createOpenAIRealtimeSession();
-		// MiniCPM-o: disabled until pipeline voice support (#33)
-		// case "minicpm-o":
-		// 	return createMiniCpmOSession();
+		case "minicpm-o":
+			return createMiniCpmOSession();
 		default:
 			throw new Error(`Unknown live provider: ${provider}`);
 	}

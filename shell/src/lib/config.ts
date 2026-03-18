@@ -131,7 +131,6 @@ export interface AppConfig {
 	liveModel?: string;
 	openaiRealtimeApiKey?: string;
 	openaiRealtimeVoice?: string;
-	minicpmOServerUrl?: string;
 	/** Unified voice selection (replaces liveVoice/openaiRealtimeVoice after migration) */
 	voice?: string;
 }
@@ -383,7 +382,7 @@ export function migrateLiveProviderToUnifiedModel(): void {
 			changed = true;
 			break;
 		case "minicpm-o":
-			// Keep minicpmOServerUrl, just clear liveProvider
+			// minicpm-o uses vllmHost/ws — clear legacy liveProvider
 			changed = true;
 			break;
 	}
