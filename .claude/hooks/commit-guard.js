@@ -148,6 +148,16 @@ async function main() {
 		);
 	}
 
+	// Upstream contribution advisory — remind to exclude .agents/ from upstream PR diff
+	const upstreamIssueRef = progress.upstream_issue_ref;
+	if (upstreamIssueRef) {
+		warnings.push(
+			`💡 Upstream contribution detected (upstream_issue_ref: ${upstreamIssueRef}). ` +
+				`Before pushing: ensure .agents/ files are excluded from the upstream PR diff. ` +
+				`.agents/ is your private AI config — never include it in upstream PRs.`,
+		);
+	}
+
 	if (warnings.length > 0) {
 		const result = {
 			reason: "",

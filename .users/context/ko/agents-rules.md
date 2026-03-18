@@ -451,7 +451,7 @@ Claude Code 훅을 통한 프로젝트 규칙의 기계적 시행.
 |----|--------|------|
 | `sync-entry-points.js` | 엔트리포인트 편집 시 | CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md 자동 동기화 |
 | `cascade-check.js` | 컨텍스트 파일 편집 시 | 삼중 미러링 업데이트 알림 |
-| `commit-guard.js` | `git commit` 실행 시 | sync_verify 이전 커밋 경고; gate_approvals + phase 순서 검증 |
+| `commit-guard.js` | `git commit` 실행 시 | sync_verify 이전 커밋 경고; gate_approvals + phase 순서 검증; upstream_issue_ref 설정 시 upstream contribution advisory |
 | `process-guard.js` | Stop (응답 종료 시) | 실제 Read/Grep/Glob 없는 리뷰 완료 선언 차단 |
 
 **진행 파일** (`.agents/progress/*.json`):

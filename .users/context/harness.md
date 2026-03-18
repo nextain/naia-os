@@ -76,7 +76,7 @@ Inspired by the [open-swe `ensure_no_empty_msg` pattern](https://github.com/lang
 |---|---|
 | **Trigger** | PostToolUse on Bash (git commit commands) |
 | **Purpose** | Warn when committing before E2E test and context sync; remind about Lore trailers |
-| **Behavior** | Reads progress file — (1) warns if phase < sync_verify, (2) reminds to add Rejected: trailer if rejected_alternatives are recorded, (3) reminds to add Constraint: trailer if constraints_discovered are recorded |
+| **Behavior** | Reads progress file — (1) warns if phase < sync_verify, (2) reminds to add Rejected: trailer if rejected_alternatives are recorded, (3) reminds to add Constraint: trailer if constraints_discovered are recorded, (4) advisory to exclude .agents/ from upstream PR diff if upstream_issue_ref is set |
 
 Phase order (must reach `sync_verify` before commit):
 ```
@@ -111,6 +111,7 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 | `blockers` | Current blockers preventing progress |
 | `test_findings` | Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan. Fields: test_name, error_summary, root_cause, routing |
 | `review_evidence` | **(T3 anti-cheat)** Proof that iterative review actually happened. Fields: pass, files_read[], issues_found[], date. Two passes with empty issues_found = review complete. Use `/review` skill. |
+| `upstream_issue_ref` | *(optional)* Upstream repo issue reference for OSS contribution work — e.g., `vllm-project/vllm#16052`. Triggers commit-guard advisory to exclude .agents/ from upstream PR. |
 | `updated_at` | ISO timestamp of last update |
 
 ### Example
@@ -205,9 +206,9 @@ When the same mistake appears twice in `lessons-learned.yaml`:
 bash .agents/tests/harness/run-all.sh
 ```
 
-72 tests covering:
+74 tests covering:
 - Entry point sync (11 tests)
-- Commit guard (26 tests — includes T2 Decision Shadow advisory + gate approval checks)
+- Commit guard (28 tests — includes T2 Decision Shadow advisory + gate approval checks + upstream contribution advisory)
 - Cascade check (12 tests)
 - Progress schema (7 tests)
 - Integration lifecycle (2 tests)

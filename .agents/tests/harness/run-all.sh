@@ -440,6 +440,28 @@ fi
 
 rm -rf "$TMPDIR_CG3"
 
+# Test 2.27: upstream_issue_ref present → advisory shown
+TMPDIR_CG4="$(mktemp -d)"
+mkdir -p "$TMPDIR_CG4/.agents/progress"
+echo '{"issue":"#73","current_phase":"report","gate_approvals":{"understand":"2026-03-18T10:00Z","scope":"2026-03-18T10:15Z","plan":"2026-03-18T11:00Z","sync":"2026-03-18T12:00Z"},"upstream_issue_ref":"vllm-project/vllm#16052"}' > "$TMPDIR_CG4/.agents/progress/73.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"},\"cwd\":\"$TMPDIR_CG4\"}")
+if echo "$OUTPUT" | grep -qi "upstream"; then
+    pass "2.27 upstream_issue_ref present → upstream contribution advisory shown"
+else
+    fail "2.27 upstream_issue_ref advisory" "mention of 'upstream'" "$OUTPUT"
+fi
+
+# Test 2.28: upstream_issue_ref absent → no advisory
+echo '{"issue":"#42","current_phase":"report","gate_approvals":{"understand":"2026-03-18T10:00Z","scope":"2026-03-18T10:15Z","plan":"2026-03-18T11:00Z","sync":"2026-03-18T12:00Z"}}' > "$TMPDIR_CG4/.agents/progress/42.json"
+rm "$TMPDIR_CG4/.agents/progress/73.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m x\"},\"cwd\":\"$TMPDIR_CG4\"}")
+if echo "$OUTPUT" | grep -qi "upstream"; then
+    fail "2.28 No upstream_issue_ref → no upstream advisory" "(empty)" "$OUTPUT"
+else
+    pass "2.28 No upstream_issue_ref → no upstream advisory"
+fi
+rm -rf "$TMPDIR_CG4"
+
 rm -rf "$TMPDIR_CG"
 
 # ─── 3. cascade-check.js ──────────────────────────────────

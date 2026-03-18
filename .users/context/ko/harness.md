@@ -76,7 +76,7 @@ AI 에이전트가 규칙을 반복적으로 위반하지 않도록 Claude Code 
 |---|---|
 | **트리거** | PostToolUse on Bash (git commit 명령) |
 | **목적** | E2E 테스트/컨텍스트 동기화 전 커밋 경고 + Lore 트레일러 알림 |
-| **동작** | 진행 파일을 읽고 (1) phase가 sync_verify 미만이면 경고, (2) rejected_alternatives가 기록된 경우 Rejected: 트레일러 권고, (3) constraints_discovered가 기록된 경우 Constraint: 트레일러 권고 |
+| **동작** | 진행 파일을 읽고 (1) phase가 sync_verify 미만이면 경고, (2) rejected_alternatives가 기록된 경우 Rejected: 트레일러 권고, (3) constraints_discovered가 기록된 경우 Constraint: 트레일러 권고, (4) upstream_issue_ref가 설정된 경우 .agents/를 upstream PR diff에서 제외하라는 advisory |
 
 페이즈 순서 (커밋 전 `sync_verify`까지 도달해야 함):
 ```
@@ -111,6 +111,7 @@ sync → sync_verify → report → commit
 | `blockers` | 진행을 막는 현재 블로커 |
 | `test_findings` | 테스트 실패 진단 결과 — e2e_test에서 build/plan으로 되돌아가기 전 필수 기록. 필드: test_name, error_summary, root_cause, routing |
 | `review_evidence` | **(T3 안티치트)** 반복 리뷰가 실제로 수행됐다는 증거. 필드: pass, files_read[], issues_found[], date. issues_found가 빈 패스 2회 연속 = 리뷰 완료. `/review` 스킬 사용. |
+| `upstream_issue_ref` | *(선택)* OSS 기여 작업 시 upstream 레포 이슈 참조 — 예: `vllm-project/vllm#16052`. commit-guard가 .agents/를 upstream PR에서 제외하라는 advisory 출력. |
 | `updated_at` | 마지막 업데이트 ISO 타임스탬프 |
 
 ### 예시
@@ -205,9 +206,9 @@ sync → sync_verify → report → commit
 bash .agents/tests/harness/run-all.sh
 ```
 
-72개 테스트:
+74개 테스트:
 - 엔트리포인트 동기화 (11개)
-- 커밋 가드 (26개 — T2 Decision Shadow advisory + 게이트 승인 체크 포함)
+- 커밋 가드 (28개 — T2 Decision Shadow advisory + 게이트 승인 체크 + upstream contribution advisory 포함)
 - 캐스케이드 체크 (12개)
 - 진행 파일 스키마 (7개)
 - 통합 라이프사이클 (2개)

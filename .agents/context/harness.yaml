@@ -78,6 +78,7 @@ hooks:
       - "If rejected_alternatives[] non-empty → advisory to add Rejected: trailers"
       - "If constraints_discovered[] non-empty → advisory to add Constraint: trailers"
       - "Gracefully passes if no progress file exists"
+      - "If upstream_issue_ref field is set → advisory to exclude .agents/ from upstream PR diff"
     phase_order:
       - issue
       - understand
@@ -137,6 +138,11 @@ progress_files:
         - "review: after each iterative review pass (use /review skill)"
         - "post_test_review: after each post-test review pass"
       constraint: "Two passes with empty issues_found[] = review complete. Do NOT declare complete without evidence."
+    upstream_issue_ref:
+      description: "Upstream repo issue reference — set when doing upstream OSS contribution work (triggers commit-guard advisory)"
+      format: "owner/repo#N"
+      example: "vllm-project/vllm#16052"
+      optional: true
     updated_at: "ISO timestamp of last update"
 
   update_points:
@@ -219,12 +225,12 @@ tests:
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
     sync_entry_points: 11
-    commit_guard: 26
+    commit_guard: 28
     cascade_check: 12
     progress_schema: 7
     integration_lifecycle: 2
     process_guard: 14
-    total: 72
+    total: 74
 
 directory_structure:
   committed:

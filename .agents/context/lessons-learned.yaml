@@ -54,3 +54,13 @@ lessons:
     problem: "When a bug occurred, first step was always adding Logger.debug() — meaning the first occurrence was always undiagnosed."
     root_cause: "debug_logging rules specified what and how to log, but not WHEN (build-time vs debug-time)."
     fix: "Added debug_logging.when rule: 'Debug logging is a BUILD-TIME activity'. Added to review checklists."
+
+  - id: L004
+    date: "2026-03-18"
+    issue: "#73"
+    category: upstream-integration
+    title: "Landscape research skipped — wrong upstream target discovered after full implementation"
+    problem: "Implemented SupportsAudioOutput in a vllm fork only to discover vllm-omni is the correct upstream target. Audio output was explicitly scoped out of vllm main (RFC #16052). Full implementation wasted."
+    root_cause: "No pre-work research step before forking. RFC history not checked. Sub-project existence (vllm-omni) not discovered. No upstream issue opened before coding."
+    fix: "Added upstream-contribution.yaml workflow: landscape research required before any implementation (scope check, AI policy, RFC history, sub-project discovery, maintainer stance). Progress file upstream_issue_ref field added. commit-guard advisory for upstream contributions."
+    reference: ".agents/context/upstream-contribution.yaml"

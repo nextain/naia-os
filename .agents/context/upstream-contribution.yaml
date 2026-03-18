@@ -1,0 +1,200 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+#
+# Upstream OSS Contribution Workflow
+#
+# How to fork, research, inject context, and contribute back to upstream projects.
+# Applies whenever working in a fork of an external OSS project.
+#
+# Case history:
+#   whisper-rs (#63): AI policy not checked, coded without reading upstream, AI slop signal
+#   vLLM (#73): RFC history not checked, vllm-omni not discovered, no upstream issue opened
+
+version: 1
+name: upstream-contribution
+mirror:
+  users: .users/context/upstream-contribution.md
+  users_ko: .users/context/ko/upstream-contribution.md
+
+# --- Usage type classification ---
+usage_types:
+  use_as_is:
+    description: "Use upstream library directly — no fork, no modification"
+    when: "Feature exists in upstream, just integrate"
+
+  fork_internal:
+    description: "Fork for internal use — not planning to contribute back"
+    when: "Need significant divergence or upstream won't accept"
+    note: "Still do landscape research to avoid duplicating upstream decisions"
+
+  upstream_contribution:
+    description: "Fork with intent to contribute back to upstream"
+    when: "Fix or feature belongs in upstream"
+    note: "Abandoning contribution is also a valid conclusion — don't force it"
+
+# --- Landscape research (MUST happen before any implementation) ---
+landscape_research:
+  principle: "Understand what upstream thinks about this problem BEFORE writing any code"
+  when: "Before forking or implementing anything related to upstream"
+
+  items:
+    - area: "Scope / layer judgment"
+      question: "Is this problem in-scope for this project?"
+      context_file: "agents-rules.json"
+
+    - area: "AI policy"
+      question: "Does upstream have an AI policy? Type A (banned) / B (conditional) / C (allowed)?"
+      context_file: "agents-rules.json"
+      note: "If Type A — stop immediately. Do not implement, do not open issue."
+
+    - area: "RFC history"
+      question: "Has this been discussed or decided before?"
+      context_file: "feature-design.yaml"
+      where_to_look: "GitHub Discussions, Issues with RFC label, closed PRs marked wontfix"
+
+    - area: "Sub-projects"
+      question: "Is there a related sub-project that owns this area?"
+      context_file: "feature-design.yaml"
+      example: "vllm-omni owns audio output — not vllm main (RFC #16052)"
+
+    - area: "In-progress PRs"
+      question: "Is someone already implementing this?"
+      context_file: "feature-design.yaml"
+      action: "If yes — collaborate or wait. Do not duplicate work."
+
+    - area: "Maintainer stance"
+      question: "What is the maintainer's position on this?"
+      context_file: "feature-design.yaml"
+      where_to_look: "Issue comments, ROADMAP.md, GitHub Discussions"
+
+    - area: "Coding conventions (actual code)"
+      question: "What patterns does the codebase actually use?"
+      context_file: "coding-conventions.yaml"
+      rule: "Read actual source files — do not rely on documentation alone"
+
+    - area: "Contribution requirements"
+      question: "What does CONTRIBUTING.md actually require?"
+      context_file: "contributing-guide.yaml"
+      includes:
+        - "test requirements"
+        - "PR process"
+        - "sign-off / CLA"
+
+    - area: "Community tone"
+      question: "How does this community communicate?"
+      context_file: "contributing-guide.yaml"
+      note: "Match the community's communication style — AI-generated slop is visible to maintainers"
+
+# --- Fork context injection ---
+fork_context_injection:
+  principle: "Populate fork .agents/ so AI sessions know upstream rules from day 1"
+
+  branch_policy:
+    main: "upstream HEAD + .agents/ context (AI config only — no code changes)"
+    feature: "code changes only — .agents/ excluded from upstream PR diff"
+    pr_rule: "Never include .agents/ in upstream PR — it is your private AI config"
+
+  required_files:
+    - file: ".agents/context/agents-rules.json"
+      purpose: "Scope, AI policy, coding conventions, contribution requirements"
+      populate_from:
+        - "upstream CONTRIBUTING.md"
+        - "actual code patterns (read source files)"
+        - "maintainer stance"
+
+    - file: ".agents/context/feature-design.yaml"
+      purpose: "RFC history, sub-projects, in-progress PRs, maintainer decisions"
+      populate_from:
+        - "GitHub Issues / Discussions"
+        - "ROADMAP.md"
+        - "closed PRs with wontfix or out-of-scope labels"
+
+    - file: ".agents/context/coding-conventions.yaml"
+      purpose: "Actual naming, formatting, and patterns from upstream code"
+      populate_from:
+        - "Read actual source files"
+        - ".editorconfig"
+        - "linter configs (pyproject.toml, eslint, etc.)"
+
+    - file: ".agents/context/contributing-guide.yaml"
+      purpose: "Test requirements, PR process, sign-off, CLA"
+      populate_from:
+        - "CONTRIBUTING.md"
+        - "CI config"
+        - "PR templates"
+
+  harness_setup:
+    principle: "Install harness in fork repo — not naia-os hooks"
+    hooks_location: "fork/.claude/hooks/"
+    when_writing_hooks: "Read naia-os .claude/hooks/ as reference implementation first"
+    pre_vs_post:
+      pre_tool_use: "Use for blocking (abort before harmful action)"
+      post_tool_use: "Use for advisory (warn after action)"
+      stop: "Use for review enforcement (block false clean-pass claims)"
+    harness_limit: "Harness enforces style and process — design judgment remains human"
+
+# --- Upstream issue first ---
+upstream_issue_first:
+  principle: "Open issue on the upstream repo BEFORE writing implementation code"
+
+  allowed_while_waiting:
+    - "Build .agents/ context files (landscape research output)"
+    - "Set up harness hooks"
+    - "Read and understand upstream code"
+    - "Write tests (no implementation code)"
+
+  not_allowed_while_waiting:
+    - "Write implementation code"
+    - "Open PR without upstream issue reference"
+
+  no_response_policy:
+    timeout: "2 weeks"
+    action: "Proceed with PR-1 (interface only, minimal footprint)"
+
+  progress_file_field:
+    field: "upstream_issue_ref"
+    format: "owner/repo#N"
+    example: "vllm-project/vllm#16052"
+
+# --- Implementation principles ---
+implementation_principles:
+  - "Every line must be human-defensible — if you cannot explain it, do not write it"
+  - "Avoid AI slop signals: decorative comments, speculative code, over-engineering"
+  - "Read upstream code first — never assume patterns"
+  - "No guessing: if behavior is unclear, read the actual implementation"
+  - "Minimal footprint: change as little as possible in upstream code"
+
+# --- PR readiness criteria ---
+pr_readiness:
+  - "Upstream CI checks pass (upstream's checks, not naia-os)"
+  - "No duplicate: confirmed no existing PR or issue addresses this"
+  - "Every line human-defensible (no AI slop)"
+  - "AI attribution included (Assisted-by: trailer)"
+  - "upstream_issue_ref recorded in progress file"
+  - ".agents/ files excluded from PR diff"
+
+# --- Anti-patterns (case history) ---
+anti_patterns:
+  - pattern: "Fork and code immediately"
+    case: "vLLM #73"
+    consequence: "Discovered vllm-omni (correct upstream target) only after full implementation"
+    rule: "Landscape research before any code"
+
+  - pattern: "Skip RFC history check"
+    case: "vLLM #73"
+    consequence: "Audio output was explicitly scoped out of vllm main (RFC #16052)"
+    rule: "Search for RFC, wontfix, out-of-scope in Issues and Discussions first"
+
+  - pattern: "No upstream issue before coding"
+    case: "vLLM #73"
+    consequence: "Implementation misaligned with maintainer's actual plans"
+    rule: "Open upstream issue and wait for signal before implementing"
+
+  - pattern: "Assume naia-os harness = upstream quality"
+    case: "vLLM #73"
+    consequence: "naia-os harness passing does not mean upstream will accept"
+    rule: "Upstream CI and upstream CONTRIBUTING.md are the quality bar"
+
+  - pattern: "Ignore AI policy"
+    case: "whisper-rs #63"
+    consequence: "Violated project's AI-generated code policy"
+    rule: "Check AI policy in landscape research (Type A/B/C) before any work"

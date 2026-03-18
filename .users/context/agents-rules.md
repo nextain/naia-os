@@ -441,7 +441,7 @@ Text rules get forgotten; mechanical enforcement doesn't.
 |------|---------|---------|
 | `sync-entry-points.js` | Edit\|Write on entry points | Auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md |
 | `cascade-check.js` | Edit\|Write on context files | Remind triple-mirror updates |
-| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify; checks gate_approvals + phase order |
+| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify; checks gate_approvals + phase order; upstream contribution advisory when upstream_issue_ref is set |
 | `process-guard.js` | Stop (response end) | Block review-completion claims without actual Read/Grep/Glob calls |
 
 **Progress Files** (`.agents/progress/*.json`):
