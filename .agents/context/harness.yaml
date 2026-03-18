@@ -239,9 +239,11 @@ directory_structure:
     - .claude/hooks/cascade-check.js
     - .claude/hooks/commit-guard.js
     - .claude/hooks/process-guard.js
+    - ".claude/skills/* (symlinks → .agents/skills/)"
     - .agents/context/harness.yaml
     - .agents/tests/harness/run-all.sh
     - .agents/progress/.gitkeep
+    - ".agents/skills/*/SKILL.md (SoT for Claude Code skills)"
   gitignored:
-    - ".claude/* (except settings.json and hooks/)"
+    - ".claude/* (except settings.json, hooks/, skills/)"
     - ".agents/progress/*.json"

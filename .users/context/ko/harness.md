@@ -223,14 +223,16 @@ bash .agents/tests/harness/run-all.sh
 ```
 .claude/
 ├── settings.json              # 훅 등록
-└── hooks/
-    ├── sync-entry-points.js   # 엔트리포인트 3파일 동기화
-    ├── cascade-check.js       # 삼중 미러링 알림
-    ├── commit-guard.js        # 페이즈 인식 커밋 가드
-    └── process-guard.js       # 파일 읽기 없는 리뷰 선언 차단 (Stop 훅)
+├── hooks/
+│   ├── sync-entry-points.js   # 엔트리포인트 3파일 동기화
+│   ├── cascade-check.js       # 삼중 미러링 알림
+│   ├── commit-guard.js        # 페이즈 인식 커밋 가드
+│   └── process-guard.js       # 파일 읽기 없는 리뷰 선언 차단 (Stop 훅)
+└── skills/                    # 심링크 → .agents/skills/ (Claude Code 진입점)
 
 .agents/
 ├── context/harness.yaml       # 이 컨텍스트 (SoT)
+├── skills/*/SKILL.md          # Claude Code 스킬 SoT
 ├── progress/.gitkeep          # 진행 파일 디렉토리
 └── tests/harness/run-all.sh   # 테스트 스위트
 ```
@@ -238,6 +240,6 @@ bash .agents/tests/harness/run-all.sh
 ### Gitignored
 
 ```
-.claude/*          (settings.json과 hooks/ 제외)
+.claude/*          (settings.json, hooks/, skills/ 제외)
 .agents/progress/*.json
 ```

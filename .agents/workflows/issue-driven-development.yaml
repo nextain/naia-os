@@ -194,6 +194,7 @@ phases:
       - "  - Re-review (read again after fixes)"
       - "  - If TWO consecutive passes find no issues → review complete"
       - "Multi-phase builds: run review after each phase before proceeding"
+      - "Run '/verify-implementation' to check all registered verify-* rules against new/modified code"
     evidence: "Record each pass in progress file review_evidence[] (pass, files_read, issues_found, date)"
     enforcement: "process-guard hook blocks any 'clean pass' / '수정 없음' declaration without Read/Grep/Glob in the same response"
     output: "Clean, reviewed code"
@@ -256,6 +257,7 @@ phases:
       - "  - Review against same checklist as initial review"
       - "  - Fix any issues found"
       - "  - If TWO consecutive passes find no issues → post-test review complete"
+      - "Run '/verify-implementation' to verify post-test code against all registered rules"
     output: "Final clean code"
 
   sync:
@@ -271,6 +273,7 @@ phases:
       - "Review: were there mistakes or lessons this cycle?"
       - "  YES → add to lessons-learned"
       - "  NO → skip"
+      - "Run '/manage-skills' to analyze session changes and update/create verify-* skill coverage"
       - "Present sync summary to user for confirmation"
     rules:
       - "Check existing context files before adding — avoid scattering same content across multiple files"
@@ -299,13 +302,8 @@ phases:
     description: "Commit and link to Issue"
     prerequisite: "ALL prior phases (build, review, e2e_test, post_test_review, sync, sync_verify) must be complete before committing"
     steps:
-      - "Stage relevant files only"
-      - "Write commit message — format: <type>(<scope>): <description> (#<issue>)"
-      - "If progress.rejected_alternatives[] is non-empty → add Rejected: trailers"
-      - "If progress.constraints_discovered[] is non-empty → add Constraint: trailers"
-      - "If future AI sessions need a warning → add Directive: trailer"
-      - "Note: trailers are optional — only add when they capture non-obvious context not visible from the diff"
-      - "Create PR linked to Issue"
+      - "If in worktree: run '/merge-worktree' (squash-merge + naia-os conventional commit + progress.json trailers), then create PR linked to Issue"
+      - "If not in worktree: stage relevant files only, write commit message — format: <type>(<scope>): <description> (#<issue>), add trailers as needed, create PR linked to Issue"
     trailer_format:
       Rejected: "<approach> | <reason>"
       Constraint: "<constraint description>"

@@ -223,14 +223,16 @@ bash .agents/tests/harness/run-all.sh
 ```
 .claude/
 ├── settings.json              # Hook registration
-└── hooks/
-    ├── sync-entry-points.js   # Entry point 3-file sync
-    ├── cascade-check.js       # Triple-mirror reminder
-    ├── commit-guard.js        # Phase-aware commit guard
-    └── process-guard.js       # Review declaration without file reads (Stop hook)
+├── hooks/
+│   ├── sync-entry-points.js   # Entry point 3-file sync
+│   ├── cascade-check.js       # Triple-mirror reminder
+│   ├── commit-guard.js        # Phase-aware commit guard
+│   └── process-guard.js       # Review declaration without file reads (Stop hook)
+└── skills/                    # Symlinks → .agents/skills/ (Claude Code entry point)
 
 .agents/
 ├── context/harness.yaml       # This context (SoT)
+├── skills/*/SKILL.md          # SoT for Claude Code skills
 ├── progress/.gitkeep          # Progress file directory
 └── tests/harness/run-all.sh   # Test suite
 ```
@@ -238,6 +240,6 @@ bash .agents/tests/harness/run-all.sh
 ### Gitignored
 
 ```
-.claude/*          (except settings.json and hooks/)
+.claude/*          (except settings.json, hooks/, skills/)
 .agents/progress/*.json
 ```

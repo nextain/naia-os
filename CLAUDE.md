@@ -210,6 +210,16 @@ Detail: `.agents/workflows/development-cycle.yaml`
 
 Key: **Search existing code first, no duplicate creation, clean unused code, self-review before commit.**
 
+## Skills
+
+Claude Code development assistant skills. **SoT: `.agents/skills/`** — `.claude/skills/` is symlinks.
+
+| Skill | Description | Invocation |
+|-------|-------------|------------|
+| `merge-worktree` | Squash-merge worktree → main, naia-os conventional commit + progress.json trailers | Manual (phase 13) |
+| `verify-implementation` | Run all registered `verify-*` skills sequentially, generate unified report | Auto (phase 7, 9) |
+| `manage-skills` | Analyze session changes, create/update `verify-*` skills, update AGENTS.md | Auto (phase 10) |
+
 ## Harness Engineering (Mechanical Rule Enforcement)
 
 Mechanical enforcement of project rules via Claude Code hooks so AI agents never repeat the same mistake.
