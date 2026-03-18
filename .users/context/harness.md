@@ -62,8 +62,8 @@ Detection patterns:
 | | |
 |---|---|
 | **Trigger** | PostToolUse on Bash (git commit commands) |
-| **Purpose** | Warn when committing before E2E test and context sync; remind about Rejected: trailers |
-| **Behavior** | Reads progress file — (1) warns if phase < sync_verify, (2) reminds to add Rejected: trailer if rejected_alternatives are recorded |
+| **Purpose** | Warn when committing before E2E test and context sync; remind about Lore trailers |
+| **Behavior** | Reads progress file — (1) warns if phase < sync_verify, (2) reminds to add Rejected: trailer if rejected_alternatives are recorded, (3) reminds to add Constraint: trailer if constraints_discovered are recorded |
 
 Phase order (must reach `sync_verify` before commit):
 ```
@@ -190,9 +190,9 @@ When the same mistake appears twice in `lessons-learned.yaml`:
 bash .agents/tests/harness/run-all.sh
 ```
 
-51 tests covering:
+52 tests covering:
 - Entry point sync (11 tests)
-- Commit guard (19 tests — includes T2 Decision Shadow advisory)
+- Commit guard (20 tests — includes T2 Decision Shadow advisory)
 - Cascade check (12 tests)
 - Progress schema (7 tests)
 - Integration lifecycle (2 tests)

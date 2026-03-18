@@ -3,9 +3,10 @@
  * Commit Guard Hook (PostToolUse on Bash)
  *
  * Detects `git commit` commands and checks the progress file.
- * Emits two kinds of advisory:
+ * Emits three kinds of advisory:
  *   1. Phase check: warns if committing before sync_verify phase
- *   2. T2 Decision Shadow: reminds to add Rejected: trailers when rejected_alternatives are recorded
+ *   2. T2 Rejected: reminds to add Rejected: trailers when rejected_alternatives are recorded
+ *   3. T2 Constraint: reminds to add Constraint: trailers when constraints_discovered are recorded
  *
  * Phase order: issue → understand → scope → investigate → plan →
  *   build → review → e2e_test → post_test_review → sync → sync_verify → report → commit
@@ -118,6 +119,15 @@ async function main() {
 			`💡 You recorded ${rejectedAlts.length} rejected alternative(s) in the progress file. ` +
 				`Consider adding Rejected: trailers to the commit message so future AI sessions know what was already tried. ` +
 				`Format: "Rejected: <approach> | <reason>"`,
+		);
+	}
+
+	const constraints = progress.constraints_discovered;
+	if (Array.isArray(constraints) && constraints.length > 0) {
+		warnings.push(
+			`💡 You recorded ${constraints.length} constraint(s) in the progress file. ` +
+				`Consider adding Constraint: trailers to the commit message so future AI sessions know what shaped this decision. ` +
+				`Format: "Constraint: <description>"`,
 		);
 	}
 

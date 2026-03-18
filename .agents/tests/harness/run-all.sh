@@ -364,6 +364,15 @@ else
     fail "2.19 Both warnings" "phase warn + trailer advisory" "phase=$PHASE_WARN trailer=$TRAILER_WARN"
 fi
 
+# Test 2.20: constraints_discovered non-empty → Constraint: trailer advisory shown
+echo '{"issue":"#99","current_phase":"report","constraints_discovered":[{"constraint":"WebKitGTK sampleRate","scope":"shell/src/audio/*","date":"2026-03-18"}]}' > "$TMPDIR_CG2/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG2\"}")
+if echo "$OUTPUT" | grep -q "constraint"; then
+    pass "2.20 constraints_discovered non-empty → Constraint: trailer advisory shown"
+else
+    fail "2.20 constraints_discovered advisory" "mention of 'constraint'" "$OUTPUT"
+fi
+
 rm -rf "$TMPDIR_CG2"
 
 rm -rf "$TMPDIR_CG"

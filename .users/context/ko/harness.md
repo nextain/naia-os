@@ -62,8 +62,8 @@ AI 에이전트가 규칙을 반복적으로 위반하지 않도록 Claude Code 
 | | |
 |---|---|
 | **트리거** | PostToolUse on Bash (git commit 명령) |
-| **목적** | E2E 테스트/컨텍스트 동기화 전 커밋 경고 + Rejected: 트레일러 알림 |
-| **동작** | 진행 파일을 읽고 (1) phase가 sync_verify 미만이면 경고, (2) rejected_alternatives가 기록된 경우 Rejected: 트레일러 추가 권고 |
+| **목적** | E2E 테스트/컨텍스트 동기화 전 커밋 경고 + Lore 트레일러 알림 |
+| **동작** | 진행 파일을 읽고 (1) phase가 sync_verify 미만이면 경고, (2) rejected_alternatives가 기록된 경우 Rejected: 트레일러 권고, (3) constraints_discovered가 기록된 경우 Constraint: 트레일러 권고 |
 
 페이즈 순서 (커밋 전 `sync_verify`까지 도달해야 함):
 ```
@@ -190,9 +190,9 @@ sync → sync_verify → report → commit
 bash .agents/tests/harness/run-all.sh
 ```
 
-51개 테스트:
+52개 테스트:
 - 엔트리포인트 동기화 (11개)
-- 커밋 가드 (19개 — T2 Decision Shadow advisory 포함)
+- 커밋 가드 (20개 — T2 Decision Shadow advisory 포함)
 - 캐스케이드 체크 (12개)
 - 진행 파일 스키마 (7개)
 - 통합 라이프사이클 (2개)

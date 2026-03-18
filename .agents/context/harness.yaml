@@ -57,11 +57,13 @@ hooks:
   commit_guard:
     file: commit-guard.js
     trigger: "PostToolUse on Bash (git commit commands)"
-    purpose: "Warn when committing before E2E test and context sync"
+    purpose: "Warn when committing before E2E test and context sync; remind about Lore trailers"
     behavior:
       - "Reads most recent .agents/progress/*.json"
       - "Checks current_phase against PHASE_ORDER"
       - "Warns if phase is before sync_verify"
+      - "If rejected_alternatives[] non-empty → advisory to add Rejected: trailers"
+      - "If constraints_discovered[] non-empty → advisory to add Constraint: trailers"
       - "Gracefully passes if no progress file exists"
     phase_order:
       - issue
@@ -140,6 +142,14 @@ progress_files:
       - decision: "Use Three.js AnimationMixer for idle"
         rationale: "Upstream VRM uses it, minimal custom code"
         date: "2026-03-14"
+    rejected_alternatives:
+      - approach: "AudioContext({sampleRate:16000})"
+        reason: "WebKitGTK freezes audio to zeros"
+        date: "2026-03-17"
+    constraints_discovered:
+      - constraint: "WebKitGTK AudioContext — default sampleRate only"
+        scope: "shell/src/audio/*"
+        date: "2026-03-17"
     surprises: []
     blockers: []
     test_findings:
@@ -188,11 +198,11 @@ tests:
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
     sync_entry_points: 11
-    commit_guard: 19
+    commit_guard: 20
     cascade_check: 12
     progress_schema: 7
     integration_lifecycle: 2
-    total: 51
+    total: 52
 
 directory_structure:
   committed:

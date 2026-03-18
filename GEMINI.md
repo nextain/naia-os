@@ -249,7 +249,7 @@ Session handoff JSON. Next AI session can resume state even after context compac
 ### Harness Tests
 
 ```bash
-bash .agents/tests/harness/run-all.sh   # 47 tests
+bash .agents/tests/harness/run-all.sh   # 52 tests
 ```
 
 ## Multi-Project Workspace
