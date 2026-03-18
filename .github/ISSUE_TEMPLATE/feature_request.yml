@@ -18,6 +18,26 @@ body:
       required: true
 
   - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria (EARS format, recommended for AI-assisted work)
+      description: |
+        Use EARS patterns to make acceptance criteria unambiguous.
+        AI tools use these to verify "done" consistently across sessions.
+      placeholder: |
+        WHEN [trigger] the system shall [response]
+        While [precondition] the system shall [behavior]
+        IF [unwanted event] THEN the system shall [handle]
+        Where [optional feature] the system shall [behavior]
+        The system shall [always-active invariant]
+
+        Example:
+        WHEN user submits valid login credentials
+          the system shall issue a session token and redirect to dashboard
+        IF credentials are invalid
+          THEN the system shall display an error without revealing which field failed
+
+  - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered (optional)

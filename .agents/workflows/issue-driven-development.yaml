@@ -130,6 +130,36 @@ phases:
     output: "Complete findings list with evidence"
     record: "Post investigation results as Issue comment (English)"
 
+  research_artifact:
+    description: "Distill investigation findings into a structured research summary and post as Issue comment"
+    skip_when: "Issue is classified as lightweight (non-feature change) OR scope is L1-only with no cross-module data flow"
+    steps:
+      - "Synthesize investigate findings into: target code areas, cross-module data flow, reference implementations found"
+      - "Include specific file:line citations for every claim"
+      - "Post as Issue comment under heading '## Research Findings' (English)"
+    rules:
+      - "No implementation code in this phase — analysis only"
+      - "Every claim must cite file:line evidence from investigate phase"
+    output: "GitHub Issue comment '## Research Findings' with structured analysis"
+    record: "Post research findings as Issue comment (English)"
+
+  annotation_cycle:
+    description: "Present research + draft plan to user for inline correction before implementation begins"
+    skip_when: "Issue is classified as lightweight OR scope is L1-only with no cross-module data flow"
+    gate: false  # not a hard gate — user-driven iteration
+    max_iterations: 3
+    steps:
+      - "Present research findings and draft plan to user"
+      - "User adds inline corrections or annotations"
+      - "If corrections present: revise plan only — do NOT write implementation code"
+      - "Track iteration: 'Annotation cycle N/3'"
+      - "Repeat until user approves or max_iterations reached"
+    rules:
+      - "NEVER write implementation code during annotation cycle"
+      - "Address ALL user annotations before presenting the next revision"
+      - "If max_iterations reached without approval: escalate to user with explicit choices"
+    output: "User-approved draft plan (feeds into plan phase)"
+
   plan:
     description: "Comprehensive plan based on ALL findings"
     gate: true  # must not proceed without user confirmation

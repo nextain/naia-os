@@ -63,6 +63,7 @@ Naia-OS/
 
 - **Language**: Git/shared (commits, Issue comments, PR, context) → English | Personal (work-logs/) → any | AI responses → contributor's language
 - **Commits**: `<type>(<scope>): <description> (#<issue>)` (English, issue number required) — optional trailers: `Rejected:` / `Constraint:` / `Directive:` / `Assisted-by:` (add when context is non-obvious, see `agents-rules.json` → `optional_trailers`)
+- **AI Context in commits**: For implementation commits, add an `## AI Context` section in the commit body to preserve session knowledge across AI sessions. Use only categories not covered by trailers: `Gotcha:` (traps discovered), `Pattern:` (referenced pattern + file:line), `Risk:` (known deferred risks). Omit empty categories. Example: `## AI Context\n- Gotcha: WebKitGTK AudioContext({sampleRate}) returns frozen zeros\n- Pattern: GatewayAdapter registration from gateway.ts:45`
 - **Formatter**: Biome (tab, double quote, semicolons)
 - **Testing**: Integration-first TDD (Vitest + tauri-driver)
 - **Logging**: Structured Logger only (no console.log)

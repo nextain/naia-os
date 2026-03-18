@@ -22,6 +22,8 @@ For non-feature changes (typos, config values, simple directives), use `developm
 | 2 | **Understand** | ✓ | Confirm understanding with user |
 | 3 | **Scope** | ✓ | Define investigation scope and depth |
 | 4 | **Investigate** | — | Code-centric investigation (loop until TWO consecutive clean passes) |
+| 4.5 | **Research Artifact** | — | Distill findings into structured summary → post as Issue comment (skip for lightweight) |
+| 4.7 | **Annotation Cycle** | — | Present research + draft plan to user for correction, max 3 iterations (skip for lightweight) |
 | 5 | **Plan** | ✓ | Draft plan, user approves |
 
 ### AI-Autonomous (with quality gates)
@@ -46,6 +48,41 @@ For non-feature changes (typos, config values, simple directives), use `developm
 - **No guessing**: Never assume — read actual implementation
 - **Structural problem first**: When tests fail, check doc-code mismatches before blaming tools
 - **Working code preservation**: Never break working code by "improving"
+
+---
+
+## Research Phases (4.5 / 4.7)
+
+### Research Artifact (Phase 4.5)
+
+**Skip when**: Issue is lightweight (non-feature change) OR scope is L1-only with no cross-module data flow.
+
+**Steps**:
+1. Synthesize investigate findings into: target code areas, cross-module data flow, reference implementations found
+2. Include specific file:line citations for every claim
+3. Post as Issue comment under heading `## Research Findings` (English)
+
+**Rules**:
+- No implementation code in this phase — analysis only
+- Every claim must cite file:line evidence from investigate phase
+
+### Annotation Cycle (Phase 4.7)
+
+**Skip when**: Same as Research Artifact.
+
+**Max iterations**: 3
+
+**Steps**:
+1. Present research findings and draft plan to user
+2. User adds inline corrections or annotations
+3. If corrections present: revise plan only — do NOT write implementation code
+4. Track iteration: "Annotation cycle N/3"
+5. Repeat until user approves or max_iterations reached
+
+**Rules**:
+- NEVER write implementation code during annotation cycle
+- Address ALL user annotations before presenting the next revision
+- If max_iterations reached without approval: escalate to user with explicit choices
 
 ---
 
