@@ -62,8 +62,8 @@ AI 에이전트가 규칙을 반복적으로 위반하지 않도록 Claude Code 
 | | |
 |---|---|
 | **트리거** | PostToolUse on Bash (git commit 명령) |
-| **목적** | E2E 테스트 및 컨텍스트 동기화 완료 전 커밋 경고 |
-| **동작** | 진행 파일을 읽고, phase가 sync_verify 미만이면 경고 |
+| **목적** | E2E 테스트/컨텍스트 동기화 전 커밋 경고 + Rejected: 트레일러 알림 |
+| **동작** | 진행 파일을 읽고 (1) phase가 sync_verify 미만이면 경고, (2) rejected_alternatives가 기록된 경우 Rejected: 트레일러 추가 권고 |
 
 페이즈 순서 (커밋 전 `sync_verify`까지 도달해야 함):
 ```
@@ -92,6 +92,8 @@ sync → sync_verify → report → commit
 | `current_phase` | 페이즈 순서에서의 현재 단계 |
 | `gate_approvals` | 게이트 → 사용자 승인 ISO 타임스탬프 맵 |
 | `decisions` | 핵심 결정 배열 (decision, rationale, date) |
+| `rejected_alternatives` | **(T2)** 검토했으나 거절된 접근법 (approach, reason, date) — investigate/plan 중 기록 |
+| `constraints_discovered` | **(T2)** 결정을 형성한 기술적 제약 (constraint, scope, date) — investigate/build 중 기록 |
 | `surprises` | 조사/빌드 중 예상치 못한 발견 |
 | `blockers` | 진행을 막는 현재 블로커 |
 | `test_findings` | 테스트 실패 진단 결과 — e2e_test에서 build/plan으로 되돌아가기 전 필수 기록. 필드: test_name, error_summary, root_cause, routing |
@@ -117,6 +119,20 @@ sync → sync_verify → report → commit
       "date": "2026-03-14"
     }
   ],
+  "rejected_alternatives": [
+    {
+      "approach": "AudioContext({sampleRate:16000})",
+      "reason": "WebKitGTK에서 오디오가 zeros로 고정됨",
+      "date": "2026-03-17"
+    }
+  ],
+  "constraints_discovered": [
+    {
+      "constraint": "WebKitGTK AudioContext — 기본 sampleRate만 허용",
+      "scope": "shell/src/audio/*",
+      "date": "2026-03-17"
+    }
+  ],
   "surprises": [],
   "blockers": [],
   "test_findings": [
@@ -139,6 +155,32 @@ sync → sync_verify → report → commit
 4. 세션 종료 (필수)
 5. 예상치 못한 발견 또는 블로커 발생
 6. 페이즈 전환
+7. **investigate/plan 중 접근법 거절 → `rejected_alternatives[]`에 추가**
+8. **investigate/build 중 제약 발견 → `constraints_discovered[]`에 추가**
+
+---
+
+## 컨텍스트 업데이트 매트릭스 (T4: 컨텍스트 거버넌스)
+
+> `issue-driven-development.yaml`의 `artifact_storage`를 확장.
+> 지식 유형별로 어디에 기록할지 기준을 정의해 AI 에이전트의 예측 불가능한 행동을 줄임.
+
+| 위치 | 대상 | 언제 |
+|------|------|------|
+| **세션 로컬** | `.agents/progress/*.json` (gitignored) | 임시 상태 — 현재 phase, 진행 중 결정, rejected_alternatives, constraints_discovered |
+| **누적 교훈** | `.agents/context/lessons-learned.yaml` | 이번 세션에서 실수가 교정됨, 또는 반복 패턴 발견 |
+| **도메인 컨텍스트** | `.agents/context/{domain}.yaml` | 영구 기술 제약 확인, 아키텍처 결정 확정, 안정적 프로세스 확립 |
+| **하네스 업데이트** | `.claude/hooks/*.js` | **같은 실수가 lessons-learned에 2회 이상 등장** — 이제 기계적 시행이 필요 |
+
+### 하네스 업데이트 규칙
+
+같은 실수가 `lessons-learned.yaml`에 두 번 등장하면:
+1. 반복 패턴 식별
+2. **실패하는 테스트를 먼저 작성** (하네스 TDD)
+3. 테스트를 통과시키는 훅 구현
+4. `harness.yaml` coverage 카운트 업데이트
+
+> 같은 실수에 대해 세 번째 교훈 항목을 추가하지 말 것. 대신 훅을 강화.
 
 ---
 
@@ -148,11 +190,11 @@ sync → sync_verify → report → commit
 bash .agents/tests/harness/run-all.sh
 ```
 
-28개 테스트:
-- 엔트리포인트 동기화 (6개)
-- 커밋 가드 (8개)
-- 캐스케이드 체크 (8개)
-- 진행 파일 스키마 (4개)
+51개 테스트:
+- 엔트리포인트 동기화 (11개)
+- 커밋 가드 (19개 — T2 Decision Shadow advisory 포함)
+- 캐스케이드 체크 (12개)
+- 진행 파일 스키마 (7개)
 - 통합 라이프사이클 (2개)
 
 ---

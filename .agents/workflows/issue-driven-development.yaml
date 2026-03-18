@@ -119,6 +119,8 @@ phases:
       - "  - Re-read scope for additional findings"
       - "  - If new findings → continue loop"
       - "  - If TWO consecutive passes find nothing new → investigation complete"
+      - "When an approach is tried and discarded → append to progress.rejected_alternatives[]"
+      - "When a platform/library constraint is found → append to progress.constraints_discovered[]"
     rules:
       - "NEVER stop at the first bug found — complete full scope review"
       - "Every finding MUST cite specific code location (file:line)"
@@ -146,7 +148,19 @@ phases:
       - "If a phase cannot be tested locally, note it explicitly and state what CAN be verified"
       - "Never group untestable and testable work in the same phase"
     output: "Approved implementation plan with per-phase verification methods"
-    record: "Post plan as Issue comment (English)"
+    record: "Post plan as Issue comment (English) using structured template:"
+    comment_template: |
+      ## Decision
+      [Adopted approach and why — distilled from plan]
+
+      ## Rejected
+      [Populate from progress.rejected_alternatives[] — one line per entry: `- {approach} — {reason}`]
+
+      ## Constraints
+      [Populate from progress.constraints_discovered[] — one line per entry: `- {constraint} ({scope})`]
+
+      ## Directives (for future AI sessions)
+      [Forward-looking warnings for the next session working on this code]
 
   # ── AI-Autonomous (with quality gates) ────────────────────
 
@@ -283,8 +297,17 @@ phases:
     prerequisite: "ALL prior phases (build, review, e2e_test, post_test_review, sync, sync_verify) must be complete before committing"
     steps:
       - "Stage relevant files only"
-      - "Commit with descriptive message referencing Issue number"
+      - "Write commit message — format: <type>(<scope>): <description> (#<issue>)"
+      - "If progress.rejected_alternatives[] is non-empty → add Rejected: trailers"
+      - "If progress.constraints_discovered[] is non-empty → add Constraint: trailers"
+      - "If future AI sessions need a warning → add Directive: trailer"
+      - "Note: trailers are optional — only add when they capture non-obvious context not visible from the diff"
       - "Create PR linked to Issue"
+    trailer_format:
+      Rejected: "<approach> | <reason>"
+      Constraint: "<constraint description>"
+      Directive: "<warning for future AI modifying this code>"
+      "Assisted-by": "<tool name>"
     output: "PR ready for merge"
 
 # ─── Gates (user confirmation required) ──────────────────────
@@ -308,7 +331,7 @@ progress_file:
   purpose: "Survive context compaction and session boundaries"
   schema:
     required: [issue, title, project, current_phase, updated_at]
-    optional: [gate_approvals, decisions, surprises, blockers]
+    optional: [gate_approvals, decisions, surprises, blockers, rejected_alternatives, constraints_discovered]
   update_points:
     - phase: understand
       trigger: "Gate approved"
@@ -329,6 +352,10 @@ progress_file:
       update: "Snapshot current state regardless of phase"
     - trigger: "Surprise or blocker discovered"
       update: "Append to surprises[] or blockers[]"
+    - trigger: "Approach rejected during investigate or plan"
+      update: "Append to rejected_alternatives[] — {approach, reason, date}"
+    - trigger: "Constraint discovered during investigate or build"
+      update: "Append to constraints_discovered[] — {constraint, scope, date}"
   detail: ".agents/context/harness.yaml"
 
 # ─── Artifact Storage ────────────────────────────────────────

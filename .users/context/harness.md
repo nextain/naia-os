@@ -62,8 +62,8 @@ Detection patterns:
 | | |
 |---|---|
 | **Trigger** | PostToolUse on Bash (git commit commands) |
-| **Purpose** | Warn when committing before E2E test and context sync |
-| **Behavior** | Reads progress file, warns if phase < sync_verify |
+| **Purpose** | Warn when committing before E2E test and context sync; remind about Rejected: trailers |
+| **Behavior** | Reads progress file — (1) warns if phase < sync_verify, (2) reminds to add Rejected: trailer if rejected_alternatives are recorded |
 
 Phase order (must reach `sync_verify` before commit):
 ```
@@ -92,9 +92,11 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 | `current_phase` | Current phase from phase order |
 | `gate_approvals` | Map of gate -> ISO timestamp when user approved |
 | `decisions` | Array of key decisions (decision, rationale, date) |
+| `rejected_alternatives` | **(T2)** Approaches considered but rejected (approach, reason, date) — record during investigate/plan |
+| `constraints_discovered` | **(T2)** Technical constraints that shaped decisions (constraint, scope, date) — record during investigate/build |
 | `surprises` | Unexpected findings during investigation/build |
 | `blockers` | Current blockers preventing progress |
-| `test_findings` | Diagnostic results from test failures -- mandatory before returning from e2e_test to build/plan. Fields: test_name, error_summary, root_cause, routing |
+| `test_findings` | Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan. Fields: test_name, error_summary, root_cause, routing |
 | `updated_at` | ISO timestamp of last update |
 
 ### Example
@@ -115,6 +117,20 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
       "decision": "Use Three.js AnimationMixer for idle",
       "rationale": "Upstream VRM uses it, minimal custom code",
       "date": "2026-03-14"
+    }
+  ],
+  "rejected_alternatives": [
+    {
+      "approach": "AudioContext({sampleRate:16000})",
+      "reason": "WebKitGTK freezes audio to zeros",
+      "date": "2026-03-17"
+    }
+  ],
+  "constraints_discovered": [
+    {
+      "constraint": "WebKitGTK AudioContext — default sampleRate only",
+      "scope": "shell/src/audio/*",
+      "date": "2026-03-17"
     }
   ],
   "surprises": [],
@@ -139,6 +155,32 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 4. Session end (mandatory)
 5. On surprise or blocker discovery
 6. Phase transition
+7. **Approach rejected during investigate/plan → append to `rejected_alternatives[]`**
+8. **Constraint discovered during investigate/build → append to `constraints_discovered[]`**
+
+---
+
+## Context Update Matrix (T4: Context Governance)
+
+> Extends `artifact_storage` in `issue-driven-development.yaml`.
+> Defines WHERE each type of knowledge belongs so AI agents don't scatter information arbitrarily.
+
+| Where | Target | When |
+|-------|--------|------|
+| **Session-local** | `.agents/progress/*.json` (gitignored) | Ephemeral state — current phase, in-progress decisions, rejected_alternatives, constraints_discovered, surprises, blockers |
+| **Accumulated lessons** | `.agents/context/lessons-learned.yaml` | A mistake was corrected this session, OR a recurring pattern is identified |
+| **Domain context** | `.agents/context/{domain}.yaml` | Permanent technical constraint confirmed, architecture decision finalized, stable process established |
+| **Harness update** | `.claude/hooks/*.js` | **Same mistake appears in lessons-learned TWICE** — mechanical enforcement now warranted |
+
+### Harness Update Rule
+
+When the same mistake appears twice in `lessons-learned.yaml`:
+1. Identify the repeated pattern
+2. **Write a failing test first** (TDD for harness)
+3. Implement the hook that makes the test pass
+4. Update coverage count in `harness.yaml`
+
+> Do NOT add a third lessons-learned entry for the same mistake. Strengthen the hook instead.
 
 ---
 
@@ -148,11 +190,11 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 bash .agents/tests/harness/run-all.sh
 ```
 
-28 tests covering:
-- Entry point sync (6 tests)
-- Commit guard (8 tests)
-- Cascade check (8 tests)
-- Progress schema (4 tests)
+51 tests covering:
+- Entry point sync (11 tests)
+- Commit guard (19 tests — includes T2 Decision Shadow advisory)
+- Cascade check (12 tests)
+- Progress schema (7 tests)
 - Integration lifecycle (2 tests)
 
 ---

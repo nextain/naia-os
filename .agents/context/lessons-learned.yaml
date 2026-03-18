@@ -4,6 +4,22 @@
 #
 # Accumulated lessons from development cycles.
 # Read during INVESTIGATE phase. Written during SYNC phase.
+#
+# T6: Knowledge Continuity — scope field identifies WHERE a lesson applies.
+# This enables future AI sessions to find relevant lessons by the files they are about to touch.
+#
+# Schema:
+#   id:         L{NNN} — sequential
+#   date:       YYYY-MM-DD
+#   issue:      "#N" (optional for workflow-level lessons)
+#   category:   keyword (testing, observability, upstream-integration, workflow, audio, ...)
+#   scope:      file glob or module name — OMIT for global/workflow-level lessons
+#               Examples: "shell/src/audio/*", "agent/llm-registry", ".claude/hooks/*"
+#   title:      one-line summary
+#   problem:    what went wrong
+#   root_cause: why it went wrong
+#   fix:        what was changed
+#   reference:  link to doc (optional)
 
 version: 1
 name: lessons-learned

@@ -320,6 +320,52 @@ else
     fail "2.15 Malformed JSON → graceful exit" "(empty)" "$OUTPUT"
 fi
 
+# ── T2 Decision Shadow advisory tests ──
+
+# Test 2.16: rejected_alternatives non-empty → advisory shown
+TMPDIR_CG2="$(mktemp -d)"
+mkdir -p "$TMPDIR_CG2/.agents/progress"
+echo '{"issue":"#99","current_phase":"report","rejected_alternatives":[{"approach":"approach-A","reason":"too slow","date":"2026-03-18"}]}' > "$TMPDIR_CG2/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG2\"}")
+if echo "$OUTPUT" | grep -q "rejected alternative"; then
+    pass "2.16 rejected_alternatives non-empty → Rejected: trailer advisory shown"
+else
+    fail "2.16 rejected_alternatives advisory" "mention of 'rejected alternative'" "$OUTPUT"
+fi
+
+# Test 2.17: rejected_alternatives empty array → no advisory
+echo '{"issue":"#99","current_phase":"report","rejected_alternatives":[]}' > "$TMPDIR_CG2/.agents/progress/99.json"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG2\"}")
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ]; then
+    pass "2.17 rejected_alternatives empty array → no advisory"
+else
+    fail "2.17 rejected_alternatives empty → no advisory" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.18: no rejected_alternatives field → no advisory (backward compat)
+echo '{"issue":"#99","current_phase":"report"}' > "$TMPDIR_CG2/.agents/progress/99.json"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG2\"}")
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ]; then
+    pass "2.18 No rejected_alternatives field → no advisory (backward compat)"
+else
+    fail "2.18 No field → no advisory" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.19: early phase + rejected_alternatives → both phase warning AND trailer advisory
+echo '{"issue":"#99","current_phase":"build","rejected_alternatives":[{"approach":"X","reason":"Y","date":"2026-03-18"}]}' > "$TMPDIR_CG2/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG2\"}")
+PHASE_WARN=$(echo "$OUTPUT" | grep -c "Committing at phase" || true)
+TRAILER_WARN=$(echo "$OUTPUT" | grep -c "rejected alternative" || true)
+if [ "$PHASE_WARN" -gt 0 ] && [ "$TRAILER_WARN" -gt 0 ]; then
+    pass "2.19 Early phase + rejected_alternatives → both warnings shown"
+else
+    fail "2.19 Both warnings" "phase warn + trailer advisory" "phase=$PHASE_WARN trailer=$TRAILER_WARN"
+fi
+
+rm -rf "$TMPDIR_CG2"
+
 rm -rf "$TMPDIR_CG"
 
 # ─── 3. cascade-check.js ──────────────────────────────────

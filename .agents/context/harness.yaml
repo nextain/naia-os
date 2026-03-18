@@ -100,6 +100,18 @@ progress_files:
       description: "Unexpected findings during investigation/build"
     blockers:
       description: "Current blockers preventing progress"
+    rejected_alternatives:
+      description: "Approaches considered but rejected during investigation or planning (T2: decision shadow)"
+      fields: [approach, reason, date]
+      record_when:
+        - "investigate: when an approach is tried and fails or discarded"
+        - "plan: when comparing alternatives and choosing one over others"
+    constraints_discovered:
+      description: "Technical or architectural constraints discovered that shaped the decision (T2: decision context)"
+      fields: [constraint, scope, date]
+      record_when:
+        - "investigate: when a platform/library constraint is found"
+        - "build: when a constraint is encountered during implementation"
     test_findings:
       description: "Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan"
       fields: [test_name, error_summary, root_cause, routing]
@@ -112,6 +124,8 @@ progress_files:
     - "Session end (mandatory)"
     - "On surprise or blocker discovery"
     - "Phase transition"
+    - "Approach rejected during investigate/plan → append to rejected_alternatives[]"
+    - "Constraint discovered during investigate/build → append to constraints_discovered[]"
 
   example:
     issue: "#42"
@@ -135,17 +149,50 @@ progress_files:
         routing: "implementation_issue → BUILD"
     updated_at: "2026-03-14T14:30Z"
 
+# T4: Context Governance — WHERE each type of knowledge belongs
+# Extends artifact_storage in issue-driven-development.yaml
+# (artifact_storage: intermediate → GitHub Issues, final → .agents/ context files)
+# This matrix clarifies the finer distinctions WITHIN those categories.
+context_update_matrix:
+  session_local:
+    target: ".agents/progress/*.json"
+    gitignored: true
+    when: "Ephemeral session state — current phase, in-progress decisions, rejected_alternatives, constraints_discovered, surprises, blockers, test_findings"
+    note: "These are NOT committed. They survive context compaction but not machine changes."
+
+  accumulated_lessons:
+    target: ".agents/context/lessons-learned.yaml"
+    when: "A mistake was corrected during this session, OR a recurring pattern is identified"
+    required_fields: [id, date, issue, category, title, problem, root_cause, fix]
+    optional_fields: [scope, reference]
+    upgrade_rule: "If a new lesson is similar to an existing entry → do NOT add a duplicate. Instead, strengthen a hook to prevent the pattern mechanically."
+
+  domain_context:
+    target: ".agents/context/{domain}.yaml"
+    when: "A permanent technical constraint is confirmed, architecture decision is finalized, or a stable process is established"
+    note: "This is for knowledge that future sessions need on every load — not temporary investigation findings."
+
+  harness_update:
+    target: ".claude/hooks/*.js"
+    when: "The same mistake appears in lessons-learned.yaml TWICE or more — mechanical enforcement is now warranted"
+    required: "Add a test BEFORE adding or modifying a hook (TDD for harness)"
+    process:
+      - "Identify the repeated pattern in lessons-learned"
+      - "Write a failing test that reproduces the undesired AI behavior"
+      - "Implement the hook that makes the test pass"
+      - "Update harness.yaml coverage count"
+
 tests:
   location: .agents/tests/harness/
   runner: run-all.sh
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
     sync_entry_points: 11
-    commit_guard: 15
+    commit_guard: 19
     cascade_check: 12
     progress_schema: 7
     integration_lifecycle: 2
-    total: 47
+    total: 51
 
 directory_structure:
   committed:

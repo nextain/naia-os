@@ -3,7 +3,9 @@
  * Commit Guard Hook (PostToolUse on Bash)
  *
  * Detects `git commit` commands and checks the progress file.
- * If current phase is before e2e_test, warns the agent.
+ * Emits two kinds of advisory:
+ *   1. Phase check: warns if committing before sync_verify phase
+ *   2. T2 Decision Shadow: reminds to add Rejected: trailers when rejected_alternatives are recorded
  *
  * Phase order: issue → understand → scope → investigate → plan →
  *   build → review → e2e_test → post_test_review → sync → sync_verify → report → commit
@@ -97,17 +99,34 @@ async function main() {
 	const currentIndex = PHASE_ORDER.indexOf(currentPhase);
 	const minIndex = PHASE_ORDER.indexOf(MIN_PHASE_FOR_COMMIT);
 
+	const warnings = [];
+
 	if (currentIndex >= 0 && currentIndex < minIndex) {
 		const remaining = PHASE_ORDER.slice(currentIndex + 1, minIndex + 1);
+		warnings.push(
+			`⚠ Committing at phase "${currentPhase}" — ` +
+				`phases remaining before commit: ${remaining.join(" → ")}. ` +
+				`Issue: ${progress.issue || "unknown"}. ` +
+				`Did you complete E2E testing and context sync?`,
+		);
+	}
+
+	// T2: Decision shadow advisory — remind to add Lore trailers
+	const rejectedAlts = progress.rejected_alternatives;
+	if (Array.isArray(rejectedAlts) && rejectedAlts.length > 0) {
+		warnings.push(
+			`💡 You recorded ${rejectedAlts.length} rejected alternative(s) in the progress file. ` +
+				`Consider adding Rejected: trailers to the commit message so future AI sessions know what was already tried. ` +
+				`Format: "Rejected: <approach> | <reason>"`,
+		);
+	}
+
+	if (warnings.length > 0) {
 		const result = {
 			reason: "",
 			hookSpecificOutput: {
 				hookEventName: "PostToolUse",
-				additionalContext:
-					`[Harness] ⚠ Committing at phase "${currentPhase}" — ` +
-					`phases remaining before commit: ${remaining.join(" → ")}. ` +
-					`Issue: ${progress.issue || "unknown"}. ` +
-					`Did you complete E2E testing and context sync?`,
+				additionalContext: warnings.map((w) => `[Harness] ${w}`).join("\n"),
 			},
 		};
 		process.stdout.write(JSON.stringify(result));

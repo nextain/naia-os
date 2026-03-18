@@ -4,6 +4,10 @@
 
 Accumulated lessons from development cycles. Read during INVESTIGATE phase. Written during SYNC phase.
 
+**Schema**: `id`, `date`, `issue`, `category`, `title`, `problem`, `root_cause`, `fix`, and optional `scope` (file glob or module name — omit for global/workflow-level lessons). Example scope: `"shell/src/audio/*"`, `"agent/llm-registry"`.
+
+> **Context Update Rule**: If a new lesson is similar to an existing entry → do NOT add a duplicate. Strengthen a hook instead (see `harness.md` → Context Update Matrix).
+
 ---
 
 ## L001 — E2E incomplete but marked as complete (#60)

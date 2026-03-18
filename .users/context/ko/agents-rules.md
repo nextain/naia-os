@@ -349,6 +349,28 @@ fix(agent): handle LLM timeout gracefully (#26)
 ci(os): add BlueBuild GitHub Action (#12)
 ```
 
+### 선택적 트레일러 (Optional Trailers)
+
+커밋 본문에 **맥락이 명확하지 않아 재조사에 상당한 시간이 걸릴 때만** 추가. 모든 커밋에 필수가 아님.
+
+**트리거**: 진행 파일에 `rejected_alternatives[]` 또는 `constraints_discovered[]`가 있으면 → 커밋 시점에 트레일러로 증류.
+
+| 트레일러 | 형식 | 목적 |
+|---------|------|------|
+| `Rejected:` | `<접근법> \| <이유>` | 검토했으나 거절된 접근법 |
+| `Constraint:` | `<제약>` | 결정을 형성한 기술적/아키텍처 제약 |
+| `Directive:` | `<경고>` | 이 코드를 다음에 건드릴 AI 세션에 대한 경고 |
+| `Assisted-by:` | `<도구>` | 사용된 AI 도구 (투명성을 위해 권장) |
+
+```
+feat(shell): fix audio recording in WebKitGTK (#79)
+
+Rejected: AudioContext({sampleRate:16000}) | WebKitGTK freezes audio to zeros
+Constraint: WebKitGTK AudioContext — default sampleRate only, SW downsampling required
+Directive: Do not hardcode sampleRate in AudioContext for this platform
+Assisted-by: Claude Sonnet 4.6
+```
+
 ### PR 프로세스
 1. 동시 작업: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (워크트리 + 브랜치 from dev)
    단독 작업: `git checkout -b issue-{N}-{desc} dev` (단순 브랜치 from dev)

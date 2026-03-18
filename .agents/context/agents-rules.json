@@ -337,6 +337,23 @@
 				"exceptions": ["merge commits", "initial repository setup"],
 				"rationale": "Ensures full traceability between code changes and tracked work. No untracked changes."
 			},
+			"optional_trailers": {
+				"purpose": "Capture decision context that is not visible from the diff — so future AI sessions know what was already tried and what constraints exist (T2: Decision Shadow).",
+				"when_to_add": "Only when the context is non-obvious and would take significant investigation to rediscover. Do not add trailers to every commit.",
+				"trigger": "If progress file has rejected_alternatives[] or constraints_discovered[] — distill them into trailers at commit time.",
+				"trailers": {
+					"Rejected": "<approach> | <reason>  — approach that was considered but discarded",
+					"Constraint": "<constraint>  — technical/architectural constraint that shaped the decision",
+					"Directive": "<warning>  — forward-looking instruction for the next AI session touching this code",
+					"Assisted-by": "<tool>  — AI tool used (encouraged for transparency)"
+				},
+				"examples": [
+					"Rejected: AudioContext({sampleRate:16000}) | WebKitGTK freezes audio to zeros",
+					"Constraint: WebKitGTK AudioContext — default sampleRate only, SW downsampling required",
+					"Directive: Do not hardcode sampleRate in AudioContext for this platform",
+					"Assisted-by: Claude Sonnet 4.6"
+				]
+			},
 			"examples": [
 				"feat(shell): add VRM avatar idle animation (#36)",
 				"fix(agent): handle LLM timeout gracefully (#26)",

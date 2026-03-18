@@ -339,6 +339,28 @@ fix(agent): handle LLM timeout gracefully (#26)
 ci(os): add BlueBuild GitHub Action (#12)
 ```
 
+### Optional Trailers
+
+Add to commit body **only when context is non-obvious** and would take significant investigation to rediscover. Not required on every commit.
+
+**Trigger**: If progress file has `rejected_alternatives[]` or `constraints_discovered[]` — distill them into trailers at commit time.
+
+| Trailer | Format | Purpose |
+|---------|--------|---------|
+| `Rejected:` | `<approach> \| <reason>` | Approach considered but discarded |
+| `Constraint:` | `<constraint>` | Technical/architectural constraint that shaped the decision |
+| `Directive:` | `<warning>` | Forward-looking instruction for the next AI session |
+| `Assisted-by:` | `<tool>` | AI tool used (encouraged for transparency) |
+
+```
+feat(shell): fix audio recording in WebKitGTK (#79)
+
+Rejected: AudioContext({sampleRate:16000}) | WebKitGTK freezes audio to zeros
+Constraint: WebKitGTK AudioContext — default sampleRate only, SW downsampling required
+Directive: Do not hardcode sampleRate in AudioContext for this platform
+Assisted-by: Claude Sonnet 4.6
+```
+
 ### PR Process
 1. Concurrent work: `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` (worktree + branch from dev)
    Solo work: `git checkout -b issue-{N}-{desc} dev` (simple branch from dev)

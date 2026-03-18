@@ -62,7 +62,7 @@ Naia-OS/
 ## Conventions (summary)
 
 - **Language**: Git/shared (commits, Issue comments, PR, context) → English | Personal (work-logs/) → any | AI responses → contributor's language
-- **Commits**: `<type>(<scope>): <description> (#<issue>)` (English, issue number required)
+- **Commits**: `<type>(<scope>): <description> (#<issue>)` (English, issue number required) — optional trailers: `Rejected:` / `Constraint:` / `Directive:` / `Assisted-by:` (add when context is non-obvious, see `agents-rules.json` → `optional_trailers`)
 - **Formatter**: Biome (tab, double quote, semicolons)
 - **Testing**: Integration-first TDD (Vitest + tauri-driver)
 - **Logging**: Structured Logger only (no console.log)
@@ -236,6 +236,8 @@ Session handoff JSON. Next AI session can resume state even after context compac
   "current_phase": "build",
   "gate_approvals": { "understand": "...", "scope": "...", "plan": "..." },
   "decisions": [{ "decision": "...", "rationale": "...", "date": "..." }],
+  "rejected_alternatives": [{ "approach": "...", "reason": "...", "date": "..." }],
+  "constraints_discovered": [{ "constraint": "...", "scope": "...", "date": "..." }],
   "surprises": [],
   "blockers": [],
   "updated_at": "2026-03-14T14:30Z"
