@@ -1407,56 +1407,54 @@ async fn validate_api_key(provider: String, api_key: String) -> Result<bool, Str
     }
 }
 
-/// List PipeWire output sinks via `wpctl status`.
-/// Fallback for WebKitGTK which does not enumerate audiooutput devices via enumerateDevices().
-/// Returns [{id, label}] where id is the PipeWire node ID (integer as string).
-/// pactl is avoided — it segfaults on this system.
+/// List available PipeWire output sinks via `pw-dump` (JSON, no env-var setup needed).
+/// Filters to idle/running state only — suspended = disconnected HDMI port.
+/// Excludes virtual/loopback sinks.
+/// Fallback for WebKitGTK which does not enumerate audiooutput via enumerateDevices().
 #[tauri::command]
 async fn list_audio_output_devices() -> Result<Vec<serde_json::Value>, String> {
     let output = tokio::task::spawn_blocking(|| {
-        std::process::Command::new("/usr/bin/wpctl")
-            .args(["status"])
-            .output()
+        std::process::Command::new("/usr/bin/pw-dump").output()
     })
     .await
     .map_err(|e| format!("task error: {e}"))?
-    .map_err(|e| format!("wpctl error: {e}"))?;
-    let text = String::from_utf8_lossy(&output.stdout);
+    .map_err(|e| format!("pw-dump error: {e}"))?;
 
-    // Parse lines like: │      74. Name [vol: 1.00]
-    //                or: │  *  121. Name [vol: 0.93]  (active sink, marked with *)
-    // Only collect sinks from the Audio › Sinks section (stop at Sources/Filters/Video).
-    let mut in_sinks = false;
-    let mut devices: Vec<serde_json::Value> = Vec::new();
-    for line in text.lines() {
-        let stripped = line
-            .trim_start_matches(|c: char| c == '│' || c == ' ' || c == '*' || c == '├' || c == '└' || c == '─');
-        if stripped.starts_with("Sinks:") {
-            in_sinks = true;
-            continue;
-        }
-        if in_sinks && (stripped.starts_with("Sources:") || stripped.starts_with("Filters:") || stripped.starts_with("Video")) {
-            break;
-        }
-        if !in_sinks {
-            continue;
-        }
-        // Match "74. Some Name [vol: ...]"
-        if let Some(dot_pos) = stripped.find(". ") {
-            let id_str = &stripped[..dot_pos];
-            if id_str.chars().all(|c| c.is_ascii_digit()) {
-                let rest = &stripped[dot_pos + 2..];
-                let label = if let Some(bracket) = rest.rfind(" [vol:") {
-                    rest[..bracket].trim().to_string()
-                } else {
-                    rest.trim().to_string()
-                };
-                if !label.is_empty() {
-                    devices.push(serde_json::json!({ "id": id_str, "label": label }));
-                }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let nodes: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("pw-dump parse error: {e}"))?;
+
+    let mut devices: Vec<serde_json::Value> = nodes
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|obj| {
+            let info = obj.get("info")?;
+            let props = info.get("props")?;
+            let media_class = props.get("media.class")?.as_str()?;
+            if media_class != "Audio/Sink" {
+                return None;
             }
-        }
-    }
+            let state = info.get("state")?.as_str().unwrap_or("");
+            if state != "idle" && state != "running" {
+                return None;
+            }
+            let name = props.get("node.name")?.as_str().unwrap_or("");
+            if name.contains("loopback") || name.contains("naia-virtual") {
+                return None;
+            }
+            let label = props
+                .get("node.description")
+                .and_then(|v| v.as_str())
+                .unwrap_or(name)
+                .to_string();
+            Some(serde_json::json!({ "id": name, "label": label }))
+        })
+        .collect();
+
+    devices.sort_by(|a, b| {
+        a["label"].as_str().unwrap_or("").cmp(b["label"].as_str().unwrap_or(""))
+    });
     Ok(devices)
 }
 

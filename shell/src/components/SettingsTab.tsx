@@ -1066,11 +1066,11 @@ export function SettingsTab() {
 		if (!navigator.mediaDevices?.enumerateDevices) return;
 
 		// Output devices: WebKitGTK does not expose audiooutput via enumerateDevices().
-		// Use wpctl (Tauri) to list PipeWire sinks directly.
+		// Use pw-dump (Tauri) to list PipeWire sinks directly.
 		const refreshOutputDevices = () => {
 			invoke<{ id: string; label: string }[]>("list_audio_output_devices")
 				.then((sinks) => {
-					Logger.debug("SettingsTab", "wpctl sinks", { count: sinks.length });
+					Logger.debug("SettingsTab", "pw-dump sinks", { count: sinks.length });
 					setAudioOutputDevices(
 						sinks.map((s) => ({ deviceId: s.id, label: s.label, kind: "audiooutput", groupId: "" }) as MediaDeviceInfo),
 					);
