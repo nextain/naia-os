@@ -449,7 +449,8 @@
 				"registration": ".claude/settings.json",
 				"sync_entry_points": "PostToolUse Edit|Write — auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md",
 				"cascade_check": "PostToolUse Edit|Write — remind triple-mirror updates on context file edits",
-				"commit_guard": "PostToolUse Bash — warn when committing before sync_verify phase"
+				"commit_guard": "PostToolUse Bash — warn when committing before sync_verify phase; checks gate_approvals + phase order",
+				"process_guard": "Stop — block review-completion claims (clean pass, 수정 없음, etc.) without actual Read/Grep/Glob calls"
 			},
 			"progress_files": {
 				"location": ".agents/progress/",

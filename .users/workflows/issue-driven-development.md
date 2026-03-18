@@ -53,12 +53,18 @@ For non-feature changes (typos, config values, simple directives), use `developm
 
 All review loops terminate after **two consecutive clean passes** (not just one). A single clean pass can be a false negative.
 
+**Use `/review` skill** for structured iterative review — it guides you through reading files pass-by-pass and recording evidence.
+
 **Applies at 5 points:**
 1. After **Plan** — review plan before build
 2. After each **Build** phase — per-phase code review + test
 3. After all **Build** phases — full code review across all changes
 4. After **E2E Test** — post-test full code review
 5. After **Sync** — context mirror accuracy verification
+
+**Enforcement:** The `process-guard` Stop hook blocks any response that declares "clean pass" / "수정 없음" / "no changes found" without using Read/Grep/Glob in that same response.
+
+**Evidence:** Record each pass in `review_evidence[]` in the progress file (pass number, files read, issues found).
 
 ---
 

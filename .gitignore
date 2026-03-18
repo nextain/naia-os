@@ -16,11 +16,13 @@ build-dir/
 .flatpak-builder/
 *.flatpak
 
-# Claude Code (track settings + hooks, ignore the rest)
+# Claude Code (track settings + hooks + commands, ignore the rest)
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
 !.claude/hooks/**
+!.claude/commands/
+!.claude/commands/**
 
 # Progress files (session-local, not committed)
 .agents/progress/*.json

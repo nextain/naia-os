@@ -54,6 +54,19 @@ hooks:
       - "agents-rules.json → extra SoT warning"
     behavior: "Advisory (additionalContext), not blocking"
 
+  process_guard:
+    file: process-guard.js
+    trigger: "Stop (AI response end)"
+    purpose: "Detect 'declaration without action' — review-completion claims without actual file reads"
+    behavior:
+      - "Reads last 128KB of transcript_path JSONL"
+      - "Finds last assistant message text + tool calls"
+      - "If text matches review-pass patterns AND no Read/Grep/Glob was called → decision: block"
+      - "stop_hook_active check prevents infinite loop"
+      - "Advisory patterns: 수정 없음, 변경 없음, 클린 패스, clean pass, no changes found, etc."
+    enforces: "Iterative review rule — two consecutive clean passes required, each pass must read files"
+    inspiration: "open-swe ensure_no_empty_msg pattern (langchain-ai/open-swe)"
+
   commit_guard:
     file: commit-guard.js
     trigger: "PostToolUse on Bash (git commit commands)"
@@ -117,6 +130,13 @@ progress_files:
     test_findings:
       description: "Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan"
       fields: [test_name, error_summary, root_cause, routing]
+    review_evidence:
+      description: "Proof that iterative review actually happened — files read per pass, issues found (T3: anti-cheat)"
+      fields: [pass, files_read, issues_found, date]
+      record_when:
+        - "review: after each iterative review pass (use /review skill)"
+        - "post_test_review: after each post-test review pass"
+      constraint: "Two passes with empty issues_found[] = review complete. Do NOT declare complete without evidence."
     updated_at: "ISO timestamp of last update"
 
   update_points:
@@ -128,6 +148,7 @@ progress_files:
     - "Phase transition"
     - "Approach rejected during investigate/plan → append to rejected_alternatives[]"
     - "Constraint discovered during investigate/build → append to constraints_discovered[]"
+    - "Review pass completed → append to review_evidence[]"
 
   example:
     issue: "#42"
@@ -198,11 +219,12 @@ tests:
   command: "bash .agents/tests/harness/run-all.sh"
   coverage:
     sync_entry_points: 11
-    commit_guard: 20
+    commit_guard: 26
     cascade_check: 12
     progress_schema: 7
     integration_lifecycle: 2
-    total: 52
+    process_guard: 14
+    total: 72
 
 directory_structure:
   committed:
@@ -210,6 +232,7 @@ directory_structure:
     - .claude/hooks/sync-entry-points.js
     - .claude/hooks/cascade-check.js
     - .claude/hooks/commit-guard.js
+    - .claude/hooks/process-guard.js
     - .agents/context/harness.yaml
     - .agents/tests/harness/run-all.sh
     - .agents/progress/.gitkeep

@@ -57,6 +57,19 @@ Detection patterns:
 - `.users/context/ko/*.md` → remind `.agents/` + `.users/context/`
 - `agents-rules.json` → extra SoT warning
 
+### process-guard.js
+
+| | |
+|---|---|
+| **Trigger** | Stop (AI response end) |
+| **Purpose** | Detect "declaration without action" — review-completion claims without actual file reads |
+| **Behavior** | Reads last 128KB of transcript JSONL; if last assistant message contains a review-pass keyword but made no Read/Grep/Glob calls → `decision: "block"` |
+| **Enforces** | Iterative review rule — each pass must actually read files, two consecutive clean passes required |
+
+Detection keywords: `수정 없음`, `변경 없음`, `클린 패스`, `clean pass`, `no changes found`, `found no issues`, `이상 없음`, etc.
+
+Inspired by the [open-swe `ensure_no_empty_msg` pattern](https://github.com/langchain-ai/open-swe).
+
 ### commit-guard.js
 
 | | |
@@ -97,6 +110,7 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 | `surprises` | Unexpected findings during investigation/build |
 | `blockers` | Current blockers preventing progress |
 | `test_findings` | Diagnostic results from test failures — mandatory before returning from e2e_test to build/plan. Fields: test_name, error_summary, root_cause, routing |
+| `review_evidence` | **(T3 anti-cheat)** Proof that iterative review actually happened. Fields: pass, files_read[], issues_found[], date. Two passes with empty issues_found = review complete. Use `/review` skill. |
 | `updated_at` | ISO timestamp of last update |
 
 ### Example
@@ -157,6 +171,7 @@ Purpose: Session handoff. When a session ends or context is compacted, the next 
 6. Phase transition
 7. **Approach rejected during investigate/plan → append to `rejected_alternatives[]`**
 8. **Constraint discovered during investigate/build → append to `constraints_discovered[]`**
+9. **Review pass completed → append to `review_evidence[]`** (use `/review` skill)
 
 ---
 
@@ -190,12 +205,13 @@ When the same mistake appears twice in `lessons-learned.yaml`:
 bash .agents/tests/harness/run-all.sh
 ```
 
-52 tests covering:
+72 tests covering:
 - Entry point sync (11 tests)
-- Commit guard (20 tests — includes T2 Decision Shadow advisory)
+- Commit guard (26 tests — includes T2 Decision Shadow advisory + gate approval checks)
 - Cascade check (12 tests)
 - Progress schema (7 tests)
 - Integration lifecycle (2 tests)
+- Process guard (14 tests)
 
 ---
 
@@ -209,7 +225,8 @@ bash .agents/tests/harness/run-all.sh
 └── hooks/
     ├── sync-entry-points.js   # Entry point 3-file sync
     ├── cascade-check.js       # Triple-mirror reminder
-    └── commit-guard.js        # Phase-aware commit guard
+    ├── commit-guard.js        # Phase-aware commit guard
+    └── process-guard.js       # Review declaration without file reads (Stop hook)
 
 .agents/
 ├── context/harness.yaml       # This context (SoT)

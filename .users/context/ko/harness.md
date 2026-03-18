@@ -57,6 +57,19 @@ AI 에이전트가 규칙을 반복적으로 위반하지 않도록 Claude Code 
 - `.users/context/ko/*.md` → `.agents/` + `.users/context/` 알림
 - `agents-rules.json` → SoT 추가 경고
 
+### process-guard.js
+
+| | |
+|---|---|
+| **트리거** | Stop (AI 응답 종료 시) |
+| **목적** | "선언 ≠ 행동" 감지 — 실제 파일 읽기 없이 리뷰 완료를 선언하는 패턴 차단 |
+| **동작** | 트랜스크립트 JSONL 마지막 128KB 파싱; 마지막 어시스턴트 메시지에 리뷰 완료 키워드가 있는데 Read/Grep/Glob 호출이 없으면 `decision: "block"` 반환 |
+| **강제 규칙** | 반복 리뷰: 매 패스마다 실제 파일 읽기 필수, 연속 2회 클린 패스여야 완료 |
+
+감지 키워드: `수정 없음`, `변경 없음`, `클린 패스`, `clean pass`, `no changes found`, `found no issues`, `이상 없음` 등.
+
+영감: [open-swe `ensure_no_empty_msg` 패턴](https://github.com/langchain-ai/open-swe)
+
 ### commit-guard.js
 
 | | |
@@ -97,6 +110,7 @@ sync → sync_verify → report → commit
 | `surprises` | 조사/빌드 중 예상치 못한 발견 |
 | `blockers` | 진행을 막는 현재 블로커 |
 | `test_findings` | 테스트 실패 진단 결과 — e2e_test에서 build/plan으로 되돌아가기 전 필수 기록. 필드: test_name, error_summary, root_cause, routing |
+| `review_evidence` | **(T3 안티치트)** 반복 리뷰가 실제로 수행됐다는 증거. 필드: pass, files_read[], issues_found[], date. issues_found가 빈 패스 2회 연속 = 리뷰 완료. `/review` 스킬 사용. |
 | `updated_at` | 마지막 업데이트 ISO 타임스탬프 |
 
 ### 예시
@@ -157,6 +171,7 @@ sync → sync_verify → report → commit
 6. 페이즈 전환
 7. **investigate/plan 중 접근법 거절 → `rejected_alternatives[]`에 추가**
 8. **investigate/build 중 제약 발견 → `constraints_discovered[]`에 추가**
+9. **리뷰 패스 완료 → `review_evidence[]`에 추가** (`/review` 스킬 사용)
 
 ---
 
@@ -190,12 +205,13 @@ sync → sync_verify → report → commit
 bash .agents/tests/harness/run-all.sh
 ```
 
-52개 테스트:
+72개 테스트:
 - 엔트리포인트 동기화 (11개)
-- 커밋 가드 (20개 — T2 Decision Shadow advisory 포함)
+- 커밋 가드 (26개 — T2 Decision Shadow advisory + 게이트 승인 체크 포함)
 - 캐스케이드 체크 (12개)
 - 진행 파일 스키마 (7개)
 - 통합 라이프사이클 (2개)
+- 프로세스 가드 (14개)
 
 ---
 
@@ -209,7 +225,8 @@ bash .agents/tests/harness/run-all.sh
 └── hooks/
     ├── sync-entry-points.js   # 엔트리포인트 3파일 동기화
     ├── cascade-check.js       # 삼중 미러링 알림
-    └── commit-guard.js        # 페이즈 인식 커밋 가드
+    ├── commit-guard.js        # 페이즈 인식 커밋 가드
+    └── process-guard.js       # 파일 읽기 없는 리뷰 선언 차단 (Stop 훅)
 
 .agents/
 ├── context/harness.yaml       # 이 컨텍스트 (SoT)

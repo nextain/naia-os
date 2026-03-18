@@ -185,14 +185,17 @@ phases:
   review:
     description: "Self-review against plan AND original issue"
     trigger: "After EVERY phase completion (not just at the end)"
+    skill: "/review — use this slash command for structured iterative review (reads files, records evidence)"
     steps:
       - "loop:"
-      - "  - Read ALL new/modified files (not from memory — re-read)"
+      - "  - Read ALL new/modified files (not from memory — re-read with Read/Grep/Glob)"
       - "  - Review code against checklist"
       - "  - Fix any issues found"
       - "  - Re-review (read again after fixes)"
       - "  - If TWO consecutive passes find no issues → review complete"
       - "Multi-phase builds: run review after each phase before proceeding"
+    evidence: "Record each pass in progress file review_evidence[] (pass, files_read, issues_found, date)"
+    enforcement: "process-guard hook blocks any 'clean pass' / '수정 없음' declaration without Read/Grep/Glob in the same response"
     output: "Clean, reviewed code"
 
     checklist:

@@ -375,6 +375,71 @@ fi
 
 rm -rf "$TMPDIR_CG2"
 
+# ── Gate approval checks ──
+
+TMPDIR_CG3="$(mktemp -d)"
+mkdir -p "$TMPDIR_CG3/.agents/progress"
+
+# Test 2.21: phase=sync_verify + gate_approvals missing understand → warning
+echo '{"issue":"#99","current_phase":"sync_verify","gate_approvals":{"scope":"2026-01-01T00:00Z","plan":"2026-01-01T00:00Z","sync":"2026-01-01T00:00Z"}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+if echo "$OUTPUT" | grep -q "understand"; then
+    pass "2.21 sync_verify + missing 'understand' gate → gate warning"
+else
+    fail "2.21 gate missing 'understand'" "warning with 'understand'" "$OUTPUT"
+fi
+
+# Test 2.22: phase=sync_verify + all 4 gates present → no warning
+echo '{"issue":"#99","current_phase":"sync_verify","gate_approvals":{"understand":"2026-01-01T00:00Z","scope":"2026-01-01T00:00Z","plan":"2026-01-01T00:00Z","sync":"2026-01-01T00:00Z"}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ]; then
+    pass "2.22 sync_verify + all 4 gates present → no warning"
+else
+    fail "2.22 all gates present → no warning" "(empty)" "$OUTPUT"
+fi
+
+# Test 2.23: phase=sync_verify + missing sync gate → warning
+echo '{"issue":"#99","current_phase":"sync_verify","gate_approvals":{"understand":"2026-01-01T00:00Z","scope":"2026-01-01T00:00Z","plan":"2026-01-01T00:00Z"}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+if echo "$OUTPUT" | grep -q "sync"; then
+    pass "2.23 sync_verify + missing 'sync' gate → warning"
+else
+    fail "2.23 gate missing 'sync'" "warning with 'sync'" "$OUTPUT"
+fi
+
+# Test 2.24: phase=build + missing gates → NO gate warning (phase warning covers early commits)
+echo '{"issue":"#99","current_phase":"build","gate_approvals":{}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+GATE_WARN=$(echo "$OUTPUT" | grep -c "Gate approval" || true)
+PHASE_WARN=$(echo "$OUTPUT" | grep -c "Committing at phase" || true)
+if [ "$GATE_WARN" -eq 0 ] && [ "$PHASE_WARN" -gt 0 ]; then
+    pass "2.24 build phase + missing gates → phase warning only (no duplicate gate warning)"
+else
+    fail "2.24 build phase → no gate warn" "gate_warn=0, phase_warn>0" "gate=$GATE_WARN phase=$PHASE_WARN"
+fi
+
+# Test 2.25: phase=sync_verify + gate_approvals is empty object {} → warning for all 4 gates
+echo '{"issue":"#99","current_phase":"sync_verify","gate_approvals":{}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+OUTPUT=$(run_hook "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+if echo "$OUTPUT" | grep -q "Gate approval"; then
+    pass "2.25 sync_verify + empty gate_approvals {} → gate warning"
+else
+    fail "2.25 empty gate_approvals" "Gate approval warning" "$OUTPUT"
+fi
+
+# Test 2.26: phase=report + all 4 gates → no warning
+echo '{"issue":"#99","current_phase":"report","gate_approvals":{"understand":"2026-01-01T00:00Z","scope":"2026-01-01T00:00Z","plan":"2026-01-01T00:00Z","sync":"2026-01-01T00:00Z"}}' > "$TMPDIR_CG3/.agents/progress/99.json"
+STRICT=$(run_hook_strict "commit-guard.js" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m test\"},\"cwd\":\"$TMPDIR_CG3\"}")
+OUTPUT="${STRICT#*|}"
+if [ -z "$OUTPUT" ]; then
+    pass "2.26 report phase + all gates → no warning"
+else
+    fail "2.26 report + all gates → no warning" "(empty)" "$OUTPUT"
+fi
+
+rm -rf "$TMPDIR_CG3"
+
 rm -rf "$TMPDIR_CG"
 
 # ─── 3. cascade-check.js ──────────────────────────────────
@@ -605,6 +670,176 @@ if [ "$PASS_OK" = true ]; then
 fi
 
 rm -rf "$TMPDIR_INT"
+
+# ─── 6. process-guard.js ──────────────────────────────────
+
+echo ""
+echo -e "${YELLOW}═══ Test: process-guard.js ═══${NC}"
+
+# Helper: write a minimal JSONL with one assistant message
+make_transcript() {
+    local tmpfile="$1"
+    local text="$2"
+    local tools="$3"  # comma-separated tool names, or ""
+
+    # Build content array
+    local content_blocks
+    content_blocks="[{\"type\":\"text\",\"text\":\"$(echo "$text" | sed 's/"/\\"/g')\"}"
+    if [ -n "$tools" ]; then
+        local idx=0
+        IFS=',' read -ra TOOL_LIST <<< "$tools"
+        for tool in "${TOOL_LIST[@]}"; do
+            content_blocks+=",{\"type\":\"tool_use\",\"name\":\"$tool\",\"id\":\"t$idx\",\"input\":{}}"
+            idx=$((idx + 1))
+        done
+    fi
+    content_blocks+="]"
+
+    printf '{"type":"assistant","uuid":"test","message":{"content":%s}}\n' "$content_blocks" > "$tmpfile"
+}
+
+run_process_guard() {
+    local transcript_path="${1:-}"
+    local stop_hook_active="${2:-false}"
+    local cwd="$PROJECT_ROOT"
+    local stdin_json
+    if [ -z "$transcript_path" ]; then
+        stdin_json="{\"session_id\":\"test\",\"cwd\":\"$cwd\",\"stop_hook_active\":$stop_hook_active}"
+    else
+        stdin_json="{\"session_id\":\"test\",\"transcript_path\":\"$transcript_path\",\"cwd\":\"$cwd\",\"stop_hook_active\":$stop_hook_active}"
+    fi
+    echo "$stdin_json" | node "$PROJECT_ROOT/.claude/hooks/process-guard.js" 2>/dev/null || true
+}
+
+TMPDIR_PG="$(mktemp -d)"
+
+# Test 6.1: '수정 없음' + no file reads → decision: block
+make_transcript "$TMPDIR_PG/t.jsonl" "2차 리뷰: 수정 없음" ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('decision')=='block' else 1)" 2>/dev/null; then
+    pass "6.1 '수정 없음' + no file reads → decision:block"
+else
+    fail "6.1 '수정 없음' + no reads" "decision:block" "$OUTPUT"
+fi
+
+# Test 6.2: '수정 없음' + Read → pass (no block)
+make_transcript "$TMPDIR_PG/t.jsonl" "2차 리뷰: 수정 없음" "Read"
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+DECISION=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('decision',''))" 2>/dev/null || echo "")
+if [ "$DECISION" != "block" ]; then
+    pass "6.2 '수정 없음' + Read tool → no block"
+else
+    fail "6.2 '수정 없음' + Read → no block" "no block" "decision=$DECISION"
+fi
+
+# Test 6.3: '변경 없음' + Grep → pass
+make_transcript "$TMPDIR_PG/t.jsonl" "변경 없음" "Grep"
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+DECISION=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('decision',''))" 2>/dev/null || echo "")
+if [ "$DECISION" != "block" ]; then
+    pass "6.3 '변경 없음' + Grep tool → no block"
+else
+    fail "6.3 '변경 없음' + Grep → no block" "no block" "decision=$DECISION"
+fi
+
+# Test 6.4: '이상 없음' + Glob → pass
+make_transcript "$TMPDIR_PG/t.jsonl" "이상 없음" "Glob"
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+DECISION=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('decision',''))" 2>/dev/null || echo "")
+if [ "$DECISION" != "block" ]; then
+    pass "6.4 '이상 없음' + Glob tool → no block"
+else
+    fail "6.4 '이상 없음' + Glob → no block" "no block" "decision=$DECISION"
+fi
+
+# Test 6.5: 일반 응답 (선언 없음) → pass (no output)
+make_transcript "$TMPDIR_PG/t.jsonl" "파일을 분석하겠습니다." ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if [ -z "$OUTPUT" ]; then
+    pass "6.5 일반 응답 (선언 없음) → pass (empty output)"
+else
+    fail "6.5 일반 응답 → pass" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.6: stop_hook_active=true → pass (infinite loop guard)
+make_transcript "$TMPDIR_PG/t.jsonl" "수정 없음" ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl" "true")
+if [ -z "$OUTPUT" ]; then
+    pass "6.6 stop_hook_active=true → pass (infinite loop prevention)"
+else
+    fail "6.6 stop_hook_active=true → pass" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.7: transcript_path 필드 없음 → graceful pass
+OUTPUT=$(run_process_guard "")
+if [ -z "$OUTPUT" ]; then
+    pass "6.7 Missing transcript_path field → graceful pass"
+else
+    fail "6.7 Missing transcript_path" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.8: 존재하지 않는 transcript → graceful pass
+OUTPUT=$(run_process_guard "/nonexistent/path/session.jsonl")
+if [ -z "$OUTPUT" ]; then
+    pass "6.8 Non-existent transcript → graceful pass"
+else
+    fail "6.8 Non-existent transcript" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.9: '클린 패스' keyword → block
+make_transcript "$TMPDIR_PG/t.jsonl" "1차 클린 패스. 2차 클린 패스." ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('decision')=='block' else 1)" 2>/dev/null; then
+    pass "6.9 '클린 패스' + no reads → block"
+else
+    fail "6.9 '클린 패스' → block" "decision:block" "$OUTPUT"
+fi
+
+# Test 6.10: 'clean pass' (English) → block
+make_transcript "$TMPDIR_PG/t.jsonl" "Review complete. Clean pass." ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('decision')=='block' else 1)" 2>/dev/null; then
+    pass "6.10 'clean pass' (English) → block"
+else
+    fail "6.10 'clean pass' → block" "decision:block" "$OUTPUT"
+fi
+
+# Test 6.11: 'no changes found' (English) → block
+make_transcript "$TMPDIR_PG/t.jsonl" "I reviewed all files. No changes found." ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('decision')=='block' else 1)" 2>/dev/null; then
+    pass "6.11 'no changes found' (English) → block"
+else
+    fail "6.11 'no changes found' → block" "decision:block" "$OUTPUT"
+fi
+
+# Test 6.12: 빈 transcript → graceful pass
+echo "" > "$TMPDIR_PG/empty.jsonl"
+OUTPUT=$(run_process_guard "$TMPDIR_PG/empty.jsonl")
+if [ -z "$OUTPUT" ]; then
+    pass "6.12 Empty transcript → graceful pass"
+else
+    fail "6.12 Empty transcript" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.13: Malformed JSON stdin → graceful exit (no crash)
+OUTPUT=$(echo "NOT JSON" | node "$PROJECT_ROOT/.claude/hooks/process-guard.js" 2>/dev/null || true)
+if [ -z "$OUTPUT" ]; then
+    pass "6.13 Malformed JSON stdin → graceful exit"
+else
+    fail "6.13 Malformed JSON → graceful exit" "(empty)" "$OUTPUT"
+fi
+
+# Test 6.14: block reason contains actionable Korean message
+make_transcript "$TMPDIR_PG/t.jsonl" "수정 없음" ""
+OUTPUT=$(run_process_guard "$TMPDIR_PG/t.jsonl")
+if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if '파일' in d.get('reason','') else 1)" 2>/dev/null; then
+    pass "6.14 Block reason contains actionable message ('파일')"
+else
+    fail "6.14 Block reason message" "Korean reason with '파일'" "$OUTPUT"
+fi
+
+rm -rf "$TMPDIR_PG"
 
 # ─── Summary ──────────────────────────────────────────────
 

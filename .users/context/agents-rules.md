@@ -441,14 +441,15 @@ Text rules get forgotten; mechanical enforcement doesn't.
 |------|---------|---------|
 | `sync-entry-points.js` | Edit\|Write on entry points | Auto-sync CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md |
 | `cascade-check.js` | Edit\|Write on context files | Remind triple-mirror updates |
-| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify phase |
+| `commit-guard.js` | Bash with `git commit` | Warn if committing before sync_verify; checks gate_approvals + phase order |
+| `process-guard.js` | Stop (response end) | Block review-completion claims without actual Read/Grep/Glob calls |
 
 **Progress Files** (`.agents/progress/*.json`):
 - Session handoff JSON — survives context compaction and session boundaries
 - Gitignored (session-local only, not committed)
-- Schema: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers
+- Schema: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers, review_evidence
 
-**Tests**: `bash .agents/tests/harness/run-all.sh` (28 tests)
+**Tests**: `bash .agents/tests/harness/run-all.sh` (72 tests)
 
 Detail: `.agents/context/harness.yaml`
 

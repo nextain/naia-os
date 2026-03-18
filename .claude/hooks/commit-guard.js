@@ -112,6 +112,23 @@ async function main() {
 		);
 	}
 
+	// Gate approval check — only when phase is already past min (no duplicate phase warning)
+	if (currentIndex >= minIndex) {
+		const REQUIRED_GATES = ["understand", "scope", "plan", "sync"];
+		const gateApprovals = progress.gate_approvals;
+		if (gateApprovals && typeof gateApprovals === "object") {
+			const missing = REQUIRED_GATES.filter((g) => !gateApprovals[g]);
+			if (missing.length > 0) {
+				warnings.push(
+					`⚠ Gate approval(s) missing: ${missing.join(", ")}. ` +
+						`Each gate requires explicit user confirmation before proceeding. ` +
+						`Issue: ${progress.issue || "unknown"}. ` +
+						`Did you get user approval at each gate (understand, scope, plan, sync)?`,
+				);
+			}
+		}
+	}
+
 	// T2: Decision shadow advisory — remind to add Lore trailers
 	const rejectedAlts = progress.rejected_alternatives;
 	if (Array.isArray(rejectedAlts) && rejectedAlts.length > 0) {
