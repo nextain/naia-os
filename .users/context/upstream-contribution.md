@@ -6,7 +6,7 @@
 
 How to fork, research, inject context, and contribute back to upstream OSS projects. Applies whenever working in a fork of an external project.
 
-**Case history**: whisper-rs (#63), vLLM (#73) — both failed due to skipping landscape research.
+**Case history**: whisper-rs (#63), vLLM (#73), vllm-omni (#85) — all failed or had rework due to skipping landscape research steps.
 
 ---
 
@@ -37,8 +37,11 @@ How to fork, research, inject context, and contribute back to upstream OSS proje
 | Coding conventions | What patterns does the code actually use? | Read source files directly | `coding-conventions.yaml` |
 | Contribution requirements | What does CONTRIBUTING.md actually require? | CONTRIBUTING.md, CI config, PR templates | `contributing-guide.yaml` |
 | Community tone | How does this community communicate? | Issue/PR discussion threads | `contributing-guide.yaml` |
+| Sub-component lineage *(ML/audio)* | Do sub-components share a codec/model lineage with the main model? | Model architecture, tokenizer docs | `feature-design.yaml` |
 
 > **If AI policy is Type A — stop immediately. Do not implement, do not open issue.**
+
+> **Sub-component lineage rule**: Same-lineage components are NOT independent additions — they decode each other's output. Trace codec/model lineage before making VRAM or performance claims. (e.g. MiniCPM-o s3tokenizer is CosyVoice-family → CosyVoice2+HiFi-GAN is a compatible decoder, not a heavy new dependency.)
 
 > **vLLM #73 lesson**: Audio output was explicitly scoped out of vllm main (RFC #16052). vllm-omni was the correct target. Discovered only after full implementation.
 
@@ -96,6 +99,33 @@ How to fork, research, inject context, and contribute back to upstream OSS proje
 
 ---
 
+## First Contact with Existing Contributor
+
+**Principle**: Brief, honest, specific — one concrete offer + at most two questions.
+
+### Before Posting
+
+- Show Korean draft to Luke first — never post directly
+- Check: is each claim based on what WE ran, or what AI analyzed? State which.
+- Check: are results from the same code path as theirs? If not, say so explicitly.
+
+### Content Rules
+
+- State what you want to contribute in one sentence
+- Disclose AI usage upfront when relevant (non-native language context is a valid reason)
+- Distinguish clearly: AI-analyzed / personally tested / speculative
+- If sharing results from a different code path, prefix with "we used X, which differs from your Y"
+- Limit questions to 1–2 — do not interrogate
+
+### Anti-Patterns
+
+- Attributing AI analysis as personal work ("we found", "we analyzed")
+- Sharing results from path A to someone implementing path B without noting the difference
+- Formal/structured writing tone — write human-to-human
+- Asking why they made a design choice without explaining why you're asking
+
+---
+
 ## Implementation Principles
 
 - Every line must be human-defensible — if you cannot explain it, do not write it
@@ -126,3 +156,5 @@ How to fork, research, inject context, and contribute back to upstream OSS proje
 | No upstream issue before coding | vLLM #73 | Implementation misaligned with maintainer's plans | Open upstream issue, wait for signal |
 | Assume naia-os harness = upstream quality | vLLM #73 | naia-os harness passing ≠ upstream will accept | Upstream CI + CONTRIBUTING.md is the quality bar |
 | Ignore AI policy | whisper-rs #63 | Violated project's AI-generated code policy | Check AI policy (Type A/B/C) before any work |
+| Sub-component assumption without lineage check | vllm-omni #85 | Wrongly claimed CosyVoice2+HiFi-GAN was heavy; it is a compatible decoder for s3tokenizer (same codec family) | Trace codec/model lineage before making VRAM or weight claims |
+| First-contact comment without draft review | vllm-omni #85 | Comment revised 7+ times due to wrong technical claims, attribution errors, wrong tone | Show Korean draft to Luke first; verify who did what and which code path results came from |
