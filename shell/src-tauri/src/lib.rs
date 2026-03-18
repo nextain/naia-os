@@ -1407,6 +1407,59 @@ async fn validate_api_key(provider: String, api_key: String) -> Result<bool, Str
     }
 }
 
+/// List PipeWire output sinks via `wpctl status`.
+/// Fallback for WebKitGTK which does not enumerate audiooutput devices via enumerateDevices().
+/// Returns [{id, label}] where id is the PipeWire node ID (integer as string).
+/// pactl is avoided — it segfaults on this system.
+#[tauri::command]
+async fn list_audio_output_devices() -> Result<Vec<serde_json::Value>, String> {
+    let output = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("/usr/bin/wpctl")
+            .args(["status"])
+            .output()
+    })
+    .await
+    .map_err(|e| format!("task error: {e}"))?
+    .map_err(|e| format!("wpctl error: {e}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+
+    // Parse lines like: │      74. Name [vol: 1.00]
+    //                or: │  *  121. Name [vol: 0.93]  (active sink, marked with *)
+    // Only collect sinks from the Audio › Sinks section (stop at Sources/Filters/Video).
+    let mut in_sinks = false;
+    let mut devices: Vec<serde_json::Value> = Vec::new();
+    for line in text.lines() {
+        let stripped = line
+            .trim_start_matches(|c: char| c == '│' || c == ' ' || c == '*' || c == '├' || c == '└' || c == '─');
+        if stripped.starts_with("Sinks:") {
+            in_sinks = true;
+            continue;
+        }
+        if in_sinks && (stripped.starts_with("Sources:") || stripped.starts_with("Filters:") || stripped.starts_with("Video")) {
+            break;
+        }
+        if !in_sinks {
+            continue;
+        }
+        // Match "74. Some Name [vol: ...]"
+        if let Some(dot_pos) = stripped.find(". ") {
+            let id_str = &stripped[..dot_pos];
+            if id_str.chars().all(|c| c.is_ascii_digit()) {
+                let rest = &stripped[dot_pos + 2..];
+                let label = if let Some(bracket) = rest.rfind(" [vol:") {
+                    rest[..bracket].trim().to_string()
+                } else {
+                    rest.trim().to_string()
+                };
+                if !label.is_empty() {
+                    devices.push(serde_json::json!({ "id": id_str, "label": label }));
+                }
+            }
+        }
+    }
+    Ok(devices)
+}
+
 /// Check if OpenClaw Gateway is reachable on localhost
 #[tauri::command]
 async fn gateway_health() -> Result<bool, String> {
@@ -2172,6 +2225,7 @@ pub fn run() {
             memory_delete_fact,
             read_openclaw_memory_files,
             validate_api_key,
+            list_audio_output_devices,
             generate_oauth_state,
             read_local_binary,
             read_discord_bot_token,

@@ -951,6 +951,7 @@ body.resizing-row {
 	border-radius: 6px;
 	color: var(--cream);
 	font-size: 13px;
+	font-family: inherit;
 	cursor: pointer;
 	display: flex;
 	justify-content: space-between;
@@ -981,6 +982,7 @@ body.resizing-row {
 .device-select-option {
 	padding: 8px 10px;
 	font-size: 13px;
+	font-family: inherit;
 	color: var(--cream);
 	cursor: pointer;
 }
