@@ -1,6 +1,6 @@
 ---
 name: manage-skills
-description: 세션 변경사항을 분석하여 검증 스킬 누락을 탐지합니다. 기존 스킬을 동적으로 탐색하고, 새 스킬을 생성하거나 기존 스킬을 업데이트한 뒤 CLAUDE.md를 관리합니다.
+description: 세션 변경사항을 분석하여 검증 스킬 누락을 탐지합니다. 기존 스킬을 동적으로 탐색하고, 새 스킬을 생성하거나 기존 스킬을 업데이트한 뒤 AGENTS.md를 관리합니다.
 disable-model-invocation: true
 argument-hint: "[선택사항: 특정 스킬 이름 또는 집중할 영역]"
 ---
@@ -256,7 +256,7 @@ description: <한 줄 설명>. <트리거 조건> 후 사용.
    - 첫 번째 스킬 추가 시 "(아직 등록된 검증 스킬이 없습니다)" 텍스트와 HTML 주석을 제거하고 테이블로 교체합니다
    - 형식: `| <번호> | verify-<name> | <설명> |`
 
-   **4c. `CLAUDE.md` 업데이트:**
+   **4c. `AGENTS.md` 업데이트:**
    - `## Skills` 테이블에 새 스킬 행을 추가합니다
    - 형식: `| verify-<name> | <한 줄 설명> | 자동 |`
 
@@ -294,7 +294,7 @@ ls <file-path> 2>/dev/null || echo "MISSING: <file-path>"
 ### 업데이트된 연관 파일:
 - `manage-skills/SKILL.md`: 등록된 검증 스킬 테이블 업데이트
 - `verify-implementation/SKILL.md`: 실행 대상 스킬 테이블 업데이트
-- `CLAUDE.md`: Skills 테이블 업데이트
+- `AGENTS.md`: Skills 테이블 업데이트
 
 ### 영향없는 스킬: Z개
 - (관련 변경사항 없음)
@@ -323,7 +323,7 @@ ls <file-path> 2>/dev/null || echo "MISSING: <file-path>"
 |------|---------|
 | `.agents/skills/verify-implementation/SKILL.md` | 통합 검증 스킬 (이 스킬이 실행 대상 목록을 관리) |
 | `.agents/skills/manage-skills/SKILL.md` | 이 파일 자체 (등록된 검증 스킬 목록을 관리) |
-| `CLAUDE.md` | 프로젝트 지침 (이 스킬이 Skills 섹션을 관리) |
+| `AGENTS.md` | 프로젝트 지침 (이 스킬이 Skills 섹션을 관리) |
 
 ## 예외사항
 
@@ -334,6 +334,6 @@ ls <file-path> 2>/dev/null || echo "MISSING: <file-path>"
 3. **문서 파일** — `README.md`, `CHANGELOG.md`, `LICENSE` 등은 검증이 필요한 코드 패턴이 아님
 4. **테스트 픽스처 파일** — 테스트 픽스처로 사용되는 디렉토리의 파일(예: `fixtures/`, `__fixtures__/`, `test-data/`)은 프로덕션 코드가 아님
 5. **영향받지 않은 스킬** — UNAFFECTED로 표시된 스킬은 검토 불필요; 대부분의 세션에서 대부분의 스킬이 이에 해당
-6. **CLAUDE.md 자체** — CLAUDE.md의 변경은 문서 업데이트이며, 검증이 필요한 코드 패턴이 아님
+6. **AGENTS.md 자체** — AGENTS.md의 변경은 문서 업데이트이며, 검증이 필요한 코드 패턴이 아님
 7. **벤더/서드파티 코드** — `vendor/`, `node_modules/` 또는 복사된 라이브러리 디렉토리의 파일은 외부 규칙을 따름
 8. **CI/CD 설정** — `.github/`, `.gitlab-ci.yml`, `Dockerfile` 등은 인프라이며, 검증 스킬이 필요한 애플리케이션 패턴이 아님
