@@ -4,7 +4,7 @@ Naia OS is extensible through **panels** — UI components that live in the righ
 
 ## What is a Panel?
 
-A panel is a React component bundle installed under `~/.naia/apps/{id}/`. When installed, it:
+A panel is a React component bundle installed under `~/.naia/panels/{id}/`. When installed, it:
 
 1. Appears as a tab in the **ModeBar** (right side of the shell)
 2. Renders a center UI component when activated
@@ -21,6 +21,7 @@ Every panel directory must contain a `panel.json`:
   "names": { "ko": "내 패널", "en": "My Panel" },
   "description": "What this panel does",
   "icon": "🔧",
+  "iconUrl": "icon.svg",
   "version": "1.0.0",
   "entrypoint": "index.js"
 }
@@ -31,10 +32,13 @@ Every panel directory must contain a `panel.json`:
 | `id` | ✅ | Unique kebab-case identifier (`my-panel`) |
 | `name` | ✅ | Display name (fallback if `names` not set) |
 | `names` | — | i18n names: `{ ko: "...", en: "..." }` |
-| `description` | — | Short description shown in the future app store |
+| `description` | — | Short description shown in the future panstore |
 | `icon` | — | Emoji or single character shown in the ModeBar tab |
+| `iconUrl` | — | Relative path to an SVG file (e.g. `"icon.svg"`) — displayed in the ModeBar tab instead of `icon` |
 | `version` | — | Semantic version string |
 | `entrypoint` | — | JS entry point (for future dynamic loading) |
+
+> **Icon priority**: `iconUrl` (SVG) takes precedence over `icon` (emoji) if both are set.
 
 ## Installing a Panel
 
@@ -213,6 +217,7 @@ See `shell/src/panels/sample-note/` for a complete working example:
 └── panels/
     └── my-panel/
         ├── panel.json
+        ├── icon.svg      # optional — referenced by iconUrl
         └── ...
 ```
 
