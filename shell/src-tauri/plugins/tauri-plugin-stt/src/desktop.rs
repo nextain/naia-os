@@ -256,6 +256,24 @@ impl<R: Runtime> Stt<R> {
             )));
         }
 
+        // Guard: check available RAM before loading.
+        // Whisper needs ~2x model file size in RAM. OOM crashes the entire app.
+        if let Ok(meta) = std::fs::metadata(&model_path) {
+            let model_size_mb = (meta.len() / 1024 / 1024) as u32;
+            let needed_mb = model_size_mb * 2 + 500; // model + inference buffers
+            let mut sys = sysinfo::System::new();
+            sys.refresh_memory();
+            let available_mb = (sys.available_memory() / 1024 / 1024) as u32;
+            if available_mb < needed_mb {
+                return Err(crate::Error::NotAvailable(format!(
+                    "Not enough RAM for {} (need ~{}MB, available {}MB). Try a smaller model or close other apps.",
+                    model_id, needed_mb, available_mb
+                )));
+            }
+            info!("[STT] RAM check OK: model {}MB, need ~{}MB, available {}MB",
+                model_size_mb, needed_mb, available_mb);
+        }
+
         info!("[STT] Loading Whisper model: {:?}", model_path);
         let path_str = model_path.to_str().unwrap();
 
