@@ -128,6 +128,8 @@ export interface MemoryContext {
 	facts?: Fact[];
 	discordDefaultUserId?: string;
 	discordDmChannelId?: string;
+	/** Active panel context — pushed by the current panel via NaiaContextBridge */
+	panelContext?: { type: string; data: Record<string, unknown> };
 }
 
 /** Build full system prompt from persona text + optional memory context */
@@ -204,6 +206,12 @@ export function buildSystemPrompt(
 			if (context.discordDmChannelId) {
 				contextLines.push(`- DM Channel ID: ${context.discordDmChannelId}`);
 			}
+		}
+
+		if (context.panelContext) {
+			contextLines.push(
+				`Active panel: ${context.panelContext.type}\nPanel context: ${JSON.stringify(context.panelContext.data)}`,
+			);
 		}
 
 		if (contextLines.length > 0) {

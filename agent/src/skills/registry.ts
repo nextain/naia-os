@@ -26,6 +26,10 @@ export class SkillRegistry {
 		return this.skills.has(name);
 	}
 
+	unregister(name: string): void {
+		this.skills.delete(name);
+	}
+
 	list(): SkillDefinition[] {
 		return [...this.skills.values()];
 	}

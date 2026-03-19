@@ -64,3 +64,42 @@ lessons:
     root_cause: "No pre-work research step before forking. RFC history not checked. Sub-project existence (vllm-omni) not discovered. No upstream issue opened before coding."
     fix: "Added upstream-contribution.yaml workflow: landscape research required before any implementation (scope check, AI policy, RFC history, sub-project discovery, maintainer stance). Progress file upstream_issue_ref field added. commit-guard advisory for upstream contributions."
     reference: ".agents/context/upstream-contribution.yaml"
+
+  - id: L005
+    date: "2026-03-19"
+    issue: "#89"
+    category: workflow
+    title: "Context compaction skips mandatory reads — rules not followed in resumed session"
+    problem: "When context was compacted and session resumed from summary, AI jumped directly into implementation without performing mandatory reads (agents-rules.json, ai-work-index.yaml, project-index.yaml). Result: build-time logging skipped, iterative review not done, success_bias_reporting triggered, user felt AI was developing autonomously without oversight."
+    root_cause: "CLAUDE.md mandatory reads require 'every session start'. But compacted resumption is treated as a continuation, not a new session — the mandate was never triggered. Summary did not contain a reminder to re-read rules."
+    fix: "After context compaction, the resumed session MUST treat itself as a new session start: read agents-rules.json before proceeding with any implementation. Progress file (.agents/progress/*.json) must be maintained so resumed sessions know which phase/gate they are in."
+
+  - id: L006
+    date: "2026-03-20"
+    issue: "#89"
+    category: ipc
+    scope: "shell/src/components/PanelInstallDialog.tsx, agent/src/index.ts"
+    title: "panel_install_result must arrive before panel_control reload — timing is critical"
+    problem: "PanelInstallDialog auto-close logic depends on successRef being set by panel_install_result. If panel_control reload arrives first, successRef is still false → dialog never closes even on success."
+    root_cause: "actionInstall internally emits panel_control reload at the end. The agent wrapper did not suppress this and emitted its own reload after the result — but order was not guaranteed."
+    fix: "Agent panel_install handler passes writeLine: () => undefined to actionInstall (suppresses inner panel_control). After awaiting result, it explicitly emits panel_install_result FIRST, then panel_control reload (only if success). Order is now deterministic."
+
+  - id: L007
+    date: "2026-03-20"
+    issue: "#89"
+    category: ipc
+    scope: "shell/src/components/PanelInstallDialog.tsx, shell/src/lib/chat-service.ts"
+    title: "Events without requestId cannot use chat-service requestId filter — must use direct listen()"
+    problem: "panel_install_result has no requestId field. chat-service.ts filter drops any chunk where chunk.requestId !== requestId, so panel_install_result was silently discarded."
+    root_cause: "requestId filter was written for chat responses (all of which carry requestId). New event types that originate outside the normal chat flow do not carry requestId."
+    fix: "PanelInstallDialog uses Tauri listen('agent-response-chunk') directly, bypassing chat-service. TypeScript type check also required guard: !('requestId' in chunk) || chunk.requestId !== requestId."
+
+  - id: L008
+    date: "2026-03-20"
+    issue: "#89"
+    category: naming
+    scope: "agent/src/skills/built-in/panel.ts, shell/src-tauri/src/panel.rs, docs/"
+    title: "Terminology drift (app vs panel) causes widespread confusion — pick one and enforce"
+    problem: "Mid-implementation, 'app' terminology was partially adopted (app.json, ~/.naia/apps/, 'app_list_installed'). Mixed with existing 'panel' terms, creating broken file references and confusing documentation."
+    root_cause: "Naming decision was made informally and not propagated atomically across all files. Each file was updated independently without a checklist."
+    fix: "Reverted all 'app' terms back to 'panel'. Enforced: panel.json, ~/.naia/panels/, panel_list_installed, panel_remove_installed, PanelDescriptor. Added critical_gotchas.terminology note in architecture.yaml."

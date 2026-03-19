@@ -3,9 +3,9 @@ import { BrowserCenterPanel } from "./BrowserCenterPanel";
 
 panelRegistry.register({
 	id: "browser",
-	name: "Browser",
+	name: "Chrome",
+	names: { ko: "크롬", en: "Chrome" },
 	icon: "🌐",
+	builtIn: true,
 	center: BrowserCenterPanel,
-	onActivate: () => {},
-	onDeactivate: () => {},
 });

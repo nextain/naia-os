@@ -17,7 +17,6 @@ import {
 	DEFAULT_OLLAMA_HOST,
 	DEFAULT_VLLM_HOST,
 	LAB_GATEWAY_URL,
-	type PanelPosition,
 	type SttProviderId,
 	type ThemeId,
 	type TtsProviderId,
@@ -587,6 +586,7 @@ const BG_SAMPLES: { path: string; label: string }[] = [
 ];
 
 const THEMES: { id: ThemeId; label: string; preview: string }[] = [
+	{ id: "system", label: "System", preview: "linear-gradient(to right, #ffffff 50%, #1a1a2e 50%)" },
 	{ id: "espresso", label: "Light", preview: "#ffffff" },
 	{ id: "midnight", label: "Dark", preview: "#1a1a2e" },
 	{ id: "ocean", label: "Ocean", preview: "#1b2838" },
@@ -720,9 +720,6 @@ export function SettingsTab() {
 		existing?.locale ?? getLocale(),
 	);
 	const [theme, setTheme] = useState<ThemeId>(existing?.theme ?? "espresso");
-	const [panelPos, setPanelPos] = useState<PanelPosition>(
-		existing?.panelPosition ?? "bottom",
-	);
 	const [vrmModel, setVrmModel] = useState(savedVrmModel);
 	const [customVrms, setCustomVrms] = useState<string[]>(
 		(existing?.customVrms ?? []).map(normalizeLocalPath),
@@ -1518,17 +1515,13 @@ export function SettingsTab() {
 
 	function handleThemeChange(id: ThemeId) {
 		setTheme(id);
-		document.documentElement.setAttribute("data-theme", id);
-	}
-
-	function handlePanelPositionChange(pos: PanelPosition) {
-		setPanelPos(pos);
-		const config = loadConfig();
-		if (config) saveConfig({ ...config, panelPosition: pos });
-		// Dispatch custom event so App.tsx can react
-		window.dispatchEvent(
-			new CustomEvent("naia:panel-position", { detail: pos }),
-		);
+		const resolved =
+			id === "system"
+				? window.matchMedia("(prefers-color-scheme: dark)").matches
+					? "midnight"
+					: "espresso"
+				: id;
+		document.documentElement.setAttribute("data-theme", resolved);
 	}
 
 	async function handlePickVrmFile() {
@@ -2067,27 +2060,6 @@ export function SettingsTab() {
 				</div>
 			</div>
 
-			<div className="settings-field">
-				<label>{t("settings.panelPosition")}</label>
-				<div className="panel-position-picker">
-					{(
-						[
-							{ id: "left", label: t("settings.panelLeft") },
-							{ id: "right", label: t("settings.panelRight") },
-							{ id: "bottom", label: t("settings.panelBottom") },
-						] as const
-					).map((opt) => (
-						<button
-							key={opt.id}
-							type="button"
-							className={`panel-position-btn ${panelPos === opt.id ? "active" : ""}`}
-							onClick={() => handlePanelPositionChange(opt.id)}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
-			</div>
 
 			<div className="settings-section-divider">
 				<span>{t("settings.avatarSection")}</span>

@@ -13,6 +13,7 @@ const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
 
 export type ThemeId =
+	| "system"
 	| "espresso"
 	| "midnight"
 	| "ocean"
@@ -133,6 +134,8 @@ export interface AppConfig {
 	openaiRealtimeVoice?: string;
 	/** Unified voice selection (replaces liveVoice/openaiRealtimeVoice after migration) */
 	voice?: string;
+	/** Panel IDs that the user has explicitly deleted (build-time panels only). */
+	deletedPanels?: string[];
 }
 
 // ── Sync API (localStorage only, backwards compatible) ──
