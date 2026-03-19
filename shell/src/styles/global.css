@@ -146,6 +146,21 @@ body,
 	color: var(--cream);
 }
 
+/* Window edge resize handles — decorations:false requires explicit resize zones */
+.wr-n, .wr-s, .wr-e, .wr-w,
+.wr-nw, .wr-ne, .wr-sw, .wr-se {
+	position: fixed;
+	z-index: 9999;
+}
+.wr-n  { top: 0; left: 6px; right: 6px; height: 4px; cursor: n-resize; }
+.wr-s  { bottom: 0; left: 6px; right: 6px; height: 4px; cursor: s-resize; }
+.wr-e  { top: 6px; bottom: 6px; right: 0; width: 4px; cursor: e-resize; }
+.wr-w  { top: 6px; bottom: 6px; left: 0; width: 4px; cursor: w-resize; }
+.wr-nw { top: 0; left: 0; width: 6px; height: 6px; cursor: nw-resize; }
+.wr-ne { top: 0; right: 0; width: 6px; height: 6px; cursor: ne-resize; }
+.wr-sw { bottom: 0; left: 0; width: 6px; height: 6px; cursor: sw-resize; }
+.wr-se { bottom: 0; right: 0; width: 6px; height: 6px; cursor: se-resize; }
+
 /* Titlebar */
 .app-root {
 	display: flex;

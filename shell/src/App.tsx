@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarCanvas } from "./components/AvatarCanvas";
 import { ChatPanel } from "./components/ChatPanel";
@@ -213,9 +214,29 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
+	type WinResizeDir = "North" | "South" | "East" | "West" | "NorthEast" | "NorthWest" | "SouthEast" | "SouthWest";
+	const handleWinResize = (dir: WinResizeDir) => (e: React.PointerEvent) => {
+		e.preventDefault();
+		getCurrentWindow().startResizeDragging(dir);
+	};
+
+	const winResizeHandles = (
+		<>
+			<div className="wr-nw" onPointerDown={handleWinResize("NorthWest")} />
+			<div className="wr-n" onPointerDown={handleWinResize("North")} />
+			<div className="wr-ne" onPointerDown={handleWinResize("NorthEast")} />
+			<div className="wr-w" onPointerDown={handleWinResize("West")} />
+			<div className="wr-e" onPointerDown={handleWinResize("East")} />
+			<div className="wr-sw" onPointerDown={handleWinResize("SouthWest")} />
+			<div className="wr-s" onPointerDown={handleWinResize("South")} />
+			<div className="wr-se" onPointerDown={handleWinResize("SouthEast")} />
+		</>
+	);
+
 	if (showOnboarding) {
 		return (
 			<div className="app-root">
+				{winResizeHandles}
 				<TitleBar panelVisible={naiaVisible} onTogglePanel={toggleNaia} />
 				<OnboardingWizard onComplete={() => setShowOnboarding(false)} />
 			</div>
@@ -224,6 +245,7 @@ export function App() {
 
 	return (
 		<div className="app-root">
+			{winResizeHandles}
 			<TitleBar panelVisible={naiaVisible} onTogglePanel={toggleNaia} />
 			{updateInfo && (
 				<UpdateBanner info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
