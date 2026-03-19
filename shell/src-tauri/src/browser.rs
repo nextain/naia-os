@@ -46,14 +46,23 @@ impl ChromeState {
 ///    exiting when the last tab is closed).
 fn spawn_chrome_monitor(app: AppHandle, pid: u32, port: u16) {
     std::thread::spawn(move || {
+        let version_url = format!("http://127.0.0.1:{port}/json/version");
         let list_url = format!("http://127.0.0.1:{port}/json/list");
         let new_tab_url = format!("http://127.0.0.1:{port}/json/new");
         loop {
             std::thread::sleep(std::time::Duration::from_millis(500));
 
-            // Check if process is still alive (kill -0 equivalent)
-            let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
-            if !alive {
+            // Primary: kill -0 detects truly dead PIDs (ESRCH).
+            // BUT kill -0 returns 0 for zombie processes (PID still in table).
+            // Secondary: CDP health check catches zombies — a zombie Chrome
+            // no longer serves HTTP even though its PID is still present.
+            let pid_exists = unsafe { libc::kill(pid as i32, 0) == 0 };
+            let cdp_alive = pid_exists && ureq::get(&version_url)
+                .call()
+                .map(|r| r.status() == 200)
+                .unwrap_or(false);
+
+            if !pid_exists || !cdp_alive {
                 // Clear state
                 if let Ok(mut state) = CHROME.lock() {
                     if state.pid == pid {
