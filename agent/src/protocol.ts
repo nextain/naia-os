@@ -141,7 +141,8 @@ export function parseRequest(line: string): AgentRequest | null {
 			obj.type === "tts_request" ||
 			obj.type === "panel_skills" ||
 			obj.type === "panel_skills_clear" ||
-			obj.type === "panel_tool_result"
+			obj.type === "panel_tool_result" ||
+			obj.type === "panel_install"
 		) {
 			return obj as AgentRequest;
 		}
