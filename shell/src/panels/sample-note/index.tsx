@@ -6,7 +6,7 @@ panelRegistry.register({
 	name: "Sample Note",
 	names: { ko: "샘플 메모", en: "Sample Note" },
 	icon: "📝",
-	// No builtIn: true — this is an installable panel (deletable)
+	builtIn: true,
 	center: SampleNoteCenterPanel,
 	tools: [
 		{
