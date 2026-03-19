@@ -2246,6 +2246,7 @@ pub fn run() {
             browser::browser_embed_forward,
             browser::browser_embed_reload,
             browser::browser_embed_close,
+            browser::browser_embed_focus,
             browser::browser_embed_port,
         ])
         .setup(|app| {

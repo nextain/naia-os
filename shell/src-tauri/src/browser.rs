@@ -15,6 +15,7 @@
 
 use std::process::{Child, Command};
 use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
 
 // ─── Global state ─────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ struct ChromeState {
     port: u16,
     chrome_xid: u32,
     tmpdir: String,
+    pid: u32,
 }
 
 impl ChromeState {
@@ -32,8 +34,50 @@ impl ChromeState {
             port: 0,
             chrome_xid: 0,
             tmpdir: String::new(),
+            pid: 0,
         }
     }
+}
+
+/// Spawn a background thread that:
+/// 1. Watches Chrome's PID → emits `browser_closed` if it exits unexpectedly.
+/// 2. Guards tabs via CDP REST → opens a new tab if all tabs are closed
+///    (works together with `--keep-alive-for-test` which prevents Chrome from
+///    exiting when the last tab is closed).
+fn spawn_chrome_monitor(app: AppHandle, pid: u32, port: u16) {
+    std::thread::spawn(move || {
+        let list_url = format!("http://127.0.0.1:{port}/json/list");
+        let new_tab_url = format!("http://127.0.0.1:{port}/json/new");
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+
+            // Check if process is still alive (kill -0 equivalent)
+            let alive = unsafe { libc::kill(pid as i32, 0) == 0 };
+            if !alive {
+                // Clear state
+                if let Ok(mut state) = CHROME.lock() {
+                    if state.pid == pid {
+                        state.process = None;
+                        state.chrome_xid = 0;
+                        state.port = 0;
+                        state.pid = 0;
+                    }
+                }
+                let _ = app.emit("browser_closed", ());
+                break;
+            }
+
+            // Tab guard: if all page tabs are closed, open a new one
+            if let Ok(resp) = ureq::get(&list_url).call() {
+                if let Ok(body) = resp.into_string() {
+                    // Simple check: count "type":"page" entries
+                    if !body.contains("\"page\"") {
+                        let _ = ureq::get(&new_tab_url).call();
+                    }
+                }
+            }
+        }
+    });
 }
 
 static CHROME: Mutex<ChromeState> = Mutex::new(ChromeState::new());
@@ -101,7 +145,12 @@ fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
     let bin = chrome_bin().ok_or("google-chrome not found in PATH")?;
     Command::new(&bin)
         .args([
+            // X11 mode (required for XReparentWindow embedding)
             "--ozone-platform=x11",
+            // Keep process alive even when all tabs are closed
+            // (tab guard will open a new tab automatically)
+            "--keep-alive-for-test",
+            // Housekeeping
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-sync",
@@ -112,7 +161,6 @@ fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
             "--disable-gpu-sandbox",
             &format!("--remote-debugging-port={port}"),
             &format!("--user-data-dir={tmpdir}"),
-            "about:blank",
         ])
         .env("DISPLAY", ":0")
         .env("GDK_BACKEND", "x11")
@@ -193,6 +241,10 @@ fn x11_embed(parent_xid: u32, child_xid: u32, x: i16, y: i16, w: u32, h: u32) ->
     let (conn, _) = RustConnection::connect(Some(":0"))
         .map_err(|e| format!("X11 connect failed: {e}"))?;
 
+    // Set parent window background to white so no black flicker shows through
+    let bg_attrs = ChangeWindowAttributesAux::new().background_pixel(0x00ffffff);
+    conn.change_window_attributes(parent_xid, &bg_attrs).ok();
+
     // Unmap first to avoid flicker during reparent
     conn.unmap_window(child_xid)
         .map_err(|e| format!("unmap failed: {e}"))?;
@@ -215,14 +267,13 @@ fn x11_embed(parent_xid: u32, child_xid: u32, x: i16, y: i16, w: u32, h: u32) ->
     )
     .map_err(|e| format!("XConfigureWindow failed: {e}"))?;
 
-    // Remove window decorations (override_redirect prevents WM from managing it)
-    let attrs = ChangeWindowAttributesAux::new().override_redirect(1u32);
-    conn.change_window_attributes(child_xid, &attrs)
-        .map_err(|e| format!("change_window_attributes failed: {e}"))?;
-
     // Map (show) the window inside parent
     conn.map_window(child_xid)
         .map_err(|e| format!("XMapWindow failed: {e}"))?;
+
+    // Give keyboard focus to Chrome immediately after embedding
+    conn.set_input_focus(InputFocus::PARENT, child_xid, x11rb::CURRENT_TIME)
+        .map_err(|e| format!("XSetInputFocus failed: {e}"))?;
 
     conn.flush()
         .map_err(|e| format!("X11 flush failed: {e}"))?;
@@ -280,8 +331,18 @@ pub fn browser_agent_check() -> bool {
 /// It runs on Tauri's blocking thread pool (not the async executor) so it can
 /// sleep while waiting for Chrome to start without blocking other async commands.
 #[tauri::command]
-pub fn browser_embed_init(x: f64, y: f64, width: f64, height: f64) -> Result<u16, String> {
+pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<u16, String> {
     let state = CHROME.lock().unwrap();
+
+    // Kill any lingering Chrome processes from previous sessions.
+    // --keep-alive-for-test keeps Chrome alive even after app exit,
+    // so we must clean up before spawning a new instance.
+    if state.process.is_none() {
+        let _ = Command::new("pkill")
+            .args(["-f", "naia-chrome"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+    }
 
     // If already running, just resize and return existing port
     if state.process.is_some() && state.chrome_xid != 0 {
@@ -304,11 +365,20 @@ pub fn browser_embed_init(x: f64, y: f64, width: f64, height: f64) -> Result<u16
     let child = spawn_chrome(port, &tmpdir)?;
     let pid = child.id();
 
-    // Drop lock while waiting (don't block other commands)
-    drop(state);
+    // Store process immediately so it's tracked even if later steps fail.
+    // This prevents a second spawn if the user retries after an error.
+    {
+        let mut s = state; // re-use the held lock
+        s.process = Some(child);
+        s.port = port;
+        s.tmpdir = tmpdir.clone();
+        s.pid = pid;
+    }
 
-    // Wait for CDP (blocking wait, needs spawn_blocking in real app)
-    wait_for_cdp(port)?;
+    // Wait for CDP (blocking wait)
+    if let Err(e) = wait_for_cdp(port) {
+        return Err(e);
+    }
 
     // Find Chrome's X11 window
     let chrome_xid = find_chrome_xid(pid)?;
@@ -319,12 +389,13 @@ pub fn browser_embed_init(x: f64, y: f64, width: f64, height: f64) -> Result<u16
     // Embed Chrome into Tauri
     x11_embed(tauri_xid, chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
 
-    // Store state
+    // Record the XID now that embedding succeeded
     let mut state = CHROME.lock().unwrap();
-    state.process = Some(child);
-    state.port = port;
     state.chrome_xid = chrome_xid;
-    state.tmpdir = tmpdir;
+    drop(state);
+
+    // Monitor Chrome process + tab guard
+    spawn_chrome_monitor(app, pid, port);
 
     Ok(port)
 }
@@ -339,6 +410,33 @@ pub fn browser_embed_resize(x: f64, y: f64, width: f64, height: f64) -> Result<(
     let xid = state.chrome_xid;
     drop(state);
     x11_resize(xid, x as i16, y as i16, width as u32, height as u32)
+}
+
+/// Give keyboard focus to Chrome's X11 window.
+/// Uses xdotool windowfocus which handles XWayland focus quirks more reliably
+/// than raw XSetInputFocus.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn browser_embed_focus() -> Result<(), String> {
+    let xid = {
+        let state = CHROME.lock().unwrap();
+        state.chrome_xid
+    };
+    if xid == 0 {
+        return Ok(());
+    }
+    // xdotool windowfocus handles XWayland focus protocol correctly
+    Command::new("xdotool")
+        .args(["windowfocus", "--sync", &xid.to_string()])
+        .output()
+        .map_err(|e| format!("xdotool windowfocus failed: {e}"))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn browser_embed_focus() -> Result<(), String> {
+    Ok(())
 }
 
 /// Navigate Chrome to a URL via CDP (using agent-browser).

@@ -1,28 +1,24 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PanelCenterProps } from "../../lib/panel-registry";
 
 type EmbedStatus =
-	| "checking"   // checking chrome availability
-	| "no-chrome"  // chrome binary not found
-	| "launching"  // spawning chrome + waiting for CDP
-	| "ready"      // embedded and running
-	| "error";     // fatal error
+	| "checking" // checking chrome availability
+	| "no-chrome" // chrome binary not found
+	| "launching" // spawning chrome + waiting for CDP
+	| "ready" // embedded and running
+	| "error"; // fatal error
 
 export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 	const [status, setStatus] = useState<EmbedStatus>("checking");
 	const [error, setError] = useState("");
-	const [url, setUrl] = useState("");
-	const [inputUrl, setInputUrl] = useState("");
-	const [_title, setTitle] = useState("");
+	// viewport div is ALWAYS rendered so the ref is available when initEmbed runs
 	const viewportRef = useRef<HTMLDivElement>(null);
 
 	const refreshPageInfo = useCallback(async () => {
 		try {
 			const [u, t] = await invoke<[string, string]>("browser_embed_page_info");
-			setUrl(u);
-			setInputUrl(u);
-			setTitle(t);
 			if (u) naia.pushContext({ type: "browser", data: { url: u, title: t } });
 		} catch {
 			// ignore
@@ -33,8 +29,8 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		setStatus("launching");
 		setError("");
 		try {
-			const el = viewportRef.current;
-			if (!el) throw new Error("viewport ref not ready");
+			// viewport div is always rendered — guaranteed to be non-null here
+			const el = viewportRef.current!;
 			const rect = el.getBoundingClientRect();
 			await invoke("browser_embed_init", {
 				x: rect.left,
@@ -59,11 +55,42 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 			}
 			initEmbed();
 		});
-
 		return () => {
 			invoke("browser_embed_close").catch(() => {});
 		};
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// initEmbed is stable — only run once on mount
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Periodically restore X11 focus to Chrome while it's active.
+	// GTK/WebKit steals focus back; this counteracts it.
+	// Pauses when an HTML input element is focused (chat, etc.).
+	useEffect(() => {
+		if (status !== "ready") return;
+		const id = setInterval(() => {
+			const active = document.activeElement;
+			const isHtmlInput =
+				active instanceof HTMLInputElement ||
+				active instanceof HTMLTextAreaElement ||
+				(active instanceof HTMLElement && active.isContentEditable);
+			if (!isHtmlInput) {
+				invoke("browser_embed_focus").catch(() => {});
+			}
+		}, 1500);
+		return () => clearInterval(id);
+	}, [status]);
+
+	// Listen for Chrome process exit → show restart UI
+	useEffect(() => {
+		const unlisten = listen("browser_closed", () => {
+			setStatus("error");
+			setError(
+				"Chrome이 종료되었습니다. 다시 시작하려면 아래 버튼을 누르세요.",
+			);
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+		};
 	}, []);
 
 	// Sync Chrome bounds when viewport resizes
@@ -84,27 +111,6 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		return () => obs.disconnect();
 	}, [status]);
 
-	const navigate = useCallback(
-		async (target: string) => {
-			const normalized =
-				target.startsWith("http") || target.startsWith("about:")
-					? target
-					: `https://${target}`;
-			try {
-				await invoke("browser_embed_navigate", { url: normalized });
-				setTimeout(() => void refreshPageInfo(), 800);
-			} catch (e) {
-				setError(String(e));
-			}
-		},
-		[refreshPageInfo],
-	);
-
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (inputUrl.trim()) void navigate(inputUrl.trim());
-	};
-
 	// ── No Chrome ──────────────────────────────────────────────────────────────
 	if (status === "no-chrome") {
 		return (
@@ -122,23 +128,22 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		);
 	}
 
-	// ── Checking / Launching ───────────────────────────────────────────────────
-	if (status === "checking" || status === "launching") {
-		return (
-			<div className="browser-panel">
-				<div className="browser-panel__empty">
-					{status === "checking" ? "브라우저 확인 중…" : "Chrome 시작 중…"}
+	// ── Main layout — viewport div always present for ref access ───────────────
+	return (
+		<div className="browser-panel">
+			{/* Overlay for non-ready states */}
+			{status === "checking" && (
+				<div className="browser-panel__overlay">
+					<div className="browser-panel__empty">브라우저 확인 중…</div>
 				</div>
-			</div>
-		);
-	}
-
-	// ── Error ──────────────────────────────────────────────────────────────────
-	if (status === "error") {
-		return (
-			<div className="browser-panel browser-panel--install">
-				<div className="browser-panel__install-box">
-					<p className="browser-panel__install-title">브라우저 오류</p>
+			)}
+			{status === "launching" && (
+				<div className="browser-panel__overlay">
+					<div className="browser-panel__empty">Chrome 시작 중…</div>
+				</div>
+			)}
+			{status === "error" && (
+				<div className="browser-panel__overlay browser-panel__overlay--error">
 					<p className="browser-panel__error">{error}</p>
 					<button
 						type="button"
@@ -148,74 +153,14 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 						다시 시도
 					</button>
 				</div>
-			</div>
-		);
-	}
+			)}
 
-	// ── Ready ──────────────────────────────────────────────────────────────────
-	return (
-		<div className="browser-panel">
-			<div className="browser-panel__toolbar">
-				<button
-					type="button"
-					className="browser-panel__nav-btn"
-					onClick={() =>
-						invoke("browser_embed_back")
-							.then(() => setTimeout(() => void refreshPageInfo(), 400))
-							.catch(() => {})
-					}
-					title="뒤로"
-				>
-					←
-				</button>
-				<button
-					type="button"
-					className="browser-panel__nav-btn"
-					onClick={() =>
-						invoke("browser_embed_forward")
-							.then(() => setTimeout(() => void refreshPageInfo(), 400))
-							.catch(() => {})
-					}
-					title="앞으로"
-				>
-					→
-				</button>
-				<button
-					type="button"
-					className="browser-panel__nav-btn"
-					onClick={() =>
-						invoke("browser_embed_reload")
-							.then(() => setTimeout(() => void refreshPageInfo(), 800))
-							.catch(() => {})
-					}
-					title="새로고침"
-				>
-					↺
-				</button>
-				<form className="browser-panel__url-form" onSubmit={handleSubmit}>
-					<input
-						type="text"
-						className="browser-panel__url-input"
-						value={inputUrl}
-						onChange={(e) => setInputUrl(e.target.value)}
-						placeholder="주소를 입력하세요…"
-					/>
-				</form>
-				<button
-					type="button"
-					className="browser-panel__nav-btn"
-					onClick={() => { /* bookmark — BrowserMetaPanel wired in issue-89 merge */ }}
-					title="북마크"
-					disabled={!url}
-				>
-					☆
-				</button>
-			</div>
-
-			{/* Chrome is embedded here via XReparentWindow — this div defines the bounds */}
+			{/* Chrome is embedded here via XReparentWindow — always rendered */}
+			{/* onClick: restore X11 keyboard focus to Chrome after interacting with HTML elements */}
 			<div
 				ref={viewportRef}
 				className="browser-panel__viewport browser-panel__viewport--embedded"
+				onClick={() => invoke("browser_embed_focus").catch(() => {})}
 			/>
 		</div>
 	);
