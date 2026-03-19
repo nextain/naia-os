@@ -265,6 +265,22 @@ fn update_wsl_kernel_elevated() -> Result<(), String> {
     }
 }
 
+/// Show a native Win32 message box (independent of WebView).
+/// Used when WebView may be dead (e.g. after UAC elevation).
+fn show_native_reboot_dialog() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+    let title: Vec<u16> = "Naia\0".encode_utf16().collect();
+    let msg: Vec<u16> = "WSL has been installed. Please restart your computer to complete setup.\n\nWSL이 설치되었습니다. 설정을 완료하려면 컴퓨터를 재시작하세요.\0".encode_utf16().collect();
+    unsafe {
+        MessageBoxW(
+            std::ptr::null_mut(),
+            msg.as_ptr(),
+            title.as_ptr(),
+            MB_OK | MB_ICONINFORMATION,
+        );
+    }
+}
+
 /// Run the PowerShell UAC elevation script to enable WSL features.
 /// Returns Ok(()) on success, Err on failure.
 fn enable_wsl_features_elevated() -> Result<(), String> {
@@ -324,6 +340,7 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             // Re-check after kernel install
             std::thread::sleep(std::time::Duration::from_secs(3));
             if !super::wsl::is_wsl_available() {
+                show_native_reboot_dialog();
                 return Err("WSL2 kernel installed. Please restart your computer and reopen Naia to complete setup.".to_string());
             }
             crate::log_both("[Naia] WSL2 kernel installed successfully — continuing setup");
@@ -342,6 +359,7 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             let wsl_pending = wsl_state.as_deref() == Some("EnablePending");
 
             if vmp_pending || wsl_pending {
+                show_native_reboot_dialog();
                 return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
             }
 
@@ -349,6 +367,7 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
                 emit_setup_progress(app_handle, "wsl", "Installing WSL...");
                 crate::log_both("[Naia] WSL features need enabling");
                 enable_wsl_features_elevated()?;
+                show_native_reboot_dialog();
                 return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
             }
 
@@ -366,12 +385,14 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
                         // Kernel update wasn't enough, try enabling features
                         emit_setup_progress(app_handle, "wsl", "Installing WSL...");
                         enable_wsl_features_elevated()?;
-                        return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+                        show_native_reboot_dialog();
+                return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
                     }
                 } else {
                     emit_setup_progress(app_handle, "wsl", "Installing WSL...");
                     enable_wsl_features_elevated()?;
-                    return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
+                    show_native_reboot_dialog();
+                return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
                 }
             }
         }
@@ -439,6 +460,7 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
             let sc_ok = sc_cmd.output().map(|o| o.status.success()).unwrap_or(false);
             if !sc_ok {
                 crate::log_both("[Naia] HCS (vmcompute) service not available — reboot required");
+                show_native_reboot_dialog();
                 return Err("WSL installed successfully! Please restart your computer and reopen Naia to complete setup.".to_string());
             }
         }
