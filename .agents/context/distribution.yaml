@@ -90,6 +90,18 @@ formats:
         - "wsl --export on uninitialized distro — WSL_E_DISTRO_NOT_FOUND"
         - "Inline PowerShell -ArgumentList — mangles pipes and semicolons"
         - "Get-WindowsOptionalFeature from non-elevated Tauri — COMException"
+      wsl_setup_white_screen:
+        description: "WebView goes white during WSL feature activation (UAC elevation). Root cause unknown."
+        workaround: |
+          1. WslSetupScreen shows warning text before install (i18n: wslSetup.whiteScreenNotice)
+          2. After enable_wsl_features_elevated(), show Win32 MessageBoxW (OK/Cancel)
+          3. OK → register RunOnce auto-start + shutdown /r /t 3
+          4. Cancel or OK → std::process::exit(0) (kills white-screened app)
+          5. After reboot, app auto-starts via RunOnce registry (one-time, self-cleaning)
+        files:
+          - "shell/src-tauri/src/platform/windows.rs — show_native_reboot_dialog(), register_run_once()"
+          - "shell/src/components/WslSetupScreen.tsx — whiteScreenNotice text"
+          - "shell/src/lib/i18n.ts — wslSetup.whiteScreenNotice (14 languages)"
       gateway_spawn_flow:
         initial_startup: "spawn_gateway() → try_platform_gateway_spawn() — Skip if NaiaEnv absent"
         after_wsl_setup: "App.tsx onComplete → restartGateway() → spawn gateway in WSL"

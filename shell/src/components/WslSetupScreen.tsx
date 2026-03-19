@@ -130,14 +130,19 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 				)}
 
 				{!needsReboot && !running && (
-					<div className="wsl-setup-actions">
-						<button
-							className="wsl-setup-btn primary"
-							onClick={handleSetup}
-						>
-							{t("wslSetup.startButton")}
-						</button>
-					</div>
+					<>
+						<p className="wsl-setup-desc" style={{ fontSize: "0.8em", opacity: 0.6, marginTop: "0.5rem", whiteSpace: "pre-line", textAlign: "left" }}>
+							{t("wslSetup.whiteScreenNotice")}
+						</p>
+						<div className="wsl-setup-actions">
+							<button
+								className="wsl-setup-btn primary"
+								onClick={handleSetup}
+							>
+								{t("wslSetup.startButton")}
+							</button>
+						</div>
+					</>
 				)}
 			</div>
 		</div>

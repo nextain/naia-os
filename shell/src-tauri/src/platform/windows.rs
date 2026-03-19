@@ -265,20 +265,48 @@ fn update_wsl_kernel_elevated() -> Result<(), String> {
     }
 }
 
-/// Show a native Win32 message box (independent of WebView).
+/// Show a native Win32 dialog asking to reboot, then reboot automatically.
 /// Used when WebView may be dead (e.g. after UAC elevation).
+/// OK = register auto-start + reboot. Cancel = exit app.
 fn show_native_reboot_dialog() {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OKCANCEL, IDOK};
     let title: Vec<u16> = "Naia\0".encode_utf16().collect();
-    let msg: Vec<u16> = "WSL has been installed. Please restart your computer to complete setup.\n\nWSL이 설치되었습니다. 설정을 완료하려면 컴퓨터를 재시작하세요.\0".encode_utf16().collect();
-    unsafe {
+    let msg: Vec<u16> = "WSL has been installed. Click OK to restart now.\n\nWSL이 설치되었습니다. 확인을 누르면 재시작합니다.\0".encode_utf16().collect();
+    let result = unsafe {
         MessageBoxW(
             std::ptr::null_mut(),
             msg.as_ptr(),
             title.as_ptr(),
-            MB_OK | MB_ICONINFORMATION,
-        );
+            MB_OKCANCEL | MB_ICONINFORMATION,
+        )
+    };
+    if result == IDOK {
+        // Register one-time auto-start after reboot via RunOnce registry
+        register_run_once();
+        let mut cmd = Command::new("shutdown");
+        cmd.args(["/r", "/t", "3"]);
+        hide_console(&mut cmd);
+        let _ = cmd.spawn();
     }
+    // OK or Cancel — exit the app (it's white-screened anyway)
+    std::process::exit(0);
+}
+
+/// Register Naia to auto-start once after next reboot via HKCU\...\RunOnce.
+fn register_run_once() {
+    let naia_exe = std::env::current_exe().unwrap_or_default();
+    let exe_path = naia_exe.to_string_lossy().to_string();
+    let mut cmd = Command::new("reg");
+    cmd.args([
+        "add",
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce",
+        "/v", "NaiaSetup",
+        "/t", "REG_SZ",
+        "/d", &exe_path,
+        "/f",
+    ]);
+    hide_console(&mut cmd);
+    let _ = cmd.output();
 }
 
 /// Run the PowerShell UAC elevation script to enable WSL features.
@@ -329,6 +357,8 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
         // Distinguish between "features disabled", "kernel missing", and "pending reboot".
         let wsl_err = super::wsl::check_wsl_status().unwrap_err();
         crate::log_both(&format!("[Naia] WSL not available: {}", wsl_err));
+
+        // Frontend WslSetupScreen already shows setup warnings before this point.
 
         // Case 1: WSL2 kernel not installed (features enabled, vmcompute exists, but no kernel)
         // This happens on fresh Windows installs or after WSL feature enable without wsl --update.
