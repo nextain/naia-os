@@ -1,4 +1,5 @@
 import { type MouseEvent, useMemo } from "react";
+import { loadConfig, saveConfig } from "../lib/config";
 import { getLocale } from "../lib/i18n";
 import { Logger } from "../lib/logger";
 import { removeInstalledPanel } from "../lib/panel-loader";
@@ -41,7 +42,15 @@ export function ModeBar({ onAddMode }: ModeBarProps) {
 			// Unregisters + deletes from disk + bumps panelListVersion
 			await removeInstalledPanel(panelId);
 		} else {
+			// Build-time panel: unregister in memory + persist deletion in config
 			panelRegistry.unregister(panelId);
+			const cfg = loadConfig();
+			if (cfg) {
+				const prev = cfg.deletedPanels ?? [];
+				if (!prev.includes(panelId)) {
+					saveConfig({ ...cfg, deletedPanels: [...prev, panelId] });
+				}
+			}
 			bumpPanelListVersion();
 		}
 

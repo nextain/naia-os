@@ -83,6 +83,12 @@ export function App() {
 
 		const config = loadConfig();
 		applyTheme(config?.theme ?? "espresso");
+		// Suppress build-time panels the user has explicitly deleted
+		if (config?.deletedPanels?.length) {
+			for (const id of config.deletedPanels) {
+				panelRegistry.unregister(id);
+			}
+		}
 		if (config?.panelVisible === false) setNaiaVisible(false);
 		if (config?.panelSize) {
 			// panelSize was 15-80 (%) — convert to px for fixed naia panel

@@ -6,7 +6,6 @@ panelRegistry.register({
 	name: "Sample Note",
 	names: { ko: "샘플 메모", en: "Sample Note" },
 	icon: "📝",
-	builtIn: true,
 	center: SampleNoteCenterPanel,
 	tools: [
 		{
