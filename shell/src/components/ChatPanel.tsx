@@ -11,11 +11,13 @@ import {
 } from "tauri-plugin-stt-api";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { getDefaultVoiceForAvatar } from "../lib/avatar-presets";
+import { activeBridge } from "../lib/active-bridge";
 import {
 	cancelChat,
 	directToolCall,
 	requestTts,
 	sendChatMessage,
+	sendPanelToolResult,
 } from "../lib/chat-service";
 import {
 	LAB_GATEWAY_URL,
@@ -49,6 +51,7 @@ import { startMemorySync } from "../lib/memory-sync";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
+import { usePanelStore } from "../stores/panel";
 import {
 	createApiSttSession,
 	createWebSpeechSttSession,
@@ -254,6 +257,11 @@ async function buildMemoryContext(): Promise<MemoryContext> {
 		const facts = await getAllFacts();
 		if (facts && facts.length > 0) {
 			ctx.facts = facts;
+		}
+
+		const panelCtx = usePanelStore.getState().activePanelContext;
+		if (panelCtx) {
+			ctx.panelContext = panelCtx;
 		}
 	} catch (err) {
 		Logger.warn("ChatPanel", "Failed to build memory context", {
@@ -463,6 +471,18 @@ export function ChatPanel() {
 		}
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
+	}, []);
+
+	// Receive "Ask AI" requests from NaiaMetaPanel (Skills, Channels tabs)
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const message = (e as CustomEvent<string>).detail;
+			setInput(message);
+			setActiveTab("chat");
+			setTimeout(() => inputRef.current?.focus(), 50);
+		};
+		window.addEventListener("naia:ask-ai", handler);
+		return () => window.removeEventListener("naia:ask-ai", handler);
 	}, []);
 
 	// Discord messages are now shown in the dedicated Channels tab (ChannelsTab)
@@ -773,6 +793,38 @@ export function ChatPanel() {
 					});
 				}
 				break;
+			case "panel_tool_call": {
+				activeBridge
+					.callTool(chunk.toolName, chunk.args)
+					.then((result) =>
+						sendPanelToolResult(chunk.requestId, chunk.toolCallId, result, true),
+					)
+					.catch((err) =>
+						sendPanelToolResult(
+							chunk.requestId,
+							chunk.toolCallId,
+							String(err),
+							false,
+						),
+					);
+				break;
+			}
+			case "panel_control": {
+				const { setActivePanel } = usePanelStore.getState();
+				if (chunk.action === "switch" && chunk.panelId) {
+					setActivePanel(chunk.panelId);
+				} else if (chunk.action === "reload") {
+					// Re-scan ~/.naia/panels/ and register any newly installed panels
+					import("../lib/panel-loader").then(({ loadInstalledPanels }) => {
+						loadInstalledPanels().catch(() => {});
+					});
+				}
+				break;
+			}
+			case "panel_install_result": {
+				// Handled by PanelInstallDialog's direct listener — no-op here
+				break;
+			}
 			case "usage": {
 				store.finishStreaming();
 				setEmotion("neutral");
@@ -1701,72 +1753,48 @@ export function ChatPanel() {
 						className={`chat-tab${activeTab === "progress" ? " active" : ""}`}
 						onClick={() => handleTabChange("progress")}
 						title={t("progress.tabProgress")}
-						aria-label={t("progress.tabProgress")}
-						data-tooltip={t("progress.tabProgress")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.progress}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.progress}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "skills" ? " active" : ""}`}
 						onClick={() => handleTabChange("skills")}
 						title={t("skills.tabSkills")}
-						aria-label={t("skills.tabSkills")}
-						data-tooltip={t("skills.tabSkills")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.skills}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.skills}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "channels" ? " active" : ""}`}
 						onClick={() => handleTabChange("channels")}
 						title={t("channels.tabChannels")}
-						aria-label={t("channels.tabChannels")}
-						data-tooltip={t("channels.tabChannels")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.channels}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.channels}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "agents" ? " active" : ""}`}
 						onClick={() => handleTabChange("agents")}
 						title={t("agents.tabAgents")}
-						aria-label={t("agents.tabAgents")}
-						data-tooltip={t("agents.tabAgents")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.agents}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.agents}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "diagnostics" ? " active" : ""}`}
 						onClick={() => handleTabChange("diagnostics")}
 						title={t("diagnostics.tabDiagnostics")}
-						aria-label={t("diagnostics.tabDiagnostics")}
-						data-tooltip={t("diagnostics.tabDiagnostics")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.diagnostics}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.diagnostics}</span>
 					</button>
 					<button
 						type="button"
 						className={`chat-tab${activeTab === "settings" ? " active" : ""}`}
 						onClick={() => handleTabChange("settings")}
 						title={t("settings.title")}
-						aria-label={t("settings.title")}
-						data-tooltip={t("settings.title")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">
-							{TAB_ICONS.settings}
-						</span>
+						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.settings}</span>
 					</button>
 				</div>
 				<div className="chat-header-right">

@@ -65,12 +65,69 @@ export interface TtsRequest {
 	naiaKey?: string;
 }
 
+// ─── Panel Skill Protocol ────────────────────────────────────────────────────
+
+/**
+ * Serializable panel tool descriptor.
+ * Sent from Shell to Agent when a panel activates.
+ * Agent registers these as proxy stubs — execute is NOT included (Shell-side only).
+ */
+export interface PanelToolDescriptor {
+	/** skill_ prefix required, e.g. "skill_browse_navigate" */
+	name: string;
+	description: string;
+	parameters: Record<string, unknown>; // JSON Schema
+	tier?: number;
+}
+
+/**
+ * Shell → Agent: panel activated, register these tools as LLM-callable proxy stubs.
+ */
+export interface PanelSkillsRequest {
+	type: "panel_skills";
+	panelId: string;
+	tools: PanelToolDescriptor[];
+}
+
+/**
+ * Shell → Agent: panel deactivated, remove its proxy stubs from LLM tool list.
+ */
+export interface PanelSkillsClearRequest {
+	type: "panel_skills_clear";
+	panelId: string;
+}
+
+/**
+ * Shell → Agent: install a panel from a git URL or local zip file path.
+ * Agent runs git-clone/unzip, validates panel.json, then emits panel_control reload.
+ */
+export interface PanelInstallRequest {
+	type: "panel_install";
+	/** git URL (https:// | git@) or absolute path to a .zip file */
+	source: string;
+}
+
+/**
+ * Shell → Agent: result of a panel tool execution (response to panel_tool_call).
+ */
+export interface PanelToolResult {
+	type: "panel_tool_result";
+	requestId: string;
+	toolCallId: string;
+	result: string;
+	success: boolean;
+}
+
 export type AgentRequest =
 	| ChatRequest
 	| CancelRequest
 	| ApprovalResponse
 	| ToolRequest
-	| TtsRequest;
+	| TtsRequest
+	| PanelSkillsRequest
+	| PanelSkillsClearRequest
+	| PanelInstallRequest
+	| PanelToolResult;
 
 export function parseRequest(line: string): AgentRequest | null {
 	try {
@@ -81,7 +138,10 @@ export function parseRequest(line: string): AgentRequest | null {
 			obj.type === "cancel_stream" ||
 			obj.type === "approval_response" ||
 			obj.type === "tool_request" ||
-			obj.type === "tts_request"
+			obj.type === "tts_request" ||
+			obj.type === "panel_skills" ||
+			obj.type === "panel_skills_clear" ||
+			obj.type === "panel_tool_result"
 		) {
 			return obj as AgentRequest;
 		}

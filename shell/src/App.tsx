@@ -2,12 +2,13 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarCanvas } from "./components/AvatarCanvas";
 import { ChatPanel } from "./components/ChatPanel";
+import { ModeBar } from "./components/ModeBar";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { PanelInstallDialog } from "./components/PanelInstallDialog";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { syncLinkedChannels } from "./lib/channel-sync";
 import {
-	type PanelPosition,
 	type ThemeId,
 	isOnboardingComplete,
 	loadConfig,
@@ -16,69 +17,121 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
+import { activeBridge } from "./lib/active-bridge";
+import { loadInstalledPanels } from "./lib/panel-loader";
+import { panelRegistry } from "./lib/panel-registry";
+import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
+import "./panels/browser/index"; // register browser panel
+import "./panels/workspace/index"; // register workspace panel
+import "./panels/sample-note/index"; // register sample note panel (installable, deletable)
+import { usePanelStore } from "./stores/panel";
+
+const NAIA_WIDTH_DEFAULT = 320;
+const NAIA_WIDTH_MIN = 240;
+const NAIA_WIDTH_MAX = 560;
+
+function resolveSystemTheme(): string {
+	return window.matchMedia("(prefers-color-scheme: dark)").matches
+		? "midnight"
+		: "espresso";
+}
 
 function applyTheme(theme: ThemeId) {
-	document.documentElement.setAttribute("data-theme", theme);
+	const resolved = theme === "system" ? resolveSystemTheme() : theme;
+	document.documentElement.setAttribute("data-theme", resolved);
 }
 
 export function App() {
 	const [showOnboarding, setShowOnboarding] = useState(false);
-	const [panelPosition, setPanelPosition] = useState<PanelPosition>("bottom");
-	const [panelVisible, setPanelVisible] = useState(true);
-	const [panelSize, setPanelSize] = useState(70);
+	const [showPanelInstall, setShowPanelInstall] = useState(false);
+	const [naiaVisible, setNaiaVisible] = useState(true);
+	const [naiaWidth, setNaiaWidth] = useState(NAIA_WIDTH_DEFAULT);
+	const [avatarHeight, setAvatarHeight] = useState(240);
 	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
-	const layoutRef = useRef<HTMLDivElement>(null);
+	const naiaWidthRef = useRef(naiaWidth);
+	naiaWidthRef.current = naiaWidth;
+	const avatarHeightRef = useRef(avatarHeight);
+	avatarHeightRef.current = avatarHeight;
+
+	const { activePanel } = usePanelStore();
+
+	// Sync panel tools with agent on panel switch
+	const prevPanelRef = useRef<string | null>(null);
+	useEffect(() => {
+		const prev = prevPanelRef.current;
+		prevPanelRef.current = activePanel;
+
+		if (prev && prev !== activePanel) {
+			sendPanelSkillsClear(prev).catch(() => {});
+		}
+		if (activePanel) {
+			const descriptor = panelRegistry.get(activePanel);
+			if (descriptor?.tools && descriptor.tools.length > 0) {
+				sendPanelSkills(activePanel, descriptor.tools).catch(() => {});
+			}
+		}
+	}, [activePanel]);
 
 	useEffect(() => {
-		// One-time migrations (idempotent)
 		void migrateLabKeyToNaiaKey();
 		migrateSpeechStyleValues();
 		migrateLiveProviderToUnifiedModel();
+		loadInstalledPanels().catch(() => {});
 
 		const config = loadConfig();
 		applyTheme(config?.theme ?? "espresso");
-		if (config?.panelPosition) setPanelPosition(config.panelPosition);
-		if (config?.panelVisible === false) setPanelVisible(false);
-		if (config?.panelSize)
-			setPanelSize(Math.max(15, Math.min(80, config.panelSize)));
-		if (!isOnboardingComplete()) {
-			setShowOnboarding(true);
+		if (config?.panelVisible === false) setNaiaVisible(false);
+		if (config?.panelSize) {
+			// panelSize was 15-80 (%) — convert to px for fixed naia panel
+			const px = Math.round((config.panelSize / 100) * 1200);
+			setNaiaWidth(Math.max(NAIA_WIDTH_MIN, Math.min(NAIA_WIDTH_MAX, px)));
 		}
+		if (!isOnboardingComplete()) setShowOnboarding(true);
 
-		// Request microphone permission early so enumerateDevices returns labeled devices
-		navigator.mediaDevices?.getUserMedia({ audio: true })
-			.then((stream) => { for (const track of stream.getTracks()) track.stop(); })
-			.catch(() => {}); // Permission denied is fine — devices will still list without labels
+
+		navigator.mediaDevices
+			?.getUserMedia({ audio: true })
+			.then((stream) => {
+				for (const track of stream.getTracks()) track.stop();
+			})
+			.catch(() => {});
 	}, []);
 
-	// Check for updates after onboarding is complete
 	useEffect(() => {
 		if (showOnboarding) return;
 		checkForUpdate()
 			.then((info) => {
 				if (info) setUpdateInfo(info);
 			})
-			.catch(() => {
-				/* updater not available (Flatpak) or network error */
-			});
+			.catch(() => {});
 	}, [showOnboarding]);
 
-	// Ctrl+B: toggle panel visibility
+	// Follow OS color scheme when theme is "system"
+	useEffect(() => {
+		const config = loadConfig();
+		if ((config?.theme ?? "espresso") !== "system") return;
+		const mq = window.matchMedia("(prefers-color-scheme: dark)");
+		const onChange = () => applyTheme("system");
+		mq.addEventListener("change", onChange);
+		return () => mq.removeEventListener("change", onChange);
+	}, []);
+
+	// Ctrl+B — toggle Naia panel
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === "b") {
 				e.preventDefault();
-				togglePanel();
+				toggleNaia();
 			}
 		};
 		window.addEventListener("keydown", handler);
 		return () => window.removeEventListener("keydown", handler);
 	}, []);
 
-	const togglePanel = useCallback(() => {
-		setPanelVisible((prev) => {
+	const toggleNaia = useCallback(() => {
+		setNaiaVisible((prev) => {
 			const next = !prev;
 			const config = loadConfig();
 			if (config) saveConfig({ ...config, panelVisible: next });
@@ -86,57 +139,53 @@ export function App() {
 		});
 	}, []);
 
-	const onResizeStart = useCallback(
-		(e: React.PointerEvent) => {
-			e.preventDefault();
-			const rect = layoutRef.current?.getBoundingClientRect();
-			if (!rect) return;
+	// Drag-resize avatar area height (inside naia-panel)
+	const onAvatarResizeStart = useCallback((e: React.PointerEvent) => {
+		e.preventDefault();
+		const startY = e.clientY;
+		const startH = avatarHeightRef.current;
+		document.body.classList.add("resizing-row");
 
-			const isBottom = panelPosition === "bottom";
-			const isRight = panelPosition === "right";
-			document.body.classList.add(isBottom ? "resizing-row" : "resizing-col");
-
-			const onMove = (ev: PointerEvent) => {
-				let pct: number;
-				if (isBottom) {
-					pct = ((rect.bottom - ev.clientY) / rect.height) * 100;
-				} else if (isRight) {
-					pct = ((rect.right - ev.clientX) / rect.width) * 100;
-				} else {
-					pct = ((ev.clientX - rect.left) / rect.width) * 100;
-				}
-				setPanelSize(Math.max(15, Math.min(80, pct)));
-			};
-
-			const onUp = () => {
-				document.body.classList.remove("resizing-row", "resizing-col");
-				window.removeEventListener("pointermove", onMove);
-				window.removeEventListener("pointerup", onUp);
-				setPanelSize((current) => {
-					const cfg = loadConfig();
-					if (cfg) saveConfig({ ...cfg, panelSize: current });
-					return current;
-				});
-			};
-
-			window.addEventListener("pointermove", onMove);
-			window.addEventListener("pointerup", onUp);
-		},
-		[panelPosition],
-	);
-
-	// Listen for panel position changes from SettingsTab
-	useEffect(() => {
-		const handler = (e: Event) => {
-			const pos = (e as CustomEvent<PanelPosition>).detail;
-			setPanelPosition(pos);
-			setPanelSize(loadConfig()?.panelSize ?? 70);
+		const onMove = (ev: PointerEvent) => {
+			setAvatarHeight(Math.max(80, Math.min(600, startH + ev.clientY - startY)));
 		};
-		window.addEventListener("naia:panel-position", handler);
-		return () => window.removeEventListener("naia:panel-position", handler);
+		const onUp = () => {
+			document.body.classList.remove("resizing-row");
+			window.removeEventListener("pointermove", onMove);
+			window.removeEventListener("pointerup", onUp);
+		};
+		window.addEventListener("pointermove", onMove);
+		window.addEventListener("pointerup", onUp);
 	}, []);
 
-	// Global deep-link sink: must persist even when Settings/Onboarding is not open.
+	// Drag-resize between naia-panel and content-panel
+	const onResizeStart = useCallback((e: React.PointerEvent) => {
+		e.preventDefault();
+		const startX = e.clientX;
+		const startWidth = naiaWidthRef.current;
+		document.body.classList.add("resizing-col");
+
+		const onMove = (ev: PointerEvent) => {
+			const next = Math.max(
+				NAIA_WIDTH_MIN,
+				Math.min(NAIA_WIDTH_MAX, startWidth + ev.clientX - startX),
+			);
+			setNaiaWidth(next);
+		};
+		const onUp = () => {
+			document.body.classList.remove("resizing-col");
+			window.removeEventListener("pointermove", onMove);
+			window.removeEventListener("pointerup", onUp);
+			setNaiaWidth((w) => {
+				const cfg = loadConfig();
+				if (cfg) saveConfig({ ...cfg, panelSize: Math.round((w / 1200) * 100) });
+				return w;
+			});
+		};
+		window.addEventListener("pointermove", onMove);
+		window.addEventListener("pointerup", onUp);
+	}, []);
+
 	useEffect(() => {
 		const unlisten = listen<{
 			discordUserId?: string | null;
@@ -150,7 +199,6 @@ export function App() {
 		};
 	}, []);
 
-	// After Lab login, sync linked channels (e.g. Discord DM) from gateway
 	useEffect(() => {
 		const unlisten = listen("naia_auth_complete", () => {
 			void syncLinkedChannels();
@@ -160,10 +208,15 @@ export function App() {
 		};
 	}, []);
 
+	const activePanelDescriptor = activePanel
+		? panelRegistry.get(activePanel)
+		: null;
+	const CenterComponent = activePanelDescriptor?.center ?? null;
+
 	if (showOnboarding) {
 		return (
 			<div className="app-root">
-				<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+				<TitleBar panelVisible={naiaVisible} onTogglePanel={toggleNaia} />
 				<OnboardingWizard onComplete={() => setShowOnboarding(false)} />
 			</div>
 		);
@@ -171,26 +224,49 @@ export function App() {
 
 	return (
 		<div className="app-root">
-			<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+			<TitleBar panelVisible={naiaVisible} onTogglePanel={toggleNaia} />
 			{updateInfo && (
 				<UpdateBanner info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
 			)}
 			<div
 				className="app-layout"
-				ref={layoutRef}
-				data-panel-position={panelPosition}
-				style={{ "--panel-size": `${panelSize}%` } as React.CSSProperties}
+				style={{ "--naia-width": `${naiaWidth}px` } as React.CSSProperties}
 			>
-				{panelVisible && (
-					<div className="side-panel">
-						<ChatPanel />
+				{naiaVisible && (
+					<>
+						<div className="naia-panel">
+							<div
+								className="naia-avatar-area"
+								style={{ height: `${avatarHeight}px` }}
+							>
+								<AvatarCanvas />
+							</div>
+							<div
+								className="avatar-resize-handle"
+								onPointerDown={onAvatarResizeStart}
+							/>
+							<ChatPanel />
+						</div>
+						<div
+							className="naia-resize-handle"
+							onPointerDown={onResizeStart}
+						/>
+					</>
+				)}
+				<div className="right-area">
+					<ModeBar onAddMode={() => setShowPanelInstall(true)} />
+					{showPanelInstall && (
+						<PanelInstallDialog onClose={() => setShowPanelInstall(false)} />
+					)}
+					<div className="right-content">
+						<div className="content-panel">
+							{CenterComponent ? (
+								<CenterComponent naia={activeBridge} />
+							) : (
+								<div className="content-panel__home" />
+							)}
+						</div>
 					</div>
-				)}
-				{panelVisible && (
-					<div className="resize-handle" onPointerDown={onResizeStart} />
-				)}
-				<div className="main-area">
-					<AvatarCanvas />
 				</div>
 			</div>
 		</div>

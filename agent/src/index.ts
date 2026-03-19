@@ -2,11 +2,12 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as readline from "node:readline";
+import { randomUUID } from "node:crypto";
 import { GatewayClient } from "./gateway/client.js";
 import type { GatewayAdapter } from "./gateway/types.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
 import { createGatewayEventHandler } from "./gateway/event-handler.js";
-import { executeTool, getAllTools } from "./gateway/tool-bridge.js";
+import { executeTool, getAllTools, skillRegistry } from "./gateway/tool-bridge.js";
 import {
 	getToolDescription,
 	getToolTier,
@@ -15,6 +16,10 @@ import {
 import {
 	type ApprovalResponse,
 	type ChatRequest,
+	type PanelInstallRequest,
+	type PanelSkillsRequest,
+	type PanelSkillsClearRequest,
+	type PanelToolResult,
 	type ToolRequest,
 	type TtsRequest,
 	parseRequest,
@@ -22,6 +27,7 @@ import {
 import { calculateCost } from "./providers/cost.js";
 import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
+import { actionInstall as panelActionInstall } from "./skills/built-in/panel.js";
 import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
 import { synthesize as ttsSynthesize } from "./tts/index.js";
 
@@ -30,6 +36,7 @@ const activeStreams = new Map<string, AbortController>();
 const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/;
 const MAX_TOOL_ITERATIONS = 10;
 const APPROVAL_TIMEOUT_MS = 120_000;
+const PANEL_TOOL_TIMEOUT_MS = 30_000;
 
 /** Pending approval promises keyed by toolCallId */
 const pendingApprovals = new Map<
@@ -38,6 +45,15 @@ const pendingApprovals = new Map<
 		requestId: string;
 		resolve: (decision: ApprovalResponse["decision"]) => void;
 	}
+>();
+
+/** Panel skills: panelId → registered skill names */
+const panelSkillsByPanel = new Map<string, string[]>();
+
+/** Pending panel tool calls: toolCallId → resolve/reject */
+const pendingPanelToolCalls = new Map<
+	string,
+	{ resolve: (result: string) => void; reject: (err: Error) => void }
 >();
 
 function resolveGatewayToken(token?: string): string {
@@ -195,6 +211,94 @@ function waitForApproval(
 
 function writeLine(data: unknown): void {
 	process.stdout.write(`${JSON.stringify(data)}\n`);
+}
+
+function handlePanelSkills(req: PanelSkillsRequest): void {
+	const { panelId, tools } = req;
+	// Clear existing tools for this panel first
+	const prevNames = panelSkillsByPanel.get(panelId);
+	if (prevNames) {
+		for (const name of prevNames) {
+			skillRegistry.unregister(name);
+		}
+	}
+	const names: string[] = [];
+	for (const tool of tools) {
+		const toolName = tool.name;
+		if (skillRegistry.has(toolName)) {
+			skillRegistry.unregister(toolName);
+		}
+		skillRegistry.register({
+			name: toolName,
+			description: tool.description,
+			parameters: tool.parameters ?? { type: "object", properties: {} },
+			tier: tool.tier ?? 1,
+			requiresGateway: false,
+			source: `panel:${panelId}`,
+			execute: async (_args, ctx) => {
+				const toolCallId = randomUUID();
+				try {
+					const result = await callPanelTool(
+						ctx.requestId ?? "unknown",
+						toolCallId,
+						toolName,
+						_args,
+					);
+					return { success: true, output: result };
+				} catch (err) {
+					return { success: false, output: "", error: err instanceof Error ? err.message : String(err) };
+				}
+			},
+		});
+		names.push(toolName);
+	}
+	panelSkillsByPanel.set(panelId, names);
+}
+
+function clearPanelSkills(panelId: string): void {
+	const names = panelSkillsByPanel.get(panelId);
+	if (names) {
+		for (const name of names) {
+			skillRegistry.unregister(name);
+		}
+		panelSkillsByPanel.delete(panelId);
+	}
+}
+
+function callPanelTool(
+	requestId: string,
+	toolCallId: string,
+	toolName: string,
+	args: Record<string, unknown>,
+): Promise<string> {
+	writeLine({ type: "panel_tool_call", requestId, toolCallId, toolName, args });
+	return new Promise<string>((resolve, reject) => {
+		const timeoutId = setTimeout(() => {
+			pendingPanelToolCalls.delete(toolCallId);
+			reject(new Error(`Panel tool timed out: ${toolName}`));
+		}, PANEL_TOOL_TIMEOUT_MS);
+		pendingPanelToolCalls.set(toolCallId, {
+			resolve: (result) => {
+				clearTimeout(timeoutId);
+				resolve(result);
+			},
+			reject: (err) => {
+				clearTimeout(timeoutId);
+				reject(err);
+			},
+		});
+	});
+}
+
+function handlePanelToolResult(res: PanelToolResult): void {
+	const pending = pendingPanelToolCalls.get(res.toolCallId);
+	if (!pending) return;
+	pendingPanelToolCalls.delete(res.toolCallId);
+	if (res.success) {
+		pending.resolve(res.result);
+	} else {
+		pending.reject(new Error(res.result));
+	}
 }
 
 /** Append one JSON-line to ~/.naia/logs/llm-debug.log (non-blocking, best-effort) */
@@ -801,6 +905,39 @@ function main(): void {
 					requestId: request.requestId,
 					message: err instanceof Error ? err.message : String(err),
 				});
+			});
+			return;
+		}
+
+		if (request.type === "panel_skills") {
+			handlePanelSkills(request);
+			return;
+		}
+
+		if (request.type === "panel_skills_clear") {
+			clearPanelSkills(request.panelId);
+			return;
+		}
+
+		if (request.type === "panel_tool_result") {
+			handlePanelToolResult(request);
+			return;
+		}
+
+		if (request.type === "panel_install") {
+			const installReq = request as PanelInstallRequest;
+			// Suppress panel_control from actionInstall so we can control emission order:
+			// panel_install_result FIRST (so dialog can set successRef), THEN panel_control reload.
+			panelActionInstall(installReq.source, {
+				requestId: "panel_install",
+				writeLine: () => undefined, // suppress inner panel_control
+			}).then((result) => {
+				writeLine({ type: "panel_install_result", success: result.success, output: result.output, error: result.error });
+				if (result.success) {
+					writeLine({ type: "panel_control", requestId: "panel_install", action: "reload" });
+				}
+			}).catch((err) => {
+				writeLine({ type: "panel_install_result", success: false, output: "", error: String(err) });
 			});
 			return;
 		}

@@ -1,6 +1,8 @@
 mod audit;
+mod browser;
 mod gemini_live;
 mod memory;
+mod panel;
 mod stt_models;
 
 use serde::{Deserialize, Serialize};
@@ -2235,6 +2237,17 @@ pub fn run() {
             gemini_live_send_text,
             gemini_live_send_tool_response,
             gemini_live_disconnect,
+            browser::browser_init,
+            browser::browser_set_bounds,
+            browser::browser_navigate,
+            browser::browser_show,
+            browser::browser_hide,
+            browser::browser_back,
+            browser::browser_forward,
+            browser::browser_reload,
+            browser::browser_page_info,
+            panel::panel_list_installed,
+            panel::panel_remove_installed,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

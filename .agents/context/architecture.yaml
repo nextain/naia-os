@@ -350,6 +350,95 @@ skill_system:
     GatewayAdapter.offEvent(handler) must be called after delegateStreaming completes
     to prevent event handler memory leaks. Added in 2026-03-05 fix.
 
+panel_system:
+  description: "Extensible panel system — installable UI components exposed as ModeBar tabs"
+  added: "2026-03-20 (#89)"
+  overview: |
+    Panels are React components installed under ~/.naia/panels/{id}/.
+    Each panel appears as a tab in the ModeBar (right side of the shell).
+    Built-in panels are registered at shell build time; installed panels are
+    scanned at startup and after each install/remove via panel_list_installed.
+
+  directory_layout:
+    installed: "~/.naia/panels/{id}/ — one directory per panel"
+    manifest: "~/.naia/panels/{id}/panel.json — required manifest"
+    note: "panel.json (NOT app.json or manifest.json) — terminology MUST stay consistent"
+
+  manifest_fields:
+    id: "required — kebab-case unique identifier"
+    name: "required — display name"
+    names: "optional — i18n map { ko, en, ... }"
+    description: "optional — shown in future panstore"
+    icon: "optional — emoji or single char for ModeBar tab"
+    iconUrl: "optional — relative path to SVG file (e.g. 'icon.svg')"
+    iconSvg: "runtime-only — Rust reads iconUrl and populates this inline; NOT stored in panel.json"
+    version: "optional — semver string"
+
+  install_flow:
+    description: "PanelInstallDialog → Shell → Agent panel_install handler → disk install → result + reload"
+    diagram: |
+      1. User clicks '+' in ModeBar → PanelInstallDialog opens
+         → chooses Git URL or Zip file path
+         → clicks '추가' → sendPanelInstall(source) in chat-service.ts
+         → Shell sends { type: "panel_install", source } to Agent via Tauri stdin
+
+      2. Agent panel_install handler (index.ts)
+         → calls actionInstall(source, { writeLine: () => undefined }) — suppress inner panel_control
+         → on result: emit panel_install_result FIRST, then panel_control reload (if success)
+         CRITICAL: result MUST come before reload — dialog uses successRef to gate auto-close
+
+      3. PanelInstallDialog receives panel_install_result via direct listen("agent-response-chunk")
+         (bypass requestId filter — panel_install_result has no requestId)
+         → shows success/error message, sets successRef.current = true on success
+
+      4. PanelInstallDialog receives panel_control reload
+         → if successRef.current: loadInstalledPanels() then onClose()
+         → ModeBar re-renders via panelListVersion bump
+
+  agent_install_logic:
+    file: "agent/src/skills/built-in/panel.ts"
+    function: "actionInstall(source, ctx)"
+    git_detection: "/^https?:\/\/|^git@|^file:\/\// — covers https://, http://, git@, file://"
+    zip_handling: |
+      unzip -o source -d destDir
+      If zip has single root dir → move contents up to destDir (flatten)
+    name_derivation: "deriveNameFromSource strips .git and .zip suffixes, takes last path segment"
+    manifest_check: "readManifest(destDir) after install — if panel.json absent, removes destDir and returns error"
+    panels_dir: "~/.naia/panels/ (PANELS_DIR constant)"
+
+  tauri_commands:
+    panel_list_installed:
+      file: "shell/src-tauri/src/panel.rs"
+      returns: "Vec<PanelManifest> — scans ~/.naia/panels/, loads panel.json, reads iconSvg from iconUrl"
+    panel_remove_installed:
+      file: "shell/src-tauri/src/panel.rs"
+      params: "panelId: String"
+      validates: "no '/', '\\', '..' in panelId (path traversal guard)"
+      removes: "~/.naia/panels/{panelId}/ directory"
+
+  shell_files:
+    registry: "shell/src/lib/panel-registry.ts — PanelDescriptor (id, name, icon, iconSvg, builtIn, source, center, tools)"
+    loader: "shell/src/lib/panel-loader.ts — loadInstalledPanels(), removeInstalledPanel()"
+    dialog: "shell/src/components/PanelInstallDialog.tsx — two-tab UI (Git URL / Zip file)"
+    modebar: "shell/src/components/ModeBar.tsx — scrollable .mode-bar-tabs + SVG icon support"
+    store: "shell/src/stores/panel.ts — panelListVersion (bump triggers ModeBar re-render)"
+
+  critical_gotchas:
+    terminology: "ALL code uses 'panel' — panel.json, ~/.naia/panels/, PanelDescriptor. Never 'app' or 'manifest'."
+    result_before_reload: |
+      Agent MUST emit panel_install_result before panel_control reload.
+      PanelInstallDialog sets successRef on result; on reload, checks successRef before closing.
+      If reload arrives first, successRef is false → dialog stays open forever.
+    direct_listen: |
+      PanelInstallDialog uses listen("agent-response-chunk") directly, NOT chat-service requestId filter.
+      panel_install_result has no requestId field — the filter would block it.
+    zip_extension: "deriveNameFromSource MUST strip .zip — otherwise panel dir is named 'foo.zip' not 'foo'."
+    file_url_as_git: "file:// URLs are treated as git (clone), not zip. Useful for local git repos."
+
+  future:
+    panstore: "Built-in panel tab showing a curated list of installable panels (separate issue)"
+    dynamic_loading: "JS dynamic import for installed panels (planned, not yet implemented)"
+
 security_layers:
   layer_1_os: "Bazzite immutable rootfs + SELinux"
   layer_2_gateway: "OpenClaw device auth + token scopes + exec approvals"

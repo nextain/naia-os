@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { AgentResponseChunk, ProviderConfig } from "./types";
+import type { NaiaTool } from "./panel-registry";
 
 interface SendChatOptions {
 	message: string;
@@ -87,7 +88,7 @@ export async function sendChatMessage(opts: SendChatOptions): Promise<void> {
 					? event.payload
 					: JSON.stringify(event.payload);
 			const chunk = JSON.parse(raw) as AgentResponseChunk;
-			if (chunk.requestId !== requestId) return;
+			if (!("requestId" in chunk) || chunk.requestId !== requestId) return;
 			onChunk(chunk);
 
 			if (chunk.type === "finish" || chunk.type === "error") {
@@ -244,7 +245,7 @@ export async function directToolCall(opts: {
 					? event.payload
 					: JSON.stringify(event.payload);
 			const chunk = JSON.parse(raw) as AgentResponseChunk;
-			if (chunk.requestId !== requestId) return;
+			if (!("requestId" in chunk) || chunk.requestId !== requestId) return;
 
 			if (chunk.type === "tool_result") {
 				result = {
@@ -281,4 +282,55 @@ export async function directToolCall(opts: {
 	}
 
 	return promise;
+}
+
+/** Send panel skill descriptors to the agent (on panel activate) */
+export async function sendPanelSkills(
+	panelId: string,
+	tools: NaiaTool[],
+): Promise<void> {
+	await invoke("send_to_agent_command", {
+		message: JSON.stringify({
+			type: "panel_skills",
+			panelId,
+			tools: tools.map((t) => ({
+				name: t.name,
+				description: t.description,
+				parameters: t.parameters ?? { type: "object", properties: {} },
+				...(t.tier != null && { tier: t.tier }),
+			})),
+		}),
+	});
+}
+
+/** Tell the agent to remove panel's proxy skills (on panel deactivate) */
+export async function sendPanelSkillsClear(panelId: string): Promise<void> {
+	await invoke("send_to_agent_command", {
+		message: JSON.stringify({ type: "panel_skills_clear", panelId }),
+	});
+}
+
+/** Install a panel from a git URL or local zip file path (delegated to agent) */
+export async function sendPanelInstall(source: string): Promise<void> {
+	await invoke("send_to_agent_command", {
+		message: JSON.stringify({ type: "panel_install", source }),
+	});
+}
+
+/** Send panel tool execution result back to the agent */
+export async function sendPanelToolResult(
+	requestId: string,
+	toolCallId: string,
+	result: string,
+	success: boolean,
+): Promise<void> {
+	await invoke("send_to_agent_command", {
+		message: JSON.stringify({
+			type: "panel_tool_result",
+			requestId,
+			toolCallId,
+			result,
+			success,
+		}),
+	});
 }

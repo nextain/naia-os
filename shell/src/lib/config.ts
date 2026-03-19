@@ -13,6 +13,7 @@ const STORAGE_KEY = "naia-config";
 export const DEFAULT_GATEWAY_URL = "ws://localhost:18789";
 
 export type ThemeId =
+	| "system"
 	| "espresso"
 	| "midnight"
 	| "ocean"

@@ -204,6 +204,499 @@ body,
 	color: white;
 }
 
+/* ─── Mode Bar ───────────────────────────────────────────────────────────────
+   Top-level mode switcher: Browsing / Issues / Coding / Gaming
+   Controls what appears in content-panel + meta-panel.
+────────────────────────────────────────────────────────────────────────────── */
+.mode-bar {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	background: var(--espresso-deep);
+	border-bottom: 1px solid var(--espresso-light);
+	flex-shrink: 0;
+	padding-right: 4px;
+}
+
+/* Scrollable tab strip — fills all available space */
+.mode-bar-tabs {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none; /* Firefox */
+	height: 100%;
+}
+
+.mode-bar-tabs::-webkit-scrollbar {
+	display: none;
+}
+
+/* Each wrapper is an equal-width flex item */
+.mode-bar-tab-wrapper {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	min-width: 72px;
+	max-width: 160px;
+	height: 100%;
+	flex-shrink: 0;
+}
+
+.mode-bar-tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	padding: 0 10px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 13px;
+	cursor: pointer;
+	transition: background 0.1s, color 0.1s;
+	overflow: hidden;
+}
+
+.mode-bar-tab:hover {
+	background: var(--espresso-medium);
+	color: var(--cream);
+}
+
+.mode-bar-tab--active {
+	background: var(--espresso-medium);
+	color: var(--cream);
+	font-weight: 500;
+}
+
+.mode-bar-tab-icon {
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.mode-bar-tab-icon--svg {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.mode-bar-tab-icon--svg svg {
+	width: 16px;
+	height: 16px;
+}
+
+.mode-bar-tab-name {
+	font-size: 13px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mode-bar-add {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 18px;
+	cursor: pointer;
+	border-radius: 4px;
+	line-height: 1;
+	margin-left: 2px;
+}
+
+.mode-bar-add:hover {
+	background: var(--espresso-medium);
+	color: var(--cream);
+}
+
+.mode-bar-tab-remove {
+	display: none;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	margin-right: 4px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 11px;
+	cursor: pointer;
+	border-radius: 3px;
+	padding: 0;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.mode-bar-tab-wrapper:hover .mode-bar-tab-remove {
+	display: flex;
+}
+
+.mode-bar-tab-remove:hover {
+	background: var(--espresso-medium);
+	color: var(--cream);
+}
+
+/* ─── Panel Install Dialog ───────────────────────────────────────────────── */
+
+.panel-install-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.7);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.panel-install-dialog {
+	background: var(--espresso);
+	border: 1px solid var(--espresso-light);
+	border-radius: 12px;
+	width: 420px;
+	max-width: 90vw;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	overflow: hidden;
+	font-family: var(--mono);
+}
+
+.panel-install-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 16px 10px;
+	border-bottom: 1px solid var(--espresso-light);
+}
+
+.panel-install-title {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--cream);
+}
+
+.panel-install-close {
+	background: none;
+	border: none;
+	color: var(--cream-dim);
+	cursor: pointer;
+	font-size: 1rem;
+	padding: 2px 6px;
+}
+
+.panel-install-close:hover {
+	color: var(--cream);
+}
+
+.panel-install-tabs {
+	display: flex;
+}
+
+.panel-install-tab {
+	padding: 6px 14px;
+	background: none;
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	color: var(--cream-dim);
+	cursor: pointer;
+	font-size: 0.78rem;
+	font-family: var(--mono);
+	margin-right: 4px;
+	transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.panel-install-tab:hover {
+	color: var(--cream);
+	background: var(--espresso-medium);
+}
+
+.panel-install-tab.active {
+	color: var(--wood);
+	border-color: var(--wood);
+	background: color-mix(in srgb, var(--wood) 12%, transparent);
+}
+
+.panel-install-body {
+	padding: 14px 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.panel-install-label {
+	font-size: 0.78rem;
+	color: var(--cream-dim);
+}
+
+.panel-install-input {
+	width: 100%;
+	padding: 8px 10px;
+	background: var(--espresso-dark);
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	color: var(--cream);
+	font-size: 0.82rem;
+	font-family: var(--mono);
+	outline: none;
+	box-sizing: border-box;
+}
+
+.panel-install-input:focus {
+	border-color: var(--wood);
+}
+
+.panel-install-input:disabled {
+	opacity: 0.5;
+}
+
+.panel-install-file-row {
+	display: flex;
+	gap: 8px;
+}
+
+.panel-install-file-row .panel-install-input {
+	flex: 1;
+}
+
+.panel-install-pick-btn {
+	padding: 8px 12px;
+	background: var(--espresso-medium);
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	color: var(--cream);
+	cursor: pointer;
+	font-size: 0.82rem;
+	font-family: var(--mono);
+	white-space: nowrap;
+}
+
+.panel-install-pick-btn:hover {
+	background: var(--espresso-light);
+}
+
+.panel-install-hint {
+	font-size: 0.74rem;
+	color: var(--cream-dim);
+	margin: 0;
+	line-height: 1.4;
+}
+
+.panel-install-result {
+	margin: 0 16px;
+	padding: 8px 12px;
+	border-radius: 6px;
+	font-size: 0.78rem;
+	line-height: 1.4;
+	word-break: break-all;
+	font-family: var(--mono);
+}
+
+.panel-install-result.success {
+	background: color-mix(in srgb, var(--sage) 15%, transparent);
+	color: var(--sage);
+	border: 1px solid color-mix(in srgb, var(--sage) 40%, transparent);
+}
+
+.panel-install-result.error {
+	background: color-mix(in srgb, var(--error) 15%, transparent);
+	color: var(--error);
+	border: 1px solid color-mix(in srgb, var(--error) 40%, transparent);
+}
+
+.panel-install-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 12px 16px;
+	border-top: 1px solid var(--espresso-light);
+}
+
+.panel-install-cancel-btn {
+	padding: 6px 16px;
+	background: none;
+	border: 1px solid var(--espresso-light);
+	border-radius: 6px;
+	color: var(--cream-dim);
+	cursor: pointer;
+	font-size: 0.82rem;
+	font-family: var(--mono);
+}
+
+.panel-install-cancel-btn:hover {
+	color: var(--cream);
+}
+
+.panel-install-confirm-btn {
+	padding: 6px 16px;
+	background: var(--wood);
+	border: none;
+	border-radius: 6px;
+	color: var(--espresso);
+	cursor: pointer;
+	font-size: 0.82rem;
+	font-family: var(--mono);
+	font-weight: 600;
+	transition: opacity 0.15s;
+}
+
+.panel-install-confirm-btn:hover:not(:disabled) {
+	opacity: 0.85;
+}
+
+.panel-install-confirm-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* ─── Full-screen 3-column Layout ───────────────────────────────────────────
+   naia-panel (fixed) | naia-resize-handle | content-panel (flex) | meta-panel (fixed)
+────────────────────────────────────────────────────────────────────────────── */
+
+/* Naia panel — always-on left column */
+.naia-panel {
+	flex: none;
+	width: var(--naia-width, 320px);
+	min-width: 240px;
+	max-width: 560px;
+	display: flex;
+	flex-direction: column;
+	background: var(--espresso);
+	border-right: 1px solid var(--espresso-light);
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Resize handle between naia-panel and content-panel */
+.naia-resize-handle {
+	flex: none;
+	width: 5px;
+	cursor: col-resize;
+	background: transparent;
+	transition: background 0.15s;
+	z-index: 2;
+}
+
+.naia-resize-handle:hover,
+body.resizing-col .naia-resize-handle {
+	background: var(--wood);
+}
+
+/* Right area — wraps ModeBar + content-panel + meta-panel */
+.right-area {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Row inside right-area holding content + meta */
+.right-content {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: row;
+}
+
+/* Avatar area inside naia-panel — draggable height */
+.naia-avatar-area {
+	flex: none;
+	min-height: 80px;
+	overflow: hidden;
+	position: relative;
+}
+
+/* Drag handle between avatar and chat */
+.avatar-resize-handle {
+	flex: none;
+	height: 5px;
+	cursor: row-resize;
+	background: transparent;
+	transition: background 0.15s;
+}
+
+.avatar-resize-handle:hover,
+body.resizing-row .avatar-resize-handle {
+	background: var(--wood);
+}
+
+/* Content panel — fills remaining space */
+.content-panel {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	position: relative;
+}
+
+/* Home screen when no mode selected */
+.content-panel__home {
+	flex: 1;
+	background: var(--espresso-dark);
+}
+
+/* Panel Switcher (legacy — kept for reference) */
+.panel-switcher {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 4px 8px;
+	background: var(--espresso-dark);
+	border-bottom: 1px solid var(--espresso-light);
+	flex-shrink: 0;
+}
+
+.panel-switcher-tab {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 12px;
+	cursor: pointer;
+	border-radius: 4px;
+	transition: background 0.1s, color 0.1s;
+}
+
+.panel-switcher-tab:hover {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.panel-switcher-tab--active {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.panel-switcher-icon {
+	font-size: 13px;
+}
+
+/* Meta Panel (right of main-area) */
+.meta-panel {
+	flex: none;
+	width: 280px;
+	min-height: 0;
+	overflow: hidden;
+	border-left: 1px solid var(--espresso-light);
+}
+
 /* App Layout */
 .app-layout {
 	display: flex;
@@ -4035,4 +4528,320 @@ body.resizing-row {
 .version-footer-status {
 	font-size: 11px;
 	opacity: 0.8;
+}
+
+/* ─── Browser Panel ─────────────────────────────────────────────────────── */
+
+.browser-panel {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	background: var(--espresso-dark);
+}
+
+.browser-panel__toolbar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--espresso-light);
+	flex-shrink: 0;
+}
+
+.browser-panel__nav-btn {
+	width: 28px;
+	height: 26px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 14px;
+	cursor: pointer;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.browser-panel__nav-btn:hover:not(:disabled) {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.browser-panel__nav-btn:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.browser-panel__url-form {
+	flex: 1;
+}
+
+.browser-panel__url-input {
+	width: 100%;
+	padding: 4px 8px;
+	border: 1px solid var(--espresso-medium);
+	border-radius: 4px;
+	background: var(--espresso-base);
+	color: var(--cream);
+	font-size: 12px;
+	outline: none;
+}
+
+.browser-panel__url-input:focus {
+	border-color: var(--accent);
+}
+
+.browser-panel__viewport {
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+	min-height: 0;
+	min-width: 0;
+}
+
+.browser-panel__screenshot {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	display: block;
+}
+
+.browser-panel__loading,
+.browser-panel__error,
+.browser-panel__empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--cream-dim);
+	font-size: 13px;
+	text-align: center;
+	padding: 24px;
+}
+
+.browser-panel__error {
+	color: var(--error);
+}
+
+.browser-panel--not-installed,
+.browser-panel--install {
+	align-items: center;
+	justify-content: center;
+}
+
+.browser-panel__install-box {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	text-align: center;
+	max-width: 320px;
+}
+
+.browser-panel__install-title {
+	color: var(--cream);
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.browser-panel__install-desc {
+	color: var(--cream-dim);
+	font-size: 13px;
+}
+
+.browser-panel__title {
+	color: var(--cream);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.browser-panel__cmd {
+	background: var(--espresso-base);
+	border: 1px solid var(--espresso-medium);
+	border-radius: 4px;
+	padding: 6px 12px;
+	color: var(--cream);
+	font-size: 12px;
+	font-family: monospace;
+}
+
+.browser-panel__hint {
+	color: var(--cream-dim);
+	font-size: 12px;
+}
+
+/* Browser meta panel */
+.browser-meta {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--espresso-dark);
+}
+
+.browser-meta__tabs {
+	display: flex;
+	border-bottom: 1px solid var(--espresso-light);
+	flex-shrink: 0;
+}
+
+.browser-meta__tab {
+	flex: 1;
+	padding: 8px 4px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.browser-meta__tab--active {
+	color: var(--cream);
+	border-bottom: 2px solid var(--accent);
+}
+
+.browser-meta__body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 8px;
+}
+
+.browser-meta__empty,
+.browser-meta__settings-hint {
+	color: var(--cream-dim);
+	font-size: 12px;
+	text-align: center;
+	padding: 16px 8px;
+}
+
+.browser-meta__bookmark {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 4px;
+	border-bottom: 1px solid var(--espresso-medium);
+}
+
+.browser-meta__bookmark-title {
+	flex: 1;
+	font-size: 12px;
+	color: var(--cream);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.browser-meta__bookmark-remove {
+	flex: none;
+	background: transparent;
+	border: none;
+	color: var(--cream-dim);
+	cursor: pointer;
+	font-size: 14px;
+	padding: 0 4px;
+}
+
+.browser-meta__bookmark-remove:hover {
+	color: var(--error);
+}
+
+.browser-panel__install-btn {
+	background: var(--accent);
+	color: var(--espresso-deep);
+	border: none;
+	border-radius: 6px;
+	padding: 8px 18px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	margin-top: 8px;
+}
+
+.browser-panel__install-btn:hover {
+	opacity: 0.9;
+}
+
+.browser-panel__install-progress {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.browser-panel__install-msg {
+	color: var(--cream);
+	font-size: 13px;
+	text-align: center;
+	max-width: 280px;
+}
+
+.browser-panel__install-spinner {
+	width: 20px;
+	height: 20px;
+	border: 2px solid var(--espresso-medium);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	animation: browser-spin 0.8s linear infinite;
+}
+
+@keyframes browser-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ─── Sample Note Panel ──────────────────────────────────────────────────────
+   Minimal installable panel demonstrating AI tool interaction.
+   Developer guide: panels that interact with Naia follow this pattern.
+────────────────────────────────────────────────────────────────────────────── */
+
+.sample-note-panel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 16px;
+	gap: 12px;
+}
+
+.sample-note-panel__header {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.sample-note-panel__title {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--cream);
+}
+
+.sample-note-panel__hint {
+	font-size: 12px;
+	color: var(--cream-dim);
+}
+
+.sample-note-panel__editor {
+	flex: 1;
+	resize: none;
+	border: 1px solid var(--espresso-medium);
+	border-radius: 6px;
+	background: var(--espresso-dark, #1a1410);
+	color: var(--cream);
+	font-size: 14px;
+	font-family: inherit;
+	padding: 10px 12px;
+	outline: none;
+	line-height: 1.6;
+}
+
+.sample-note-panel__editor:focus {
+	border-color: var(--accent);
+}
+
+.sample-note-panel__editor::placeholder {
+	color: var(--cream-dim);
+	opacity: 0.6;
 }

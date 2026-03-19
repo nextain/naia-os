@@ -130,6 +130,18 @@ export const S = {
 	agentFileTextarea: ".agent-file-textarea",
 	agentFileSaveBtn: ".agent-file-save-btn",
 
+	// ModeBar (panel tabs)
+	modeBar: ".mode-bar",
+	modeBarTab: ".mode-bar-tab",
+	modeBarTabActive: ".mode-bar-tab--active",
+	modeBarTabWrapper: ".mode-bar-tab-wrapper",
+	modeBarTabRemove: ".mode-bar-tab-remove",
+	modeBarAdd: ".mode-bar-add",
+
+	// SampleNotePanel
+	sampleNotePanel: ".sample-note-panel",
+	sampleNoteEditor: ".sample-note-panel__editor",
+
 	// Session actions (AgentsTab)
 	sessionCompactBtn: ".session-action-btn.compact",
 	sessionDeleteBtn: ".session-action-btn.delete",

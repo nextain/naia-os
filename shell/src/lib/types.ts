@@ -141,6 +141,28 @@ export type AgentResponseChunk =
 			content: string;
 			timestamp?: string;
 	  }
+	| {
+			/** Agent → Shell: LLM called a panel tool. Shell must execute and reply with panel_tool_result. */
+			type: "panel_tool_call";
+			requestId: string;
+			toolCallId: string;
+			toolName: string;
+			args: Record<string, unknown>;
+	  }
+	| {
+			/** Agent → Shell: panel management action (switch, reload). */
+			type: "panel_control";
+			requestId: string;
+			action: "switch" | "reload";
+			panelId?: string;
+	  }
+	| {
+			/** Agent → Shell: result of a panel_install request. */
+			type: "panel_install_result";
+			success: boolean;
+			output: string;
+			error?: string;
+	  }
 	| { type: "finish"; requestId: string }
 	| { type: "error"; requestId: string; message: string };
 
