@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarCanvas } from "./components/AvatarCanvas";
 import { ChatPanel } from "./components/ChatPanel";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { PanelSwitcher } from "./components/PanelSwitcher";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { syncLinkedChannels } from "./lib/channel-sync";
@@ -16,8 +17,13 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
+import { NoopContextBridge, panelRegistry } from "./lib/panel-registry";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
+import "./panels/avatar/index"; // register built-in avatar panel
+import { usePanelStore } from "./stores/panel";
+
+const noopBridge = new NoopContextBridge();
 
 function applyTheme(theme: ThemeId) {
 	document.documentElement.setAttribute("data-theme", theme);
@@ -30,6 +36,7 @@ export function App() {
 	const [panelSize, setPanelSize] = useState(70);
 	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 	const layoutRef = useRef<HTMLDivElement>(null);
+	const { activePanel } = usePanelStore();
 
 	useEffect(() => {
 		// One-time migrations (idempotent)
@@ -160,6 +167,13 @@ export function App() {
 		};
 	}, []);
 
+	// Resolve active panel descriptor (null = default avatar view)
+	const activePanelDescriptor = activePanel
+		? panelRegistry.get(activePanel)
+		: null;
+	const CenterComponent = activePanelDescriptor?.center ?? null;
+	const MetaComponent = activePanelDescriptor?.meta ?? null;
+
 	if (showOnboarding) {
 		return (
 			<div className="app-root">
@@ -172,6 +186,7 @@ export function App() {
 	return (
 		<div className="app-root">
 			<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+			<PanelSwitcher />
 			{updateInfo && (
 				<UpdateBanner info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
 			)}
@@ -190,8 +205,17 @@ export function App() {
 					<div className="resize-handle" onPointerDown={onResizeStart} />
 				)}
 				<div className="main-area">
-					<AvatarCanvas />
+					{CenterComponent ? (
+						<CenterComponent naia={noopBridge} />
+					) : (
+						<AvatarCanvas />
+					)}
 				</div>
+				{MetaComponent && (
+					<div className="meta-panel">
+						<MetaComponent naia={noopBridge} />
+					</div>
+				)}
 			</div>
 		</div>
 	);

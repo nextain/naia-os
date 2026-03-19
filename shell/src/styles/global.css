@@ -204,6 +204,54 @@ body,
 	color: white;
 }
 
+/* Panel Switcher */
+.panel-switcher {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 4px 8px;
+	background: var(--espresso-dark);
+	border-bottom: 1px solid var(--espresso-light);
+	flex-shrink: 0;
+}
+
+.panel-switcher-tab {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 10px;
+	border: none;
+	background: transparent;
+	color: var(--cream-dim);
+	font-size: 12px;
+	cursor: pointer;
+	border-radius: 4px;
+	transition: background 0.1s, color 0.1s;
+}
+
+.panel-switcher-tab:hover {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.panel-switcher-tab--active {
+	background: var(--espresso-light);
+	color: var(--cream);
+}
+
+.panel-switcher-icon {
+	font-size: 13px;
+}
+
+/* Meta Panel (right of main-area) */
+.meta-panel {
+	flex: none;
+	width: 280px;
+	min-height: 0;
+	overflow: hidden;
+	border-left: 1px solid var(--espresso-light);
+}
+
 /* App Layout */
 .app-layout {
 	display: flex;
