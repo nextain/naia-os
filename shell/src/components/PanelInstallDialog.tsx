@@ -29,7 +29,7 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 		let unlistenFn: (() => void) | null = null;
 
 		const setup = async () => {
-			const unlisten = await listen<string>("agent-response-chunk", (event) => {
+			const unlisten = await listen<string>("agent_response", (event) => {
 				try {
 					const raw =
 						typeof event.payload === "string"
