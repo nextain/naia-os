@@ -1,4 +1,5 @@
 mod audit;
+mod browser;
 mod gemini_live;
 mod memory;
 mod stt_models;
@@ -2235,6 +2236,14 @@ pub fn run() {
             gemini_live_send_text,
             gemini_live_send_tool_response,
             gemini_live_disconnect,
+            browser::browser_check,
+            browser::browser_navigate,
+            browser::browser_screenshot,
+            browser::browser_snapshot,
+            browser::browser_page_info,
+            browser::browser_back,
+            browser::browser_forward,
+            browser::browser_reload,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

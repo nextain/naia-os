@@ -21,6 +21,7 @@ import { NoopContextBridge, panelRegistry } from "./lib/panel-registry";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 import "./panels/avatar/index"; // register built-in avatar panel
+import "./panels/browser/index"; // register built-in browser panel
 import { usePanelStore } from "./stores/panel";
 
 const noopBridge = new NoopContextBridge();
