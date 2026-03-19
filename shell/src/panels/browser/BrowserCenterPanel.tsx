@@ -1,106 +1,194 @@
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PanelCenterProps } from "../../lib/panel-registry";
 
-type BrowserStatus = "idle" | "loading" | "ready" | "error" | "not-installed";
+type EmbedStatus =
+	| "checking"   // checking chrome availability
+	| "no-chrome"  // chrome binary not found
+	| "launching"  // spawning chrome + waiting for CDP
+	| "ready"      // embedded and running
+	| "error";     // fatal error
 
 export function BrowserCenterPanel({ naia }: PanelCenterProps) {
-	const [status, setStatus] = useState<BrowserStatus>("idle");
+	const [status, setStatus] = useState<EmbedStatus>("checking");
+	const [error, setError] = useState("");
 	const [url, setUrl] = useState("");
 	const [inputUrl, setInputUrl] = useState("");
-	const [screenshotSrc, setScreenshotSrc] = useState<string | null>(null);
-	const [errorMsg, setErrorMsg] = useState("");
+	const [_title, setTitle] = useState("");
+	const viewportRef = useRef<HTMLDivElement>(null);
 
-	// Check agent-browser availability on mount
-	useEffect(() => {
-		invoke<boolean>("browser_check").then((ok) => {
-			setStatus(ok ? "idle" : "not-installed");
-		});
-	}, []);
-
-	const navigate = useCallback(async (target: string) => {
-		const normalized = target.startsWith("http") ? target : `https://${target}`;
-		setStatus("loading");
-		setErrorMsg("");
+	const refreshPageInfo = useCallback(async () => {
 		try {
-			await invoke("browser_navigate", { url: normalized });
-			const [currentUrl] = await invoke<[string, string]>("browser_page_info");
-			setUrl(currentUrl);
-			setInputUrl(currentUrl);
-			// Take screenshot after navigation
-			const path = await invoke<string>("browser_screenshot");
-			setScreenshotSrc(`${convertFileSrc(path)}?t=${Date.now()}`);
-			setStatus("ready");
-			// Push context to Naia
-			naia.pushContext({
-				type: "browser",
-				data: { url: currentUrl },
-			});
-		} catch (e) {
-			setErrorMsg(String(e));
-			setStatus("error");
+			const [u, t] = await invoke<[string, string]>("browser_embed_page_info");
+			setUrl(u);
+			setInputUrl(u);
+			setTitle(t);
+			if (u) naia.pushContext({ type: "browser", data: { url: u, title: t } });
+		} catch {
+			// ignore
 		}
 	}, [naia]);
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (inputUrl.trim()) navigate(inputUrl.trim());
-	};
-
-	const handleNav = async (cmd: "browser_back" | "browser_forward" | "browser_reload") => {
-		setStatus("loading");
+	const initEmbed = useCallback(async () => {
+		setStatus("launching");
+		setError("");
 		try {
-			await invoke(cmd);
-			const [currentUrl] = await invoke<[string, string]>("browser_page_info");
-			setUrl(currentUrl);
-			setInputUrl(currentUrl);
-			const path = await invoke<string>("browser_screenshot");
-			setScreenshotSrc(`${convertFileSrc(path)}?t=${Date.now()}`);
+			const el = viewportRef.current;
+			if (!el) throw new Error("viewport ref not ready");
+			const rect = el.getBoundingClientRect();
+			await invoke("browser_embed_init", {
+				x: rect.left,
+				y: rect.top,
+				width: rect.width,
+				height: rect.height,
+			});
 			setStatus("ready");
-			naia.pushContext({ type: "browser", data: { url: currentUrl } });
+			await refreshPageInfo();
 		} catch (e) {
-			setErrorMsg(String(e));
+			setError(String(e));
 			setStatus("error");
 		}
+	}, [refreshPageInfo]);
+
+	// Initial check + embed init
+	useEffect(() => {
+		invoke<boolean>("browser_check").then((ok) => {
+			if (!ok) {
+				setStatus("no-chrome");
+				return;
+			}
+			initEmbed();
+		});
+
+		return () => {
+			invoke("browser_embed_close").catch(() => {});
+		};
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Sync Chrome bounds when viewport resizes
+	useEffect(() => {
+		if (status !== "ready") return;
+		const el = viewportRef.current;
+		if (!el) return;
+		const obs = new ResizeObserver(() => {
+			const rect = el.getBoundingClientRect();
+			invoke("browser_embed_resize", {
+				x: rect.left,
+				y: rect.top,
+				width: rect.width,
+				height: rect.height,
+			}).catch(() => {});
+		});
+		obs.observe(el);
+		return () => obs.disconnect();
+	}, [status]);
+
+	const navigate = useCallback(
+		async (target: string) => {
+			const normalized =
+				target.startsWith("http") || target.startsWith("about:")
+					? target
+					: `https://${target}`;
+			try {
+				await invoke("browser_embed_navigate", { url: normalized });
+				setTimeout(() => void refreshPageInfo(), 800);
+			} catch (e) {
+				setError(String(e));
+			}
+		},
+		[refreshPageInfo],
+	);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (inputUrl.trim()) void navigate(inputUrl.trim());
 	};
 
-	if (status === "not-installed") {
+	// ── No Chrome ──────────────────────────────────────────────────────────────
+	if (status === "no-chrome") {
 		return (
-			<div className="browser-panel browser-panel--not-installed">
-				<p className="browser-panel__title">agent-browser not installed</p>
-				<code className="browser-panel__cmd">cargo install agent-browser</code>
-				<p className="browser-panel__hint">Restart Naia after installation.</p>
+			<div className="browser-panel browser-panel--install">
+				<div className="browser-panel__install-box">
+					<p className="browser-panel__install-title">Chrome 미설치</p>
+					<p className="browser-panel__install-desc">
+						내장 브라우저를 사용하려면 Google Chrome이 필요합니다.
+					</p>
+					<p className="browser-panel__install-desc">
+						<code>sudo apt install google-chrome-stable</code>
+					</p>
+				</div>
 			</div>
 		);
 	}
 
+	// ── Checking / Launching ───────────────────────────────────────────────────
+	if (status === "checking" || status === "launching") {
+		return (
+			<div className="browser-panel">
+				<div className="browser-panel__empty">
+					{status === "checking" ? "브라우저 확인 중…" : "Chrome 시작 중…"}
+				</div>
+			</div>
+		);
+	}
+
+	// ── Error ──────────────────────────────────────────────────────────────────
+	if (status === "error") {
+		return (
+			<div className="browser-panel browser-panel--install">
+				<div className="browser-panel__install-box">
+					<p className="browser-panel__install-title">브라우저 오류</p>
+					<p className="browser-panel__error">{error}</p>
+					<button
+						type="button"
+						className="browser-panel__install-btn"
+						onClick={initEmbed}
+					>
+						다시 시도
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// ── Ready ──────────────────────────────────────────────────────────────────
 	return (
 		<div className="browser-panel">
 			<div className="browser-panel__toolbar">
 				<button
 					type="button"
 					className="browser-panel__nav-btn"
-					onClick={() => handleNav("browser_back")}
-					title="Back"
-					disabled={status === "loading"}
+					onClick={() =>
+						invoke("browser_embed_back")
+							.then(() => setTimeout(() => void refreshPageInfo(), 400))
+							.catch(() => {})
+					}
+					title="뒤로"
 				>
 					←
 				</button>
 				<button
 					type="button"
 					className="browser-panel__nav-btn"
-					onClick={() => handleNav("browser_forward")}
-					title="Forward"
-					disabled={status === "loading"}
+					onClick={() =>
+						invoke("browser_embed_forward")
+							.then(() => setTimeout(() => void refreshPageInfo(), 400))
+							.catch(() => {})
+					}
+					title="앞으로"
 				>
 					→
 				</button>
 				<button
 					type="button"
 					className="browser-panel__nav-btn"
-					onClick={() => handleNav("browser_reload")}
-					title="Reload"
-					disabled={status === "loading"}
+					onClick={() =>
+						invoke("browser_embed_reload")
+							.then(() => setTimeout(() => void refreshPageInfo(), 800))
+							.catch(() => {})
+					}
+					title="새로고침"
 				>
 					↺
 				</button>
@@ -110,32 +198,25 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 						className="browser-panel__url-input"
 						value={inputUrl}
 						onChange={(e) => setInputUrl(e.target.value)}
-						placeholder="Enter URL…"
-						disabled={status === "loading"}
+						placeholder="주소를 입력하세요…"
 					/>
 				</form>
+				<button
+					type="button"
+					className="browser-panel__nav-btn"
+					onClick={() => { /* bookmark — BrowserMetaPanel wired in issue-89 merge */ }}
+					title="북마크"
+					disabled={!url}
+				>
+					☆
+				</button>
 			</div>
 
-			<div className="browser-panel__viewport">
-				{status === "loading" && (
-					<div className="browser-panel__loading">Loading…</div>
-				)}
-				{status === "error" && (
-					<div className="browser-panel__error">{errorMsg}</div>
-				)}
-				{screenshotSrc && (
-					<img
-						className="browser-panel__screenshot"
-						src={screenshotSrc}
-						alt={url}
-					/>
-				)}
-				{status === "idle" && !screenshotSrc && (
-					<div className="browser-panel__empty">
-						Enter a URL to start browsing
-					</div>
-				)}
-			</div>
+			{/* Chrome is embedded here via XReparentWindow — this div defines the bounds */}
+			<div
+				ref={viewportRef}
+				className="browser-panel__viewport browser-panel__viewport--embedded"
+			/>
 		</div>
 	);
 }

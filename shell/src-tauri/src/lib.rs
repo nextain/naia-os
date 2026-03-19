@@ -2237,13 +2237,16 @@ pub fn run() {
             gemini_live_send_tool_response,
             gemini_live_disconnect,
             browser::browser_check,
-            browser::browser_navigate,
-            browser::browser_screenshot,
-            browser::browser_snapshot,
-            browser::browser_page_info,
-            browser::browser_back,
-            browser::browser_forward,
-            browser::browser_reload,
+            browser::browser_agent_check,
+            browser::browser_embed_init,
+            browser::browser_embed_resize,
+            browser::browser_embed_navigate,
+            browser::browser_embed_page_info,
+            browser::browser_embed_back,
+            browser::browser_embed_forward,
+            browser::browser_embed_reload,
+            browser::browser_embed_close,
+            browser::browser_embed_port,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

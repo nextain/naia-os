@@ -4157,6 +4157,12 @@ body.resizing-row {
 	justify-content: center;
 }
 
+/* Embedded Chrome: no scrollbar, Chrome fills this area via XReparentWindow */
+.browser-panel__viewport--embedded {
+	overflow: hidden;
+	background: #fff;
+}
+
 .browser-panel__screenshot {
 	max-width: 100%;
 	display: block;
