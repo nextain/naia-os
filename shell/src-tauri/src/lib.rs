@@ -2249,6 +2249,10 @@ pub fn run() {
             browser::browser_embed_close,
             browser::browser_embed_focus,
             browser::browser_embed_port,
+            browser::browser_snapshot,
+            browser::browser_click,
+            browser::browser_fill,
+            browser::browser_get_text,
             panel::panel_list_installed,
             panel::panel_remove_installed,
         ])

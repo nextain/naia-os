@@ -497,6 +497,27 @@ pub fn browser_embed_focus() -> Result<(), String> {
     Ok(())
 }
 
+/// Run an agent-browser command against the active Chrome CDP session.
+/// Uses `--cdp <port>` flag to connect to our Chrome instance.
+fn run_agent_cmd(port: u16, args: &[&str]) -> Result<String, String> {
+    let bin = agent_browser_bin().ok_or("agent-browser not found")?;
+    let out = Command::new(&bin)
+        .arg("--cdp")
+        .arg(port.to_string())
+        .args(args)
+        .output()
+        .map_err(|e| format!("agent-browser: {e}"))?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("agent-browser exited with status {}", out.status)
+        } else {
+            stderr
+        });
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
 /// Navigate Chrome to a URL via CDP (using agent-browser).
 #[tauri::command]
 pub fn browser_embed_navigate(url: String) -> Result<(), String> {
@@ -507,21 +528,7 @@ pub fn browser_embed_navigate(url: String) -> Result<(), String> {
     if port == 0 {
         return Err("Browser not initialized".to_string());
     }
-    let bin = agent_browser_bin().ok_or("agent-browser not found")?;
-    let status = Command::new(&bin)
-        .args(["--session", "naia-browser", "connect", &port.to_string()])
-        .status()
-        .map_err(|e| format!("agent-browser connect: {e}"))?;
-    if !status.success() {
-        return Err("agent-browser connect failed".to_string());
-    }
-    let status = Command::new(&bin)
-        .args(["--session", "naia-browser", "open", &url])
-        .status()
-        .map_err(|e| format!("agent-browser open: {e}"))?;
-    if !status.success() {
-        return Err(format!("Failed to navigate to {url}"));
-    }
+    run_agent_cmd(port, &["open", &url])?;
     Ok(())
 }
 
@@ -578,26 +585,13 @@ fn run_cdp_nav_cmd(cmd: &str) -> Result<(), String> {
     if port == 0 {
         return Err("Browser not initialized".to_string());
     }
-    let bin = agent_browser_bin().ok_or("agent-browser not found")?;
     let agent_cmd = match cmd {
         "browser_back" => "back",
         "browser_forward" => "forward",
         "browser_reload" => "reload",
         _ => return Err(format!("Unknown nav cmd: {cmd}")),
     };
-    Command::new(&bin)
-        .args([
-            "--session",
-            "naia-browser",
-            "connect",
-            &port.to_string(),
-        ])
-        .status()
-        .ok();
-    Command::new(&bin)
-        .args(["--session", "naia-browser", agent_cmd])
-        .status()
-        .map_err(|e| format!("agent-browser {agent_cmd}: {e}"))?;
+    run_agent_cmd(port, &[agent_cmd])?;
     Ok(())
 }
 
@@ -634,4 +628,53 @@ pub fn browser_embed_kill() {
 #[tauri::command]
 pub fn browser_embed_port() -> u16 {
     CHROME.lock().unwrap().port
+}
+
+/// Return accessibility tree snapshot of the current page (for Naia AI).
+///
+/// Returns a text representation of the page's interactive elements,
+/// with @ref IDs that can be used for click/fill commands.
+#[tauri::command]
+pub fn browser_snapshot() -> Result<String, String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    run_agent_cmd(port, &["snapshot"])
+}
+
+/// Click an element identified by an @ref from snapshot output (for Naia AI).
+#[tauri::command]
+pub fn browser_click(selector: String) -> Result<(), String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    run_agent_cmd(port, &["click", &selector])?;
+    Ok(())
+}
+
+/// Fill (clear + type) an input element identified by @ref (for Naia AI).
+#[tauri::command]
+pub fn browser_fill(selector: String, text: String) -> Result<(), String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    run_agent_cmd(port, &["fill", &selector, &text])?;
+    Ok(())
+}
+
+/// Get inner text of an element (or full page body if selector empty) (for Naia AI).
+#[tauri::command]
+pub fn browser_get_text(selector: String) -> Result<String, String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    if selector.is_empty() {
+        run_agent_cmd(port, &["get", "text", "body"])
+    } else {
+        run_agent_cmd(port, &["get", "text", &selector])
+    }
 }

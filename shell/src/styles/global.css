@@ -4552,6 +4552,7 @@ body.resizing-row {
 	flex-direction: column;
 	width: 100%;
 	height: 100%;
+	position: relative;
 	background: var(--espresso-dark);
 }
 
@@ -4623,6 +4624,42 @@ body.resizing-row {
 	height: 100%;
 	object-fit: contain;
 	display: block;
+}
+
+/* X11-embedded viewport — Chrome is reparented here; no visual background needed */
+.browser-panel__viewport--embedded {
+	background: transparent;
+	cursor: default;
+}
+
+/* Overlay shown while Chrome is not yet ready (checking / launching / error) */
+.browser-panel__overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	z-index: 10;
+	background: var(--espresso-dark);
+	pointer-events: none;
+}
+
+.browser-panel__overlay--error {
+	pointer-events: auto;
+}
+
+/* Text inside overlay (inline — no absolute positioning) */
+.browser-panel__overlay-text {
+	color: var(--cream-dim);
+	font-size: 13px;
+	text-align: center;
+	padding: 0 24px;
+}
+
+.browser-panel__overlay-text--error {
+	color: var(--error);
 }
 
 .browser-panel__loading,
