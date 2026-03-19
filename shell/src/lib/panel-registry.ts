@@ -125,6 +125,8 @@ export interface PanelDescriptor {
 	icon?: string;
 	/** Inline SVG content loaded from the panel's icon file. Takes priority over `icon`. */
 	iconSvg?: string;
+	/** Absolute path to index.html — if set, panel renders via iframe (asset protocol). */
+	htmlEntry?: string;
 	/**
 	 * Built-in panels (browser, workspace) cannot be deleted by the user.
 	 * Installed panels (~/.naia/panels/) should omit this or set false.

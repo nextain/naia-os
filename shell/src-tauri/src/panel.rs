@@ -15,6 +15,9 @@ pub struct PanelManifest {
 	pub icon_svg: Option<String>,
 	pub names: Option<std::collections::HashMap<String, String>>,
 	pub version: Option<String>,
+	/// Absolute path to index.html if present — used for iframe rendering
+	#[serde(rename = "htmlEntry", skip_deserializing, skip_serializing_if = "Option::is_none")]
+	pub html_entry: Option<String>,
 }
 
 /// List installed panels by scanning ~/.naia/panels/
@@ -56,6 +59,12 @@ pub fn panel_list_installed() -> Vec<PanelManifest> {
 			if let Ok(svg) = std::fs::read_to_string(&svg_path) {
 				manifest.icon_svg = Some(svg);
 			}
+		}
+
+		// Detect index.html for iframe rendering
+		let html_path = entry.path().join("index.html");
+		if html_path.exists() {
+			manifest.html_entry = html_path.to_string_lossy().into_owned().into();
 		}
 
 		panels.push(manifest);

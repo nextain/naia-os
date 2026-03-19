@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { GenericInstalledPanel } from "../panels/generic-installed/GenericInstalledPanel";
+import { createGenericInstalledPanel } from "../panels/generic-installed/GenericInstalledPanel";
 import { panelRegistry } from "./panel-registry";
 import { Logger } from "./logger";
 import { usePanelStore } from "../stores/panel";
@@ -13,6 +13,8 @@ interface InstalledPanelManifest {
 	iconSvg?: string;
 	names?: Record<string, string>;
 	version?: string;
+	/** Absolute path to index.html if present */
+	htmlEntry?: string;
 }
 
 /**
@@ -47,8 +49,9 @@ export async function loadInstalledPanels(): Promise<void> {
 			names: manifest.names,
 			icon: manifest.icon,
 			iconSvg: manifest.iconSvg,
+			htmlEntry: manifest.htmlEntry,
 			source: "installed",
-			center: GenericInstalledPanel,
+			center: createGenericInstalledPanel(manifest.htmlEntry),
 		});
 
 		Logger.info("PanelLoader", `Registered installed panel: ${manifest.id}`);
