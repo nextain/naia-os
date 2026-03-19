@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { SkillDefinition, SkillExecutionContext, SkillResult } from "../types.js";
 
-const PANELS_DIR = join(homedir(), ".naia", "apps");
+const PANELS_DIR = join(homedir(), ".naia", "panels");
 
 interface PanelManifest {
 	id: string;
@@ -109,8 +109,8 @@ export async function actionInstall(
 			if (result.status !== 0) {
 				throw new Error(result.stderr || "unzip failed");
 			}
-			// If zip contained a single root directory (e.g. my-panel/app.json),
-			// move its contents up so app.json sits directly in destDir.
+			// If zip contained a single root directory (e.g. my-panel/panel.json),
+			// move its contents up so panel.json sits directly in destDir.
 			const entries = readdirSync(destDir, { withFileTypes: true });
 			if (entries.length === 1 && entries[0].isDirectory()) {
 				const innerDir = join(destDir, entries[0].name);
@@ -130,14 +130,14 @@ export async function actionInstall(
 		};
 	}
 
-	// Verify app.json exists
+	// Verify panel.json exists
 	const manifest = readManifest(destDir);
 	if (!manifest) {
 		rmSync(destDir, { recursive: true, force: true });
 		return {
 			success: false,
 			output: "",
-			error: `Installed package has no app.json manifest — removed.`,
+			error: `Installed package has no panel.json manifest — removed.`,
 		};
 	}
 
