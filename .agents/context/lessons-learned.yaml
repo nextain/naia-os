@@ -103,3 +103,23 @@ lessons:
     problem: "Mid-implementation, 'app' terminology was partially adopted (app.json, ~/.naia/apps/, 'app_list_installed'). Mixed with existing 'panel' terms, creating broken file references and confusing documentation."
     root_cause: "Naming decision was made informally and not propagated atomically across all files. Each file was updated independently without a checklist."
     fix: "Reverted all 'app' terms back to 'panel'. Enforced: panel.json, ~/.naia/panels/, panel_list_installed, panel_remove_installed, PanelDescriptor. Added critical_gotchas.terminology note in architecture.yaml."
+
+  - id: L009
+    date: "2026-03-20"
+    issue: "#95"
+    category: process-management
+    scope: "shell/src-tauri/src/browser.rs"
+    title: "kill -0 succeeds on zombie processes — CDP health check required to detect Chrome death"
+    problem: "When Chrome was killed with SIGKILL, it became a zombie (parent hadn't reaped it). libc::kill(pid, 0) returns 0 (success) for zombies because the PID still exists in the process table. The monitor thread never emitted browser_closed, so the frontend never showed the error UI."
+    root_cause: "kill -0 is a live/dead check at the OS level, not a responsive-process check. A zombie occupies a PID slot but serves no HTTP."
+    fix: "Added CDP /json/version health check as secondary detector: if kill -0 succeeds but CDP refuses connection, Chrome is a zombie → emit browser_closed. See spawn_chrome_monitor() in browser.rs."
+
+  - id: L010
+    date: "2026-03-20"
+    issue: "#95"
+    category: frontend
+    scope: "shell/src/panels/browser/*"
+    title: "CEF Rust bindings not production-ready as of 2026 — use Chrome binary + XReparentWindow"
+    problem: "Considered using CEF (Chromium Embedded Framework) Rust bindings for an embedded browser. All available Rust CEF crates (cef-rs, chromium, etc.) are experimental, unmaintained, or archived as of 2026."
+    root_cause: "CEF Rust ecosystem is immature. CEF itself is a C++ library and Rust bindings lag behind significantly."
+    fix: "Use Chrome binary subprocess + X11 XReparentWindow (x11rb) for embedding. Achieves identical UX: user sees Chromium, CDP is available for AI. Requires GDK_BACKEND=x11 (XWayland mode) and must run via distrobox (not host Bazzite) for GTK/WebKit library linking."
