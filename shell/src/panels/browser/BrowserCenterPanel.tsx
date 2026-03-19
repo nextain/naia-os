@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Logger } from "../../lib/logger";
 import type { PanelCenterProps } from "../../lib/panel-registry";
 
 type EmbedStatus =
@@ -38,9 +39,11 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 				width: rect.width,
 				height: rect.height,
 			});
+			Logger.info("BrowserCenterPanel", "Chrome embedded successfully");
 			setStatus("ready");
 			await refreshPageInfo();
 		} catch (e) {
+			Logger.error("BrowserCenterPanel", "embed failed", { error: String(e) });
 			setError(String(e));
 			setStatus("error");
 		}
@@ -83,6 +86,7 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 	// Listen for Chrome process exit → show restart UI
 	useEffect(() => {
 		const unlisten = listen("browser_closed", () => {
+			Logger.warn("BrowserCenterPanel", "Chrome process exited unexpectedly");
 			setStatus("error");
 			setError(
 				"Chrome이 종료되었습니다. 다시 시작하려면 아래 버튼을 누르세요.",
@@ -160,7 +164,14 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 			<div
 				ref={viewportRef}
 				className="browser-panel__viewport browser-panel__viewport--embedded"
-				onClick={() => invoke("browser_embed_focus").catch(() => {})}
+				onClick={() => {
+					// Blur any focused HTML element (e.g. chat input) so the
+					// focus interval resumes and Chrome keeps keyboard input.
+					if (document.activeElement instanceof HTMLElement) {
+						document.activeElement.blur();
+					}
+					invoke("browser_embed_focus").catch(() => {});
+				}}
 			/>
 		</div>
 	);

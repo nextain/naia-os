@@ -19,16 +19,12 @@ import { persistDiscordDefaults } from "./lib/discord-auth";
 import { NoopContextBridge } from "./lib/panel-registry";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 import { BrowserCenterPanel } from "./panels/browser/BrowserCenterPanel";
-import { BrowserMetaPanel } from "./panels/browser/BrowserMetaPanel";
 
 const noopBridge = new NoopContextBridge();
 
 const LEFT_WIDTH_KEY = "naia:leftWidth";
-const META_WIDTH_KEY = "naia:metaWidth";
 const LEFT_MIN = 180;
 const LEFT_MAX = 520;
-const META_MIN = 160;
-const META_MAX = 480;
 
 function applyTheme(theme: ThemeId) {
 	document.documentElement.setAttribute("data-theme", theme);
@@ -40,10 +36,6 @@ export function App() {
 	const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
 	const [leftWidth, setLeftWidth] = useState(
 		() => Number(localStorage.getItem(LEFT_WIDTH_KEY)) || 300,
-	);
-	const [metaVisible, setMetaVisible] = useState(false);
-	const [metaWidth, setMetaWidth] = useState(
-		() => Number(localStorage.getItem(META_WIDTH_KEY)) || 280,
 	);
 
 	const layoutRef = useRef<HTMLDivElement>(null);
@@ -132,35 +124,6 @@ export function App() {
 		[leftWidth],
 	);
 
-	// Drag handler: meta column resize (drag left edge of app-meta)
-	const onResizeMeta = useCallback(
-		(e: React.PointerEvent) => {
-			e.preventDefault();
-			document.body.classList.add("resizing-col");
-			const startX = e.clientX;
-			const startW = metaWidth;
-			const onMove = (ev: PointerEvent) => {
-				const w = Math.max(
-					META_MIN,
-					Math.min(META_MAX, startW + startX - ev.clientX),
-				);
-				setMetaWidth(w);
-			};
-			const onUp = () => {
-				document.body.classList.remove("resizing-col");
-				window.removeEventListener("pointermove", onMove);
-				window.removeEventListener("pointerup", onUp);
-				setMetaWidth((cur) => {
-					localStorage.setItem(META_WIDTH_KEY, String(cur));
-					return cur;
-				});
-			};
-			window.addEventListener("pointermove", onMove);
-			window.addEventListener("pointerup", onUp);
-		},
-		[metaWidth],
-	);
-
 	// Global deep-link sink
 	useEffect(() => {
 		const unlisten = listen<{
@@ -200,7 +163,7 @@ export function App() {
 			{updateInfo && (
 				<UpdateBanner info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
 			)}
-			{/* Fixed 3-column layout: [avatar+chat] [browser] [browser-meta] */}
+			{/* 2-column layout: [avatar+chat] [browser] */}
 			<div className="app-main" ref={layoutRef}>
 				{/* Left column: avatar always visible; chat toggles with Ctrl+B */}
 				<div className="app-left" style={{ width: leftWidth }}>
@@ -215,14 +178,12 @@ export function App() {
 				</div>
 				<div className="col-resize-handle" onPointerDown={onResizeLeft} />
 
-				{/* Right area: tab bar spans browser + meta */}
+				{/* Right area: tab bar + browser */}
 				<div className="app-right-area">
-					{/* Tab bar covering both center and meta */}
 					<div className="content-tabs">
 						<button type="button" className="content-tab content-tab--active">
 							브라우저
 						</button>
-						{/* Additional tabs injected here by other sessions/issues */}
 						<button
 							type="button"
 							className="content-tab content-tab--add"
@@ -230,33 +191,11 @@ export function App() {
 						>
 							+
 						</button>
-						{/* Meta panel toggle — pushed to far right */}
-						<button
-							type="button"
-							className={`content-tab content-tab--meta-toggle${metaVisible ? " content-tab--active" : ""}`}
-							onClick={() => setMetaVisible((v) => !v)}
-							title={metaVisible ? "메타 패널 닫기" : "메타 패널 열기"}
-						>
-							⊟
-						</button>
 					</div>
-
-					{/* Content row: browser + optional meta panel */}
 					<div className="app-right-content">
 						<div className="app-browser">
 							<BrowserCenterPanel naia={noopBridge} />
 						</div>
-						{metaVisible && (
-							<>
-								<div
-									className="col-resize-handle"
-									onPointerDown={onResizeMeta}
-								/>
-								<div className="app-meta" style={{ width: metaWidth }}>
-									<BrowserMetaPanel naia={noopBridge} />
-								</div>
-							</>
-						)}
 					</div>
 				</div>
 			</div>

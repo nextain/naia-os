@@ -189,7 +189,7 @@ fn wait_for_cdp(port: u16) -> Result<(), String> {
 fn find_chrome_xid(pid: u32) -> Result<u32, String> {
     for _ in 0..12 {
         let out = Command::new("xdotool")
-            .args(["search", "--pid", &pid.to_string(), "--onlyvisible"])
+            .args(["search", "--pid", &pid.to_string()])
             .env("DISPLAY", ":0")
             .output()
             .map_err(|e| format!("xdotool error: {e}"))?;
@@ -205,14 +205,16 @@ fn find_chrome_xid(pid: u32) -> Result<u32, String> {
     Err(format!("Chrome X11 window not found for PID {pid} within 6 s"))
 }
 
-/// Find the Tauri main window's X11 window ID by this process's PID.
+/// Find the Tauri main window's X11 window ID by window name.
 ///
-/// Works only when Tauri is running on X11 (GDK_BACKEND=x11 / XWayland).
+/// Uses `xdotool search --name` instead of `--pid` because inside distrobox
+/// (and some XWayland setups) the in-process PID differs from the host PID
+/// stored in `_NET_WM_PID`, making --pid searches fail.
+/// The window title "Naia" is fixed by tauri.conf.json.
 fn find_tauri_xid() -> Result<u32, String> {
-    let pid = std::process::id();
-    for _ in 0..6 {
+    for attempt in 0..20 {
         let out = Command::new("xdotool")
-            .args(["search", "--pid", &pid.to_string(), "--onlyvisible"])
+            .args(["search", "--name", "^Naia$"])
             .env("DISPLAY", ":0")
             .output()
             .map_err(|e| format!("xdotool error: {e}"))?;
@@ -220,16 +222,39 @@ fn find_tauri_xid() -> Result<u32, String> {
             .split_whitespace()
             .filter_map(|t| t.parse::<u32>().ok())
             .collect();
-        if let Some(&xid) = ids.first() {
-            return Ok(xid);
+        if !ids.is_empty() {
+            // Pick the window with the largest area (main app window)
+            let best = ids
+                .iter()
+                .copied()
+                .max_by_key(|&xid| window_area(xid).unwrap_or(0));
+            if let Some(xid) = best {
+                return Ok(xid);
+            }
         }
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        if attempt == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        } else {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
     }
-    Err(format!(
-        "Tauri X11 window not found for PID {pid}. \
-        Is GDK_BACKEND=x11 set? (Required for browser embedding)"
-    ))
+    Err("Tauri X11 window not found (title: 'Naia'). \
+        Ensure the app is launched with GDK_BACKEND=x11"
+        .to_string())
 }
+
+/// Return the pixel area of an X11 window (width × height), or None on error.
+#[cfg(target_os = "linux")]
+fn window_area(xid: u32) -> Option<u32> {
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+    let (conn, _) = RustConnection::connect(Some(":0")).ok()?;
+    let geom = conn.get_geometry(xid).ok()?.reply().ok()?;
+    Some(geom.width as u32 * geom.height as u32)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn window_area(_xid: u32) -> Option<u32> { None }
 
 /// Embed `child_xid` into `parent_xid` at (x, y) with size (w×h) via x11rb.
 #[cfg(target_os = "linux")]
@@ -334,25 +359,38 @@ pub fn browser_agent_check() -> bool {
 pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f64) -> Result<u16, String> {
     let state = CHROME.lock().unwrap();
 
-    // Kill any lingering Chrome processes from previous sessions.
-    // --keep-alive-for-test keeps Chrome alive even after app exit,
-    // so we must clean up before spawning a new instance.
-    if state.process.is_none() {
-        let _ = Command::new("pkill")
-            .args(["-f", "naia-chrome"])
-            .output();
-        std::thread::sleep(std::time::Duration::from_millis(300));
-    }
-
-    // If already running, just resize and return existing port
-    if state.process.is_some() && state.chrome_xid != 0 {
+    // If Chrome process already exists, re-embed (don't spawn again).
+    // This handles two cases:
+    //   a) chrome_xid != 0 — fully embedded, just reposition
+    //   b) chrome_xid == 0 — React StrictMode detached the embed; re-attach
+    // In both cases we must NOT spawn a new Chrome.
+    if state.process.is_some() {
         let port = state.port;
-        let xid = state.chrome_xid;
+        let pid = state.pid;
+        let existing_xid = state.chrome_xid;
         drop(state);
+
+        crate::log_verbose(&format!("[browser] re-embed: pid={pid} existing_xid={existing_xid}"));
+        let chrome_xid = if existing_xid != 0 {
+            existing_xid
+        } else {
+            find_chrome_xid(pid)?
+        };
         let tauri_xid = find_tauri_xid()?;
-        x11_embed(tauri_xid, xid, x as i16, y as i16, width as u32, height as u32)?;
+        crate::log_verbose(&format!("[browser] re-embed: chrome_xid={chrome_xid} tauri_xid={tauri_xid}"));
+        x11_embed(tauri_xid, chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
+        CHROME.lock().unwrap().chrome_xid = chrome_xid;
+        crate::log_verbose("[browser] re-embed OK");
         return Ok(port);
     }
+
+    crate::log_verbose("[browser] init: spawning Chrome");
+    // No Chrome running — kill any lingering processes from previous sessions
+    // (--keep-alive-for-test keeps Chrome alive even after app exit).
+    let _ = Command::new("pkill")
+        .args(["-f", "naia-chrome"])
+        .output();
+    std::thread::sleep(std::time::Duration::from_millis(300));
 
     let port = find_free_port();
     let tmpdir = std::env::temp_dir()
@@ -364,6 +402,7 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
 
     let child = spawn_chrome(port, &tmpdir)?;
     let pid = child.id();
+    crate::log_verbose(&format!("[browser] Chrome spawned: pid={pid} port={port}"));
 
     // Store process immediately so it's tracked even if later steps fail.
     // This prevents a second spawn if the user retries after an error.
@@ -376,18 +415,29 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
     }
 
     // Wait for CDP (blocking wait)
+    crate::log_verbose(&format!("[browser] waiting for CDP on port {port}..."));
     if let Err(e) = wait_for_cdp(port) {
+        crate::log_both(&format!("[browser] CDP wait failed: {e}"));
+        // Clean up zombie process so next retry spawns fresh
+        let mut s = CHROME.lock().unwrap();
+        if let Some(mut child) = s.process.take() { let _ = child.kill(); }
+        s.port = 0; s.pid = 0;
         return Err(e);
     }
+    crate::log_verbose("[browser] CDP ready");
 
     // Find Chrome's X11 window
     let chrome_xid = find_chrome_xid(pid)?;
+    crate::log_verbose(&format!("[browser] chrome_xid={chrome_xid}"));
 
     // Find Tauri's X11 window
+    crate::log_verbose("[browser] searching for Tauri window by name 'Naia'...");
     let tauri_xid = find_tauri_xid()?;
+    crate::log_verbose(&format!("[browser] tauri_xid={tauri_xid}"));
 
     // Embed Chrome into Tauri
     x11_embed(tauri_xid, chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
+    crate::log_verbose(&format!("[browser] embed OK: chrome={chrome_xid} → tauri={tauri_xid}"));
 
     // Record the XID now that embedding succeeded
     let mut state = CHROME.lock().unwrap();
@@ -412,12 +462,20 @@ pub fn browser_embed_resize(x: f64, y: f64, width: f64, height: f64) -> Result<(
     x11_resize(xid, x as i16, y as i16, width as u32, height as u32)
 }
 
-/// Give keyboard focus to Chrome's X11 window.
-/// Uses xdotool windowfocus which handles XWayland focus quirks more reliably
-/// than raw XSetInputFocus.
+/// Give keyboard focus to Chrome's X11 window via XSetInputFocus.
+///
+/// After XReparentWindow Chrome is a *child* window, not a top-level.
+/// xdotool windowfocus uses _NET_ACTIVE_WINDOW (a WM protocol for top-levels)
+/// which does not reliably work on embedded child windows.
+/// XSetInputFocus works at the X11 protocol level and correctly routes
+/// keyboard events to the embedded Chrome window.
 #[cfg(target_os = "linux")]
 #[tauri::command]
 pub fn browser_embed_focus() -> Result<(), String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
     let xid = {
         let state = CHROME.lock().unwrap();
         state.chrome_xid
@@ -425,11 +483,11 @@ pub fn browser_embed_focus() -> Result<(), String> {
     if xid == 0 {
         return Ok(());
     }
-    // xdotool windowfocus handles XWayland focus protocol correctly
-    Command::new("xdotool")
-        .args(["windowfocus", "--sync", &xid.to_string()])
-        .output()
-        .map_err(|e| format!("xdotool windowfocus failed: {e}"))?;
+    let (conn, _) = RustConnection::connect(Some(":0"))
+        .map_err(|e| format!("X11 connect: {e}"))?;
+    conn.set_input_focus(InputFocus::PARENT, xid, x11rb::CURRENT_TIME)
+        .map_err(|e| format!("XSetInputFocus: {e}"))?;
+    conn.flush().map_err(|e| format!("flush: {e}"))?;
     Ok(())
 }
 
@@ -543,9 +601,22 @@ fn run_cdp_nav_cmd(cmd: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Kill Chrome subprocess and clean up.
+/// Detach the browser panel (called on React component unmount).
+///
+/// Does NOT kill Chrome — Chrome is a long-lived process managed by the
+/// monitor thread. Killing here would cause React StrictMode (dev mode) to
+/// spawn two Chrome instances: StrictMode unmounts→close kills Chrome #1,
+/// then remounts→init spawns Chrome #2.
+/// Chrome is killed by `browser_embed_kill` on actual app exit.
 #[tauri::command]
 pub fn browser_embed_close() -> Result<(), String> {
+    let mut state = CHROME.lock().unwrap();
+    state.chrome_xid = 0; // signal that embed is detached; re-embed on next init
+    Ok(())
+}
+
+/// Hard-kill Chrome and clean up. Call only on app exit.
+pub fn browser_embed_kill() {
     let mut state = CHROME.lock().unwrap();
     if let Some(mut child) = state.process.take() {
         let _ = child.kill();
@@ -553,10 +624,10 @@ pub fn browser_embed_close() -> Result<(), String> {
     let tmpdir = std::mem::take(&mut state.tmpdir);
     state.port = 0;
     state.chrome_xid = 0;
+    state.pid = 0;
     if !tmpdir.is_empty() {
         let _ = std::fs::remove_dir_all(&tmpdir);
     }
-    Ok(())
 }
 
 /// Return the active Chrome CDP port (0 if not running).

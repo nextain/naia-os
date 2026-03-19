@@ -154,14 +154,14 @@ fn log_to_file(msg: &str) {
 }
 
 /// Important messages — always stderr + file (visible to users in release)
-fn log_both(msg: &str) {
+pub(crate) fn log_both(msg: &str) {
     eprintln!("{}", msg);
     log_to_file(msg);
 }
 
 /// Verbose/debug messages — file always, stderr only in debug builds
 /// Use for progress updates, retries, and diagnostics that users don't need to see
-fn log_verbose(msg: &str) {
+pub(crate) fn log_verbose(msg: &str) {
     if cfg!(debug_assertions) {
         eprintln!("{}", msg);
     }
@@ -2568,6 +2568,9 @@ pub fn run() {
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
+                    // Kill Chrome on app exit (not on React component unmount)
+                    crate::browser::browser_embed_kill();
+
                     let state: tauri::State<'_, AppState> = window.state();
 
                     // Stop health monitor thread
