@@ -606,3 +606,17 @@ Default voice is automatically set based on VRM avatar gender:
 
 - **Omni models:** Varies by provider (Gemini: $0.10/M input + $0.40/M output, OpenAI: ~$0.10/min)
 - **TTS:** Varies by provider (Chirp 3 HD, Neural2, Edge free, OpenAI, ElevenLabs)
+
+#### Voice Tools (from Panel Registry)
+
+> Added: 2026-03-20 (#95)
+
+When starting a voice session, `ChatPanel` reads the active panel's tools from `panelRegistry` and passes them to `session.connect()`. Without this, Gemini Live says "tools are disabled" even when `config.enableTools=true`.
+
+```tsx
+const panelTools = panelRegistry.get(activePanelId)?.tools ?? [];
+const voiceTools = panelTools.map((t) => ({ name, description, parameters }));
+await session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt });
+```
+
+The system prompt is also augmented with an explicit tool list and "call them proactively" instruction.

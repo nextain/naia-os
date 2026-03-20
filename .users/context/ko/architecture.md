@@ -606,3 +606,17 @@ VRM 아바타 성별에 따라 기본 음성이 자동 설정됨:
 
 - **Omni 모델:** 프로바이더별 상이 (Gemini: $0.10/M 입력 + $0.40/M 출력, OpenAI: ~$0.10/분)
 - **TTS:** 프로바이더별 상이 (Chirp 3 HD, Neural2, Edge 무료, OpenAI, ElevenLabs)
+
+#### 음성 도구 (패널 레지스트리에서 수집)
+
+> 추가: 2026-03-20 (#95)
+
+음성 세션 시작 시 `ChatPanel`이 `panelRegistry`에서 활성 패널의 도구를 읽어 `session.connect()`에 전달한다. 이 없으면 `config.enableTools=true`여도 Gemini Live가 "도구 사용이 꺼져 있습니다"라고 응답함.
+
+```tsx
+const panelTools = panelRegistry.get(activePanelId)?.tools ?? [];
+const voiceTools = panelTools.map((t) => ({ name, description, parameters }));
+await session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt });
+```
+
+시스템 프롬프트에도 도구 목록과 "적극적으로 호출하라"는 지시가 추가됨.

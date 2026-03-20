@@ -129,3 +129,39 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: CEF Rust ecosystem is immature. CEF itself is a C++ library and Rust bindings lag behind significantly.
 
 **Fix**: Use Chrome binary subprocess + X11 XReparentWindow (`x11rb`) for embedding. Achieves identical UX: user sees Chromium, CDP is available for AI. Requires `GDK_BACKEND=x11` (XWayland mode) and must run via distrobox (not host Bazzite) for GTK/WebKit library linking.
+
+---
+
+## L011 — gemini-2.5-flash-live is WebSocket-only — SSE /v1/chat/completions returns silent 0-byte body (#95)
+
+**Date**: 2026-03-20 | **Category**: Provider | **Scope**: `agent/src/providers/lab-proxy.ts`
+
+**Problem**: User set LLM model to `gemini-2.5-flash-live` for text chat. Lab proxy sent it to Vertex AI `/v1/chat/completions` (SSE endpoint). Vertex AI returned 200 OK with a completely empty body — no data, no error. App threw "empty SSE stream" error.
+
+**Root cause**: Gemini Live models are WebSocket-only (Live API). Vertex AI's REST endpoint does not support them and silently returns an empty 200 response instead of a proper error.
+
+**Fix**: Added `toGatewayModel()` mapping in `lab-proxy.ts`: `"gemini-2.5-flash-live"` → `"vertexai:gemini-2.5-flash"`. Also added `bytesReceived==0` guard to detect silent 0-byte streams with a clear error message.
+
+---
+
+## L012 — Voice session must receive tools via session.connect() — Gemini says "tools off" without it (#95)
+
+**Date**: 2026-03-20 | **Category**: Voice | **Scope**: `shell/src/components/ChatPanel.tsx`, `shell/src/lib/voice/*`
+
+**Problem**: Gemini Live voice session said "내 도구 사용 설정이 꺼져 있어서 (tools are disabled)" even when `config.enableTools=true`. User could see the tools toggle was on. The AI's voice responses showed it thought tools weren't available.
+
+**Root cause**: `session.connect()` was called without a `tools` parameter. Gemini Live's `function_declarations` field was empty. Even if the system prompt mentioned tools, Gemini won't call them unless they're declared in the session setup.
+
+**Fix**: `ChatPanel` reads active panel tools from `panelRegistry.get(activePanelId)?.tools`, maps them to `ToolDeclaration` format, and passes to `session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt })`. System prompt also appended with explicit tool list and "call them proactively" instruction.
+
+---
+
+## L013 — position:fixed overlays cover full viewport including embedded Chrome X11 area (#95)
+
+**Date**: 2026-03-20 | **Category**: CSS | **Scope**: `shell/src/styles/global.css`, `shell/src/components/SettingsTab.tsx`
+
+**Problem**: STT model modal (`.sync-dialog-overlay` uses `position:fixed; left:0; right:0`) appeared over the Chrome X11 embedded area instead of staying within the naia chat panel.
+
+**Root cause**: `position:fixed` positions relative to the viewport, which includes the full window width. The Chrome X11 window is embedded at `x > naia-panel-width`, so fixed overlays that stretch to `right:0` cover the Chrome area.
+
+**Fix**: Added `.panel-modal-overlay` class with `width: var(--naia-width, 320px)` instead of `right:0`. Modals that must stay within the panel should use this class rather than the full-viewport `.sync-dialog-overlay`.

@@ -435,6 +435,16 @@ panel_system:
     zip_extension: "deriveNameFromSource MUST strip .zip — otherwise panel dir is named 'foo.zip' not 'foo'."
     file_url_as_git: "file:// URLs are treated as git (clone), not zip. Useful for local git repos."
 
+  built_in_panels:
+    browser:
+      id: "browser"
+      added: "2026-03-20 (#95)"
+      file: "shell/src/panels/browser/index.tsx + BrowserCenterPanel.tsx"
+      description: "Chrome X11 embed via XReparentWindow; 12 AI tools (skill_browser_*); Chrome browser-level permissions (mic/camera/notifications via CDP)"
+      tools: "skill_browser_navigate, back, forward, reload, click, fill, scroll, press, snapshot, get_text, screenshot, eval"
+      chrome_profile: "~/.naia/chrome-profile/ — persistent (login sessions survive restarts)"
+      requires: "GDK_BACKEND=x11 (XWayland mode), google-chrome binary in PATH"
+
   future:
     panstore: "Built-in panel tab showing a curated list of installable panels (separate issue)"
     dynamic_loading: "JS dynamic import for installed panels (planned, not yet implemented)"

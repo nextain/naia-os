@@ -129,3 +129,39 @@
 **근본 원인**: CEF Rust 에코시스템 미성숙. CEF 자체가 C++ 라이브러리이며 Rust 바인딩이 크게 뒤처짐.
 
 **수정**: Chrome 바이너리 서브프로세스 + X11 XReparentWindow(`x11rb`)로 embed. 동일한 UX 달성: 사용자는 Chromium 화면, AI용 CDP 사용 가능. `GDK_BACKEND=x11`(XWayland 모드) 필수, GTK/WebKit 라이브러리 링킹을 위해 distrobox(host Bazzite 아님)에서 실행 필요.
+
+---
+
+## L011 — gemini-2.5-flash-live는 WebSocket 전용 — SSE /v1/chat/completions에 보내면 0바이트 응답 (#95)
+
+**날짜**: 2026-03-20 | **카테고리**: 프로바이더 | **범위**: `agent/src/providers/lab-proxy.ts`
+
+**문제**: 사용자가 텍스트 채팅용 LLM 모델로 `gemini-2.5-flash-live`를 설정함. Lab proxy가 Vertex AI `/v1/chat/completions`(SSE 엔드포인트)로 전송. Vertex AI가 200 OK이지만 완전히 빈 응답 반환 — 데이터도, 에러도 없음. 앱이 "empty SSE stream" 에러 발생.
+
+**근본 원인**: Gemini Live 모델은 WebSocket 전용(Live API). Vertex AI의 REST 엔드포인트가 지원하지 않으며, 적절한 에러 대신 빈 200 응답을 묵묵히 반환.
+
+**수정**: `lab-proxy.ts`의 `toGatewayModel()`에 매핑 추가: `"gemini-2.5-flash-live"` → `"vertexai:gemini-2.5-flash"`. 또한 `bytesReceived==0` 가드를 추가해 0바이트 스트림을 명확한 에러 메시지로 감지.
+
+---
+
+## L012 — 음성 세션은 session.connect()에 tools를 전달해야 함 — 없으면 Gemini가 "도구 꺼져 있음"이라고 말함 (#95)
+
+**날짜**: 2026-03-20 | **카테고리**: 음성 | **범위**: `shell/src/components/ChatPanel.tsx`, `shell/src/lib/voice/*`
+
+**문제**: `config.enableTools=true`임에도 Gemini Live 음성 세션이 "내 도구 사용 설정이 꺼져 있어서"라고 말함. 사용자는 도구 토글이 켜져 있음을 확인했으나 AI 음성 응답은 도구를 사용할 수 없다고 인식.
+
+**근본 원인**: `session.connect()`에 `tools` 파라미터 없이 호출됨. Gemini Live의 `function_declarations` 필드가 비어있었음. 시스템 프롬프트에 도구 언급이 있어도, 세션 setup에서 선언되지 않으면 Gemini가 도구를 호출하지 않음.
+
+**수정**: `ChatPanel`이 `panelRegistry.get(activePanelId)?.tools`에서 활성 패널 도구를 읽어 `ToolDeclaration` 형식으로 변환, `session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt })`에 전달. 시스템 프롬프트에도 도구 목록과 "적극적으로 호출하라"는 지시 추가.
+
+---
+
+## L013 — position:fixed 오버레이가 Chrome X11 임베드 영역까지 덮음 (#95)
+
+**날짜**: 2026-03-20 | **카테고리**: CSS | **범위**: `shell/src/styles/global.css`, `shell/src/components/SettingsTab.tsx`
+
+**문제**: STT 모델 모달(`.sync-dialog-overlay`가 `position:fixed; left:0; right:0` 사용)이 naia 채팅 패널 내에 머물지 않고 Chrome X11 임베드 영역 위에 나타남.
+
+**근본 원인**: `position:fixed`는 뷰포트 기준으로 위치가 결정되어 전체 창 너비를 포함함. Chrome X11 창은 `x > naia-panel-width`에 임베드되므로, `right:0`까지 늘어나는 fixed 오버레이가 Chrome 영역을 덮음.
+
+**수정**: `right:0` 대신 `width: var(--naia-width, 320px)`를 사용하는 `.panel-modal-overlay` 클래스 추가. 패널 내부에 머물어야 하는 모달은 전체 뷰포트 `.sync-dialog-overlay` 대신 이 클래스를 사용.
