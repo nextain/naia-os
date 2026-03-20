@@ -58,7 +58,7 @@ export function App() {
 
 	const { activePanel } = usePanelStore();
 
-	// Sync panel tools with agent on panel switch
+	// Sync panel tools with agent on panel switch, and call lifecycle hooks
 	const prevPanelRef = useRef<string | null>(null);
 	useEffect(() => {
 		const prev = prevPanelRef.current;
@@ -66,9 +66,11 @@ export function App() {
 
 		if (prev && prev !== activePanel) {
 			sendPanelSkillsClear(prev).catch(() => {});
+			panelRegistry.get(prev)?.onDeactivate?.();
 		}
 		if (activePanel) {
 			const descriptor = panelRegistry.get(activePanel);
+			descriptor?.onActivate?.();
 			if (descriptor?.tools && descriptor.tools.length > 0) {
 				sendPanelSkills(activePanel, descriptor.tools).catch(() => {});
 			}

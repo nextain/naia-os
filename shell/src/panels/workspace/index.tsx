@@ -1,11 +1,77 @@
+import { invoke } from "@tauri-apps/api/core";
 import { panelRegistry } from "../../lib/panel-registry";
+import type { NaiaTool } from "../../lib/panel-registry";
 import { WorkspaceCenterPanel } from "./WorkspaceCenterPanel";
+
+export const WORKSPACE_TOOLS: NaiaTool[] = [
+	{
+		name: "skill_workspace_get_sessions",
+		description:
+			"현재 모니터링 중인 모든 Claude Code 세션의 상태를 반환한다. 각 세션의 디렉토리, 상태(active/idle/stopped), 브랜치, 이슈/단계, 최근 변경 파일을 포함한다.",
+		parameters: { type: "object", properties: {}, required: [] },
+		tier: 0, // auto (read-only)
+	},
+	{
+		name: "skill_workspace_open_file",
+		description: "지정한 파일을 에디터에 연다. 절대 경로 또는 WORKSPACE_ROOT 기준 상대 경로를 받는다.",
+		parameters: {
+			type: "object",
+			properties: {
+				path: {
+					type: "string",
+					description: "열 파일의 절대 경로 (e.g. /var/home/luke/dev/naia-os/shell/src/App.tsx)",
+				},
+			},
+			required: ["path"],
+		},
+		tier: 1, // notify
+	},
+	{
+		name: "skill_workspace_classify_dirs",
+		description:
+			"dev 디렉토리의 하위 폴더를 분류(project/worktree/reference/docs/other)한다. 인자 없이 호출하면 추천 분류 결과를 반환하고, confirmed 배열을 넘기면 해당 분류를 적용하고 저장한다.",
+		parameters: {
+			type: "object",
+			properties: {
+				confirmed: {
+					type: "array",
+					description: "사용자가 확인한 분류 결과 배열 (각 요소: {name, path, category}). 없으면 추천만 반환.",
+					items: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+							path: { type: "string" },
+							category: {
+								type: "string",
+								enum: ["project", "worktree", "reference", "docs", "other"],
+							},
+						},
+					},
+				},
+			},
+			required: [],
+		},
+		tier: 0, // auto for read, but saving triggers notify
+	},
+];
+
+function startWorkspaceWatcher() {
+	invoke("workspace_start_watch").catch(() => {});
+}
+
+function stopWorkspaceWatcher() {
+	invoke("workspace_stop_watch").catch(() => {});
+}
 
 panelRegistry.register({
 	id: "workspace",
-	name: "Workspace",
+	name: "워크스페이스",
 	names: { ko: "워크스페이스", en: "Workspace" },
 	icon: "💻",
 	builtIn: true,
+	source: "code",
 	center: WorkspaceCenterPanel,
+	tools: WORKSPACE_TOOLS,
+	onActivate: startWorkspaceWatcher,
+	onDeactivate: stopWorkspaceWatcher,
 });
