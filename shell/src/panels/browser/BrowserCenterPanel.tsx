@@ -71,10 +71,14 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 
 	// ── Periodically restore X11 focus to Chrome while ready ────────────────
 	// GTK/WebKit steals focus back; this counteracts it.
-	// Pauses when an HTML input element is focused (chat, URL bar, etc.).
+	// Pauses when:
+	//   • an HTML input element is focused (chat box, URL bar, etc.), OR
+	//   • the Naia window itself doesn't have OS focus (user switched apps)
 	useEffect(() => {
 		if (status !== "ready") return;
 		const id = setInterval(() => {
+			// Don't steal focus from other OS windows
+			if (!document.hasFocus()) return;
 			const active = document.activeElement;
 			const isHtmlInput =
 				active instanceof HTMLInputElement ||

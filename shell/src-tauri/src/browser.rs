@@ -103,14 +103,42 @@ fn find_free_port() -> u16 {
         .unwrap_or(19222)
 }
 
+/// Returns true when running inside a Flatpak sandbox.
+fn is_flatpak() -> bool {
+    std::env::var("FLATPAK").is_ok()
+}
+
 /// Resolve `google-chrome` or `chromium` binary.
+///
+/// In a Flatpak sandbox the sandbox PATH does not include host binaries.
+/// When `FLATPAK=1` we use `flatpak-spawn --host which <name>` to probe the
+/// host PATH, returning the host-side path that can later be passed back to
+/// `flatpak-spawn --host` in `spawn_chrome`.
 fn chrome_bin() -> Option<String> {
+    // Try sandbox PATH first (works in dev / distrobox mode)
     for name in &["google-chrome", "chromium", "chromium-browser"] {
         if let Ok(out) = Command::new("which").arg(name).output() {
             if out.status.success() {
                 let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if !p.is_empty() {
                     return Some(p);
+                }
+            }
+        }
+    }
+    // Flatpak: query the host PATH via flatpak-spawn
+    // Requires --talk-name=org.freedesktop.Flatpak (already in finish-args)
+    if is_flatpak() {
+        for name in &["google-chrome", "chromium", "chromium-browser"] {
+            if let Ok(out) = Command::new("flatpak-spawn")
+                .args(["--host", "which", name])
+                .output()
+            {
+                if out.status.success() {
+                    let p = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !p.is_empty() {
+                        return Some(p);
+                    }
                 }
             }
         }
@@ -150,30 +178,40 @@ fn agent_browser_bin() -> Option<String> {
 }
 
 /// Spawn Chrome as a subprocess, X11 mode, with CDP.
+///
+/// In a Flatpak sandbox Chrome must run on the HOST (outside the sandbox) so
+/// that it has full X11 + filesystem access.  We use `flatpak-spawn --host`
+/// which requires `--talk-name=org.freedesktop.Flatpak` in finish-args.
 fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
     let bin = chrome_bin().ok_or("google-chrome not found in PATH")?;
-    Command::new(&bin)
-        .args([
-            // X11 mode (required for XReparentWindow embedding)
-            "--ozone-platform=x11",
-            // Keep process alive even when all tabs are closed
-            // (tab guard will open a new tab automatically)
-            "--keep-alive-for-test",
-            // Housekeeping
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-sync",
-            "--disable-extensions",
-            "--disable-infobars",
-            "--disable-session-crashed-bubble",
-            "--disable-dev-shm-usage",
-            "--disable-gpu-sandbox",
-            &format!("--remote-debugging-port={port}"),
-            &format!("--user-data-dir={tmpdir}"),
-        ])
+    let chrome_flags: Vec<String> = vec![
+        "--ozone-platform=x11".into(),
+        "--keep-alive-for-test".into(),
+        "--no-first-run".into(),
+        "--no-default-browser-check".into(),
+        "--disable-sync".into(),
+        "--disable-extensions".into(),
+        "--disable-infobars".into(),
+        "--disable-session-crashed-bubble".into(),
+        "--disable-dev-shm-usage".into(),
+        "--disable-gpu-sandbox".into(),
+        format!("--remote-debugging-port={port}"),
+        format!("--user-data-dir={tmpdir}"),
+    ];
+
+    let mut cmd = if is_flatpak() {
+        // Spawn Chrome on the host so it has access to DISPLAY=:0 and the
+        // host X11 socket provided by --socket=x11 in the Flatpak manifest.
+        let mut c = Command::new("flatpak-spawn");
+        c.arg("--host").arg(&bin);
+        c
+    } else {
+        Command::new(&bin)
+    };
+
+    cmd.args(&chrome_flags)
         .env("DISPLAY", ":0")
         .env("GDK_BACKEND", "x11")
-        // Suppress Chrome's own stdout/stderr noise
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -194,58 +232,139 @@ fn wait_for_cdp(port: u16) -> Result<(), String> {
     Err(format!("Chrome CDP not ready on port {port} after 8 s"))
 }
 
+/// Search _NET_CLIENT_LIST for a window whose WM_CLASS contains `fragment`.
+/// Returns the matching window with the largest area (main window, not a popup).
+#[cfg(target_os = "linux")]
+fn find_window_by_class(fragment: &str) -> Option<u32> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
+    let (conn, screen_num) = RustConnection::connect(Some(":0")).ok()?;
+    let root = conn.setup().roots[screen_num].root;
+
+    let net_list = conn.intern_atom(false, b"_NET_CLIENT_LIST").ok()?.reply().ok()?.atom;
+    let wm_class = conn.intern_atom(false, b"WM_CLASS").ok()?.reply().ok()?.atom;
+    let prop = conn.get_property(false, root, net_list, AtomEnum::ANY, 0, 4096)
+        .ok()?.reply().ok()?;
+    let windows: Vec<u32> = prop.value32()?.collect();
+
+    let frag = fragment.to_lowercase();
+    let mut best: Option<(u32, u32)> = None;
+    for w in windows {
+        if let Some(p) = conn.get_property(false, w, wm_class, AtomEnum::STRING, 0, 256)
+            .ok().and_then(|c| c.reply().ok())
+        {
+            if String::from_utf8_lossy(&p.value).to_lowercase().contains(&frag) {
+                let area = window_area(w).unwrap_or(0);
+                if best.map_or(true, |(_, a)| area > a) { best = Some((w, area)); }
+            }
+        }
+    }
+    best.map(|(xid, _)| xid)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn find_window_by_class(_fragment: &str) -> Option<u32> { None }
+
+/// Search _NET_CLIENT_LIST for a window whose title exactly matches `name`.
+/// Returns the matching window with the largest area.
+#[cfg(target_os = "linux")]
+fn find_window_by_name(name: &str) -> Option<u32> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
+    let (conn, screen_num) = RustConnection::connect(Some(":0")).ok()?;
+    let root = conn.setup().roots[screen_num].root;
+
+    let net_list = conn.intern_atom(false, b"_NET_CLIENT_LIST").ok()?.reply().ok()?.atom;
+    let wm_name = conn.intern_atom(false, b"WM_NAME").ok()?.reply().ok()?.atom;
+    let net_wm_name = conn.intern_atom(false, b"_NET_WM_NAME").ok()?.reply().ok()?.atom;
+    let utf8 = conn.intern_atom(false, b"UTF8_STRING").ok()?.reply().ok()?.atom;
+    let prop = conn.get_property(false, root, net_list, AtomEnum::ANY, 0, 4096)
+        .ok()?.reply().ok()?;
+    let windows: Vec<u32> = prop.value32()?.collect();
+
+    let mut best: Option<(u32, u32)> = None;
+    for w in windows {
+        // Prefer _NET_WM_NAME (UTF-8), fall back to WM_NAME
+        let title = conn.get_property(false, w, net_wm_name, utf8, 0, 256)
+            .ok().and_then(|c| c.reply().ok())
+            .filter(|p| !p.value.is_empty())
+            .or_else(|| conn.get_property(false, w, wm_name, AtomEnum::STRING, 0, 256)
+                .ok().and_then(|c| c.reply().ok()))
+            .map(|p| String::from_utf8_lossy(&p.value).trim().to_string());
+        if title.as_deref() == Some(name) {
+            let area = window_area(w).unwrap_or(0);
+            if best.map_or(true, |(_, a)| area > a) { best = Some((w, area)); }
+        }
+    }
+    best.map(|(xid, _)| xid)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn find_window_by_name(_name: &str) -> Option<u32> { None }
+
 /// Find Chrome's visible X11 window ID by PID (up to 6 s).
+///
+/// Tries xdotool --pid first (fast, works in dev/distrobox).
+/// Falls back to x11rb WM_CLASS search which works in Flatpak where the
+/// sandbox PID namespace differs from the host PID stored in _NET_WM_PID.
 fn find_chrome_xid(pid: u32) -> Result<u32, String> {
     for _ in 0..12 {
-        let out = Command::new("xdotool")
+        // Primary: xdotool --pid (works when PID namespaces match)
+        if let Ok(out) = Command::new("xdotool")
             .args(["search", "--pid", &pid.to_string()])
             .env("DISPLAY", ":0")
             .output()
-            .map_err(|e| format!("xdotool error: {e}"))?;
-        let ids: Vec<u32> = String::from_utf8_lossy(&out.stdout)
-            .split_whitespace()
-            .filter_map(|t| t.parse::<u32>().ok())
-            .collect();
-        if let Some(&xid) = ids.first() {
-            return Ok(xid);
+        {
+            let ids: Vec<u32> = String::from_utf8_lossy(&out.stdout)
+                .split_whitespace()
+                .filter_map(|t| t.parse::<u32>().ok())
+                .collect();
+            if let Some(&xid) = ids.first() {
+                return Ok(xid);
+            }
+        }
+        // Fallback: WM_CLASS search (Flatpak / PID namespace mismatch)
+        for fragment in &["google-chrome", "chromium"] {
+            if let Some(xid) = find_window_by_class(fragment) {
+                return Ok(xid);
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
     Err(format!("Chrome X11 window not found for PID {pid} within 6 s"))
 }
 
-/// Find the Tauri main window's X11 window ID by window name.
+/// Find the Tauri main window's X11 window ID by window title "Naia".
 ///
-/// Uses `xdotool search --name` instead of `--pid` because inside distrobox
-/// (and some XWayland setups) the in-process PID differs from the host PID
-/// stored in `_NET_WM_PID`, making --pid searches fail.
+/// Tries xdotool first (dev/distrobox), then x11rb WM_NAME search (Flatpak).
 /// The window title "Naia" is fixed by tauri.conf.json.
 fn find_tauri_xid() -> Result<u32, String> {
     for attempt in 0..20 {
-        let out = Command::new("xdotool")
+        // Primary: xdotool --name (fast)
+        if let Ok(out) = Command::new("xdotool")
             .args(["search", "--name", "^Naia$"])
             .env("DISPLAY", ":0")
             .output()
-            .map_err(|e| format!("xdotool error: {e}"))?;
-        let ids: Vec<u32> = String::from_utf8_lossy(&out.stdout)
-            .split_whitespace()
-            .filter_map(|t| t.parse::<u32>().ok())
-            .collect();
-        if !ids.is_empty() {
-            // Pick the window with the largest area (main app window)
-            let best = ids
-                .iter()
-                .copied()
-                .max_by_key(|&xid| window_area(xid).unwrap_or(0));
-            if let Some(xid) = best {
-                return Ok(xid);
+        {
+            let ids: Vec<u32> = String::from_utf8_lossy(&out.stdout)
+                .split_whitespace()
+                .filter_map(|t| t.parse::<u32>().ok())
+                .collect();
+            if !ids.is_empty() {
+                let best = ids.iter().copied()
+                    .max_by_key(|&xid| window_area(xid).unwrap_or(0));
+                if let Some(xid) = best { return Ok(xid); }
             }
         }
-        if attempt == 0 {
-            std::thread::sleep(std::time::Duration::from_millis(1000));
-        } else {
-            std::thread::sleep(std::time::Duration::from_millis(500));
+        // Fallback: x11rb WM_NAME search (works in Flatpak without xdotool)
+        if let Some(xid) = find_window_by_name("Naia") {
+            return Ok(xid);
         }
+        std::thread::sleep(std::time::Duration::from_millis(if attempt == 0 { 1000 } else { 500 }));
     }
     Err("Tauri X11 window not found (title: 'Naia'). \
         Ensure the app is launched with GDK_BACKEND=x11"
