@@ -1522,6 +1522,9 @@ export function SettingsTab() {
 					: "espresso"
 				: id;
 		document.documentElement.setAttribute("data-theme", resolved);
+		// Auto-save theme immediately — no need to hit the save button
+		const current = loadConfig();
+		if (current) saveConfig({ ...current, theme: id });
 	}
 
 	async function handlePickVrmFile() {
@@ -3594,7 +3597,7 @@ export function SettingsTab() {
 			{/* STT Model Manager Modal */}
 			{sttModelModalOpen && (
 				<div
-					className="sync-dialog-overlay"
+					className="panel-modal-overlay"
 					onClick={() => setSttModelModalOpen(false)}
 				>
 					<div

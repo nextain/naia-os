@@ -23,6 +23,7 @@ struct ChromeState {
     process: Option<Child>,
     port: u16,
     chrome_xid: u32,
+    tauri_xid: u32,  // cached so browser_shell_focus doesn't need to re-search
     tmpdir: String,
     pid: u32,
 }
@@ -33,6 +34,7 @@ impl ChromeState {
             process: None,
             port: 0,
             chrome_xid: 0,
+            tauri_xid: 0,
             tmpdir: String::new(),
             pid: 0,
         }
@@ -516,17 +518,17 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
     // No Chrome running — kill any lingering processes from previous sessions
     // (--keep-alive-for-test keeps Chrome alive even after app exit).
     let _ = Command::new("pkill")
-        .args(["-f", "naia-chrome"])
+        .args(["-f", "naia/chrome-profile"])
         .output();
     std::thread::sleep(std::time::Duration::from_millis(300));
 
     let port = find_free_port();
-    let tmpdir = std::env::temp_dir()
-        .join(format!("naia-chrome-{port}"))
-        .to_string_lossy()
-        .to_string();
+    // Use a persistent profile directory so Chrome login sessions survive app restarts.
+    let tmpdir = std::env::var("HOME")
+        .map(|h| format!("{h}/.naia/chrome-profile"))
+        .unwrap_or_else(|_| std::env::temp_dir().join("naia-chrome-profile").to_string_lossy().to_string());
     std::fs::create_dir_all(&tmpdir)
-        .map_err(|e| format!("Failed to create tmpdir: {e}"))?;
+        .map_err(|e| format!("Failed to create Chrome profile dir: {e}"))?;
 
     let child = spawn_chrome(port, &tmpdir)?;
     let pid = child.id();
@@ -567,9 +569,10 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
     x11_embed(tauri_xid, chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
     crate::log_verbose(&format!("[browser] embed OK: chrome={chrome_xid} → tauri={tauri_xid}"));
 
-    // Record the XID now that embedding succeeded
+    // Record the XIDs now that embedding succeeded
     let mut state = CHROME.lock().unwrap();
     state.chrome_xid = chrome_xid;
+    state.tauri_xid = tauri_xid;
     drop(state);
 
     // Monitor Chrome process + tab guard
@@ -723,33 +726,175 @@ fn run_cdp_nav_cmd(cmd: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Detach the browser panel (called on React component unmount).
+/// Detach the browser panel (called on React component unmount / panel switch).
+///
+/// X11-unmaps Chrome so it is visually hidden while another panel is active.
+/// Does NOT reset chrome_xid — browser_embed_init re-maps using the cached XID
+/// without spawning a new Chrome process.
 ///
 /// Does NOT kill Chrome — Chrome is a long-lived process managed by the
 /// monitor thread. Killing here would cause React StrictMode (dev mode) to
-/// spawn two Chrome instances: StrictMode unmounts→close kills Chrome #1,
-/// then remounts→init spawns Chrome #2.
+/// spawn two Chrome instances.
 /// Chrome is killed by `browser_embed_kill` on actual app exit.
 #[tauri::command]
 pub fn browser_embed_close() -> Result<(), String> {
-    let mut state = CHROME.lock().unwrap();
-    state.chrome_xid = 0; // signal that embed is detached; re-embed on next init
+    let xid = {
+        let state = CHROME.lock().unwrap();
+        state.chrome_xid
+    };
+    if xid == 0 {
+        return Ok(());
+    }
+    // Unmap Chrome so it disappears when switching to another panel.
+    // Keep chrome_xid in state so browser_embed_init can re-map it directly.
+    #[cfg(target_os = "linux")]
+    {
+        use x11rb::connection::Connection;
+        use x11rb::protocol::xproto::*;
+        use x11rb::rust_connection::RustConnection;
+        if let Ok((conn, _)) = RustConnection::connect(Some(":0")) {
+            let _ = conn.unmap_window(xid);
+            let _ = conn.flush();
+        }
+    }
+    Ok(())
+}
+
+/// Re-map (show) Chrome's X11 window after it was hidden by browser_embed_close.
+/// Call when returning to the browser panel or when a modal is dismissed.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn browser_embed_show() -> Result<(), String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
+    let xid = {
+        let state = CHROME.lock().unwrap();
+        state.chrome_xid
+    };
+    if xid == 0 {
+        return Ok(());
+    }
+    if let Ok((conn, _)) = RustConnection::connect(Some(":0")) {
+        let _ = conn.map_window(xid);
+        let _ = conn.set_input_focus(InputFocus::PARENT, xid, x11rb::CURRENT_TIME);
+        let _ = conn.flush();
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn browser_embed_show() -> Result<(), String> {
+    Ok(())
+}
+
+/// Grant or reset a Chrome browser-level permission via CDP WebSocket.
+/// permission: "mic" | "camera" | "notifications"
+/// granted: true = grant for all origins, false = reset to default (ask)
+#[tauri::command]
+pub async fn browser_set_permission(permission: String, granted: bool) -> Result<(), String> {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::connect_async;
+    use tokio_tungstenite::tungstenite::Message;
+
+    let port = { CHROME.lock().unwrap().port };
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+
+    // Get WebSocket debugger URL via CDP HTTP API (sync, localhost call)
+    let version_url = format!("http://127.0.0.1:{port}/json/version");
+    let json: serde_json::Value = ureq::get(&version_url)
+        .call()
+        .map_err(|e| format!("CDP version: {e}"))?
+        .into_json()
+        .map_err(|e| format!("CDP JSON: {e}"))?;
+    let ws_url = json["webSocketDebuggerUrl"]
+        .as_str()
+        .ok_or("No webSocketDebuggerUrl in CDP response")?
+        .to_string();
+
+    // Connect via WebSocket
+    let (mut ws, _) = connect_async(ws_url.as_str())
+        .await
+        .map_err(|e| format!("WS connect: {e}"))?;
+
+    let cdp_perm = match permission.as_str() {
+        "mic" | "microphone" | "audioCapture" => "audioCapture",
+        "camera" | "videoCapture" => "videoCapture",
+        "notifications" => "notifications",
+        _ => return Err(format!("Unknown permission: {permission}")),
+    };
+
+    let msg = if granted {
+        serde_json::json!({
+            "id": 1,
+            "method": "Browser.grantPermissions",
+            "params": { "permissions": [cdp_perm] }
+        })
+    } else {
+        serde_json::json!({
+            "id": 1,
+            "method": "Browser.resetPermissions",
+            "params": {}
+        })
+    };
+
+    ws.send(Message::text(msg.to_string()))
+        .await
+        .map_err(|e| format!("WS send: {e}"))?;
+
+    // Read one response (best-effort)
+    let _ = ws.next().await;
+    Ok(())
+}
+
+/// Return keyboard focus to the Tauri/WebKitGTK shell window.
+///
+/// Call this when an HTML input element receives DOM focus so that keyboard
+/// events are routed to the WebKitGTK WebView (not Chrome).
+/// Uses the tauri_xid cached during browser_embed_init.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn browser_shell_focus() -> Result<(), String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
+    let xid = {
+        let state = CHROME.lock().unwrap();
+        state.tauri_xid
+    };
+    if xid == 0 {
+        return Ok(());
+    }
+    let (conn, _) = RustConnection::connect(Some(":0"))
+        .map_err(|e| format!("X11 connect: {e}"))?;
+    conn.set_input_focus(InputFocus::PARENT, xid, x11rb::CURRENT_TIME)
+        .map_err(|e| format!("XSetInputFocus: {e}"))?;
+    conn.flush().map_err(|e| format!("flush: {e}"))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn browser_shell_focus() -> Result<(), String> {
     Ok(())
 }
 
 /// Hard-kill Chrome and clean up. Call only on app exit.
+/// The profile directory is intentionally preserved so login sessions persist.
 pub fn browser_embed_kill() {
     let mut state = CHROME.lock().unwrap();
     if let Some(mut child) = state.process.take() {
         let _ = child.kill();
     }
-    let tmpdir = std::mem::take(&mut state.tmpdir);
+    state.tmpdir = String::new();
     state.port = 0;
     state.chrome_xid = 0;
     state.pid = 0;
-    if !tmpdir.is_empty() {
-        let _ = std::fs::remove_dir_all(&tmpdir);
-    }
 }
 
 /// Return the active Chrome CDP port (0 if not running).
@@ -805,4 +950,55 @@ pub fn browser_get_text(selector: String) -> Result<String, String> {
     } else {
         run_agent_cmd(port, &["get", "text", &selector])
     }
+}
+
+/// Scroll the page (for Naia AI).
+/// direction: "up" | "down" | "left" | "right"
+/// pixels: scroll amount in px (default 300)
+#[tauri::command]
+pub fn browser_scroll(direction: String, pixels: i32) -> Result<(), String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    let px = pixels.to_string();
+    run_agent_cmd(port, &["scroll", &direction, &px])?;
+    Ok(())
+}
+
+/// Press a keyboard key (for Naia AI).
+/// key: e.g. "Enter", "Tab", "Escape", "Control+a", "ArrowDown"
+#[tauri::command]
+pub fn browser_press(key: String) -> Result<(), String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    run_agent_cmd(port, &["press", &key])?;
+    Ok(())
+}
+
+/// Take a screenshot and return the file path (for Naia AI).
+#[tauri::command]
+pub fn browser_screenshot_path() -> Result<String, String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    let path = std::env::temp_dir()
+        .join("naia-browser-screenshot.png")
+        .to_string_lossy()
+        .to_string();
+    run_agent_cmd(port, &["screenshot", &path])?;
+    Ok(path)
+}
+
+/// Evaluate JavaScript in the current page (for Naia AI).
+#[tauri::command]
+pub fn browser_eval(js: String) -> Result<String, String> {
+    let port = CHROME.lock().unwrap().port;
+    if port == 0 {
+        return Err("Browser not initialized".to_string());
+    }
+    run_agent_cmd(port, &["eval", &js])
 }

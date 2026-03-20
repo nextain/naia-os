@@ -9,6 +9,7 @@ panelRegistry.register({
 	builtIn: true,
 	center: BrowserCenterPanel,
 	tools: [
+		// ── Navigation ──────────────────────────────────────────────────────
 		{
 			name: "skill_browser_navigate",
 			description:
@@ -18,23 +19,32 @@ panelRegistry.register({
 				properties: {
 					url: {
 						type: "string",
-						description: "The URL to navigate to (e.g. https://example.com)",
+						description: "The URL to navigate to (e.g. https://naver.com)",
 					},
 				},
 				required: ["url"],
 			},
-			tier: 1,
-		},
-		{
-			name: "skill_browser_snapshot",
-			description:
-				"Get an accessibility tree snapshot of the current browser page. Returns interactive elements with @ref IDs you can use for click and fill commands. Use this to read page content or find elements before interacting.",
-			parameters: {
-				type: "object",
-				properties: {},
-			},
 			tier: 0,
 		},
+		{
+			name: "skill_browser_back",
+			description: "Navigate back to the previous page in the browser history.",
+			parameters: { type: "object", properties: {} },
+			tier: 0,
+		},
+		{
+			name: "skill_browser_forward",
+			description: "Navigate forward to the next page in the browser history.",
+			parameters: { type: "object", properties: {} },
+			tier: 0,
+		},
+		{
+			name: "skill_browser_reload",
+			description: "Reload / refresh the current page.",
+			parameters: { type: "object", properties: {} },
+			tier: 0,
+		},
+		// ── Interaction ─────────────────────────────────────────────────────
 		{
 			name: "skill_browser_click",
 			description:
@@ -44,12 +54,12 @@ panelRegistry.register({
 				properties: {
 					ref: {
 						type: "string",
-						description: "Element reference from snapshot (e.g. @e3) or a CSS selector",
+						description: "Element @ref from snapshot (e.g. @e3) or a CSS selector",
 					},
 				},
 				required: ["ref"],
 			},
-			tier: 1,
+			tier: 0,
 		},
 		{
 			name: "skill_browser_fill",
@@ -60,7 +70,7 @@ panelRegistry.register({
 				properties: {
 					ref: {
 						type: "string",
-						description: "Input element reference from snapshot (e.g. @e5)",
+						description: "Input element @ref from snapshot (e.g. @e5)",
 					},
 					text: {
 						type: "string",
@@ -69,7 +79,53 @@ panelRegistry.register({
 				},
 				required: ["ref", "text"],
 			},
-			tier: 1,
+			tier: 0,
+		},
+		{
+			name: "skill_browser_scroll",
+			description:
+				"Scroll the current page. Useful for loading more content or reaching an element that's off-screen.",
+			parameters: {
+				type: "object",
+				properties: {
+					direction: {
+						type: "string",
+						description: "Scroll direction: up, down, left, right",
+						enum: ["up", "down", "left", "right"],
+					},
+					pixels: {
+						type: "number",
+						description: "Number of pixels to scroll (default 300)",
+					},
+				},
+				required: ["direction"],
+			},
+			tier: 0,
+		},
+		{
+			name: "skill_browser_press",
+			description:
+				"Press a keyboard key in the browser. Useful for submitting forms (Enter), navigating (Tab, ArrowDown), or shortcuts (Control+a).",
+			parameters: {
+				type: "object",
+				properties: {
+					key: {
+						type: "string",
+						description:
+							"Key to press, e.g. Enter, Tab, Escape, Control+a, ArrowDown, F5",
+					},
+				},
+				required: ["key"],
+			},
+			tier: 0,
+		},
+		// ── Reading ─────────────────────────────────────────────────────────
+		{
+			name: "skill_browser_snapshot",
+			description:
+				"Get an accessibility tree snapshot of the current browser page. Returns interactive elements with @ref IDs you can use for click and fill commands. Use this to read page content or find elements before interacting.",
+			parameters: { type: "object", properties: {} },
+			tier: 0,
 		},
 		{
 			name: "skill_browser_get_text",
@@ -80,9 +136,34 @@ panelRegistry.register({
 				properties: {
 					ref: {
 						type: "string",
-						description: "Element reference from snapshot, or empty for full page text",
+						description: "Element @ref from snapshot, or empty for full page text",
 					},
 				},
+			},
+			tier: 0,
+		},
+		// ── Capture ─────────────────────────────────────────────────────────
+		{
+			name: "skill_browser_screenshot",
+			description:
+				"Take a screenshot of the current browser page and return the file path.",
+			parameters: { type: "object", properties: {} },
+			tier: 0,
+		},
+		// ── Advanced ────────────────────────────────────────────────────────
+		{
+			name: "skill_browser_eval",
+			description:
+				"Execute JavaScript in the current page and return the result. Use with caution — disabled by default. Useful for extracting data or interacting with the page programmatically.",
+			parameters: {
+				type: "object",
+				properties: {
+					js: {
+						type: "string",
+						description: "JavaScript code to evaluate (e.g. document.title)",
+					},
+				},
+				required: ["js"],
 			},
 			tier: 0,
 		},
