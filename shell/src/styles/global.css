@@ -5114,8 +5114,6 @@ body.resizing-row {
 	white-space: nowrap;
 	box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
-	color: var(--text-primary, #e0e0e0);
-}
 
 /* Left: FileTree */
 .workspace-panel__tree {

@@ -165,3 +165,51 @@
 **근본 원인**: `position:fixed`는 뷰포트 기준으로 위치가 결정되어 전체 창 너비를 포함함. Chrome X11 창은 `x > naia-panel-width`에 임베드되므로, `right:0`까지 늘어나는 fixed 오버레이가 Chrome 영역을 덮음.
 
 **수정**: `right:0` 대신 `width: var(--naia-width, 320px)`를 사용하는 `.panel-modal-overlay` 클래스 추가. 패널 내부에 머물어야 하는 모달은 전체 뷰포트 `.sync-dialog-overlay` 대신 이 클래스를 사용.
+
+---
+
+## L014 — global.css CSS 문법 오류 시 Vite 앱 전체 렌더 실패 — E2E 테스트 전부 "element not found"로 실패 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: CSS | **범위**: `shell/src/styles/global.css`
+
+**문제**: config와 mock이 올바른데도 E2E 테스트가 `beforeEach`에서 "locator(.chat-panel) not found"로 실패. 13개 전부 실패.
+
+**근본 원인**: CSS 편집 실수로 `global.css:5117–5118`에 어떤 규칙에도 속하지 않는 고아 `color:` 프로퍼티와 `}`가 남았음. PostCSS가 "Unexpected }" 파싱 에러를 던지고, Vite가 에러 오버레이를 표시하며 React를 마운트하지 않음.
+
+**수정**: 고아 라인 제거. `global.css` 편집 후 CSS가 정상 컴파일되는지 항상 확인 — E2E 실행 전 브라우저 devtools나 Vite 서버 응답에서 `[plugin:vite:css]` 에러 여부 점검.
+
+---
+
+## L015 — Playwright strict mode: `[data-panel-id]`가 wrapper div와 button 모두 매칭 — `button[data-panel-id]` 사용 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: E2E | **범위**: `shell/e2e/*.spec.ts`
+
+**문제**: `'[data-panel-id="workspace"]'` 로케이터가 wrapper div와 그 안의 button 두 요소를 매칭. Playwright strict mode가 "strict mode violation"을 던지며 테스트 실패.
+
+**근본 원인**: ModeBar가 스타일링을 위해 wrapper div에 `data-panel-id`를 붙이고, 접근성/테스트 목적으로 내부 button에도 같은 속성을 붙임. 범용 속성 셀렉터는 두 요소를 모두 매칭.
+
+**수정**: `'button[data-panel-id="workspace"]'`로 인터랙티브 button 요소만 타겟.
+
+---
+
+## L016 — FileTree와 WorkspaceCenterPanel 간 순환 참조 — 공유 타입을 인라인으로 정의하여 해결 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/FileTree.tsx`, `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: `FileTree`가 `WorkspaceCenterPanel`에서 `ClassifiedDir` 타입을 임포트하는데, `WorkspaceCenterPanel`은 `FileTree`를 임포트함. TypeScript/번들러가 해소하지만 순환 의존성 발생.
+
+**근본 원인**: 두 컴포넌트 모두 동일한 `ClassifiedDir` 인터페이스가 필요. 부모(`WorkspaceCenterPanel`)에 정의하고 자식(`FileTree`)에서 임포트하면 순환 의존성 발생.
+
+**수정**: FileTree props에 타입을 인라인으로 직접 정의: `Array<{name: string; path: string; category: string}>`. `WorkspaceCenterPanel`은 Naia 도구 핸들러용으로 별도의 `ClassifiedDir` 인터페이스를 re-export.
+
+---
+
+## L017 — `idleToastTimerRef`를 interval `useEffect` cleanup에서 반드시 제거해야 함 — 언마운트된 컴포넌트에 setState 방지 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 유휴 알림 `setInterval`이 유휴 세션 감지 시 토스트 타이머(`setTimeout`)를 생성. interval cleanup에서 `clearInterval`은 올바르게 호출하지만, 대기 중인 토스트 타이머의 `clearTimeout`은 호출하지 않음.
+
+**근본 원인**: 토스트 타이머는 유휴 알림 6초 후에 실행됨. 타이머가 대기 중인 상태에서 컴포넌트가 언마운트(탭 전환)되면, 언마운트된 컴포넌트에 `setIdleToast(null)`이 호출됨.
+
+**수정**: interval cleanup 함수에 추가: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.

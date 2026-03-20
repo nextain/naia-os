@@ -136,6 +136,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		}, 10000);
 		return () => {
 			clearInterval(id);
+			if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current);
 		};
 	}, [naia]);
 

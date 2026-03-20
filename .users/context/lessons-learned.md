@@ -165,3 +165,51 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: `position:fixed` positions relative to the viewport, which includes the full window width. The Chrome X11 window is embedded at `x > naia-panel-width`, so fixed overlays that stretch to `right:0` cover the Chrome area.
 
 **Fix**: Added `.panel-modal-overlay` class with `width: var(--naia-width, 320px)` instead of `right:0`. Modals that must stay within the panel should use this class rather than the full-viewport `.sync-dialog-overlay`.
+
+---
+
+## L014 — CSS syntax error in global.css causes entire Vite app to fail to render — all E2E tests fail with "element not found" (#99)
+
+**Date**: 2026-03-21 | **Category**: CSS | **Scope**: `shell/src/styles/global.css`
+
+**Problem**: E2E tests failed at `beforeEach` with "locator(.chat-panel) not found" even though config and mock were correct. All 13 tests failed.
+
+**Root cause**: A CSS editing mistake left an orphaned `color:` property and `}` outside any rule at `global.css:5117–5118`. PostCSS threw "Unexpected }" parse error, Vite showed the error overlay and never mounted React.
+
+**Fix**: Removed the orphaned lines. Always verify CSS compiles successfully after editing `global.css` — check browser devtools or Vite server response for `[plugin:vite:css]` errors before running E2E.
+
+---
+
+## L015 — Playwright strict mode: `[data-panel-id]` matches both wrapper div and button — use `button[data-panel-id]` (#99)
+
+**Date**: 2026-03-21 | **Category**: E2E | **Scope**: `shell/e2e/*.spec.ts`
+
+**Problem**: Locator `'[data-panel-id="workspace"]'` resolved to 2 elements: the wrapper div AND the button inside it. Playwright strict mode threw "strict mode violation" and the test failed.
+
+**Root cause**: ModeBar renders a wrapper div with `data-panel-id` for styling, and the inner button also has `data-panel-id` for accessibility/testing. Using a generic attribute selector matches both.
+
+**Fix**: Use `'button[data-panel-id="workspace"]'` to target only the interactive button element.
+
+---
+
+## L016 — Circular import between FileTree and WorkspaceCenterPanel — inline shared type to break cycle (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/FileTree.tsx`, `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: `FileTree` imported `ClassifiedDir` type from `WorkspaceCenterPanel`, while `WorkspaceCenterPanel` imported `FileTree`. TypeScript/bundler resolved it but created a circular dependency.
+
+**Root cause**: Both components needed the same `ClassifiedDir` interface. Defining it in the parent (`WorkspaceCenterPanel`) and importing in the child (`FileTree`) created a circular dependency.
+
+**Fix**: Define the inline type directly in FileTree props: `Array<{name: string; path: string; category: string}>`. `WorkspaceCenterPanel` re-exports its own `ClassifiedDir` interface separately for the Naia tool handler.
+
+---
+
+## L017 — `idleToastTimerRef` must be cleared in interval `useEffect` cleanup to prevent setState on unmounted component (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: The idle notification `setInterval` creates a toast timer (`setTimeout`) when idle sessions are detected. The interval cleanup correctly called `clearInterval`, but not `clearTimeout` on the pending toast timer.
+
+**Root cause**: The toast timer runs 6s after an idle alert. If the component unmounts (tab switch) while the timer is pending, `setIdleToast(null)` would be called on an unmounted component.
+
+**Fix**: In the interval cleanup function, also call: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.
