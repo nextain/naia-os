@@ -165,3 +165,39 @@
 **근본 원인**: `position:fixed`는 뷰포트 기준으로 위치가 결정되어 전체 창 너비를 포함함. Chrome X11 창은 `x > naia-panel-width`에 임베드되므로, `right:0`까지 늘어나는 fixed 오버레이가 Chrome 영역을 덮음.
 
 **수정**: `right:0` 대신 `width: var(--naia-width, 320px)`를 사용하는 `.panel-modal-overlay` 클래스 추가. 패널 내부에 머물어야 하는 모달은 전체 뷰포트 `.sync-dialog-overlay` 대신 이 클래스를 사용.
+
+---
+
+## L014 — GitHub Notifications API가 RepositoryVulnerabilityAlert에서 null subject.url 반환 — TypeScript 타입은 string | null이어야 함 (#91)
+
+**날짜**: 2026-03-21 | **카테고리**: API | **범위**: `issue-desk/src/github/notifications.ts`
+
+**문제**: TypeScript 타입에서 `subject.url`을 `string`으로 선언했으나, GitHub API가 `RepositoryVulnerabilityAlert`에서 `null`을 반환. `null.match()`에서 런타임 `TypeError` 발생하여 알림 목록이 크래시됨.
+
+**근본 원인**: GitHub API 스펙은 `subject.url`이 nullable임을 문서화하고 있으나 TypeScript 타입이 null-safety 없이 복사됨. `RepositoryVulnerabilityAlert`만 `null`을 보내는 유일한 타입이라 일반적인 사용 중에는 버그가 보이지 않음.
+
+**수정**: 타입을 `string | null`로 변경. `subjectHtmlUrl()`에 null 가드 추가: `apiUrl`이 `null`이고 `type === 'RepositoryVulnerabilityAlert'`면 `repoHtmlUrl + '/security/dependabot'` 반환. 일반적인 null 폴백은 `repoHtmlUrl` 반환.
+
+---
+
+## L015 — markRead는 try/catch 필수 — API 실패 시 낙관적 UI 업데이트가 깨짐 (#91)
+
+**날짜**: 2026-03-21 | **카테고리**: 프론트엔드 | **범위**: `issue-desk/src/components/NotificationList.tsx`
+
+**문제**: `handleMarkRead`가 API 호출 전에 UI 상태를 업데이트함. `markRead()`가 예외를 던지면(레이트 리밋, 네트워크 에러), 알림이 시각적으로는 읽음 처리됐으나 서버에는 여전히 안 읽음 상태. 다음 동기화 시 복원되어 혼란스러운 깜빡임 발생.
+
+**근본 원인**: 낙관적 업데이트 패턴을 롤백 메커니즘 없이 적용함.
+
+**수정**: `markRead`를 `try/catch`로 감쌈. UI 업데이트(`setNotifications`)를 `try` 블록 안으로 이동 — API 성공 후에만 실행. 에러 시 `console.error`로 로깅하고 UI 상태는 건드리지 않음.
+
+---
+
+## L016 — Settings 레코드 이름 변경 시 원본 키 추적 필요 — delete + upsert 패턴 (#91)
+
+**날짜**: 2026-03-21 | **카테고리**: 프론트엔드 | **범위**: `issue-desk/src/components/Settings.tsx`
+
+**문제**: 커뮤니티 프로필이 레포 이름을 맵 키로 사용함(`upsertProfile`이 `repo`로 키잉). 사용자가 편집 폼에서 레포 필드 이름을 바꾸면, 저장 시 `upsertProfile`이 새 이름으로 호출되어 기존 항목이 맵에 유령으로 남음.
+
+**근본 원인**: 편집 상태가 새 값만 보유하고 원본 키에 대한 참조가 없음.
+
+**수정**: `editingOriginalRepo` 상태 추가. 편집 시작 시: 원본 레포 이름 저장. 저장 시: 레포 이름이 변경됐으면 `deleteProfile(editingOriginalRepo)` 후 `upsertProfile(newProfile)` 호출. 신규 프로필 추가 전에도 중복 체크 추가.

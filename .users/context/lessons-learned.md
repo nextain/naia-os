@@ -165,3 +165,39 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: `position:fixed` positions relative to the viewport, which includes the full window width. The Chrome X11 window is embedded at `x > naia-panel-width`, so fixed overlays that stretch to `right:0` cover the Chrome area.
 
 **Fix**: Added `.panel-modal-overlay` class with `width: var(--naia-width, 320px)` instead of `right:0`. Modals that must stay within the panel should use this class rather than the full-viewport `.sync-dialog-overlay`.
+
+---
+
+## L014 — GitHub Notifications API returns null subject.url for RepositoryVulnerabilityAlert — TypeScript type must be string | null (#91)
+
+**Date**: 2026-03-21 | **Category**: API | **Scope**: `issue-desk/src/github/notifications.ts`
+
+**Problem**: TypeScript type declared `subject.url` as `string`, but GitHub API returns `null` for `RepositoryVulnerabilityAlert`. Runtime `TypeError` on `null.match()` crashed the notification list.
+
+**Root cause**: GitHub API spec documents `subject.url` as nullable but the TypeScript type was copied without null-safety. `RepositoryVulnerabilityAlert` is the only known type that sends `null`, so the bug was invisible in typical usage.
+
+**Fix**: Changed type to `string | null`. Added null guard in `subjectHtmlUrl()`: if `apiUrl` is `null` and `type === 'RepositoryVulnerabilityAlert'`, return `repoHtmlUrl + '/security/dependabot'`. Generic null fallback returns `repoHtmlUrl`.
+
+---
+
+## L015 — markRead must use try/catch — optimistic UI update breaks on API failure (#91)
+
+**Date**: 2026-03-21 | **Category**: Frontend | **Scope**: `issue-desk/src/components/NotificationList.tsx`
+
+**Problem**: `handleMarkRead` updated UI state before awaiting the API call. If `markRead()` threw (rate-limit, network error), the notification was visually marked as read but the server still had it unread. Next sync would restore it, causing a confusing flicker.
+
+**Root cause**: Optimistic update pattern was applied without a rollback mechanism.
+
+**Fix**: Wrapped `markRead` in `try/catch`. UI update (`setNotifications`) moved inside the `try` block — runs only after API succeeds. On error, `console.error` logs without touching UI state.
+
+---
+
+## L016 — Settings record rename requires tracking original key — delete + upsert pattern (#91)
+
+**Date**: 2026-03-21 | **Category**: Frontend | **Scope**: `issue-desk/src/components/Settings.tsx`
+
+**Problem**: Community profiles used repo name as the map key (`upsertProfile` keyed on `repo`). When a user renamed the repo field in the edit form, saving called `upsertProfile` with the new name, leaving the old entry in the map as a ghost.
+
+**Root cause**: Edit state only held the new value with no reference to the original key.
+
+**Fix**: Added `editingOriginalRepo` state. On edit start: save original repo name. On save: if repo name changed, call `deleteProfile(editingOriginalRepo)` then `upsertProfile(newProfile)`. Also added duplicate-check before adding new profiles.
