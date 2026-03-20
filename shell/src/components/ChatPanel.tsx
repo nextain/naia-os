@@ -51,6 +51,7 @@ import { startMemorySync } from "../lib/memory-sync";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
+import { panelRegistry } from "../lib/panel-registry";
 import { usePanelStore } from "../stores/panel";
 import {
 	createApiSttSession,
@@ -386,6 +387,19 @@ export function ChatPanel() {
 	const messageQueue = useChatStore((s) => s.messageQueue);
 
 	const setEmotion = useAvatarStore((s) => s.setEmotion);
+
+	// When a permission modal appears, hide Chrome so the modal is visible.
+	// When the modal is dismissed and browser panel is active, re-show Chrome.
+	useEffect(() => {
+		if (pendingApproval) {
+			invoke("browser_embed_close").catch(() => {});
+		} else {
+			const { activePanel } = usePanelStore.getState();
+			if (activePanel === "browser") {
+				invoke("browser_embed_show").catch(() => {});
+			}
+		}
+	}, [pendingApproval]);
 
 	// Load previous session from Gateway (SoT)
 	useEffect(() => {
@@ -1522,6 +1536,24 @@ export function ChatPanel() {
 			const memoryCtx = await buildMemoryContext();
 			const systemPrompt = buildSystemPrompt(config.persona, memoryCtx);
 
+			// Collect active panel tools to pass to the voice session
+			const activePanelId = usePanelStore.getState().activePanel;
+			const panelTools = activePanelId
+				? panelRegistry.get(activePanelId)?.tools ?? []
+				: [];
+			const voiceTools = panelTools.map((tool) => ({
+				name: tool.name,
+				description: tool.description,
+				parameters: tool.parameters,
+			}));
+
+			// Append tool usage instructions to system prompt so the model
+			// knows to call the tools instead of saying they're unavailable.
+			const voiceSystemPrompt =
+				voiceTools.length > 0
+					? `${systemPrompt}\n\nAvailable tools (call them proactively when the user asks):\n${voiceTools.map((t) => `- ${t.name}: ${t.description}`).join("\n")}`
+					: systemPrompt;
+
 			// Create voice session via provider factory
 			// Gemini Direct uses Rust proxy (WebKitGTK can't connect to Google's WS)
 			const useDirectMode =
@@ -1621,8 +1653,9 @@ export function ChatPanel() {
 				await session.connect({
 					provider: "minicpm-o",
 					serverUrl: wsBase,
-					systemInstruction: systemPrompt,
+					systemInstruction: voiceSystemPrompt,
 					voice: selectedVoice,
+					tools: voiceTools.length ? voiceTools : undefined,
 				});
 			} else if (liveProvider === "openai-realtime") {
 				const openaiKey = config.openaiRealtimeApiKey ?? config.apiKey;
@@ -1631,7 +1664,8 @@ export function ChatPanel() {
 					apiKey: openaiKey!,
 					voice: selectedVoice,
 					locale: getLocale(),
-					systemInstruction: systemPrompt,
+					systemInstruction: voiceSystemPrompt,
+					tools: voiceTools.length ? voiceTools : undefined,
 				});
 			} else {
 				// Gemini Live: naia (gateway) or gemini-live (direct via Rust proxy)
@@ -1642,7 +1676,8 @@ export function ChatPanel() {
 					googleApiKey: useDirectMode ? config.googleApiKey : undefined,
 					voice: selectedVoice,
 					locale: getLocale(),
-					systemInstruction: systemPrompt,
+					systemInstruction: voiceSystemPrompt,
+					tools: voiceTools.length ? voiceTools : undefined,
 				});
 			}
 

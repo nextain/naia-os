@@ -7,7 +7,7 @@
 		"dev": "node -e \"try{const p=require('child_process').execSync('lsof -ti:1420',{encoding:'utf8'}).trim();if(p)require('child_process').execSync('kill '+p,{stdio:'ignore'})}catch{}\" && sleep 0.5 && vite",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
-		"tauri": "cargo tauri",
+		"tauri": "GDK_BACKEND=x11 cargo tauri",
 		"check": "biome check --write .",
 		"format": "biome format --write .",
 		"test": "vitest run",

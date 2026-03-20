@@ -6,6 +6,14 @@
  * Tier 3: blocked (handled by tool-bridge BLOCKED_PATTERNS)
  */
 
+/** Dynamic overrides registered by panel tools (e.g. skill_browser_*). */
+const DYNAMIC_TIERS: Record<string, number> = {};
+
+/** Register a runtime tier for a panel tool. Call when panel skills arrive. */
+export function setToolTier(toolName: string, tier: number): void {
+	DYNAMIC_TIERS[toolName] = tier;
+}
+
 const TOOL_TIERS: Record<string, number> = {
 	read_file: 0,
 	search_files: 0,
@@ -24,6 +32,8 @@ const TOOL_TIERS: Record<string, number> = {
 };
 
 export function getToolTier(toolName: string): number {
+	// Dynamic overrides (panel tools) take precedence
+	if (toolName in DYNAMIC_TIERS) return DYNAMIC_TIERS[toolName];
 	return TOOL_TIERS[toolName] ?? 2;
 }
 

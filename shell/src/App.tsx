@@ -115,12 +115,15 @@ export function App() {
 			.catch(() => {});
 	}, [showOnboarding]);
 
-	// Follow OS color scheme when theme is "system"
+	// Follow OS color scheme changes — apply only when saved theme is "system"
 	useEffect(() => {
-		const config = loadConfig();
-		if ((config?.theme ?? "espresso") !== "system") return;
 		const mq = window.matchMedia("(prefers-color-scheme: dark)");
-		const onChange = () => applyTheme("system");
+		const onChange = () => {
+			const config = loadConfig();
+			if ((config?.theme ?? "espresso") === "system") {
+				applyTheme("system");
+			}
+		};
 		mq.addEventListener("change", onChange);
 		return () => mq.removeEventListener("change", onChange);
 	}, []);

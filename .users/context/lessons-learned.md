@@ -105,3 +105,27 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: Naming decision was made informally and not propagated atomically. Each file was updated independently without a checklist.
 
 **Fix**: Reverted all "app" terms back to "panel". Enforced: `panel.json`, `~/.naia/panels/`, `panel_list_installed`, `panel_remove_installed`, `PanelDescriptor`. Added `critical_gotchas.terminology` in `architecture.yaml`.
+
+---
+
+## L009 — kill -0 succeeds on zombie processes — CDP health check required to detect Chrome death (#95)
+
+**Date**: 2026-03-20 | **Category**: Process Management | **Scope**: `shell/src-tauri/src/browser.rs`
+
+**Problem**: When Chrome was killed with SIGKILL, it became a zombie (parent hadn't reaped it). `libc::kill(pid, 0)` returns 0 for zombies because the PID still exists in the process table. The monitor thread never emitted `browser_closed`, so the frontend never showed the error UI.
+
+**Root cause**: `kill -0` is a live/dead check at the OS level, not a responsive-process check. A zombie occupies a PID slot but serves no HTTP.
+
+**Fix**: Added CDP `/json/version` health check as secondary detector: if `kill -0` succeeds but CDP refuses connection, Chrome is a zombie → emit `browser_closed`. See `spawn_chrome_monitor()` in `browser.rs`.
+
+---
+
+## L010 — CEF Rust bindings not production-ready as of 2026 — use Chrome binary + XReparentWindow (#95)
+
+**Date**: 2026-03-20 | **Category**: Frontend | **Scope**: `shell/src/panels/browser/*`
+
+**Problem**: Considered using CEF (Chromium Embedded Framework) Rust bindings for an embedded browser. All available Rust CEF crates are experimental, unmaintained, or archived as of 2026.
+
+**Root cause**: CEF Rust ecosystem is immature. CEF itself is a C++ library and Rust bindings lag behind significantly.
+
+**Fix**: Use Chrome binary subprocess + X11 XReparentWindow (`x11rb`) for embedding. Achieves identical UX: user sees Chromium, CDP is available for AI. Requires `GDK_BACKEND=x11` (XWayland mode) and must run via distrobox (not host Bazzite) for GTK/WebKit library linking.

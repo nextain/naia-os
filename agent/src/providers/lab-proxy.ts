@@ -10,6 +10,8 @@ export const GATEWAY_URL =
 
 /** Map local model names to gateway format (provider:model) */
 function toGatewayModel(model: string): string {
+	// Live API models are WebSocket-only — fall back to the equivalent text model for SSE chat.
+	if (model === "gemini-2.5-flash-live") return "vertexai:gemini-2.5-flash";
 	if (model.startsWith("gemini")) return `vertexai:${model}`;
 	if (model.startsWith("grok")) return `xai:${model}`;
 	if (model.startsWith("claude")) return `anthropic:${model}`;

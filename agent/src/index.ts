@@ -12,6 +12,7 @@ import {
 	getToolDescription,
 	getToolTier,
 	needsApproval,
+	setToolTier,
 } from "./gateway/tool-tiers.js";
 import {
 	type ApprovalResponse,
@@ -228,11 +229,13 @@ function handlePanelSkills(req: PanelSkillsRequest): void {
 		if (skillRegistry.has(toolName)) {
 			skillRegistry.unregister(toolName);
 		}
+		const toolTier = tool.tier ?? 1;
+		setToolTier(toolName, toolTier); // propagate to needsApproval
 		skillRegistry.register({
 			name: toolName,
 			description: tool.description,
 			parameters: tool.parameters ?? { type: "object", properties: {} },
-			tier: tool.tier ?? 1,
+			tier: toolTier,
 			requiresGateway: false,
 			source: `panel:${panelId}`,
 			execute: async (_args, ctx) => {

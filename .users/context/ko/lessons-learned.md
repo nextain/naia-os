@@ -105,3 +105,27 @@
 **근본 원인**: 명명 결정이 비공식적으로 이루어지고 체크리스트 없이 파일별로 독립 업데이트됨.
 
 **수정**: 모든 "app" 용어를 "panel"로 복원. 강제 규칙: `panel.json`, `~/.naia/panels/`, `panel_list_installed`, `panel_remove_installed`, `PanelDescriptor`. `architecture.yaml`에 `critical_gotchas.terminology` 추가.
+
+---
+
+## L009 — kill -0은 좀비 프로세스에도 성공 — Chrome 종료 감지에 CDP 헬스 체크 필요 (#95)
+
+**날짜**: 2026-03-20 | **카테고리**: 프로세스 관리 | **범위**: `shell/src-tauri/src/browser.rs`
+
+**문제**: Chrome이 SIGKILL로 종료되면 좀비 프로세스가 됨(부모가 reap 안 함). `libc::kill(pid, 0)`은 PID가 프로세스 테이블에 남아있어 좀비에 대해 0(성공) 반환. 모니터 스레드가 `browser_closed`를 emit하지 않아 프론트엔드에 에러 UI 미표시.
+
+**근본 원인**: `kill -0`은 OS 레벨의 PID 존재 여부 체크이지 응답 가능 프로세스 체크가 아님. 좀비는 PID 슬롯을 점유하지만 HTTP를 서비스하지 않음.
+
+**수정**: CDP `/json/version` 헬스 체크를 보조 감지기로 추가. `kill -0` 성공이지만 CDP 연결 거부 시 → Chrome이 좀비 → `browser_closed` emit. `browser.rs`의 `spawn_chrome_monitor()` 참고.
+
+---
+
+## L010 — 2026년 기준 CEF Rust 바인딩 미완성 — Chrome 바이너리 + XReparentWindow 사용 (#95)
+
+**날짜**: 2026-03-20 | **카테고리**: 프론트엔드 | **범위**: `shell/src/panels/browser/*`
+
+**문제**: 내장 브라우저용으로 CEF(Chromium Embedded Framework) Rust 바인딩 사용을 검토함. 2026년 기준 모든 Rust CEF 크레이트가 실험적이거나 유지보수 중단 또는 아카이브 상태.
+
+**근본 원인**: CEF Rust 에코시스템 미성숙. CEF 자체가 C++ 라이브러리이며 Rust 바인딩이 크게 뒤처짐.
+
+**수정**: Chrome 바이너리 서브프로세스 + X11 XReparentWindow(`x11rb`)로 embed. 동일한 UX 달성: 사용자는 Chromium 화면, AI용 CDP 사용 가능. `GDK_BACKEND=x11`(XWayland 모드) 필수, GTK/WebKit 라이브러리 링킹을 위해 distrobox(host Bazzite 아님)에서 실행 필요.

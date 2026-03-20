@@ -155,14 +155,14 @@ fn log_to_file(msg: &str) {
 }
 
 /// Important messages — always stderr + file (visible to users in release)
-fn log_both(msg: &str) {
+pub(crate) fn log_both(msg: &str) {
     eprintln!("{}", msg);
     log_to_file(msg);
 }
 
 /// Verbose/debug messages — file always, stderr only in debug builds
 /// Use for progress updates, retries, and diagnostics that users don't need to see
-fn log_verbose(msg: &str) {
+pub(crate) fn log_verbose(msg: &str) {
     if cfg!(debug_assertions) {
         eprintln!("{}", msg);
     }
@@ -2237,15 +2237,29 @@ pub fn run() {
             gemini_live_send_text,
             gemini_live_send_tool_response,
             gemini_live_disconnect,
-            browser::browser_init,
-            browser::browser_set_bounds,
-            browser::browser_navigate,
-            browser::browser_show,
-            browser::browser_hide,
-            browser::browser_back,
-            browser::browser_forward,
-            browser::browser_reload,
-            browser::browser_page_info,
+            browser::browser_check,
+            browser::browser_agent_check,
+            browser::browser_embed_init,
+            browser::browser_embed_resize,
+            browser::browser_embed_navigate,
+            browser::browser_embed_page_info,
+            browser::browser_embed_back,
+            browser::browser_embed_forward,
+            browser::browser_embed_reload,
+            browser::browser_embed_close,
+            browser::browser_embed_focus,
+            browser::browser_shell_focus,
+            browser::browser_embed_port,
+            browser::browser_snapshot,
+            browser::browser_click,
+            browser::browser_fill,
+            browser::browser_get_text,
+            browser::browser_scroll,
+            browser::browser_press,
+            browser::browser_screenshot_path,
+            browser::browser_eval,
+            browser::browser_embed_show,
+            browser::browser_set_permission,
             panel::panel_list_installed,
             panel::panel_remove_installed,
         ])
@@ -2568,6 +2582,9 @@ pub fn run() {
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
+                    // Kill Chrome on app exit (not on React component unmount)
+                    crate::browser::browser_embed_kill();
+
                     let state: tauri::State<'_, AppState> = window.state();
 
                     // Stop health monitor thread

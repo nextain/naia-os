@@ -8,7 +8,10 @@ sdk-extensions:
 command: naia-os
 finish-args:
   - --share=ipc
-  - --socket=fallback-x11
+  # x11: always provide X11 socket (XWayland) — required for Chrome XReparentWindow embedding.
+  # GDK_BACKEND=x11 forces Tauri/GTK into XWayland mode so find_tauri_xid() can locate
+  # the window via X11 atoms. Without this the app defaults to Wayland and embedding fails.
+  - --socket=x11
   - --socket=wayland
   - --socket=pulseaudio
   - --device=dri
@@ -19,6 +22,7 @@ finish-args:
   - --own-name=com.naia.shell.*
   - --env=FLATPAK=1
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
+  - --env=GDK_BACKEND=x11
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
   build-args:

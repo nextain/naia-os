@@ -20,21 +20,23 @@
 	--amber: #f59e0b;
 	--error: #ef4444;
 	--mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+	--browser-bg: #f8f9fa; /* Chrome light new-tab */
 }
 
 [data-theme="midnight"] {
-	--espresso: #1a1a2e;
-	--espresso-light: #2a2a4e;
-	--espresso-dark: #0f0f1e;
-	--espresso-medium: #1f1f38;
-	--latte: #c8c8e8;
-	--cream: #e8e8ff;
-	--cream-dim: #8888aa;
-	--wood: #6c5ce7;
-	--sage: #a29bfe;
+	--espresso: #202124;        /* Chrome dark bg */
+	--espresso-light: #2d2e30;  /* Chrome panel border */
+	--espresso-dark: #17181a;   /* Chrome darkest */
+	--espresso-medium: #26272a; /* Chrome mid surface */
+	--latte: #c9cdd0;
+	--cream: #e8eaed;           /* Google text color */
+	--cream-dim: #9aa0a6;       /* Google secondary text */
+	--wood: #8ab4f8;            /* Google blue */
+	--sage: #81c995;            /* Google green */
 	--tech-blue: #74b9ff;
-	--amber: #ffeaa7;
-	--error: #ff6b6b;
+	--amber: #fdd663;
+	--error: #f28b82;
+	--browser-bg: #202124; /* Chrome dark new-tab */
 }
 
 [data-theme="ocean"] {
@@ -50,6 +52,7 @@
 	--tech-blue: #00cec9;
 	--amber: #fdcb6e;
 	--error: #e74c3c;
+	--browser-bg: #202124;
 }
 
 [data-theme="forest"] {
@@ -65,6 +68,7 @@
 	--tech-blue: #7bed9f;
 	--amber: #f6e58d;
 	--error: #e74c3c;
+	--browser-bg: #1e2420;
 }
 
 [data-theme="rose"] {
@@ -80,6 +84,7 @@
 	--tech-blue: #a29bfe;
 	--amber: #ffeaa7;
 	--error: #ff6b6b;
+	--browser-bg: #202124;
 }
 
 /* Light themes */
@@ -96,6 +101,7 @@
 	--tech-blue: #5f9ea0;
 	--amber: #f59e0b;
 	--error: #ef4444;
+	--browser-bg: #f8f9fa;
 }
 
 [data-theme="sakura"] {
@@ -111,6 +117,7 @@
 	--tech-blue: #8b5cf6;
 	--amber: #c27b00;
 	--error: #dc2626;
+	--browser-bg: #f8f9fa;
 }
 
 [data-theme="cloud"] {
@@ -126,6 +133,7 @@
 	--tech-blue: #06b6d4;
 	--amber: #f59e0b;
 	--error: #ef4444;
+	--browser-bg: #f8f9fa;
 }
 
 * {
@@ -806,7 +814,8 @@ body.resizing-row {
 .chat-panel {
 	display: flex;
 	flex-direction: column;
-	height: 100%;
+	flex: 1;
+	min-height: 0;
 	font-family: var(--mono);
 	font-size: 13px;
 }
@@ -1388,6 +1397,7 @@ body.resizing-row {
 .settings-tab {
 	flex: 1;
 	overflow-y: auto;
+	min-height: 0; /* required for flex overflow-y: auto to work */
 	padding: 12px;
 }
 
@@ -4430,6 +4440,20 @@ body.resizing-row {
 	z-index: 1000;
 }
 
+/* Panel-confined modal overlay — stays within naia-panel, not over Chrome area */
+.panel-modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: var(--naia-width, 320px);
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
 .sync-dialog-card {
 	background: var(--espresso-light, #3a3028);
 	border-radius: 16px;
@@ -4552,7 +4576,8 @@ body.resizing-row {
 	flex-direction: column;
 	width: 100%;
 	height: 100%;
-	background: var(--espresso-dark);
+	position: relative;
+	background: var(--browser-bg, var(--espresso));
 }
 
 .browser-panel__toolbar {
@@ -4623,6 +4648,171 @@ body.resizing-row {
 	height: 100%;
 	object-fit: contain;
 	display: block;
+}
+
+/* X11-embedded viewport — Chrome is reparented here; no visual background needed */
+.browser-panel__viewport--embedded {
+	background: transparent;
+	cursor: default;
+}
+
+/* ── AI tool permission toolbar ───────────────────────────────────────────────
+   Sits in HTML layer BELOW the X11 Chrome viewport — always clickable.
+   The toolbar can be collapsed to a thin strip via the chevron button. */
+
+.browser-panel__ai-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 8px;
+	height: 30px;
+	flex-shrink: 0;
+	background: var(--espresso-dark);
+	border-top: 1px solid var(--espresso-light);
+	transition: height 0.15s ease;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scrollbar-width: none; /* Firefox */
+}
+
+.browser-panel__ai-toolbar::-webkit-scrollbar {
+	display: none; /* Chrome/WebKit */
+}
+
+.browser-panel__ai-toolbar--collapsed {
+	height: 18px;
+	gap: 0;
+	padding: 0 8px;
+}
+
+.browser-panel__ai-label {
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--cream-dim);
+	opacity: 0.55;
+	flex-shrink: 0;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+}
+
+.browser-panel__ai-sep {
+	width: 1px;
+	height: 16px;
+	background: var(--espresso-light);
+	flex-shrink: 0;
+}
+
+/* Individual toggle label */
+.browser-panel__ai-toggle {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	color: var(--cream-dim);
+	cursor: pointer;
+	user-select: none;
+	flex-shrink: 0;
+}
+
+.browser-panel__ai-toggle-label {
+	font-size: 9px;
+	color: var(--cream-dim);
+	opacity: 0.75;
+	white-space: nowrap;
+}
+
+/* ── CSS pill toggle switch ────────────────────────────────────────────────── */
+.browser-panel__ai-switch {
+	appearance: none;
+	-webkit-appearance: none;
+	position: relative;
+	width: 28px;
+	height: 14px;
+	border-radius: 7px;
+	background: var(--espresso-medium);
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background 0.18s;
+	outline: none;
+}
+
+.browser-panel__ai-switch::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.5);
+	transition: transform 0.18s, background 0.18s;
+}
+
+.browser-panel__ai-switch:checked {
+	background: var(--wood);
+}
+
+.browser-panel__ai-switch:checked::after {
+	transform: translateX(14px);
+	background: #fff;
+}
+
+/* indeterminate (partial) state for master toggle */
+.browser-panel__ai-switch:indeterminate {
+	background: var(--latte);
+}
+
+.browser-panel__ai-switch:indeterminate::after {
+	transform: translateX(7px);
+	background: rgba(255, 255, 255, 0.8);
+}
+
+/* Collapse/expand chevron button */
+.browser-panel__ai-collapse {
+	margin-left: auto;
+	background: none;
+	border: none;
+	color: var(--cream-dim);
+	opacity: 0.4;
+	cursor: pointer;
+	font-size: 10px;
+	padding: 0 2px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.browser-panel__ai-collapse:hover {
+	opacity: 0.8;
+}
+
+/* Overlay shown while Chrome is not yet ready (checking / launching / error) */
+.browser-panel__overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	z-index: 10;
+	background: var(--espresso-dark);
+	pointer-events: none;
+}
+
+.browser-panel__overlay--error {
+	pointer-events: auto;
+}
+
+/* Text inside overlay (inline — no absolute positioning) */
+.browser-panel__overlay-text {
+	color: var(--cream-dim);
+	font-size: 13px;
+	text-align: center;
+	padding: 0 24px;
+}
+
+.browser-panel__overlay-text--error {
+	color: var(--error);
 }
 
 .browser-panel__loading,
