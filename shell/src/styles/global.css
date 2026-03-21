@@ -21,6 +21,18 @@
 	--error: #ef4444;
 	--mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
 	--browser-bg: #f8f9fa; /* Chrome light new-tab */
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(37, 99, 235, 0.12);
+	--hover-bg: rgba(15, 23, 42, 0.06);
 }
 
 [data-theme="midnight"] {
@@ -37,6 +49,18 @@
 	--amber: #fdd663;
 	--error: #f28b82;
 	--browser-bg: #202124; /* Chrome dark new-tab */
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(138, 180, 248, 0.15);
+	--hover-bg: rgba(255, 255, 255, 0.06);
 }
 
 [data-theme="ocean"] {
@@ -53,6 +77,18 @@
 	--amber: #fdcb6e;
 	--error: #e74c3c;
 	--browser-bg: #202124;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(52, 152, 219, 0.15);
+	--hover-bg: rgba(220, 233, 240, 0.06);
 }
 
 [data-theme="forest"] {
@@ -69,6 +105,18 @@
 	--amber: #f6e58d;
 	--error: #e74c3c;
 	--browser-bg: #1e2420;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(106, 176, 76, 0.15);
+	--hover-bg: rgba(224, 240, 224, 0.06);
 }
 
 [data-theme="rose"] {
@@ -85,6 +133,18 @@
 	--amber: #ffeaa7;
 	--error: #ff6b6b;
 	--browser-bg: #202124;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(224, 86, 160, 0.15);
+	--hover-bg: rgba(240, 224, 236, 0.06);
 }
 
 /* Light themes */
@@ -102,6 +162,18 @@
 	--amber: #f59e0b;
 	--error: #ef4444;
 	--browser-bg: #f8f9fa;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(210, 105, 30, 0.12);
+	--hover-bg: rgba(67, 52, 34, 0.06);
 }
 
 [data-theme="sakura"] {
@@ -118,6 +190,18 @@
 	--amber: #c27b00;
 	--error: #dc2626;
 	--browser-bg: #f8f9fa;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(214, 51, 132, 0.12);
+	--hover-bg: rgba(58, 16, 40, 0.06);
 }
 
 [data-theme="cloud"] {
@@ -134,7 +218,47 @@
 	--amber: #f59e0b;
 	--error: #ef4444;
 	--browser-bg: #f8f9fa;
+	/* Panel semantic tokens */
+	--bg-base: var(--espresso-dark);
+	--bg-surface: var(--espresso);
+	--bg-surface-2: var(--espresso-medium);
+	--surface: var(--espresso);
+	--surface-2: var(--espresso-medium);
+	--text-primary: var(--cream);
+	--text-secondary: var(--cream-dim);
+	--border-color: var(--espresso-medium);
+	--accent: var(--wood);
+	--accent-bg: rgba(59, 130, 246, 0.12);
+	--hover-bg: rgba(15, 23, 42, 0.06);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PANEL CSS STANDARD — 패널 CSS 작성 가이드
+   모든 패널은 아래 시맨틱 토큰만 사용해야 합니다. 색상값 하드코딩 금지.
+   These tokens are defined in every theme above.
+   ─────────────────────────────────────────────────────────────────────────
+   Layout/Surface (배경):
+     --bg-base        페이지/패널 기본 배경 (dark → 가장 어두움, light → 가장 밝음)
+     --bg-surface     주요 표면 (카드, 패널 내부)
+     --bg-surface-2   상위 표면 (드롭다운, 모달)
+
+   Text (텍스트):
+     --text-primary   주 텍스트
+     --text-secondary 보조/흐린 텍스트
+
+   Border (경계):
+     --border-color   구분선, 테두리
+
+   Interactive (상호작용):
+     --accent         주 강조색 (링크, 버튼, 하이라이트)
+     --accent-bg      강조 배경 (선택 상태, 뱃지)
+     --hover-bg       호버 오버레이
+
+   Status (상태색 — 전역):
+     --amber          경고
+     --error          에러/위험
+     --sage           성공/긍정
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 * {
 	margin: 0;
