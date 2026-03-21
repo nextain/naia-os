@@ -53,6 +53,13 @@ pub struct WatcherState {
     pub last_change: Arc<Mutex<HashMap<String, u64>>>,
     /// Maps directory path → most recently changed file (relative path)
     pub recent_files: Arc<Mutex<HashMap<String, String>>>,
+    /// Maps directory path → current git branch.
+    /// Key absent = not yet resolved; Some(branch) = resolved branch or detached hash
+    /// (detached HEAD returns `Some("(HEAD {hash})")`); key is never set to `None` —
+    /// uninitialized repos (no commits yet) are re-checked on every call instead.
+    /// Populated lazily on first workspace_get_sessions call; refreshed whenever
+    /// a file-change event fires for that session.
+    pub branch_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
 
 impl WatcherState {
@@ -61,6 +68,7 @@ impl WatcherState {
             watcher: None,
             last_change: Arc::new(Mutex::new(HashMap::new())),
             recent_files: Arc::new(Mutex::new(HashMap::new())),
+            branch_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -284,12 +292,13 @@ pub fn workspace_get_sessions(
 
     let read = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
     // Clone the Arc handles while holding the outer lock once (avoids double-lock deadlock)
-    let (last_change_map, recent_files_map) = {
+    let (last_change_map, recent_files_map, branch_cache_map) = {
         let state = watcher.lock().unwrap();
-        (state.last_change.clone(), state.recent_files.clone())
+        (state.last_change.clone(), state.recent_files.clone(), state.branch_cache.clone())
     };
     let lc = last_change_map.lock().unwrap();
     let rf = recent_files_map.lock().unwrap();
+    let mut bc = branch_cache_map.lock().unwrap();
 
     let now = now_secs();
 
@@ -306,7 +315,21 @@ pub fn workspace_get_sessions(
 
         let last_change = lc.get(&path_str).copied();
         let recent_file = rf.get(&path_str).cloned();
-        let branch = get_branch(&path);
+        // Use cached branch — avoids spawning a git subprocess per repo on every call.
+        // Lazily populated on first access; refreshed by the file-change watcher callback.
+        // Note: None (uninitialized repo — no commits yet) is NOT cached — re-checked every
+        // call so that a newly initialized repo becomes visible without a file-change event.
+        // Detached HEAD returns Some("(HEAD {hash})") and IS cached normally.
+        let branch = match bc.get(&path_str) {
+            Some(cached) => cached.clone(),
+            None => {
+                let b = get_branch(&path);
+                if b.is_some() {
+                    bc.insert(path_str.clone(), b.clone());
+                }
+                b
+            }
+        };
         let progress = read_progress(&path);
 
         let status = match last_change {
@@ -363,6 +386,7 @@ pub fn workspace_start_watch(
 
     let last_change_clone = state.last_change.clone();
     let recent_files_clone = state.recent_files.clone();
+    let branch_cache_clone = state.branch_cache.clone();
     let app_clone = app.clone();
 
     let watcher = RecommendedWatcher::new(
@@ -409,6 +433,21 @@ pub fn workspace_start_watch(
                         {
                             let mut rf = recent_files_clone.lock().unwrap();
                             rf.insert(session_str.clone(), rel.clone());
+                        }
+                        // Refresh branch cache for this session — branch may change during
+                        // active work (e.g. git checkout). Only called once per file-change
+                        // event (not per repo scan), so subprocess cost is amortized.
+                        // Consistent with workspace_get_sessions: None is NOT stored so
+                        // the next get_sessions call will re-check (avoids stale None freeze).
+                        {
+                            let new_branch = get_branch(&session_dir);
+                            let mut bc = branch_cache_clone.lock().unwrap();
+                            if new_branch.is_some() {
+                                bc.insert(session_str.clone(), new_branch);
+                            } else {
+                                // Remove stale entry so workspace_get_sessions re-checks
+                                bc.remove(&session_str);
+                            }
                         }
 
                         let _ = app_clone.emit("workspace:file-changed", serde_json::json!({

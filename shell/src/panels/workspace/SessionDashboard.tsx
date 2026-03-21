@@ -1,8 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
 import { SessionCard, type SessionInfo } from "./SessionCard";
+
+// TODO(#107): derive from AppConfig once WORKSPACE_ROOT is moved to config.
+const WORKSPACE_ROOT = "/var/home/luke/dev";
 
 interface SessionDashboardProps {
 	onSessionClick: (session: SessionInfo) => void;
@@ -18,32 +21,45 @@ export function SessionDashboard({
 	const [loading, setLoading] = useState(true);
 	const onSessionsUpdateRef = useRef(onSessionsUpdate);
 	onSessionsUpdateRef.current = onSessionsUpdate;
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Monotonically increasing ID — prevents stale invoke responses from overwriting
+	// a fresher result when multiple loadSessions calls are in-flight simultaneously.
+	const fetchIdRef = useRef(0);
 
-	const loadSessions = async () => {
+	const loadSessions = useCallback(async () => {
+		const id = ++fetchIdRef.current;
 		try {
 			const result = await invoke<SessionInfo[]>("workspace_get_sessions");
+			if (id !== fetchIdRef.current) return; // stale response — discard
 			setSessions(result);
 			onSessionsUpdateRef.current?.(result);
 		} catch (e) {
+			if (id !== fetchIdRef.current) return;
 			Logger.warn("SessionDashboard", "Failed to load sessions", {
 				error: String(e),
 			});
 			onSessionsUpdateRef.current?.([]);
 		} finally {
-			setLoading(false);
+			if (id === fetchIdRef.current) setLoading(false);
 		}
-	};
+	}, []); // stable: depends only on stable refs and setState
+
+	const debouncedLoadSessions = useCallback(() => {
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => void loadSessions(), 300);
+	}, [loadSessions]);
 
 	useEffect(() => {
 		void loadSessions();
 
-		// Listen for file change events — refresh session list
+		// Listen for file change events — debounced to coalesce rapid bursts
+		// (e.g. git checkout rewriting many files at once).
 		const unlistenPromise = listen<{
 			session: string;
 			file: string;
 			timestamp: number;
 		}>("workspace:file-changed", () => {
-			void loadSessions();
+			debouncedLoadSessions();
 		});
 
 		// Periodic refresh every 15s for status re-computation
@@ -52,9 +68,9 @@ export function SessionDashboard({
 		return () => {
 			unlistenPromise.then((fn) => fn());
 			clearInterval(intervalId);
+			if (debounceRef.current) clearTimeout(debounceRef.current);
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [loadSessions, debouncedLoadSessions]);
 
 	if (loading) {
 		return (
@@ -70,7 +86,7 @@ export function SessionDashboard({
 				<div className="workspace-dashboard__empty-hint">
 					Git 레포가 없습니다.{" "}
 					<span className="workspace-dashboard__empty-path">
-						/var/home/luke/dev
+						{WORKSPACE_ROOT}
 					</span>
 					에 git 레포가 있어야 합니다.
 				</div>
