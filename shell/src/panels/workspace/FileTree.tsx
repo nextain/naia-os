@@ -1,0 +1,227 @@
+import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useState } from "react";
+import { Logger } from "../../lib/logger";
+import { WORKSPACE_ROOT } from "./constants";
+
+export interface DirEntry {
+	name: string;
+	path: string;
+	is_dir: boolean;
+	children?: DirEntry[] | null;
+	/** Classification category (Phase 4) */
+	category?: string;
+}
+
+interface FileTreeProps {
+	/** Called when a file is selected */
+	onFileSelect: (path: string) => void;
+	/** Currently open file path */
+	openFilePath?: string;
+	/** Session dirs that have active status (for highlighting) */
+	activeDirs?: string[];
+	/** Classified dirs for section display (Phase 4) */
+	classifiedDirs?: Array<{ name: string; path: string; category: string }>;
+}
+
+interface TreeNodeProps {
+	entry: DirEntry;
+	depth: number;
+	onFileSelect: (path: string) => void;
+	openFilePath?: string;
+	activeDirs?: string[];
+}
+
+function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: TreeNodeProps) {
+	const [expanded, setExpanded] = useState(false);
+	const [children, setChildren] = useState<DirEntry[] | null>(null);
+	const [loading, setLoading] = useState(false);
+	const isOpen = openFilePath === entry.path;
+	const isActive = activeDirs?.includes(entry.path);
+
+	const toggle = useCallback(async () => {
+		if (!entry.is_dir) {
+			onFileSelect(entry.path);
+			return;
+		}
+		if (expanded) {
+			setExpanded(false);
+			return;
+		}
+		setExpanded(true);
+		if (children === null && !loading) {
+			setLoading(true);
+			try {
+				const result = await invoke<DirEntry[]>("workspace_list_dirs", {
+					parent: entry.path,
+				});
+				setChildren(result);
+			} catch (e) {
+				Logger.warn("FileTree", "Failed to list dir", { path: entry.path, error: String(e) });
+				setChildren([]);
+			} finally {
+				setLoading(false);
+			}
+		}
+	}, [entry, expanded, children, loading, onFileSelect]);
+
+	const indent = depth * 16;
+	const icon = entry.is_dir ? (expanded ? "▼" : "▶") : getFileIcon(entry.name);
+
+	return (
+		<div>
+			<button
+				type="button"
+				className={[
+					"workspace-tree__node",
+					isOpen ? "workspace-tree__node--open" : "",
+					isActive ? "workspace-tree__node--active" : "",
+					entry.is_dir ? "workspace-tree__node--dir" : "workspace-tree__node--file",
+				]
+					.filter(Boolean)
+					.join(" ")}
+				style={{ paddingLeft: `${indent + 8}px` }}
+				onClick={toggle}
+				title={entry.path}
+			>
+				<span className="workspace-tree__icon">{icon}</span>
+				<span className="workspace-tree__name">{entry.name}</span>
+				{isActive && <span className="workspace-tree__active-dot" title="Active session" />}
+			</button>
+			{entry.is_dir && expanded && (
+				<div className="workspace-tree__children">
+					{loading && (
+						<div
+							className="workspace-tree__loading"
+							style={{ paddingLeft: `${indent + 24}px` }}
+						>
+							…
+						</div>
+					)}
+					{children?.map((child) => (
+						<TreeNode
+							key={child.path}
+							entry={child}
+							depth={depth + 1}
+							onFileSelect={onFileSelect}
+							openFilePath={openFilePath}
+							activeDirs={activeDirs}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function getFileIcon(name: string): string {
+	const ext = name.split(".").pop()?.toLowerCase() ?? "";
+	const icons: Record<string, string> = {
+		ts: "📄",
+		tsx: "⚛️",
+		js: "📄",
+		jsx: "⚛️",
+		rs: "🦀",
+		md: "📝",
+		json: "{}",
+		yaml: "📋",
+		yml: "📋",
+		toml: "📋",
+		py: "🐍",
+		sh: "💻",
+		css: "🎨",
+		html: "🌐",
+		svg: "🖼️",
+		png: "🖼️",
+		jpg: "🖼️",
+		gif: "🖼️",
+		env: "🔒",
+		lock: "🔒",
+	};
+	return icons[ext] ?? "📄";
+}
+
+export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDirs }: FileTreeProps) {
+	const [entries, setEntries] = useState<DirEntry[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		invoke<DirEntry[]>("workspace_list_dirs", { parent: WORKSPACE_ROOT })
+			.then((result) => {
+				setEntries(result);
+				Logger.info("FileTree", "Loaded workspace root", { count: result.length });
+			})
+			.catch((e) => {
+				Logger.error("FileTree", "Failed to load workspace root", { error: String(e) });
+			})
+			.finally(() => setLoading(false));
+	}, []);
+
+	if (loading) {
+		return <div className="workspace-tree workspace-tree--loading">불러오는 중…</div>;
+	}
+
+	// Phase 4: if classified dirs provided, show in sections
+	if (classifiedDirs && classifiedDirs.length > 0) {
+		const sections: Record<string, typeof classifiedDirs> = {
+			project: [],
+			worktree: [],
+			reference: [],
+			docs: [],
+			other: [],
+		};
+		for (const d of classifiedDirs) {
+			const cat = d.category in sections ? d.category : "other";
+			sections[cat].push(d);
+		}
+
+		const sectionLabels: Record<string, string> = {
+			project: "🏗 프로젝트",
+			worktree: "🌿 워크트리",
+			reference: "📚 참조",
+			docs: "📝 문서",
+			other: "📁 기타",
+		};
+
+		return (
+			<div className="workspace-tree">
+				{Object.entries(sections).map(([cat, dirs]) => {
+					if (dirs.length === 0) return null;
+					const classifiedEntries = entries.filter((e) =>
+						dirs.some((d) => d.path === e.path),
+					);
+					if (classifiedEntries.length === 0) return null;
+					return (
+						<div key={cat} className="workspace-tree__section">
+							<div className="workspace-tree__section-label">{sectionLabels[cat]}</div>
+							{classifiedEntries.map((entry) => (
+								<TreeNode
+									key={entry.path}
+									entry={entry}
+									depth={0}
+									onFileSelect={onFileSelect}
+									openFilePath={openFilePath}
+									activeDirs={activeDirs}
+								/>
+							))}
+						</div>
+					);
+				})}
+			</div>
+		);
+	}
+
+	return (
+		<div className="workspace-tree">
+			{entries.map((entry) => (
+				<TreeNode
+					key={entry.path}
+					entry={entry}
+					depth={0}
+					onFileSelect={onFileSelect}
+					openFilePath={openFilePath}
+					activeDirs={activeDirs}
+				/>
+			))}
+		</div>
+	);
+}

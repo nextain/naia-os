@@ -4,6 +4,7 @@ mod gemini_live;
 mod memory;
 mod panel;
 mod stt_models;
+mod workspace;
 
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
@@ -2206,6 +2207,7 @@ pub fn run() {
             oauth_state: Arc::new(Mutex::new(None)),
             gemini_live: gemini_live::new_shared_handle(),
         })
+        .manage(workspace::new_shared_watcher())
         .invoke_handler(tauri::generate_handler![
             list_skills,
             frontend_log,
@@ -2262,6 +2264,15 @@ pub fn run() {
             browser::browser_set_permission,
             panel::panel_list_installed,
             panel::panel_remove_installed,
+            workspace::workspace_list_dirs,
+            workspace::workspace_read_file,
+            workspace::workspace_write_file,
+            workspace::workspace_get_git_info,
+            workspace::workspace_get_sessions,
+            workspace::workspace_get_progress,
+            workspace::workspace_start_watch,
+            workspace::workspace_stop_watch,
+            workspace::workspace_classify_dirs,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

@@ -133,6 +133,13 @@ export interface PanelDescriptor {
 	 */
 	builtIn?: boolean;
 	/**
+	 * Keep-alive: panel is always mounted, shown/hidden via CSS opacity.
+	 * Set false for panels that embed native OS windows (e.g. browser via X11
+	 * XReparentWindow) — CSS opacity cannot hide native windows, so they must
+	 * unmount to disappear. Defaults to true for builtIn panels.
+	 */
+	keepAlive?: boolean;
+	/**
 	 * "installed" — loaded from ~/.naia/panels/ at runtime.
 	 * Omit or "code" for panels bundled in the shell's source.
 	 * ModeBar uses this to decide whether to also delete from disk on remove.

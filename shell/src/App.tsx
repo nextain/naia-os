@@ -8,7 +8,9 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PanelInstallDialog } from "./components/PanelInstallDialog";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { activeBridge } from "./lib/active-bridge";
 import { syncLinkedChannels } from "./lib/channel-sync";
+import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
 import {
 	type ThemeId,
 	isOnboardingComplete,
@@ -18,11 +20,9 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
-import { activeBridge } from "./lib/active-bridge";
+import { persistDiscordDefaults } from "./lib/discord-auth";
 import { loadInstalledPanels } from "./lib/panel-loader";
 import { panelRegistry } from "./lib/panel-registry";
-import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
-import { persistDiscordDefaults } from "./lib/discord-auth";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 import "./panels/browser/index"; // register browser panel
 import "./panels/workspace/index"; // register workspace panel
@@ -58,7 +58,7 @@ export function App() {
 
 	const { activePanel } = usePanelStore();
 
-	// Sync panel tools with agent on panel switch
+	// Sync panel tools with agent on panel switch, and call lifecycle hooks
 	const prevPanelRef = useRef<string | null>(null);
 	useEffect(() => {
 		const prev = prevPanelRef.current;
@@ -66,9 +66,11 @@ export function App() {
 
 		if (prev && prev !== activePanel) {
 			sendPanelSkillsClear(prev).catch(() => {});
+			panelRegistry.get(prev)?.onDeactivate?.();
 		}
 		if (activePanel) {
 			const descriptor = panelRegistry.get(activePanel);
+			descriptor?.onActivate?.();
 			if (descriptor?.tools && descriptor.tools.length > 0) {
 				sendPanelSkills(activePanel, descriptor.tools).catch(() => {});
 			}
@@ -96,7 +98,6 @@ export function App() {
 			setNaiaWidth(Math.max(NAIA_WIDTH_MIN, Math.min(NAIA_WIDTH_MAX, px)));
 		}
 		if (!isOnboardingComplete()) setShowOnboarding(true);
-
 
 		navigator.mediaDevices
 			?.getUserMedia({ audio: true })
@@ -157,7 +158,9 @@ export function App() {
 		document.body.classList.add("resizing-row");
 
 		const onMove = (ev: PointerEvent) => {
-			setAvatarHeight(Math.max(80, Math.min(600, startH + ev.clientY - startY)));
+			setAvatarHeight(
+				Math.max(80, Math.min(600, startH + ev.clientY - startY)),
+			);
 		};
 		const onUp = () => {
 			document.body.classList.remove("resizing-row");
@@ -188,7 +191,8 @@ export function App() {
 			window.removeEventListener("pointerup", onUp);
 			setNaiaWidth((w) => {
 				const cfg = loadConfig();
-				if (cfg) saveConfig({ ...cfg, panelSize: Math.round((w / 1200) * 100) });
+				if (cfg)
+					saveConfig({ ...cfg, panelSize: Math.round((w / 1200) * 100) });
 				return w;
 			});
 		};
@@ -223,7 +227,21 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
-	type WinResizeDir = "North" | "South" | "East" | "West" | "NorthEast" | "NorthWest" | "SouthEast" | "SouthWest";
+	// Keep-alive: builtIn panels without native embeds, always mounted, CSS opacity transition
+	// Panels with keepAlive: false (e.g. browser via X11 XReparentWindow) must unmount to hide
+	const [keepAlivePanels] = useState(() =>
+		panelRegistry.list().filter((p) => p.builtIn && p.keepAlive !== false),
+	);
+
+	type WinResizeDir =
+		| "North"
+		| "South"
+		| "East"
+		| "West"
+		| "NorthEast"
+		| "NorthWest"
+		| "SouthEast"
+		| "SouthWest";
 	const handleWinResize = (dir: WinResizeDir) => (e: React.PointerEvent) => {
 		e.preventDefault();
 		getCurrentWindow().startResizeDragging(dir);
@@ -278,10 +296,7 @@ export function App() {
 							/>
 							<ChatPanel />
 						</div>
-						<div
-							className="naia-resize-handle"
-							onPointerDown={onResizeStart}
-						/>
+						<div className="naia-resize-handle" onPointerDown={onResizeStart} />
 					</>
 				)}
 				<div className="right-area">
@@ -291,10 +306,34 @@ export function App() {
 					)}
 					<div className="right-content">
 						<div className="content-panel">
-							{CenterComponent ? (
-								<CenterComponent naia={activeBridge} />
-							) : (
-								<div className="content-panel__home" />
+							{/* Keep-alive panels: always mounted, CSS opacity fade on switch */}
+							{keepAlivePanels.map((panel) => {
+								const PanelCenter = panel.center;
+								return (
+									<div
+										key={panel.id}
+										className={`content-panel__slot${activePanel === panel.id ? " content-panel__slot--active" : ""}`}
+									>
+										<PanelCenter naia={activeBridge} />
+									</div>
+								);
+							})}
+							{/* Non-keepAlive builtIn + installed panels: mount/unmount when active */}
+							{activePanel &&
+								!keepAlivePanels.some((p) => p.id === activePanel) && (
+									<div className="content-panel__slot content-panel__slot--active">
+										{CenterComponent ? (
+											<CenterComponent naia={activeBridge} />
+										) : (
+											<div className="content-panel__home" />
+										)}
+									</div>
+								)}
+							{/* No panel selected */}
+							{!activePanel && (
+								<div className="content-panel__slot content-panel__slot--active">
+									<div className="content-panel__home" />
+								</div>
 							)}
 						</div>
 					</div>

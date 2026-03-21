@@ -168,36 +168,130 @@
 
 ---
 
-## L014 — GitHub Notifications API가 RepositoryVulnerabilityAlert에서 null subject.url 반환 — TypeScript 타입은 string | null이어야 함 (#91)
+## L014 — global.css CSS 문법 오류 시 Vite 앱 전체 렌더 실패 — E2E 테스트 전부 "element not found"로 실패 (#99)
 
-**날짜**: 2026-03-21 | **카테고리**: API | **범위**: `issue-desk/src/github/notifications.ts`
+**날짜**: 2026-03-21 | **카테고리**: CSS | **범위**: `shell/src/styles/global.css`
 
-**문제**: TypeScript 타입에서 `subject.url`을 `string`으로 선언했으나, GitHub API가 `RepositoryVulnerabilityAlert`에서 `null`을 반환. `null.match()`에서 런타임 `TypeError` 발생하여 알림 목록이 크래시됨.
+**문제**: config와 mock이 올바른데도 E2E 테스트가 `beforeEach`에서 "locator(.chat-panel) not found"로 실패. 13개 전부 실패.
 
-**근본 원인**: GitHub API 스펙은 `subject.url`이 nullable임을 문서화하고 있으나 TypeScript 타입이 null-safety 없이 복사됨. `RepositoryVulnerabilityAlert`만 `null`을 보내는 유일한 타입이라 일반적인 사용 중에는 버그가 보이지 않음.
+**근본 원인**: CSS 편집 실수로 `global.css:5117–5118`에 어떤 규칙에도 속하지 않는 고아 `color:` 프로퍼티와 `}`가 남았음. PostCSS가 "Unexpected }" 파싱 에러를 던지고, Vite가 에러 오버레이를 표시하며 React를 마운트하지 않음.
 
-**수정**: 타입을 `string | null`로 변경. `subjectHtmlUrl()`에 null 가드 추가: `apiUrl`이 `null`이고 `type === 'RepositoryVulnerabilityAlert'`면 `repoHtmlUrl + '/security/dependabot'` 반환. 일반적인 null 폴백은 `repoHtmlUrl` 반환.
-
----
-
-## L015 — markRead는 try/catch 필수 — API 실패 시 낙관적 UI 업데이트가 깨짐 (#91)
-
-**날짜**: 2026-03-21 | **카테고리**: 프론트엔드 | **범위**: `issue-desk/src/components/NotificationList.tsx`
-
-**문제**: `handleMarkRead`가 API 호출 전에 UI 상태를 업데이트함. `markRead()`가 예외를 던지면(레이트 리밋, 네트워크 에러), 알림이 시각적으로는 읽음 처리됐으나 서버에는 여전히 안 읽음 상태. 다음 동기화 시 복원되어 혼란스러운 깜빡임 발생.
-
-**근본 원인**: 낙관적 업데이트 패턴을 롤백 메커니즘 없이 적용함.
-
-**수정**: `markRead`를 `try/catch`로 감쌈. UI 업데이트(`setNotifications`)를 `try` 블록 안으로 이동 — API 성공 후에만 실행. 에러 시 `console.error`로 로깅하고 UI 상태는 건드리지 않음.
+**수정**: 고아 라인 제거. `global.css` 편집 후 CSS가 정상 컴파일되는지 항상 확인 — E2E 실행 전 브라우저 devtools나 Vite 서버 응답에서 `[plugin:vite:css]` 에러 여부 점검.
 
 ---
 
-## L016 — Settings 레코드 이름 변경 시 원본 키 추적 필요 — delete + upsert 패턴 (#91)
+## L015 — Playwright strict mode: `[data-panel-id]`가 wrapper div와 button 모두 매칭 — `button[data-panel-id]` 사용 (#99)
 
-**날짜**: 2026-03-21 | **카테고리**: 프론트엔드 | **범위**: `issue-desk/src/components/Settings.tsx`
+**날짜**: 2026-03-21 | **카테고리**: E2E | **범위**: `shell/e2e/*.spec.ts`
 
-**문제**: 커뮤니티 프로필이 레포 이름을 맵 키로 사용함(`upsertProfile`이 `repo`로 키잉). 사용자가 편집 폼에서 레포 필드 이름을 바꾸면, 저장 시 `upsertProfile`이 새 이름으로 호출되어 기존 항목이 맵에 유령으로 남음.
+**문제**: `'[data-panel-id="workspace"]'` 로케이터가 wrapper div와 그 안의 button 두 요소를 매칭. Playwright strict mode가 "strict mode violation"을 던지며 테스트 실패.
 
-**근본 원인**: 편집 상태가 새 값만 보유하고 원본 키에 대한 참조가 없음.
+**근본 원인**: ModeBar가 스타일링을 위해 wrapper div에 `data-panel-id`를 붙이고, 접근성/테스트 목적으로 내부 button에도 같은 속성을 붙임. 범용 속성 셀렉터는 두 요소를 모두 매칭.
 
-**수정**: `editingOriginalRepo` 상태 추가. 편집 시작 시: 원본 레포 이름 저장. 저장 시: 레포 이름이 변경됐으면 `deleteProfile(editingOriginalRepo)` 후 `upsertProfile(newProfile)` 호출. 신규 프로필 추가 전에도 중복 체크 추가.
+**수정**: `'button[data-panel-id="workspace"]'`로 인터랙티브 button 요소만 타겟.
+
+---
+
+## L016 — FileTree와 WorkspaceCenterPanel 간 순환 참조 — 공유 타입을 인라인으로 정의하여 해결 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/FileTree.tsx`, `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: `FileTree`가 `WorkspaceCenterPanel`에서 `ClassifiedDir` 타입을 임포트하는데, `WorkspaceCenterPanel`은 `FileTree`를 임포트함. TypeScript/번들러가 해소하지만 순환 의존성 발생.
+
+**근본 원인**: 두 컴포넌트 모두 동일한 `ClassifiedDir` 인터페이스가 필요. 부모(`WorkspaceCenterPanel`)에 정의하고 자식(`FileTree`)에서 임포트하면 순환 의존성 발생.
+
+**수정**: FileTree props에 타입을 인라인으로 직접 정의: `Array<{name: string; path: string; category: string}>`. `WorkspaceCenterPanel`은 Naia 도구 핸들러용으로 별도의 `ClassifiedDir` 인터페이스를 re-export.
+
+---
+
+## L017 — `idleToastTimerRef`를 interval `useEffect` cleanup에서 반드시 제거해야 함 — 언마운트된 컴포넌트에 setState 방지 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 유휴 알림 `setInterval`이 유휴 세션 감지 시 토스트 타이머(`setTimeout`)를 생성. interval cleanup에서 `clearInterval`은 올바르게 호출하지만, 대기 중인 토스트 타이머의 `clearTimeout`은 호출하지 않음.
+
+**근본 원인**: 토스트 타이머는 유휴 알림 6초 후에 실행됨. 타이머가 대기 중인 상태에서 컴포넌트가 언마운트(탭 전환)되면, 언마운트된 컴포넌트에 `setIdleToast(null)`이 호출됨.
+
+**수정**: interval cleanup 함수에 추가: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.
+
+---
+
+## L018 — Keep-alive 패널은 `display:contents` 사용 필수 (`display:block` 아님) — flex 레이아웃 컨텍스트 보존 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/App.tsx`
+
+**문제**: 워크스페이스 패널이 탭 전환 시 언마운트되어 모든 상태가 초기화됨. `display:none` 래퍼에 `display:block`으로 활성화 시 flex 자식 레이아웃이 깨짐 — 자식들이 올바르게 stretch되지 않음.
+
+**근본 원인**: `content-panel`이 `display:flex`를 사용하므로, `display:block` 래퍼 div는 flex 자식 동작을 망가뜨림. `display:contents`는 래퍼를 레이아웃에 투명하게 만들어 자식이 부모 flex 컨텍스트에 직접 참여.
+
+**수정**: keep-alive 래퍼에 `style={{ display: activePanel === 'workspace' ? 'contents' : 'none' }}` 사용.
+
+---
+
+## L019 — 마크다운 3상태 뷰에는 `viewMode` enum이 필수: preview / split / editor (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/Editor.tsx`
+
+**문제**: `previewMode: boolean`으로는 split 뷰(에디터+미리보기 나란히 표시) 표현 불가.
+
+**근본 원인**: 설계가 토글 이상으로 발전: 마크다운은 미리보기 기본, split(실시간 편집), 에디터 전용 3가지 상태 필요. 상호 배타적인 3상태는 union 타입 필요.
+
+**수정**: `type ViewMode = 'editor' | 'preview' | 'split'`. `useEffect([filePath])`에서 `isMd ? 'preview' : 'editor'`로 리셋. `viewMode === 'preview'`일 때 CM 설정 건너뜀. `updateListener`에서 `setContent(text)` 호출로 split 모드 실시간 미리보기 동기화.
+
+---
+
+## L020 — CodeMirror `updateListener`에서 `setContent` 호출 필수 — split 뷰 실시간 미리보기; `justLoadedRef`로 초기 동기화 보호 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/Editor.tsx`
+
+**문제**: split 모드에서 CodeMirror 타이핑 시 ReactMarkdown 미리보기가 업데이트되지 않음 — `content` 상태가 파일 로드 시에만 설정되고 CM 편집 시에는 설정되지 않았기 때문.
+
+**근본 원인**: CM `updateListener`는 자동저장 디바운스만 담당. `updateListener`에 `setContent(text)`를 추가하면 실시간 미리보기 가능.
+
+**수정**: `updateListener`에서: `justLoadedRef.current`가 `true`면 `false`로 설정 후 early return. 아니면 자동저장 디바운스 전에 `setContent(text)` 호출.
+
+---
+
+## L021 — 드래그 리사이즈 핸들: 안정적인 추적을 위해 `window`에 `pointermove`/`pointerup` 등록 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: UI | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 마우스 기반 리사이즈는 커서가 패널 크기 변경보다 빠르게 이동하면 추적이 끊길 수 있음.
+
+**수정**: `onPointerDown`에서: `document.body.classList.add('resizing-col')`, `window.addEventListener('pointermove', onMove)`, `window.addEventListener('pointerup', onUp)`. `onUp`에서 두 이벤트 제거. `App.tsx` naia-resize-handle 구현 패턴과 동일.
+
+---
+
+## L022 — X11 XReparentWindow 네이티브 창은 CSS opacity를 무시함 — CSS keep-alive 사용 불가 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: Tauri | **범위**: `shell/src/panels/browser/*, shell/src-tauri/src/browser.rs`
+
+**문제**: 브라우저 패널을 React keep-alive(position:absolute, opacity:0/1)에 포함시켰지만, CSS opacity가 Chrome X11 창에 아무 효과가 없었음 — opacity:0이어도 Chrome이 그대로 보여 워크스페이스 패널 위를 덮음.
+
+**근본 원인**: `XReparentWindow`는 Chrome을 OS 네이티브 자식 창으로 임베드함. 이 창들은 WebKit compositor와 별개로 OS 레벨에서 합성됨. CSS z-index/opacity/visibility는 X11 네이티브 창에 효과 없음.
+
+**수정**: `PanelDescriptor`에 `keepAlive?: boolean` 추가. 브라우저 패널은 `keepAlive: false` 설정 — 비활성화 시 언마운트(→ `browser_embed_close` 호출). 근본 해결은 #102에서: `XUnmapWindow`/`XMapWindow`를 사용하는 `browser_embed_hide`/`show` Rust 커맨드 추가.
+
+---
+
+## L023 — `onSessionsUpdate`는 catch 블록에서도 반드시 호출 — 그렇지 않으면 부모 `initialized`가 false로 남음 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/SessionDashboard.tsx`
+
+**문제**: `workspace_get_sessions` invoke 실패 시 `WorkspaceCenterPanel`의 로딩 스피너가 영원히 표시됨. `initialized` 상태는 `onSessionsUpdate` 콜백으로 설정되는데, 이 콜백이 성공 경로에서만 호출됐음.
+
+**근본 원인**: `SessionDashboard.loadSessions`에서 `onSessionsUpdateRef.current?.(result)`를 성공 시에만 호출. 에러 시 `finally`가 `loading:false`만 설정하고 `onSessionsUpdate`를 호출하지 않아 `WorkspaceCenterPanel.initialized`가 `false`로 남음.
+
+**수정**: `catch` 블록에 `onSessionsUpdateRef.current?.([])` 추가. 빈 배열이 "세션 없음"을 부모에 알리고 `initialized:true`를 트리거함.
+
+---
+
+## L024 — 패널 CSS는 시맨틱 토큰만 사용 — 테마별 정의 필수, 색상 하드코딩 금지 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: UI | **범위**: `shell/src/styles/global.css`
+
+**문제**: 워크스페이스 패널 CSS가 `var(--bg-base, #1a1a1a)` 등 다크 폴백값을 사용함. 이 토큰들이 어떤 테마에도 정의되지 않아, 활성 테마와 무관하게 항상 다크로 렌더링됨.
+
+**근본 원인**: `--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg` 등 시맨틱 토큰이 패널 CSS에서 사용됐지만 테마 블록에 정의되지 않음 — 테마별로는 `--espresso`, `--cream` 같은 원시 변수만 정의됐음.
+
+**수정**: 모든 테마(espresso/midnight/ocean/forest/rose/latte/sakura/cloud)에 시맨틱 토큰 섹션 추가. 각 테마에서 `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)` 등으로 매핑. `global.css`에 PANEL CSS STANDARD 주석으로 문서화.

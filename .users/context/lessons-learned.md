@@ -168,36 +168,130 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 
 ---
 
-## L014 — GitHub Notifications API returns null subject.url for RepositoryVulnerabilityAlert — TypeScript type must be string | null (#91)
+## L014 — CSS syntax error in global.css causes entire Vite app to fail to render — all E2E tests fail with "element not found" (#99)
 
-**Date**: 2026-03-21 | **Category**: API | **Scope**: `issue-desk/src/github/notifications.ts`
+**Date**: 2026-03-21 | **Category**: CSS | **Scope**: `shell/src/styles/global.css`
 
-**Problem**: TypeScript type declared `subject.url` as `string`, but GitHub API returns `null` for `RepositoryVulnerabilityAlert`. Runtime `TypeError` on `null.match()` crashed the notification list.
+**Problem**: E2E tests failed at `beforeEach` with "locator(.chat-panel) not found" even though config and mock were correct. All 13 tests failed.
 
-**Root cause**: GitHub API spec documents `subject.url` as nullable but the TypeScript type was copied without null-safety. `RepositoryVulnerabilityAlert` is the only known type that sends `null`, so the bug was invisible in typical usage.
+**Root cause**: A CSS editing mistake left an orphaned `color:` property and `}` outside any rule at `global.css:5117–5118`. PostCSS threw "Unexpected }" parse error, Vite showed the error overlay and never mounted React.
 
-**Fix**: Changed type to `string | null`. Added null guard in `subjectHtmlUrl()`: if `apiUrl` is `null` and `type === 'RepositoryVulnerabilityAlert'`, return `repoHtmlUrl + '/security/dependabot'`. Generic null fallback returns `repoHtmlUrl`.
-
----
-
-## L015 — markRead must use try/catch — optimistic UI update breaks on API failure (#91)
-
-**Date**: 2026-03-21 | **Category**: Frontend | **Scope**: `issue-desk/src/components/NotificationList.tsx`
-
-**Problem**: `handleMarkRead` updated UI state before awaiting the API call. If `markRead()` threw (rate-limit, network error), the notification was visually marked as read but the server still had it unread. Next sync would restore it, causing a confusing flicker.
-
-**Root cause**: Optimistic update pattern was applied without a rollback mechanism.
-
-**Fix**: Wrapped `markRead` in `try/catch`. UI update (`setNotifications`) moved inside the `try` block — runs only after API succeeds. On error, `console.error` logs without touching UI state.
+**Fix**: Removed the orphaned lines. Always verify CSS compiles successfully after editing `global.css` — check browser devtools or Vite server response for `[plugin:vite:css]` errors before running E2E.
 
 ---
 
-## L016 — Settings record rename requires tracking original key — delete + upsert pattern (#91)
+## L015 — Playwright strict mode: `[data-panel-id]` matches both wrapper div and button — use `button[data-panel-id]` (#99)
 
-**Date**: 2026-03-21 | **Category**: Frontend | **Scope**: `issue-desk/src/components/Settings.tsx`
+**Date**: 2026-03-21 | **Category**: E2E | **Scope**: `shell/e2e/*.spec.ts`
 
-**Problem**: Community profiles used repo name as the map key (`upsertProfile` keyed on `repo`). When a user renamed the repo field in the edit form, saving called `upsertProfile` with the new name, leaving the old entry in the map as a ghost.
+**Problem**: Locator `'[data-panel-id="workspace"]'` resolved to 2 elements: the wrapper div AND the button inside it. Playwright strict mode threw "strict mode violation" and the test failed.
 
-**Root cause**: Edit state only held the new value with no reference to the original key.
+**Root cause**: ModeBar renders a wrapper div with `data-panel-id` for styling, and the inner button also has `data-panel-id` for accessibility/testing. Using a generic attribute selector matches both.
 
-**Fix**: Added `editingOriginalRepo` state. On edit start: save original repo name. On save: if repo name changed, call `deleteProfile(editingOriginalRepo)` then `upsertProfile(newProfile)`. Also added duplicate-check before adding new profiles.
+**Fix**: Use `'button[data-panel-id="workspace"]'` to target only the interactive button element.
+
+---
+
+## L016 — Circular import between FileTree and WorkspaceCenterPanel — inline shared type to break cycle (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/FileTree.tsx`, `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: `FileTree` imported `ClassifiedDir` type from `WorkspaceCenterPanel`, while `WorkspaceCenterPanel` imported `FileTree`. TypeScript/bundler resolved it but created a circular dependency.
+
+**Root cause**: Both components needed the same `ClassifiedDir` interface. Defining it in the parent (`WorkspaceCenterPanel`) and importing in the child (`FileTree`) created a circular dependency.
+
+**Fix**: Define the inline type directly in FileTree props: `Array<{name: string; path: string; category: string}>`. `WorkspaceCenterPanel` re-exports its own `ClassifiedDir` interface separately for the Naia tool handler.
+
+---
+
+## L017 — `idleToastTimerRef` must be cleared in interval `useEffect` cleanup to prevent setState on unmounted component (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: The idle notification `setInterval` creates a toast timer (`setTimeout`) when idle sessions are detected. The interval cleanup correctly called `clearInterval`, but not `clearTimeout` on the pending toast timer.
+
+**Root cause**: The toast timer runs 6s after an idle alert. If the component unmounts (tab switch) while the timer is pending, `setIdleToast(null)` would be called on an unmounted component.
+
+**Fix**: In the interval cleanup function, also call: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.
+
+---
+
+## L018 — Keep-alive panels must use `display:contents` (not `display:block`) to preserve flex layout context (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/App.tsx`
+
+**Problem**: Workspace panel was unmounting on tab switch, losing all state. Wrapping in `display:none` div with `display:block` when active broke the flex child layout — children didn't stretch correctly.
+
+**Root cause**: The `content-panel` uses `display:flex`. A wrapper div with `display:block` breaks flex child behavior. `display:contents` makes the wrapper transparent to layout, so children participate in the parent flex context directly.
+
+**Fix**: Use `style={{ display: activePanel === 'workspace' ? 'contents' : 'none' }}` on the keep-alive wrapper div.
+
+---
+
+## L019 — `viewMode` enum is necessary for markdown 3-state view: preview / split / editor (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/Editor.tsx`
+
+**Problem**: `previewMode: boolean` couldn't represent split view (editor+preview side by side).
+
+**Root cause**: Design evolved beyond toggle: markdown needs preview-default, split (live edit), and editor-only. Three mutually exclusive states require a union type.
+
+**Fix**: `type ViewMode = 'editor' | 'preview' | 'split'`. Reset in `useEffect([filePath])` to `isMd ? 'preview' : 'editor'`. CM setup skips when `viewMode === 'preview'`. `updateListener` calls `setContent(text)` for live preview sync in split mode.
+
+---
+
+## L020 — CodeMirror `updateListener` must call `setContent` for live split-view preview; `justLoadedRef` guards initial sync (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/Editor.tsx`
+
+**Problem**: In split mode, typing in CodeMirror didn't update the ReactMarkdown preview because `content` state was only set on file load, not on CM edits.
+
+**Root cause**: CM `updateListener` was responsible only for autosave debounce. Adding `setContent(text)` to `updateListener` enables live preview.
+
+**Fix**: In `updateListener`: if `justLoadedRef.current` is `true`, set to `false` and return early. Otherwise call `setContent(text)` before autosave debounce.
+
+---
+
+## L021 — Drag-resize panel handles: use `pointermove`/`pointerup` on `window` for reliable tracking (#99)
+
+**Date**: 2026-03-21 | **Category**: UI | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: Mouse-based resize can lose tracking if cursor moves faster than panel resizes.
+
+**Fix**: In `onPointerDown`: add `document.body.classList.add('resizing-col')`, then `window.addEventListener('pointermove', onMove)` and `window.addEventListener('pointerup', onUp)`. Remove both in `onUp`. Pattern matches `App.tsx` naia-resize-handle implementation.
+
+---
+
+## L022 — X11 XReparentWindow native windows ignore CSS opacity — cannot use CSS keep-alive (#99)
+
+**Date**: 2026-03-21 | **Category**: Tauri | **Scope**: `shell/src/panels/browser/*, shell/src-tauri/src/browser.rs`
+
+**Problem**: Browser panel was included in React keep-alive (position:absolute, opacity:0/1). CSS opacity had no effect on the Chrome X11 window — it remained fully visible even when opacity:0, overlaying the workspace panel.
+
+**Root cause**: `XReparentWindow` embeds Chrome as a native OS child window. These are composited at the OS level, independent of the WebKit compositor. CSS z-index/opacity/visibility have no effect on native X11 windows.
+
+**Fix**: Added `keepAlive?: boolean` to `PanelDescriptor`. Browser panel sets `keepAlive: false` — it unmounts on deactivation (triggering `browser_embed_close`). Proper fix tracked in #102: add `browser_embed_hide`/`show` Rust commands using `XUnmapWindow`/`XMapWindow`.
+
+---
+
+## L023 — `onSessionsUpdate` must be called in catch block too — otherwise parent `initialized` stays false (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/SessionDashboard.tsx`
+
+**Problem**: `WorkspaceCenterPanel` showed loading spinner forever when `workspace_get_sessions` invoke failed. `initialized` state was set via `onSessionsUpdate` callback, which was only called on the success path.
+
+**Root cause**: `SessionDashboard.loadSessions` called `onSessionsUpdateRef.current?.(result)` only on success. On error, `finally` block set `loading:false` but never called `onSessionsUpdate` — `WorkspaceCenterPanel.initialized` remained `false`.
+
+**Fix**: Added `onSessionsUpdateRef.current?.([])` in the `catch` block. Empty array signals "no sessions" to parent and triggers `initialized:true`.
+
+---
+
+## L024 — Panel CSS must use semantic tokens — define per theme, never hardcode colors (#99)
+
+**Date**: 2026-03-21 | **Category**: UI | **Scope**: `shell/src/styles/global.css`
+
+**Problem**: Workspace panel CSS used `var(--bg-base, #1a1a1a)` etc. with dark fallbacks. Since these tokens weren't defined in any theme, the panel always rendered dark regardless of the active theme.
+
+**Root cause**: Semantic tokens (`--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg`, etc.) were used in panel CSS but never defined in theme blocks — only raw variables like `--espresso`, `--cream` were defined per theme.
+
+**Fix**: Added semantic token section to every theme (espresso/midnight/ocean/forest/rose/latte/sakura/cloud). Each maps `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)`, etc. Documented as PANEL CSS STANDARD comment in `global.css`.

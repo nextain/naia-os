@@ -376,10 +376,14 @@ export function AvatarCanvas() {
 			}, 500);
 		});
 
-		// Render loop
-		function tick() {
+		// Render loop — capped at 30 fps to free main thread
+		const FRAME_MS = 1000 / 30;
+		let lastRenderTime = 0;
+		function tick(now: number) {
 			if (disposed) return;
 			frameId = requestAnimationFrame(tick);
+			if (now - lastRenderTime < FRAME_MS) return;
+			lastRenderTime = now;
 
 			const delta = Math.min(clock.getDelta(), MAX_DELTA);
 
