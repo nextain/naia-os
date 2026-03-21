@@ -259,3 +259,39 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Problem**: Mouse-based resize can lose tracking if cursor moves faster than panel resizes.
 
 **Fix**: In `onPointerDown`: add `document.body.classList.add('resizing-col')`, then `window.addEventListener('pointermove', onMove)` and `window.addEventListener('pointerup', onUp)`. Remove both in `onUp`. Pattern matches `App.tsx` naia-resize-handle implementation.
+
+---
+
+## L022 — X11 XReparentWindow native windows ignore CSS opacity — cannot use CSS keep-alive (#99)
+
+**Date**: 2026-03-21 | **Category**: Tauri | **Scope**: `shell/src/panels/browser/*, shell/src-tauri/src/browser.rs`
+
+**Problem**: Browser panel was included in React keep-alive (position:absolute, opacity:0/1). CSS opacity had no effect on the Chrome X11 window — it remained fully visible even when opacity:0, overlaying the workspace panel.
+
+**Root cause**: `XReparentWindow` embeds Chrome as a native OS child window. These are composited at the OS level, independent of the WebKit compositor. CSS z-index/opacity/visibility have no effect on native X11 windows.
+
+**Fix**: Added `keepAlive?: boolean` to `PanelDescriptor`. Browser panel sets `keepAlive: false` — it unmounts on deactivation (triggering `browser_embed_close`). Proper fix tracked in #102: add `browser_embed_hide`/`show` Rust commands using `XUnmapWindow`/`XMapWindow`.
+
+---
+
+## L023 — `onSessionsUpdate` must be called in catch block too — otherwise parent `initialized` stays false (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/SessionDashboard.tsx`
+
+**Problem**: `WorkspaceCenterPanel` showed loading spinner forever when `workspace_get_sessions` invoke failed. `initialized` state was set via `onSessionsUpdate` callback, which was only called on the success path.
+
+**Root cause**: `SessionDashboard.loadSessions` called `onSessionsUpdateRef.current?.(result)` only on success. On error, `finally` block set `loading:false` but never called `onSessionsUpdate` — `WorkspaceCenterPanel.initialized` remained `false`.
+
+**Fix**: Added `onSessionsUpdateRef.current?.([])` in the `catch` block. Empty array signals "no sessions" to parent and triggers `initialized:true`.
+
+---
+
+## L024 — Panel CSS must use semantic tokens — define per theme, never hardcode colors (#99)
+
+**Date**: 2026-03-21 | **Category**: UI | **Scope**: `shell/src/styles/global.css`
+
+**Problem**: Workspace panel CSS used `var(--bg-base, #1a1a1a)` etc. with dark fallbacks. Since these tokens weren't defined in any theme, the panel always rendered dark regardless of the active theme.
+
+**Root cause**: Semantic tokens (`--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg`, etc.) were used in panel CSS but never defined in theme blocks — only raw variables like `--espresso`, `--cream` were defined per theme.
+
+**Fix**: Added semantic token section to every theme (espresso/midnight/ocean/forest/rose/latte/sakura/cloud). Each maps `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)`, etc. Documented as PANEL CSS STANDARD comment in `global.css`.

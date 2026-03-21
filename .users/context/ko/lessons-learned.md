@@ -259,3 +259,39 @@
 **문제**: 마우스 기반 리사이즈는 커서가 패널 크기 변경보다 빠르게 이동하면 추적이 끊길 수 있음.
 
 **수정**: `onPointerDown`에서: `document.body.classList.add('resizing-col')`, `window.addEventListener('pointermove', onMove)`, `window.addEventListener('pointerup', onUp)`. `onUp`에서 두 이벤트 제거. `App.tsx` naia-resize-handle 구현 패턴과 동일.
+
+---
+
+## L022 — X11 XReparentWindow 네이티브 창은 CSS opacity를 무시함 — CSS keep-alive 사용 불가 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: Tauri | **범위**: `shell/src/panels/browser/*, shell/src-tauri/src/browser.rs`
+
+**문제**: 브라우저 패널을 React keep-alive(position:absolute, opacity:0/1)에 포함시켰지만, CSS opacity가 Chrome X11 창에 아무 효과가 없었음 — opacity:0이어도 Chrome이 그대로 보여 워크스페이스 패널 위를 덮음.
+
+**근본 원인**: `XReparentWindow`는 Chrome을 OS 네이티브 자식 창으로 임베드함. 이 창들은 WebKit compositor와 별개로 OS 레벨에서 합성됨. CSS z-index/opacity/visibility는 X11 네이티브 창에 효과 없음.
+
+**수정**: `PanelDescriptor`에 `keepAlive?: boolean` 추가. 브라우저 패널은 `keepAlive: false` 설정 — 비활성화 시 언마운트(→ `browser_embed_close` 호출). 근본 해결은 #102에서: `XUnmapWindow`/`XMapWindow`를 사용하는 `browser_embed_hide`/`show` Rust 커맨드 추가.
+
+---
+
+## L023 — `onSessionsUpdate`는 catch 블록에서도 반드시 호출 — 그렇지 않으면 부모 `initialized`가 false로 남음 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/SessionDashboard.tsx`
+
+**문제**: `workspace_get_sessions` invoke 실패 시 `WorkspaceCenterPanel`의 로딩 스피너가 영원히 표시됨. `initialized` 상태는 `onSessionsUpdate` 콜백으로 설정되는데, 이 콜백이 성공 경로에서만 호출됐음.
+
+**근본 원인**: `SessionDashboard.loadSessions`에서 `onSessionsUpdateRef.current?.(result)`를 성공 시에만 호출. 에러 시 `finally`가 `loading:false`만 설정하고 `onSessionsUpdate`를 호출하지 않아 `WorkspaceCenterPanel.initialized`가 `false`로 남음.
+
+**수정**: `catch` 블록에 `onSessionsUpdateRef.current?.([])` 추가. 빈 배열이 "세션 없음"을 부모에 알리고 `initialized:true`를 트리거함.
+
+---
+
+## L024 — 패널 CSS는 시맨틱 토큰만 사용 — 테마별 정의 필수, 색상 하드코딩 금지 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: UI | **범위**: `shell/src/styles/global.css`
+
+**문제**: 워크스페이스 패널 CSS가 `var(--bg-base, #1a1a1a)` 등 다크 폴백값을 사용함. 이 토큰들이 어떤 테마에도 정의되지 않아, 활성 테마와 무관하게 항상 다크로 렌더링됨.
+
+**근본 원인**: `--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg` 등 시맨틱 토큰이 패널 CSS에서 사용됐지만 테마 블록에 정의되지 않음 — 테마별로는 `--espresso`, `--cream` 같은 원시 변수만 정의됐음.
+
+**수정**: 모든 테마(espresso/midnight/ocean/forest/rose/latte/sakura/cloud)에 시맨틱 토큰 섹션 추가. 각 테마에서 `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)` 등으로 매핑. `global.css`에 PANEL CSS STANDARD 주석으로 문서화.
