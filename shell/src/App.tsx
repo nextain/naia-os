@@ -227,9 +227,10 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
-	// Keep-alive: all builtIn panels always mounted, CSS opacity transition between them
-	const [builtInPanels] = useState(() =>
-		panelRegistry.list().filter((p) => p.builtIn),
+	// Keep-alive: builtIn panels without native embeds, always mounted, CSS opacity transition
+	// Panels with keepAlive: false (e.g. browser via X11 XReparentWindow) must unmount to hide
+	const [keepAlivePanels] = useState(() =>
+		panelRegistry.list().filter((p) => p.builtIn && p.keepAlive !== false),
 	);
 
 	type WinResizeDir =
@@ -305,8 +306,8 @@ export function App() {
 					)}
 					<div className="right-content">
 						<div className="content-panel">
-							{/* builtIn panels: always mounted, CSS opacity fade on switch */}
-							{builtInPanels.map((panel) => {
+							{/* Keep-alive panels: always mounted, CSS opacity fade on switch */}
+							{keepAlivePanels.map((panel) => {
 								const PanelCenter = panel.center;
 								return (
 									<div
@@ -317,9 +318,9 @@ export function App() {
 									</div>
 								);
 							})}
-							{/* Installed (non-builtIn) panels: mount/unmount */}
+							{/* Non-keepAlive builtIn + installed panels: mount/unmount when active */}
 							{activePanel &&
-								!builtInPanels.some((p) => p.id === activePanel) && (
+								!keepAlivePanels.some((p) => p.id === activePanel) && (
 									<div className="content-panel__slot content-panel__slot--active">
 										{CenterComponent ? (
 											<CenterComponent naia={activeBridge} />
