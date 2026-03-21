@@ -7,7 +7,7 @@ panelRegistry.register({
 	names: { ko: "크롬", en: "Chrome" },
 	icon: "🌐",
 	builtIn: true,
-	keepAlive: false, // Chrome is embedded via X11 XReparentWindow — CSS opacity cannot hide native windows
+	keepAlive: true, // X11 visibility controlled by browser_embed_hide/show in panel.ts setActivePanel
 	center: BrowserCenterPanel,
 	tools: [
 		// ── Navigation ──────────────────────────────────────────────────────

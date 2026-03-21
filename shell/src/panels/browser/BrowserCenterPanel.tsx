@@ -321,7 +321,7 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		if (status !== "ready") return;
 		const el = viewportRef.current;
 		if (!el) return;
-		const obs = new ResizeObserver(() => {
+		const syncBounds = () => {
 			const rect = el.getBoundingClientRect();
 			invoke("browser_embed_resize", {
 				x: rect.left,
@@ -329,8 +329,10 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 				width: rect.width,
 				height: rect.height,
 			}).catch(() => {});
-		});
+		};
+		const obs = new ResizeObserver(syncBounds);
 		obs.observe(el);
+		syncBounds(); // immediately sync after embed
 		return () => obs.disconnect();
 	}, [status]);
 

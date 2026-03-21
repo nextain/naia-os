@@ -788,6 +788,7 @@ body.resizing-row .avatar-resize-handle {
 	flex-direction: column;
 	overflow: hidden;
 	position: relative;
+	background: var(--bg-base);
 }
 
 /* Panel slot — keep-alive overlay with opacity transition */
@@ -4716,7 +4717,7 @@ body.resizing-row {
 	width: 100%;
 	height: 100%;
 	position: relative;
-	background: var(--browser-bg, var(--espresso));
+	background: var(--bg-base);
 }
 
 .browser-panel__toolbar {
@@ -4802,24 +4803,21 @@ body.resizing-row {
 .browser-panel__ai-toolbar {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 0 8px;
-	height: 30px;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: 4px 6px;
+	padding: 4px 8px;
+	min-height: 30px;
 	flex-shrink: 0;
 	background: var(--espresso-dark);
 	border-top: 1px solid var(--espresso-light);
-	transition: height 0.15s ease;
-	overflow-x: auto;
-	overflow-y: hidden;
-	scrollbar-width: none; /* Firefox */
-}
-
-.browser-panel__ai-toolbar::-webkit-scrollbar {
-	display: none; /* Chrome/WebKit */
 }
 
 .browser-panel__ai-toolbar--collapsed {
-	height: 18px;
+	min-height: 18px;
+	max-height: 18px;
+	overflow: hidden;
+	flex-wrap: nowrap;
 	gap: 0;
 	padding: 0 8px;
 }

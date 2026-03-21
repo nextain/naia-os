@@ -1,5 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import { Logger } from "../lib/logger";
+import { usePanelStore } from "./panel";
 import type {
 	ChatMessage,
 	CostEntry,
@@ -244,7 +246,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
 	setProvider: (provider) => set({ provider }),
 
-	setPendingApproval: (approval) => set({ pendingApproval: approval }),
+	setPendingApproval: (approval) => {
+		// browser panel 활성 중이면 Chrome을 React render 이전에 hide — 모달이 Chrome에 가려지는 것 방지
+		if (usePanelStore.getState().activePanel === "browser") {
+			invoke("browser_embed_hide").catch(() => {});
+		}
+		set({ pendingApproval: approval });
+	},
 
 	clearPendingApproval: () => set({ pendingApproval: null }),
 

@@ -396,9 +396,11 @@ fn x11_embed(parent_xid: u32, child_xid: u32, x: i16, y: i16, w: u32, h: u32) ->
     let (conn, _) = RustConnection::connect(Some(":0"))
         .map_err(|e| format!("X11 connect failed: {e}"))?;
 
-    // Set parent window background to white so no black flicker shows through
-    let bg_attrs = ChangeWindowAttributesAux::new().background_pixel(0x00ffffff);
+    // Set both parent and child backgrounds to match Chrome's dark theme (#202124).
+    // Without this, any unrendered area of the Chrome window shows as black.
+    let bg_attrs = ChangeWindowAttributesAux::new().background_pixel(0x00202124);
     conn.change_window_attributes(parent_xid, &bg_attrs).ok();
+    conn.change_window_attributes(child_xid, &bg_attrs).ok();
 
     // Unmap first to avoid flicker during reparent
     conn.unmap_window(child_xid)
@@ -438,6 +440,44 @@ fn x11_embed(parent_xid: u32, child_xid: u32, x: i16, y: i16, w: u32, h: u32) ->
 #[cfg(not(target_os = "linux"))]
 fn x11_embed(_parent_xid: u32, _child_xid: u32, _x: i16, _y: i16, _w: u32, _h: u32) -> Result<(), String> {
     Err("X11 embedding is only supported on Linux".to_string())
+}
+
+/// Re-map an already-embedded Chrome window without unmap/reparent.
+/// Used when switching back to the browser panel — preserves the framebuffer
+/// so Chrome reappears instantly without a black flash.
+#[cfg(target_os = "linux")]
+fn x11_remap(child_xid: u32, x: i16, y: i16, w: u32, h: u32) -> Result<(), String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+
+    let (conn, _) = RustConnection::connect(Some(":0"))
+        .map_err(|e| format!("X11 connect failed: {e}"))?;
+
+    conn.configure_window(
+        child_xid,
+        &ConfigureWindowAux::new()
+            .x(x as i32)
+            .y(y as i32)
+            .width(w)
+            .height(h)
+            .border_width(0u32),
+    )
+    .map_err(|e| format!("XConfigureWindow failed: {e}"))?;
+
+    conn.map_window(child_xid)
+        .map_err(|e| format!("XMapWindow failed: {e}"))?;
+
+    conn.set_input_focus(InputFocus::PARENT, child_xid, x11rb::CURRENT_TIME)
+        .map_err(|e| format!("XSetInputFocus failed: {e}"))?;
+
+    conn.flush().map_err(|e| format!("X11 flush failed: {e}"))?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn x11_remap(_child_xid: u32, _x: i16, _y: i16, _w: u32, _h: u32) -> Result<(), String> {
+    Ok(())
 }
 
 /// Resize/reposition an already-embedded Chrome window via x11rb.
@@ -506,9 +546,11 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
         } else {
             find_chrome_xid(pid)?
         };
-        let tauri_xid = find_tauri_xid()?;
-        crate::log_verbose(&format!("[browser] re-embed: chrome_xid={chrome_xid} tauri_xid={tauri_xid}"));
-        x11_embed(tauri_xid, chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
+        crate::log_verbose(&format!("[browser] re-embed: chrome_xid={chrome_xid}"));
+        // Re-embed: Chrome is already a child of the Tauri window.
+        // Use x11_remap (no unmap/reparent) to preserve the framebuffer
+        // and avoid the black flash that unmap/remap causes.
+        x11_remap(chrome_xid, x as i16, y as i16, width as u32, height as u32)?;
         CHROME.lock().unwrap().chrome_xid = chrome_xid;
         crate::log_verbose("[browser] re-embed OK");
         return Ok(port);
@@ -627,6 +669,7 @@ pub fn browser_embed_focus() -> Result<(), String> {
 pub fn browser_embed_focus() -> Result<(), String> {
     Ok(())
 }
+
 
 /// Run an agent-browser command against the active Chrome CDP session.
 /// Uses `--cdp <port>` flag to connect to our Chrome instance.
@@ -759,6 +802,26 @@ pub fn browser_embed_close() -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Hide (X11-unmap) Chrome window when switching away from the browser panel.
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn browser_embed_hide() -> Result<(), String> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::*;
+    use x11rb::rust_connection::RustConnection;
+    let xid = { CHROME.lock().unwrap().chrome_xid };
+    if xid == 0 { return Ok(()); }
+    if let Ok((conn, _)) = RustConnection::connect(Some(":0")) {
+        let _ = conn.unmap_window(xid);
+        let _ = conn.flush();
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn browser_embed_hide() -> Result<(), String> { Ok(()) }
 
 /// Re-map (show) Chrome's X11 window after it was hidden by browser_embed_close.
 /// Call when returning to the browser panel or when a modal is dismissed.

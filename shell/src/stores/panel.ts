@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import type { PanelContext } from "../lib/panel-registry";
 
@@ -16,9 +17,17 @@ interface PanelState {
 	bumpPanelListVersion: () => void;
 }
 
-export const usePanelStore = create<PanelState>((set) => ({
+export const usePanelStore = create<PanelState>((set, get) => ({
 	activePanel: "browser",
-	setActivePanel: (id) => set({ activePanel: id, activePanelContext: null }),
+	setActivePanel: (id) => {
+		const current = get().activePanel;
+		if (current === "browser" && id !== "browser") {
+			invoke("browser_embed_hide").catch(() => {});
+		} else if (id === "browser" && current !== "browser") {
+			invoke("browser_embed_show").catch(() => {});
+		}
+		set({ activePanel: id, activePanelContext: null });
+	},
 	activePanelContext: null,
 	setActivePanelContext: (ctx) => set({ activePanelContext: ctx }),
 	panelListVersion: 0,

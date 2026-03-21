@@ -20,6 +20,7 @@ import {
 	sendPanelToolResult,
 } from "../lib/chat-service";
 import {
+	DEFAULT_VLLM_HOST,
 	LAB_GATEWAY_URL,
 	addAllowedTool,
 	isReadyToChat,
@@ -27,7 +28,6 @@ import {
 	loadConfig,
 	loadConfigWithSecrets,
 	localeToSttLanguage,
-	DEFAULT_VLLM_HOST,
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
@@ -58,8 +58,8 @@ import {
 	createWebSpeechSttSession,
 	getSttProvider,
 } from "../lib/stt";
-import { estimateSttCost, estimateTtsCost } from "../lib/tts/cost";
 import { getTtsProviderMeta } from "../lib/tts";
+import { estimateSttCost, estimateTtsCost } from "../lib/tts/cost";
 import type {
 	AgentResponseChunk,
 	AuditEvent,
@@ -388,12 +388,10 @@ export function ChatPanel() {
 
 	const setEmotion = useAvatarStore((s) => s.setEmotion);
 
-	// When a permission modal appears, hide Chrome so the modal is visible.
 	// When the modal is dismissed and browser panel is active, re-show Chrome.
+	// (hide is handled in chat store's setPendingApproval, before React renders)
 	useEffect(() => {
-		if (pendingApproval) {
-			invoke("browser_embed_close").catch(() => {});
-		} else {
+		if (!pendingApproval) {
 			const { activePanel } = usePanelStore.getState();
 			if (activePanel === "browser") {
 				invoke("browser_embed_show").catch(() => {});
@@ -686,8 +684,7 @@ export function ChatPanel() {
 					naiaKey: activeProvider === "nextain" ? config.naiaKey : undefined,
 					ollamaHost:
 						activeProvider === "ollama" ? config.ollamaHost : undefined,
-					vllmHost:
-						activeProvider === "vllm" ? config.vllmHost : undefined,
+					vllmHost: activeProvider === "vllm" ? config.vllmHost : undefined,
 				},
 				naiaKey: config.naiaKey || undefined,
 				history: history.slice(0, -1),
@@ -1070,7 +1067,8 @@ export function ChatPanel() {
 		if (ttsMeta?.isClientSide) {
 			if (typeof window !== "undefined" && "speechSynthesis" in window) {
 				const utter = new SpeechSynthesisUtterance(clean);
-				utter.lang = voiceCfg?.voice || document.documentElement.lang || "ko-KR";
+				utter.lang =
+					voiceCfg?.voice || document.documentElement.lang || "ko-KR";
 				utter.onstart = () => {
 					useAvatarStore.getState().setSpeaking(true);
 				};
@@ -1082,7 +1080,9 @@ export function ChatPanel() {
 					activeTtsRequestsRef.current.delete(reqId);
 				};
 				window.speechSynthesis.speak(utter);
-				Logger.info("ChatPanel", "Browser TTS speak", { text: clean.slice(0, 50) });
+				Logger.info("ChatPanel", "Browser TTS speak", {
+					text: clean.slice(0, 50),
+				});
 			} else {
 				Logger.warn("ChatPanel", "Browser TTS not available");
 				activeTtsRequestsRef.current.delete(reqId);
@@ -1198,7 +1198,8 @@ export function ChatPanel() {
 			const modelMeta = getLlmModel(config.provider, config.model);
 			const isOmni = modelMeta?.capabilities.includes("omni") ?? false;
 			// ASR mode: STT provider is vllm, or LLM model has "asr" capability
-			const isAsrModel = config.sttProvider === "vllm" ||
+			const isAsrModel =
+				config.sttProvider === "vllm" ||
 				(modelMeta?.capabilities.includes("asr") ?? false);
 
 			// LLM models use pipeline voice (Vosk STT → LLM → sentence TTS)
@@ -1207,7 +1208,10 @@ export function ChatPanel() {
 				// ASR models are self-contained — skip guard
 				const sttProviderMeta = getSttProvider(config.sttProvider || "");
 				const needsModel = sttProviderMeta?.engineType === "tauri";
-				if (!isAsrModel && (!config.sttProvider || (needsModel && !config.sttModel))) {
+				if (
+					!isAsrModel &&
+					(!config.sttProvider || (needsModel && !config.sttModel))
+				) {
 					setVoiceMode("off");
 					if (
 						globalThis.confirm(
@@ -1259,9 +1263,10 @@ export function ChatPanel() {
 				setSttState("initializing");
 				try {
 					const sttLang = localeToSttLanguage(getLocale());
-					const sttEngine = isAsrModel ? "vllm" : (config.sttProvider || "vosk");
+					const sttEngine = isAsrModel ? "vllm" : config.sttProvider || "vosk";
 					const sttMeta = getSttProvider(sttEngine);
-					const isApiBased = sttMeta?.engineType === "api" || sttMeta?.engineType === "vllm";
+					const isApiBased =
+						sttMeta?.engineType === "api" || sttMeta?.engineType === "vllm";
 					const isWebBased = sttMeta?.engineType === "web";
 
 					// Shared result handler for both offline and API-based STT
@@ -1340,16 +1345,25 @@ export function ChatPanel() {
 							return;
 						}
 						const endpointUrl = isAsrModel
-							? (config.vllmSttHost || config.vllmHost || DEFAULT_VLLM_HOST)
-							: (sttMeta?.requiresEndpointUrl && sttMeta.endpointUrlConfigField
-								? (config[sttMeta.endpointUrlConfigField as keyof typeof config] as string | undefined)
-								: undefined);
+							? config.vllmSttHost || config.vllmHost || DEFAULT_VLLM_HOST
+							: sttMeta?.requiresEndpointUrl && sttMeta.endpointUrlConfigField
+								? (config[
+										sttMeta.endpointUrlConfigField as keyof typeof config
+									] as string | undefined)
+								: undefined;
 						// vLLM model: ASR model (LLM=ASR) → config.model, STT=vllm → config.vllmSttModel
-						const vllmSttModel = sttEngine === "vllm"
-							? ((modelMeta?.capabilities.includes("asr") ? config.model : config.vllmSttModel) || undefined)
-							: undefined;
+						const vllmSttModel =
+							sttEngine === "vllm"
+								? (modelMeta?.capabilities.includes("asr")
+										? config.model
+										: config.vllmSttModel) || undefined
+								: undefined;
 						const session = createApiSttSession({
-							provider: sttEngine as "google" | "elevenlabs" | "nextain" | "vllm",
+							provider: sttEngine as
+								| "google"
+								| "elevenlabs"
+								| "nextain"
+								| "vllm",
 							apiKey: apiKey ?? "",
 							language: sttLang,
 							endpointUrl,
@@ -1484,13 +1498,14 @@ export function ChatPanel() {
 			}
 
 			// Determine the live provider from the current model/provider
-			const liveProvider = config.provider === "vllm"
-				? ("minicpm-o" as const)
-				: config.provider === "openai"
-					? ("openai-realtime" as const)
-					: naiaKey
-						? ("naia" as const)
-						: ("gemini-live" as const);
+			const liveProvider =
+				config.provider === "vllm"
+					? ("minicpm-o" as const)
+					: config.provider === "openai"
+						? ("openai-realtime" as const)
+						: naiaKey
+							? ("naia" as const)
+							: ("gemini-live" as const);
 
 			Logger.info("ChatPanel", "Voice config", {
 				provider: config.provider,
@@ -1648,7 +1663,10 @@ export function ChatPanel() {
 			if (liveProvider === "minicpm-o") {
 				// Derive WebSocket base URL from vllmHost: http://host:port → ws://host:port
 				// minicpm-o.ts appends /ws to form the final endpoint
-				const vllmBase = (config.vllmHost ?? DEFAULT_VLLM_HOST).replace(/\/+$/, "");
+				const vllmBase = (config.vllmHost ?? DEFAULT_VLLM_HOST).replace(
+					/\/+$/,
+					"",
+				);
 				const wsBase = vllmBase.replace(/^http/, "ws");
 				await session.connect({
 					provider: "minicpm-o",
@@ -1902,7 +1920,10 @@ export function ChatPanel() {
 
 			{/* Cost dashboard (dropdown) */}
 			{showCostDashboard && activeTab === "chat" && (
-				<CostDashboard messages={messages} sessionCostEntries={sessionCostEntries} />
+				<CostDashboard
+					messages={messages}
+					sessionCostEntries={sessionCostEntries}
+				/>
 			)}
 
 			{/* Messages (chat tab) */}
@@ -1910,7 +1931,11 @@ export function ChatPanel() {
 				className="chat-messages"
 				style={{ display: activeTab === "chat" ? "flex" : "none" }}
 			>
-				{messages.map((msg) => (
+				{messages.filter((msg) => {
+					if (msg.role === "user" && msg.content.startsWith("Read HEARTBEAT.md if it exists")) return false;
+					if (msg.role === "assistant" && /^HEARTBEAT_OK\b/.test(msg.content.trim())) return false;
+					return true;
+				}).map((msg) => (
 					<div key={msg.id} className={`chat-message ${msg.role}`}>
 						{msg.thinking && (
 							<details className="thinking-block">
