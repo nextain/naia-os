@@ -8,7 +8,9 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PanelInstallDialog } from "./components/PanelInstallDialog";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { activeBridge } from "./lib/active-bridge";
 import { syncLinkedChannels } from "./lib/channel-sync";
+import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
 import {
 	type ThemeId,
 	isOnboardingComplete,
@@ -18,11 +20,9 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
-import { activeBridge } from "./lib/active-bridge";
+import { persistDiscordDefaults } from "./lib/discord-auth";
 import { loadInstalledPanels } from "./lib/panel-loader";
 import { panelRegistry } from "./lib/panel-registry";
-import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
-import { persistDiscordDefaults } from "./lib/discord-auth";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 import "./panels/browser/index"; // register browser panel
 import "./panels/workspace/index"; // register workspace panel
@@ -99,7 +99,6 @@ export function App() {
 		}
 		if (!isOnboardingComplete()) setShowOnboarding(true);
 
-
 		navigator.mediaDevices
 			?.getUserMedia({ audio: true })
 			.then((stream) => {
@@ -159,7 +158,9 @@ export function App() {
 		document.body.classList.add("resizing-row");
 
 		const onMove = (ev: PointerEvent) => {
-			setAvatarHeight(Math.max(80, Math.min(600, startH + ev.clientY - startY)));
+			setAvatarHeight(
+				Math.max(80, Math.min(600, startH + ev.clientY - startY)),
+			);
 		};
 		const onUp = () => {
 			document.body.classList.remove("resizing-row");
@@ -190,7 +191,8 @@ export function App() {
 			window.removeEventListener("pointerup", onUp);
 			setNaiaWidth((w) => {
 				const cfg = loadConfig();
-				if (cfg) saveConfig({ ...cfg, panelSize: Math.round((w / 1200) * 100) });
+				if (cfg)
+					saveConfig({ ...cfg, panelSize: Math.round((w / 1200) * 100) });
 				return w;
 			});
 		};
@@ -226,9 +228,19 @@ export function App() {
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
 	// Keep-alive: all builtIn panels always mounted, CSS opacity transition between them
-	const [builtInPanels] = useState(() => panelRegistry.list().filter((p) => p.builtIn));
+	const [builtInPanels] = useState(() =>
+		panelRegistry.list().filter((p) => p.builtIn),
+	);
 
-	type WinResizeDir = "North" | "South" | "East" | "West" | "NorthEast" | "NorthWest" | "SouthEast" | "SouthWest";
+	type WinResizeDir =
+		| "North"
+		| "South"
+		| "East"
+		| "West"
+		| "NorthEast"
+		| "NorthWest"
+		| "SouthEast"
+		| "SouthWest";
 	const handleWinResize = (dir: WinResizeDir) => (e: React.PointerEvent) => {
 		e.preventDefault();
 		getCurrentWindow().startResizeDragging(dir);
@@ -283,10 +295,7 @@ export function App() {
 							/>
 							<ChatPanel />
 						</div>
-						<div
-							className="naia-resize-handle"
-							onPointerDown={onResizeStart}
-						/>
+						<div className="naia-resize-handle" onPointerDown={onResizeStart} />
 					</>
 				)}
 				<div className="right-area">
@@ -309,14 +318,16 @@ export function App() {
 								);
 							})}
 							{/* Installed (non-builtIn) panels: mount/unmount */}
-							{activePanel && !builtInPanels.some((p) => p.id === activePanel) && (
-								<div className="content-panel__slot content-panel__slot--active">
-									{CenterComponent
-										? <CenterComponent naia={activeBridge} />
-										: <div className="content-panel__home" />
-									}
-								</div>
-							)}
+							{activePanel &&
+								!builtInPanels.some((p) => p.id === activePanel) && (
+									<div className="content-panel__slot content-panel__slot--active">
+										{CenterComponent ? (
+											<CenterComponent naia={activeBridge} />
+										) : (
+											<div className="content-panel__home" />
+										)}
+									</div>
+								)}
 							{/* No panel selected */}
 							{!activePanel && (
 								<div className="content-panel__slot content-panel__slot--active">

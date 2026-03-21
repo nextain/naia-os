@@ -3,11 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
 import type { PanelCenterProps } from "../../lib/panel-registry";
-import { ACTIVE_THRESHOLD_SECONDS } from "./constants";
 import { Editor } from "./Editor";
 import { FileTree } from "./FileTree";
-import { SessionDashboard } from "./SessionDashboard";
 import type { SessionInfo } from "./SessionCard";
+import { SessionDashboard } from "./SessionDashboard";
+import { ACTIVE_THRESHOLD_SECONDS } from "./constants";
 
 // Re-export for FileTree to use
 export interface ClassifiedDir {
@@ -37,7 +37,9 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const [editorBadge, setEditorBadge] = useState("");
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
 	const sessionsRef = useRef<SessionInfo[]>([]);
-	const [classifiedDirs, setClassifiedDirs] = useState<ClassifiedDir[] | null>(null);
+	const [classifiedDirs, setClassifiedDirs] = useState<ClassifiedDir[] | null>(
+		null,
+	);
 	const [classifyPending, setClassifyPending] = useState(false);
 	const [idleToast, setIdleToast] = useState<string | null>(null);
 	const idleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,7 +80,9 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		document.body.classList.add("resizing-col");
 		const onMove = (ev: PointerEvent) => {
 			// Handle is on the left edge of sessions → dragging left increases width
-			setSessionsWidth(Math.max(120, Math.min(400, startW - (ev.clientX - startX))));
+			setSessionsWidth(
+				Math.max(120, Math.min(400, startW - (ev.clientX - startX))),
+			);
 		};
 		const onUp = () => {
 			document.body.classList.remove("resizing-col");
@@ -114,10 +118,16 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 							"workspace_classify_dirs 결과입니다. skill_workspace_classify_dirs 도구를 통해 사용자에게 분류 추천을 보여주세요.",
 					},
 				});
-				Logger.info("WorkspaceCenterPanel", "Classification recommendation pushed", { count: dirs.length });
+				Logger.info(
+					"WorkspaceCenterPanel",
+					"Classification recommendation pushed",
+					{ count: dirs.length },
+				);
 			})
 			.catch((e) => {
-				Logger.warn("WorkspaceCenterPanel", "Classification failed", { error: String(e) });
+				Logger.warn("WorkspaceCenterPanel", "Classification failed", {
+					error: String(e),
+				});
 			})
 			.finally(() => {
 				setClassifyPending(false);
@@ -125,32 +135,35 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	}, [classifyPending, naia]);
 
 	// ── Sessions update ───────────────────────────────────────────────────
-	const handleSessionsUpdate = useCallback((updated: SessionInfo[]) => {
-		sessionsRef.current = updated;
-		setSessions(updated);
-		if (!initializedRef.current) {
-			initializedRef.current = true;
-			setInitialized(true);
-		}
+	const handleSessionsUpdate = useCallback(
+		(updated: SessionInfo[]) => {
+			sessionsRef.current = updated;
+			setSessions(updated);
+			if (!initializedRef.current) {
+				initializedRef.current = true;
+				setInitialized(true);
+			}
 
-		// Update Naia context with session state
-		naia.pushContext({
-			type: "workspace",
-			data: {
-				sessions: updated.map((s) => ({
-					dir: s.dir,
-					status: s.status,
-					branch: s.branch ?? null,
-					issue: s.progress?.issue ?? null,
-					phase: s.progress?.phase ?? null,
-					recentFile: s.recent_file ?? null,
-					idleSince: s.last_change
-						? Math.floor(Date.now() / 1000) - s.last_change
-						: null,
-				})),
-			},
-		});
-	}, [naia]);
+			// Update Naia context with session state
+			naia.pushContext({
+				type: "workspace",
+				data: {
+					sessions: updated.map((s) => ({
+						dir: s.dir,
+						status: s.status,
+						branch: s.branch ?? null,
+						issue: s.progress?.issue ?? null,
+						phase: s.progress?.phase ?? null,
+						recentFile: s.recent_file ?? null,
+						idleSince: s.last_change
+							? Math.floor(Date.now() / 1000) - s.last_change
+							: null,
+					})),
+				},
+			});
+		},
+		[naia],
+	);
 
 	// ── Idle session notification ─────────────────────────────────────────
 	useEffect(() => {
@@ -158,13 +171,20 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			for (const session of sessionsRef.current) {
 				if (session.status === "idle" && session.last_change) {
 					const idleSec = Math.floor(Date.now() / 1000) - session.last_change;
-					if (idleSec >= ACTIVE_THRESHOLD_SECONDS && !idleNotifiedRef.current.has(session.path)) {
+					if (
+						idleSec >= ACTIVE_THRESHOLD_SECONDS &&
+						!idleNotifiedRef.current.has(session.path)
+					) {
 						idleNotifiedRef.current.add(session.path);
 						const alertMsg = `${session.dir} 세션이 ${Math.floor(idleSec / 60)}분째 입력을 기다리고 있어요`;
 						// Visible toast in panel
-						if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current);
+						if (idleToastTimerRef.current)
+							clearTimeout(idleToastTimerRef.current);
 						setIdleToast(alertMsg);
-						idleToastTimerRef.current = setTimeout(() => setIdleToast(null), 6000);
+						idleToastTimerRef.current = setTimeout(
+							() => setIdleToast(null),
+							6000,
+						);
 						// Also push to Naia context for AI awareness
 						naia.pushContext({
 							type: "workspace",
@@ -176,7 +196,10 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 								},
 							},
 						});
-						Logger.info("WorkspaceCenterPanel", "Idle session alert", { dir: session.dir, idleSec });
+						Logger.info("WorkspaceCenterPanel", "Idle session alert", {
+							dir: session.dir,
+							idleSec,
+						});
 					}
 				} else if (session.status === "active") {
 					// Reset notification if session becomes active again
@@ -192,7 +215,9 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 
 	// ── Session card click → open recent file ─────────────────────────────
 	const handleSessionClick = useCallback(async (session: SessionInfo) => {
-		Logger.info("WorkspaceCenterPanel", "Session card clicked", { dir: session.dir });
+		Logger.info("WorkspaceCenterPanel", "Session card clicked", {
+			dir: session.dir,
+		});
 
 		// Badge from progress
 		const badge =
@@ -253,27 +278,30 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 
 	// ── Naia tool: skill_workspace_classify_dirs ─────────────────────────
 	useEffect(() => {
-		const unsub = naia.onToolCall("skill_workspace_classify_dirs", async (args) => {
-			// If dirs provided in args, apply them (user confirmed)
-			const confirmed = args.confirmed as ClassifiedDir[] | undefined;
-			if (confirmed && Array.isArray(confirmed)) {
-				setClassifiedDirs(confirmed);
-				saveClassifiedDirs(confirmed);
-				// Also persist to config
-				const cfg = loadConfig();
-				if (cfg) {
-					saveConfig({ ...cfg });
+		const unsub = naia.onToolCall(
+			"skill_workspace_classify_dirs",
+			async (args) => {
+				// If dirs provided in args, apply them (user confirmed)
+				const confirmed = args.confirmed as ClassifiedDir[] | undefined;
+				if (confirmed && Array.isArray(confirmed)) {
+					setClassifiedDirs(confirmed);
+					saveClassifiedDirs(confirmed);
+					// Also persist to config
+					const cfg = loadConfig();
+					if (cfg) {
+						saveConfig({ ...cfg });
+					}
+					return `Classification applied: ${confirmed.length} directories`;
 				}
-				return `Classification applied: ${confirmed.length} directories`;
-			}
-			// Otherwise run classification and return recommendation
-			try {
-				const dirs = await invoke<ClassifiedDir[]>("workspace_classify_dirs");
-				return JSON.stringify(dirs);
-			} catch (e) {
-				return `Error: ${String(e)}`;
-			}
-		});
+				// Otherwise run classification and return recommendation
+				try {
+					const dirs = await invoke<ClassifiedDir[]>("workspace_classify_dirs");
+					return JSON.stringify(dirs);
+				} catch (e) {
+					return `Error: ${String(e)}`;
+				}
+			},
+		);
 		return unsub;
 	}, [naia]);
 
@@ -282,7 +310,9 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		.filter((s) => {
 			if (s.status !== "active") return false;
 			if (!s.last_change) return false;
-			return Math.floor(Date.now() / 1000) - s.last_change < ACTIVE_THRESHOLD_SECONDS;
+			return (
+				Math.floor(Date.now() / 1000) - s.last_change < ACTIVE_THRESHOLD_SECONDS
+			);
 		})
 		.map((s) => s.path);
 
@@ -312,7 +342,10 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			)}
 
 			{/* Left: FileTree */}
-			<div className="workspace-panel__tree" style={{ width: `${treeWidth}px` }}>
+			<div
+				className="workspace-panel__tree"
+				style={{ width: `${treeWidth}px` }}
+			>
 				<div className="workspace-panel__tree-header">
 					<span className="workspace-panel__tree-title">탐색기</span>
 				</div>
@@ -325,7 +358,10 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					/>
 				</div>
 			</div>
-			<div className="workspace-panel__resize-handle" onPointerDown={onTreeResizeStart} />
+			<div
+				className="workspace-panel__resize-handle"
+				onPointerDown={onTreeResizeStart}
+			/>
 
 			{/* Center: Editor */}
 			<div className="workspace-panel__editor">
@@ -335,10 +371,16 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					readOnly={editorReadOnly}
 				/>
 			</div>
-			<div className="workspace-panel__resize-handle" onPointerDown={onSessionsResizeStart} />
+			<div
+				className="workspace-panel__resize-handle"
+				onPointerDown={onSessionsResizeStart}
+			/>
 
 			{/* Right: Session sidebar (vertical card list) */}
-			<div className="workspace-panel__sessions" style={{ width: `${sessionsWidth}px` }}>
+			<div
+				className="workspace-panel__sessions"
+				style={{ width: `${sessionsWidth}px` }}
+			>
 				<SessionDashboard
 					onSessionClick={handleSessionClick}
 					onSessionsUpdate={handleSessionsUpdate}

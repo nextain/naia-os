@@ -29,7 +29,10 @@ interface EditorProps {
 function getLanguageExtension(filePath: string) {
 	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
 	if (ext === "ts" || ext === "tsx" || ext === "js" || ext === "jsx") {
-		return javascript({ typescript: ext === "ts" || ext === "tsx", jsx: ext === "tsx" || ext === "jsx" });
+		return javascript({
+			typescript: ext === "ts" || ext === "tsx",
+			jsx: ext === "tsx" || ext === "jsx",
+		});
 	}
 	if (ext === "md" || ext === "mdx") return markdown();
 	if (ext === "py") return python();
@@ -78,12 +81,18 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				if (filePathRef.current !== thisPath) return;
 				justLoadedRef.current = true;
 				setContent(text);
-				Logger.info("Editor", "File loaded", { path: thisPath, length: text.length });
+				Logger.info("Editor", "File loaded", {
+					path: thisPath,
+					length: text.length,
+				});
 			})
 			.catch((e) => {
 				if (filePathRef.current !== thisPath) return;
 				justLoadedRef.current = true;
-				Logger.error("Editor", "Failed to load file", { path: thisPath, error: String(e) });
+				Logger.error("Editor", "Failed to load file", {
+					path: thisPath,
+					error: String(e),
+				});
 				setContent(`// Error loading file: ${String(e)}`);
 			});
 	}, [filePath]);
@@ -99,7 +108,10 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				Logger.info("Editor", "File saved", { path: filePath });
 			} catch (e) {
 				setSaveError(String(e));
-				Logger.error("Editor", "Save failed", { path: filePath, error: String(e) });
+				Logger.error("Editor", "Save failed", {
+					path: filePath,
+					error: String(e),
+				});
 			} finally {
 				setSaving(false);
 			}
@@ -223,7 +235,9 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						저장 실패
 					</span>
 				)}
-				{readOnly && <span className="workspace-editor__readonly">읽기 전용</span>}
+				{readOnly && (
+					<span className="workspace-editor__readonly">읽기 전용</span>
+				)}
 				{isMd && viewMode === "preview" && (
 					<button
 						type="button"
@@ -273,7 +287,10 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				</div>
 			) : viewMode === "split" ? (
 				<div className="workspace-editor__body--split">
-					<div ref={editorRef} className="workspace-editor__codemirror workspace-editor__codemirror--half" />
+					<div
+						ref={editorRef}
+						className="workspace-editor__codemirror workspace-editor__codemirror--half"
+					/>
 					<div className="workspace-editor__preview workspace-editor__preview--half">
 						<ReactMarkdown>{content}</ReactMarkdown>
 					</div>

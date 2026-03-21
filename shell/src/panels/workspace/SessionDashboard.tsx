@@ -10,7 +10,10 @@ interface SessionDashboardProps {
 	onSessionsUpdate?: (sessions: SessionInfo[]) => void;
 }
 
-export function SessionDashboard({ onSessionClick, onSessionsUpdate }: SessionDashboardProps) {
+export function SessionDashboard({
+	onSessionClick,
+	onSessionsUpdate,
+}: SessionDashboardProps) {
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
 	const [loading, setLoading] = useState(true);
 	const onSessionsUpdateRef = useRef(onSessionsUpdate);
@@ -22,7 +25,10 @@ export function SessionDashboard({ onSessionClick, onSessionsUpdate }: SessionDa
 			setSessions(result);
 			onSessionsUpdateRef.current?.(result);
 		} catch (e) {
-			Logger.warn("SessionDashboard", "Failed to load sessions", { error: String(e) });
+			Logger.warn("SessionDashboard", "Failed to load sessions", {
+				error: String(e),
+			});
+			onSessionsUpdateRef.current?.([]);
 		} finally {
 			setLoading(false);
 		}
@@ -47,7 +53,7 @@ export function SessionDashboard({ onSessionClick, onSessionsUpdate }: SessionDa
 			unlistenPromise.then((fn) => fn());
 			clearInterval(intervalId);
 		};
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	if (loading) {
@@ -62,8 +68,10 @@ export function SessionDashboard({ onSessionClick, onSessionsUpdate }: SessionDa
 		return (
 			<div className="workspace-dashboard workspace-dashboard--empty">
 				<div className="workspace-dashboard__empty-hint">
-					Git 레포가 없습니다. {" "}
-					<span className="workspace-dashboard__empty-path">/var/home/luke/dev</span>
+					Git 레포가 없습니다.{" "}
+					<span className="workspace-dashboard__empty-path">
+						/var/home/luke/dev
+					</span>
 					에 git 레포가 있어야 합니다.
 				</div>
 			</div>
@@ -73,7 +81,9 @@ export function SessionDashboard({ onSessionClick, onSessionsUpdate }: SessionDa
 	return (
 		<div className="workspace-dashboard">
 			<div className="workspace-dashboard__header">
-				<span className="workspace-dashboard__title">세션 ({sessions.length})</span>
+				<span className="workspace-dashboard__title">
+					세션 ({sessions.length})
+				</span>
 				<button
 					type="button"
 					className="workspace-dashboard__refresh"
