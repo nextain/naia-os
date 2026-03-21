@@ -295,3 +295,39 @@
 **근본 원인**: `--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg` 등 시맨틱 토큰이 패널 CSS에서 사용됐지만 테마 블록에 정의되지 않음 — 테마별로는 `--espresso`, `--cream` 같은 원시 변수만 정의됐음.
 
 **수정**: 모든 테마(espresso/midnight/ocean/forest/rose/latte/sakura/cloud)에 시맨틱 토큰 섹션 추가. 각 테마에서 `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)` 등으로 매핑. `global.css`에 PANEL CSS STANDARD 주석으로 문서화.
+
+---
+
+## L025 — GitHub Notifications API `subject.url`은 `RepositoryVulnerabilityAlert`에서 null — 항상 null 체크 (#91)
+
+**날짜**: 2026-03-21 | **분류**: API | **범위**: `issue-desk/src/github/notifications.ts`
+
+**문제**: GitHub API가 `RepositoryVulnerabilityAlert` 알림 유형에서 `subject.url`로 `null`을 반환함. 직접 문자열 삽입 시 런타임 크래시 발생.
+
+**근본 원인**: GitHub API 스펙상 특정 알림 유형에서 `subject.url`이 `null`일 수 있음. URL 변환 헬퍼에 null 가드 없음.
+
+**수정**: `subjectHtmlUrl()`에 null 체크 추가. `apiUrl`이 `null`이고 type이 `RepositoryVulnerabilityAlert`면 `repoHtmlUrl + '/security/dependabot'` 반환. 그 외 null 케이스는 `repoHtmlUrl` 폴백.
+
+---
+
+## L026 — `markRead` 낙관적 업데이트는 try 블록 안에서 해야 함 — 실패 시 롤백 미구현 (#91)
+
+**날짜**: 2026-03-21 | **분류**: UI | **범위**: `issue-desk/src/components/NotificationList.tsx`
+
+**문제**: API 응답 전에 낙관적 UI 업데이트(알림 읽음 처리)를 적용했으나, API 실패 시에도 읽음 상태가 UI에 남음.
+
+**근본 원인**: UI 상태 업데이트가 try/catch 앞에 위치. API 호출 실패 시 UI만 읽음 처리된 상태로 남음.
+
+**수정**: `setNotifications()` 호출을 try 블록 안으로 이동, `await markRead()` 성공 후에 실행. catch 시 알림은 읽지 않음 상태 유지. `console.error`로 실패 로그.
+
+---
+
+## L027 — 키 변경이 있는 레코드 수정은 delete+upsert 패턴 — Zustand persist 배열 패턴 (#91)
+
+**날짜**: 2026-03-21 | **분류**: React | **범위**: `issue-desk/src/components/Settings.tsx`, `issue-desk/src/store/community.ts`
+
+**문제**: 커뮤니티 프로파일의 repo 이름(키)을 수정하고 `upsertProfile`로 저장하면, 기존 키 항목이 배열에 그대로 남아 두 항목이 공존.
+
+**근본 원인**: `upsertProfile`은 `repo` 필드로 매칭. `repo`가 바뀌면 `findIndex`가 `-1`을 반환해 기존 항목 제거 없이 추가됨.
+
+**수정**: 저장 시 `editingOriginalRepo !== editingProfile.repo`이면 먼저 `deleteProfile(editingOriginalRepo)` 호출 후 `upsertProfile(editingProfile)`. 이전 키 항목이 제거된 뒤 새 항목 삽입.

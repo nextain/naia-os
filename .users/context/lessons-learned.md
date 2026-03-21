@@ -295,3 +295,39 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: Semantic tokens (`--bg-base`, `--text-primary`, `--border-color`, `--accent`, `--hover-bg`, etc.) were used in panel CSS but never defined in theme blocks — only raw variables like `--espresso`, `--cream` were defined per theme.
 
 **Fix**: Added semantic token section to every theme (espresso/midnight/ocean/forest/rose/latte/sakura/cloud). Each maps `--bg-base → var(--espresso-dark)`, `--text-primary → var(--cream)`, etc. Documented as PANEL CSS STANDARD comment in `global.css`.
+
+---
+
+## L025 — GitHub Notifications API `subject.url` is null for `RepositoryVulnerabilityAlert` — always null-check (#91)
+
+**Date**: 2026-03-21 | **Category**: API | **Scope**: `issue-desk/src/github/notifications.ts`
+
+**Problem**: GitHub API returns `null` for `subject.url` on `RepositoryVulnerabilityAlert` notification type. Direct string interpolation crashed at runtime.
+
+**Root cause**: GitHub API spec allows `subject.url` to be `null` for certain notification types. No null guard in the URL conversion helper.
+
+**Fix**: Added null-check in `subjectHtmlUrl()`: if `apiUrl` is `null` and type is `RepositoryVulnerabilityAlert`, return `repoHtmlUrl + '/security/dependabot'`. Generic fallback returns `repoHtmlUrl` for other null cases.
+
+---
+
+## L026 — `markRead` optimistic update must be inside try block — revert on failure not implemented (#91)
+
+**Date**: 2026-03-21 | **Category**: UI | **Scope**: `issue-desk/src/components/NotificationList.tsx`
+
+**Problem**: Optimistic UI update (marking notification as read before API response) was applied regardless of API success. On failure, stale read state persisted in UI.
+
+**Root cause**: UI state update was placed before try/catch. The API call could fail silently while the UI showed the item as read.
+
+**Fix**: Moved `setNotifications()` call inside the `try` block, after `await markRead()` succeeds. On catch, the notification remains unread in state. `console.error` logs the failure without crashing.
+
+---
+
+## L027 — Renaming a keyed record requires delete+upsert, not just upsert — Zustand persist array pattern (#91)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `issue-desk/src/components/Settings.tsx`, `issue-desk/src/store/community.ts`
+
+**Problem**: Editing a community profile repo name (the key) and saving with `upsertProfile` left the old-key entry in the persisted array. Both old and new entries coexisted.
+
+**Root cause**: `upsertProfile` matches by `repo` field. If `repo` changes, `findIndex` returns `-1`, so it appends instead of replacing. The old entry is never removed.
+
+**Fix**: On save: if `editingOriginalRepo !== editingProfile.repo`, call `deleteProfile(editingOriginalRepo)` first, then `upsertProfile(editingProfile)`. This ensures old key is removed before inserting the renamed entry.
