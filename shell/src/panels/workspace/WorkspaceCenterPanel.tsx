@@ -43,6 +43,49 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const idleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const idleNotifiedRef = useRef<Set<string>>(new Set());
 
+	// ── Drag-resize panel widths ───────────────────────────────────────────
+	const [treeWidth, setTreeWidth] = useState(220);
+	const treeWidthRef = useRef(220);
+	treeWidthRef.current = treeWidth;
+	const [sessionsWidth, setSessionsWidth] = useState(200);
+	const sessionsWidthRef = useRef(200);
+	sessionsWidthRef.current = sessionsWidth;
+
+	const onTreeResizeStart = useCallback((e: React.PointerEvent) => {
+		e.preventDefault();
+		const startX = e.clientX;
+		const startW = treeWidthRef.current;
+		document.body.classList.add("resizing-col");
+		const onMove = (ev: PointerEvent) => {
+			setTreeWidth(Math.max(120, Math.min(400, startW + ev.clientX - startX)));
+		};
+		const onUp = () => {
+			document.body.classList.remove("resizing-col");
+			window.removeEventListener("pointermove", onMove);
+			window.removeEventListener("pointerup", onUp);
+		};
+		window.addEventListener("pointermove", onMove);
+		window.addEventListener("pointerup", onUp);
+	}, []);
+
+	const onSessionsResizeStart = useCallback((e: React.PointerEvent) => {
+		e.preventDefault();
+		const startX = e.clientX;
+		const startW = sessionsWidthRef.current;
+		document.body.classList.add("resizing-col");
+		const onMove = (ev: PointerEvent) => {
+			// Handle is on the left edge of sessions → dragging left increases width
+			setSessionsWidth(Math.max(120, Math.min(400, startW - (ev.clientX - startX))));
+		};
+		const onUp = () => {
+			document.body.classList.remove("resizing-col");
+			window.removeEventListener("pointermove", onMove);
+			window.removeEventListener("pointerup", onUp);
+		};
+		window.addEventListener("pointermove", onMove);
+		window.addEventListener("pointerup", onUp);
+	}, []);
+
 	// ── Load persisted classification ─────────────────────────────────────
 	useEffect(() => {
 		const saved = loadClassifiedDirs();
@@ -255,7 +298,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			)}
 
 			{/* Left: FileTree */}
-			<div className="workspace-panel__tree">
+			<div className="workspace-panel__tree" style={{ width: `${treeWidth}px` }}>
 				<div className="workspace-panel__tree-header">
 					<span className="workspace-panel__tree-title">탐색기</span>
 				</div>
@@ -268,22 +311,24 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					/>
 				</div>
 			</div>
+			<div className="workspace-panel__resize-handle" onPointerDown={onTreeResizeStart} />
 
-			{/* Right: SessionDashboard (top) + Editor (bottom) */}
-			<div className="workspace-panel__right">
-				<div className="workspace-panel__dashboard">
-					<SessionDashboard
-						onSessionClick={handleSessionClick}
-						onSessionsUpdate={handleSessionsUpdate}
-					/>
-				</div>
-				<div className="workspace-panel__editor">
-					<Editor
-						filePath={openFilePath}
-						badge={editorBadge}
-						readOnly={editorReadOnly}
-					/>
-				</div>
+			{/* Center: Editor */}
+			<div className="workspace-panel__editor">
+				<Editor
+					filePath={openFilePath}
+					badge={editorBadge}
+					readOnly={editorReadOnly}
+				/>
+			</div>
+			<div className="workspace-panel__resize-handle" onPointerDown={onSessionsResizeStart} />
+
+			{/* Right: Session sidebar (vertical card list) */}
+			<div className="workspace-panel__sessions" style={{ width: `${sessionsWidth}px` }}>
+				<SessionDashboard
+					onSessionClick={handleSessionClick}
+					onSessionsUpdate={handleSessionsUpdate}
+				/>
 			</div>
 		</div>
 	);

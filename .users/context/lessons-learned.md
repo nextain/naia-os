@@ -213,3 +213,49 @@ Accumulated lessons from development cycles. Read during INVESTIGATE phase. Writ
 **Root cause**: The toast timer runs 6s after an idle alert. If the component unmounts (tab switch) while the timer is pending, `setIdleToast(null)` would be called on an unmounted component.
 
 **Fix**: In the interval cleanup function, also call: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.
+
+---
+
+## L018 — Keep-alive panels must use `display:contents` (not `display:block`) to preserve flex layout context (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/App.tsx`
+
+**Problem**: Workspace panel was unmounting on tab switch, losing all state. Wrapping in `display:none` div with `display:block` when active broke the flex child layout — children didn't stretch correctly.
+
+**Root cause**: The `content-panel` uses `display:flex`. A wrapper div with `display:block` breaks flex child behavior. `display:contents` makes the wrapper transparent to layout, so children participate in the parent flex context directly.
+
+**Fix**: Use `style={{ display: activePanel === 'workspace' ? 'contents' : 'none' }}` on the keep-alive wrapper div.
+
+---
+
+## L019 — `viewMode` enum is necessary for markdown 3-state view: preview / split / editor (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/Editor.tsx`
+
+**Problem**: `previewMode: boolean` couldn't represent split view (editor+preview side by side).
+
+**Root cause**: Design evolved beyond toggle: markdown needs preview-default, split (live edit), and editor-only. Three mutually exclusive states require a union type.
+
+**Fix**: `type ViewMode = 'editor' | 'preview' | 'split'`. Reset in `useEffect([filePath])` to `isMd ? 'preview' : 'editor'`. CM setup skips when `viewMode === 'preview'`. `updateListener` calls `setContent(text)` for live preview sync in split mode.
+
+---
+
+## L020 — CodeMirror `updateListener` must call `setContent` for live split-view preview; `justLoadedRef` guards initial sync (#99)
+
+**Date**: 2026-03-21 | **Category**: React | **Scope**: `shell/src/panels/workspace/Editor.tsx`
+
+**Problem**: In split mode, typing in CodeMirror didn't update the ReactMarkdown preview because `content` state was only set on file load, not on CM edits.
+
+**Root cause**: CM `updateListener` was responsible only for autosave debounce. Adding `setContent(text)` to `updateListener` enables live preview.
+
+**Fix**: In `updateListener`: if `justLoadedRef.current` is `true`, set to `false` and return early. Otherwise call `setContent(text)` before autosave debounce.
+
+---
+
+## L021 — Drag-resize panel handles: use `pointermove`/`pointerup` on `window` for reliable tracking (#99)
+
+**Date**: 2026-03-21 | **Category**: UI | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: Mouse-based resize can lose tracking if cursor moves faster than panel resizes.
+
+**Fix**: In `onPointerDown`: add `document.body.classList.add('resizing-col')`, then `window.addEventListener('pointermove', onMove)` and `window.addEventListener('pointerup', onUp)`. Remove both in `onUp`. Pattern matches `App.tsx` naia-resize-handle implementation.

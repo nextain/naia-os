@@ -320,7 +320,7 @@ test.describe("Workspace Panel E2E", () => {
 
 	// ── S7: Markdown preview toggle ───────────────────────────────────────
 
-	test("S7: 마크다운 파일 선택 시 미리보기 버튼 표시 및 전환", async ({ page }) => {
+	test("S7: 마크다운 파일 선택 시 미리보기 기본 표시 및 편집 버튼 전환", async ({ page }) => {
 		await openWorkspacePanel(page);
 
 		await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
@@ -332,14 +332,15 @@ test.describe("Workspace Panel E2E", () => {
 		await expect(fileNode).toBeVisible({ timeout: 5_000 });
 		await fileNode.click();
 
-		// Preview button visible for .md file
-		await expect(page.locator(".workspace-editor__preview-btn")).toBeVisible({ timeout: 5_000 });
+		// Markdown file defaults to preview mode
+		await expect(page.locator(".workspace-editor__preview")).toBeVisible({ timeout: 5_000 });
 
-		// Click to enter preview mode
-		await page.locator(".workspace-editor__preview-btn").click();
+		// "편집" view button visible
+		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).toBeVisible({ timeout: 3_000 });
 
-		// Preview area visible
-		await expect(page.locator(".workspace-editor__preview")).toBeVisible({ timeout: 3_000 });
+		// Click "편집" → split view (editor + preview side by side)
+		await page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }).click();
+		await expect(page.locator(".workspace-editor__body--split")).toBeVisible({ timeout: 3_000 });
 	});
 
 	// ── S8: ref- directory shows read-only ───────────────────────────────

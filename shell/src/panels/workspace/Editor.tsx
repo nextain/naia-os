@@ -10,6 +10,8 @@ import ReactMarkdown from "react-markdown";
 import { Logger } from "../../lib/logger";
 import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
+type ViewMode = "editor" | "preview" | "split";
+
 interface EditorProps {
 	/** Absolute path of the file being edited. Empty = no file open. */
 	filePath: string;
@@ -39,9 +41,9 @@ function isMarkdownFile(filePath: string): boolean {
 export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const viewRef = useRef<EditorView | null>(null);
-	/** Content state — used for MD preview and initial doc load only */
+	/** Content state — used for MD preview and initial doc load */
 	const [content, setContent] = useState("");
-	const [previewMode, setPreviewMode] = useState(false);
+	const [viewMode, setViewMode] = useState<ViewMode>("editor");
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState("");
 	const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,6 +52,11 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	/** Track whether the editor was just loaded so we don't trigger double-sync */
 	const justLoadedRef = useRef(false);
 	const isMd = filePath ? isMarkdownFile(filePath) : false;
+
+	// ── Reset viewMode when file changes ──────────────────────────────────
+	useEffect(() => {
+		setViewMode(isMarkdownFile(filePath) ? "preview" : "editor");
+	}, [filePath]);
 
 	// ── Load file ─────────────────────────────────────────────────────────
 	useEffect(() => {
@@ -95,7 +102,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 
 	// ── Setup CodeMirror ──────────────────────────────────────────────────
 	useEffect(() => {
-		if (!editorRef.current || previewMode) return;
+		if (!editorRef.current || viewMode === "preview") return;
 
 		const langExt = filePath ? getLanguageExtension(filePath) : null;
 
@@ -121,11 +128,13 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			EditorView.updateListener.of((update) => {
 				if (update.docChanged && !readOnly) {
 					const text = update.state.doc.toString();
-					// Don't trigger autosave on the initial load sync
+					// Don't trigger autosave/preview-sync on the initial load sync
 					if (justLoadedRef.current) {
 						justLoadedRef.current = false;
 						return;
 					}
+					// Update content state for live split-view preview
+					setContent(text);
 					// Autosave debounce
 					if (autosaveTimerRef.current) {
 						clearTimeout(autosaveTimerRef.current);
@@ -155,7 +164,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 		};
 		// content excluded intentionally — we update it via transaction below
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filePath, readOnly, previewMode, saveFile]);
+	}, [filePath, readOnly, viewMode, saveFile]);
 
 	// ── Sync content into existing editor when file changes ───────────────
 	useEffect(() => {
@@ -208,22 +217,59 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 					</span>
 				)}
 				{readOnly && <span className="workspace-editor__readonly">읽기 전용</span>}
-				{isMd && (
+				{isMd && viewMode === "preview" && (
 					<button
 						type="button"
-						className={`workspace-editor__preview-btn${previewMode ? " workspace-editor__preview-btn--active" : ""}`}
-						onClick={() => setPreviewMode((p) => !p)}
-						title={previewMode ? "편집 모드로 전환" : "미리보기 모드로 전환"}
+						className="workspace-editor__view-btn"
+						onClick={() => setViewMode("split")}
+						title="편집 모드로 전환"
 					>
-						{previewMode ? "편집" : "미리보기"}
+						편집
+					</button>
+				)}
+				{isMd && viewMode === "split" && (
+					<>
+						<button
+							type="button"
+							className="workspace-editor__view-btn"
+							onClick={() => setViewMode("preview")}
+							title="미리보기만 표시"
+						>
+							미리보기만
+						</button>
+						<button
+							type="button"
+							className="workspace-editor__view-btn workspace-editor__view-btn--active"
+							onClick={() => setViewMode("editor")}
+							title="편집기만 표시"
+						>
+							편집만
+						</button>
+					</>
+				)}
+				{isMd && viewMode === "editor" && (
+					<button
+						type="button"
+						className="workspace-editor__view-btn"
+						onClick={() => setViewMode("preview")}
+						title="미리보기 모드로 전환"
+					>
+						미리보기
 					</button>
 				)}
 			</div>
 
 			{/* Editor / Preview area */}
-			{previewMode && isMd ? (
+			{viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
 					<ReactMarkdown>{content}</ReactMarkdown>
+				</div>
+			) : viewMode === "split" ? (
+				<div className="workspace-editor__body--split">
+					<div ref={editorRef} className="workspace-editor__codemirror workspace-editor__codemirror--half" />
+					<div className="workspace-editor__preview workspace-editor__preview--half">
+						<ReactMarkdown>{content}</ReactMarkdown>
+					</div>
 				</div>
 			) : (
 				<div ref={editorRef} className="workspace-editor__codemirror" />

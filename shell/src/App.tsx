@@ -225,6 +225,9 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
+	// Keep-alive panels: render always but CSS-hide when inactive (preserves state)
+	const WorkspaceCenter = panelRegistry.get("workspace")?.center ?? null;
+
 	type WinResizeDir = "North" | "South" | "East" | "West" | "NorthEast" | "NorthWest" | "SouthEast" | "SouthWest";
 	const handleWinResize = (dir: WinResizeDir) => (e: React.PointerEvent) => {
 		e.preventDefault();
@@ -293,10 +296,17 @@ export function App() {
 					)}
 					<div className="right-content">
 						<div className="content-panel">
-							{CenterComponent ? (
-								<CenterComponent naia={activeBridge} />
-							) : (
-								<div className="content-panel__home" />
+							{/* Workspace panel: always mounted, CSS-hidden when inactive */}
+							{WorkspaceCenter && (
+								<div style={{ display: activePanel === "workspace" ? "contents" : "none" }}>
+									<WorkspaceCenter naia={activeBridge} />
+								</div>
+							)}
+							{/* Other panels: normal mount/unmount */}
+							{activePanel !== "workspace" && (
+								CenterComponent
+									? <CenterComponent naia={activeBridge} />
+									: <div className="content-panel__home" />
 							)}
 						</div>
 					</div>

@@ -213,3 +213,49 @@
 **근본 원인**: 토스트 타이머는 유휴 알림 6초 후에 실행됨. 타이머가 대기 중인 상태에서 컴포넌트가 언마운트(탭 전환)되면, 언마운트된 컴포넌트에 `setIdleToast(null)`이 호출됨.
 
 **수정**: interval cleanup 함수에 추가: `if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current)`.
+
+---
+
+## L018 — Keep-alive 패널은 `display:contents` 사용 필수 (`display:block` 아님) — flex 레이아웃 컨텍스트 보존 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/App.tsx`
+
+**문제**: 워크스페이스 패널이 탭 전환 시 언마운트되어 모든 상태가 초기화됨. `display:none` 래퍼에 `display:block`으로 활성화 시 flex 자식 레이아웃이 깨짐 — 자식들이 올바르게 stretch되지 않음.
+
+**근본 원인**: `content-panel`이 `display:flex`를 사용하므로, `display:block` 래퍼 div는 flex 자식 동작을 망가뜨림. `display:contents`는 래퍼를 레이아웃에 투명하게 만들어 자식이 부모 flex 컨텍스트에 직접 참여.
+
+**수정**: keep-alive 래퍼에 `style={{ display: activePanel === 'workspace' ? 'contents' : 'none' }}` 사용.
+
+---
+
+## L019 — 마크다운 3상태 뷰에는 `viewMode` enum이 필수: preview / split / editor (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/Editor.tsx`
+
+**문제**: `previewMode: boolean`으로는 split 뷰(에디터+미리보기 나란히 표시) 표현 불가.
+
+**근본 원인**: 설계가 토글 이상으로 발전: 마크다운은 미리보기 기본, split(실시간 편집), 에디터 전용 3가지 상태 필요. 상호 배타적인 3상태는 union 타입 필요.
+
+**수정**: `type ViewMode = 'editor' | 'preview' | 'split'`. `useEffect([filePath])`에서 `isMd ? 'preview' : 'editor'`로 리셋. `viewMode === 'preview'`일 때 CM 설정 건너뜀. `updateListener`에서 `setContent(text)` 호출로 split 모드 실시간 미리보기 동기화.
+
+---
+
+## L020 — CodeMirror `updateListener`에서 `setContent` 호출 필수 — split 뷰 실시간 미리보기; `justLoadedRef`로 초기 동기화 보호 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: React | **범위**: `shell/src/panels/workspace/Editor.tsx`
+
+**문제**: split 모드에서 CodeMirror 타이핑 시 ReactMarkdown 미리보기가 업데이트되지 않음 — `content` 상태가 파일 로드 시에만 설정되고 CM 편집 시에는 설정되지 않았기 때문.
+
+**근본 원인**: CM `updateListener`는 자동저장 디바운스만 담당. `updateListener`에 `setContent(text)`를 추가하면 실시간 미리보기 가능.
+
+**수정**: `updateListener`에서: `justLoadedRef.current`가 `true`면 `false`로 설정 후 early return. 아니면 자동저장 디바운스 전에 `setContent(text)` 호출.
+
+---
+
+## L021 — 드래그 리사이즈 핸들: 안정적인 추적을 위해 `window`에 `pointermove`/`pointerup` 등록 (#99)
+
+**날짜**: 2026-03-21 | **카테고리**: UI | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 마우스 기반 리사이즈는 커서가 패널 크기 변경보다 빠르게 이동하면 추적이 끊길 수 있음.
+
+**수정**: `onPointerDown`에서: `document.body.classList.add('resizing-col')`, `window.addEventListener('pointermove', onMove)`, `window.addEventListener('pointerup', onUp)`. `onUp`에서 두 이벤트 제거. `App.tsx` naia-resize-handle 구현 패턴과 동일.
