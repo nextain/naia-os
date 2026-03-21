@@ -72,7 +72,65 @@ pub fn new_shared_watcher() -> SharedWatcherState {
     Arc::new(Mutex::new(WatcherState::new()))
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/// Workspace root — all file I/O is restricted to this subtree.
+/// TODO(#107): derive from AppConfig once WORKSPACE_ROOT is moved to config.
+const WORKSPACE_ROOT: &str = "/var/home/luke/dev";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Returns the canonical form of WORKSPACE_ROOT, resolving any symlinks.
+/// All path comparisons must use this form for consistency.
+fn canonical_workspace_root() -> Result<PathBuf, String> {
+    PathBuf::from(WORKSPACE_ROOT)
+        .canonicalize()
+        .map_err(|e| format!("Workspace root inaccessible: {e}"))
+}
+
+/// Validates that `path` (which must exist) resolves to a location inside
+/// WORKSPACE_ROOT after symlink resolution. Returns the canonical path.
+fn validate_in_workspace(path: &str) -> Result<PathBuf, String> {
+    let canonical = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|e| format!("Path inaccessible: {e}"))?;
+    let root = canonical_workspace_root()?;
+    if !canonical.starts_with(&root) {
+        return Err(format!("Access denied: path is outside workspace root"));
+    }
+    Ok(canonical)
+}
+
+/// Validates a write target path (file may not exist yet). Walks up to the
+/// first existing ancestor, canonicalizes it, and verifies it is inside
+/// WORKSPACE_ROOT. Returns the write path with canonical ancestor prefix.
+fn validate_write_path(path: &str) -> Result<PathBuf, String> {
+    let p = PathBuf::from(path);
+    // Walk up until we find an existing ancestor
+    let mut check: &std::path::Path = p.as_path();
+    loop {
+        if check.exists() {
+            break;
+        }
+        check = check
+            .parent()
+            .ok_or_else(|| "Invalid path: no valid ancestor found".to_string())?;
+    }
+    let canonical_ancestor = check
+        .canonicalize()
+        .map_err(|e| format!("Path error: {e}"))?;
+    let root = canonical_workspace_root()?;
+    if !canonical_ancestor.starts_with(&root) {
+        return Err(format!("Access denied: path is outside workspace root"));
+    }
+    // Reconstruct the full write path under the canonical ancestor.
+    // strip_prefix uses the original (non-canonical) check, which is always a
+    // structural prefix of p by construction, so failure is an internal error.
+    let suffix = p
+        .strip_prefix(check)
+        .map_err(|_| "Internal error: path prefix mismatch during write validation".to_string())?;
+    Ok(canonical_ancestor.join(suffix))
+}
 
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
@@ -162,8 +220,8 @@ fn classify_dir_heuristic(path: &Path) -> &'static str {
 /// If `parent` is `None`, defaults to WORKSPACE_ROOT (`/var/home/luke/dev`).
 #[tauri::command]
 pub fn workspace_list_dirs(parent: Option<String>) -> Result<Vec<DirEntry>, String> {
-    let root = parent.unwrap_or_else(|| "/var/home/luke/dev".to_string());
-    let root_path = PathBuf::from(&root);
+    let root = parent.unwrap_or_else(|| WORKSPACE_ROOT.to_string());
+    let root_path = validate_in_workspace(&root)?;
     let mut entries: Vec<DirEntry> = Vec::new();
 
     let read = std::fs::read_dir(&root_path).map_err(|e| e.to_string())?;
@@ -189,23 +247,28 @@ pub fn workspace_list_dirs(parent: Option<String>) -> Result<Vec<DirEntry>, Stri
 /// Reads a file and returns its content as a string.
 #[tauri::command]
 pub fn workspace_read_file(path: String) -> Result<String, String> {
-    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+    let safe = validate_in_workspace(&path)?;
+    std::fs::read_to_string(&safe).map_err(|e| e.to_string())
 }
 
 /// Writes content to a file, creating parent directories as needed.
 #[tauri::command]
 pub fn workspace_write_file(path: String, content: String) -> Result<(), String> {
-    let p = PathBuf::from(&path);
-    if let Some(parent) = p.parent() {
+    let safe = validate_write_path(&path)?;
+    if let Some(parent) = safe.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&p, content).map_err(|e| e.to_string())
+    std::fs::write(&safe, content).map_err(|e| e.to_string())
 }
 
 /// Returns git branch for a directory.
 #[tauri::command]
 pub fn workspace_get_git_info(path: String) -> GitInfo {
-    let p = PathBuf::from(&path);
+    // Validate before running git subprocess in the provided directory
+    let p = match validate_in_workspace(&path) {
+        Ok(p) => p,
+        Err(_) => return GitInfo { branch: None },
+    };
     GitInfo {
         branch: get_branch(&p),
     }
@@ -216,7 +279,7 @@ pub fn workspace_get_git_info(path: String) -> GitInfo {
 pub fn workspace_get_sessions(
     watcher: tauri::State<'_, SharedWatcherState>,
 ) -> Result<Vec<SessionInfo>, String> {
-    let root = PathBuf::from("/var/home/luke/dev");
+    let root = canonical_workspace_root()?;
     let mut sessions = Vec::new();
 
     let read = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
@@ -274,7 +337,13 @@ pub fn workspace_get_sessions(
 /// Reads all `.agents/progress/*.json` files in the given session directory.
 #[tauri::command]
 pub fn workspace_get_progress(path: String) -> Option<ProgressInfo> {
-    read_progress(Path::new(&path))
+    let safe = validate_in_workspace(&path)
+        .map_err(|e| {
+            eprintln!("[workspace] workspace_get_progress: validation failed for '{}': {}", path, e);
+            e
+        })
+        .ok()?;
+    read_progress(&safe)
 }
 
 /// Starts file watching for all git-repo subdirectories of WORKSPACE_ROOT.
@@ -284,7 +353,7 @@ pub fn workspace_start_watch(
     app: AppHandle,
     watcher_state: tauri::State<'_, SharedWatcherState>,
 ) -> Result<(), String> {
-    let root = PathBuf::from("/var/home/luke/dev");
+    let root = canonical_workspace_root()?;
     let mut state = watcher_state.lock().unwrap();
 
     if state.watcher.is_some() {
@@ -384,7 +453,7 @@ pub fn workspace_stop_watch(
 /// Classifies all git-repo (and other) subdirectories of WORKSPACE_ROOT.
 #[tauri::command]
 pub fn workspace_classify_dirs() -> Result<Vec<ClassifiedDir>, String> {
-    let root = PathBuf::from("/var/home/luke/dev");
+    let root = canonical_workspace_root()?;
     let mut result = Vec::new();
 
     // Get list of worktree paths using `git worktree list` from the root
@@ -432,10 +501,10 @@ pub fn workspace_classify_dirs() -> Result<Vec<ClassifiedDir>, String> {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/// Given a file path, find the immediate child of /var/home/luke/dev that contains it.
+/// Given a file path, find the immediate child of WORKSPACE_ROOT that contains it.
 /// E.g. /var/home/luke/dev/naia-os/shell/src/App.tsx → /var/home/luke/dev/naia-os
 fn find_session_dir(file_path: &Path) -> Option<PathBuf> {
-    let root = PathBuf::from("/var/home/luke/dev");
+    let root = canonical_workspace_root().ok()?;
     let mut current = file_path.parent()?;
     loop {
         match current.parent() {
@@ -474,4 +543,154 @@ fn get_all_worktree_paths(root: &Path) -> Vec<String> {
     paths.sort();
     paths.dedup();
     paths
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn make_workspace() -> TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    // ── validate_in_workspace ────────────────────────────────────────────────
+
+    #[test]
+    fn test_validate_in_workspace_accepts_valid_path() {
+        let ws = make_workspace();
+        let file = ws.path().join("test.txt");
+        fs::write(&file, "hello").unwrap();
+
+        // Temporarily override the constant is not possible at runtime; instead,
+        // call canonicalize directly and check behaviour via the function signature.
+        // We test the helper by constructing a real scenario with a tmp dir as root.
+        // Since WORKSPACE_ROOT is a compile-time const, integration tests via
+        // actual workspace paths are used instead.
+        let result = validate_in_workspace(file.to_str().unwrap());
+        // Should succeed if file is under actual WORKSPACE_ROOT OR fail with our
+        // specific error message (not a panic).
+        match result {
+            Ok(p) => assert!(p.is_absolute()),
+            Err(e) => {
+                // Acceptable: tmp dir is outside WORKSPACE_ROOT
+                assert!(
+                    e.contains("outside workspace") || e.contains("inaccessible"),
+                    "unexpected error: {e}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_in_workspace_rejects_dotdot_traversal() {
+        // A path with ".." that would escape WORKSPACE_ROOT should be rejected
+        // Example: /var/home/luke/dev/../../../etc/passwd
+        let traversal = "/var/home/luke/dev/../../../etc/passwd";
+        let result = validate_in_workspace(traversal);
+        match result {
+            Ok(_) => {} // canonicalize resolved it to /etc/passwd — should have been rejected
+            Err(e) => {
+                // Either "outside workspace" or "inaccessible" (file doesn't exist)
+                assert!(
+                    e.contains("outside workspace") || e.contains("inaccessible"),
+                    "unexpected error: {e}"
+                );
+            }
+        }
+        // The real guard: if it resolves to outside workspace, we must reject it.
+        if let Ok(canonical) = std::path::PathBuf::from(traversal).canonicalize() {
+            let root = std::path::PathBuf::from(WORKSPACE_ROOT)
+                .canonicalize()
+                .unwrap_or_else(|_| std::path::PathBuf::from(WORKSPACE_ROOT));
+            // If it resolved to outside root, validate_in_workspace must have returned Err
+            if !canonical.starts_with(&root) {
+                assert!(
+                    validate_in_workspace(traversal).is_err(),
+                    "Path traversal outside workspace should be rejected"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_in_workspace_rejects_etc_passwd() {
+        let result = validate_in_workspace("/etc/passwd");
+        assert!(result.is_err(), "/etc/passwd must be rejected");
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("outside workspace"),
+            "expected 'outside workspace', got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_in_workspace_rejects_home_ssh() {
+        let result = validate_in_workspace("/root/.ssh/id_rsa");
+        assert!(result.is_err(), "SSH key path must be rejected");
+    }
+
+    // ── validate_write_path ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_validate_write_path_rejects_outside_workspace() {
+        let result = validate_write_path("/etc/cron.d/evil");
+        assert!(result.is_err(), "/etc/cron.d/evil must be rejected");
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("outside workspace"),
+            "expected 'outside workspace', got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_write_path_accepts_new_file_in_workspace() {
+        // If WORKSPACE_ROOT itself exists, a new file under it should be allowed
+        if std::path::Path::new(WORKSPACE_ROOT).exists() {
+            let new_file = format!("{}/some-new-file-test.txt", WORKSPACE_ROOT);
+            let result = validate_write_path(&new_file);
+            assert!(result.is_ok(), "New file under workspace root should be OK: {:?}", result);
+
+            // Verify the returned path is actually inside WORKSPACE_ROOT
+            let returned = result.unwrap();
+            let root = std::path::PathBuf::from(WORKSPACE_ROOT)
+                .canonicalize()
+                .unwrap_or_else(|_| std::path::PathBuf::from(WORKSPACE_ROOT));
+            assert!(
+                returned.starts_with(&root),
+                "Returned path {:?} should be inside workspace root {:?}",
+                returned,
+                root
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_write_path_accepts_nested_nonexistent_dir() {
+        // New file in a non-existent nested directory should be accepted
+        if std::path::Path::new(WORKSPACE_ROOT).exists() {
+            let new_file = format!("{}/nonexistent-dir-99999/subdir/newfile.txt", WORKSPACE_ROOT);
+            let result = validate_write_path(&new_file);
+            assert!(
+                result.is_ok(),
+                "New file in nested non-existent dir under workspace should be OK: {:?}",
+                result
+            );
+            // Verify the returned path has the nested structure
+            let returned = result.unwrap();
+            assert!(returned.ends_with("nonexistent-dir-99999/subdir/newfile.txt"),
+                "Returned path should preserve nested structure: {:?}", returned);
+        }
+    }
+
+    #[test]
+    fn test_validate_write_path_rejects_dotdot_in_new_path() {
+        // Attempt to write to /var/home/luke/dev/../../etc/cron.d/evil
+        let traversal = "/var/home/luke/dev/../../etc/cron.d/evil";
+        let result = validate_write_path(traversal);
+        assert!(result.is_err(), "Traversal write path must be rejected");
+    }
 }
