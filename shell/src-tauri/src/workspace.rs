@@ -239,7 +239,6 @@ pub fn workspace_list_dirs(parent: Option<String>) -> Result<Vec<DirEntry>, Stri
     for e in raw {
         let path = e.path();
         let name = e.file_name().to_string_lossy().to_string();
-        // Skip hidden dirs/files at root level (except we keep them for nested)
         let is_dir = path.is_dir();
         entries.push(DirEntry {
             name,
@@ -307,10 +306,14 @@ pub fn workspace_get_sessions(
         if !path.is_dir() {
             continue;
         }
+        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+        // Skip hidden directories before is_git_repo to avoid unnecessary disk I/O
+        if dir_name.starts_with('.') {
+            continue;
+        }
         if !is_git_repo(&path) {
             continue;
         }
-        let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
         let path_str = path.to_string_lossy().to_string();
 
         let last_change = lc.get(&path_str).copied();
@@ -336,7 +339,7 @@ pub fn workspace_get_sessions(
             Some(t) if now.saturating_sub(t) < 30 => "active",
             Some(t) if now.saturating_sub(t) < 1800 => "idle",
             Some(_) => "stopped",
-            None => "idle",
+            None => "stopped",
         };
 
         sessions.push(SessionInfo {
@@ -351,7 +354,10 @@ pub fn workspace_get_sessions(
     }
 
     sessions.sort_by(|a, b| {
-        b.last_change.unwrap_or(0).cmp(&a.last_change.unwrap_or(0))
+        b.last_change
+            .unwrap_or(0)
+            .cmp(&a.last_change.unwrap_or(0))
+            .then_with(|| a.path.cmp(&b.path))
     });
 
     Ok(sessions)
@@ -465,11 +471,12 @@ pub fn workspace_start_watch(
 
     let mut w = watcher;
 
-    // Watch all git-repo subdirectories
+    // Watch all non-hidden git-repo subdirectories
     if let Ok(entries) = std::fs::read_dir(&root) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() && is_git_repo(&path) {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if path.is_dir() && !name.starts_with('.') && is_git_repo(&path) {
                 let _ = w.watch(&path, RecursiveMode::Recursive);
             }
         }
@@ -484,8 +491,24 @@ pub fn workspace_start_watch(
 pub fn workspace_stop_watch(
     watcher_state: tauri::State<'_, SharedWatcherState>,
 ) -> Result<(), String> {
-    let mut state = watcher_state.lock().unwrap();
-    state.watcher = None; // dropping watcher stops it
+    // Clone Arc handles then release the outer lock before acquiring inner locks.
+    // Mirrors workspace_get_sessions pattern — avoids holding the outer WatcherState
+    // lock while acquiring inner HashMap locks (which the watcher callback also acquires).
+    let (last_change_arc, recent_files_arc, branch_cache_arc) = {
+        let mut state = watcher_state.lock().unwrap();
+        state.watcher = None; // drop watcher → stops callback thread
+        (
+            state.last_change.clone(),
+            state.recent_files.clone(),
+            state.branch_cache.clone(),
+        )
+    }; // outer lock released here
+    // Clear all session data so a subsequent start_watch begins clean.
+    // Prevents stale last_change / recent_files / branch_cache from the
+    // previous watch session bleeding into new reads.
+    last_change_arc.lock().unwrap().clear();
+    recent_files_arc.lock().unwrap().clear();
+    branch_cache_arc.lock().unwrap().clear();
     Ok(())
 }
 
@@ -631,7 +654,7 @@ mod tests {
         let traversal = "/var/home/luke/dev/../../../etc/passwd";
         let result = validate_in_workspace(traversal);
         match result {
-            Ok(_) => {} // canonicalize resolved it to /etc/passwd — should have been rejected
+            Ok(_) => {} // canonicalize may fail for non-existent paths; starts_with guard (L106) would reject out-of-workspace paths
             Err(e) => {
                 // Either "outside workspace" or "inaccessible" (file doesn't exist)
                 assert!(
