@@ -164,6 +164,70 @@ describe("gateway-sessions", () => {
 			expect(messages).toHaveLength(1);
 			expect(messages[0].role).toBe("user");
 		});
+
+		it("filters out HEARTBEAT message pairs from history", async () => {
+			mockDirectToolCall.mockResolvedValueOnce({
+				success: true,
+				output: JSON.stringify({
+					messages: [
+						{
+							role: "user",
+							content: [{ type: "text", text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK. Current time: Saturday, March 21st, 2026" }],
+							timestamp: 1000,
+						},
+						{
+							role: "assistant",
+							content: [{ type: "text", text: "HEARTBEAT_OK" }],
+							timestamp: 2000,
+						},
+						{
+							role: "user",
+							content: [{ type: "text", text: "안녕!" }],
+							timestamp: 3000,
+						},
+						{
+							role: "assistant",
+							content: [{ type: "text", text: "안녕하세요!" }],
+							timestamp: 4000,
+						},
+					],
+				}),
+			});
+
+			const { getGatewayHistory } = await import("../gateway-sessions");
+			const messages = await getGatewayHistory("agent:main:main");
+
+			expect(messages).toHaveLength(2);
+			expect(messages[0].content).toBe("안녕!");
+			expect(messages[1].content).toBe("안녕하세요!");
+		});
+
+		it("does not filter assistant greeting that follows HEARTBEAT_OK with other content", async () => {
+			mockDirectToolCall.mockResolvedValueOnce({
+				success: true,
+				output: JSON.stringify({
+					messages: [
+						{
+							role: "user",
+							content: [{ type: "text", text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly." }],
+							timestamp: 1000,
+						},
+						{
+							role: "assistant",
+							content: [{ type: "text", text: "HEARTBEAT_OK\n안녕하세요 마스터 루크!" }],
+							timestamp: 2000,
+						},
+					],
+				}),
+			});
+
+			const { getGatewayHistory } = await import("../gateway-sessions");
+			const messages = await getGatewayHistory("agent:main:main");
+
+			// HEARTBEAT_OK + greeting mixed → HEARTBEAT_OK으로 시작하므로 필터됨 (시스템 폴링으로 간주)
+			// 실제로는 OpenClaw가 greeting을 별도 메시지로 보냄
+			expect(messages).toHaveLength(0);
+		});
 	});
 
 	describe("deleteGatewaySession", () => {

@@ -64,6 +64,16 @@ export async function listGatewaySessions(
 	}
 }
 
+/** OpenClaw heartbeat prompt prefix — messages starting with this are system polls, not user chat */
+const HEARTBEAT_PREFIX = "Read HEARTBEAT.md if it exists";
+
+/** Returns true if a message is an OpenClaw heartbeat exchange (should be hidden from UI) */
+function isHeartbeatMessage(role: string, text: string): boolean {
+	if (role === "user" && text.startsWith(HEARTBEAT_PREFIX)) return true;
+	if (role === "assistant" && /^HEARTBEAT_OK\b/.test(text.trim())) return true;
+	return false;
+}
+
 /** Get chat history for a Gateway session key */
 export async function getGatewayHistory(key: string): Promise<ChatMessage[]> {
 	const opts = getGatewayOpts();
@@ -95,7 +105,8 @@ export async function getGatewayHistory(key: string): Promise<ChatMessage[]> {
 						.map((c) => c.text!)
 						.join("\n") ?? "",
 				timestamp: m.timestamp ?? Date.now(),
-			}));
+			}))
+			.filter((m) => !isHeartbeatMessage(m.role, m.content));
 	} catch (err) {
 		Logger.warn("gateway-sessions", "Failed to get history", {
 			error: String(err),
