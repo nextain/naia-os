@@ -1,6 +1,11 @@
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { css } from "@codemirror/lang-css";
 import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
+import { python } from "@codemirror/lang-python";
+import { rust } from "@codemirror/lang-rust";
+import { yaml } from "@codemirror/lang-yaml";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
@@ -26,10 +31,12 @@ function getLanguageExtension(filePath: string) {
 	if (ext === "ts" || ext === "tsx" || ext === "js" || ext === "jsx") {
 		return javascript({ typescript: ext === "ts" || ext === "tsx", jsx: ext === "tsx" || ext === "jsx" });
 	}
-	if (ext === "md" || ext === "mdx") {
-		return markdown();
-	}
-	// YAML, TOML, Rust, Python: plain text (no legacy-modes available in bundle)
+	if (ext === "md" || ext === "mdx") return markdown();
+	if (ext === "py") return python();
+	if (ext === "rs") return rust();
+	if (ext === "yaml" || ext === "yml") return yaml();
+	if (ext === "json") return json();
+	if (ext === "css" || ext === "scss" || ext === "less") return css();
 	return null;
 }
 

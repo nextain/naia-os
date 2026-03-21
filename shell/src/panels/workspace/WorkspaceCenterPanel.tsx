@@ -42,6 +42,9 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const [idleToast, setIdleToast] = useState<string | null>(null);
 	const idleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const idleNotifiedRef = useRef<Set<string>>(new Set());
+	/** True until the first session fetch resolves (hides blank flash on first render) */
+	const initializedRef = useRef(false);
+	const [initialized, setInitialized] = useState(false);
 
 	// ── Drag-resize panel widths ───────────────────────────────────────────
 	const [treeWidth, setTreeWidth] = useState(220);
@@ -125,6 +128,10 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const handleSessionsUpdate = useCallback((updated: SessionInfo[]) => {
 		sessionsRef.current = updated;
 		setSessions(updated);
+		if (!initializedRef.current) {
+			initializedRef.current = true;
+			setInitialized(true);
+		}
 
 		// Update Naia context with session state
 		naia.pushContext({
@@ -286,6 +293,13 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 
 	return (
 		<div className="workspace-panel">
+			{/* Initial loading overlay — hides blank flash before first session fetch */}
+			{!initialized && (
+				<div className="workspace-panel__loading">
+					<span className="workspace-panel__loading-spinner" />
+					<span>워크스페이스 로딩 중…</span>
+				</div>
+			)}
 			{/* Idle session toast (F8) */}
 			{idleToast && (
 				<div

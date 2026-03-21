@@ -666,6 +666,21 @@ body.resizing-row .avatar-resize-handle {
 	position: relative;
 }
 
+/* Panel slot — keep-alive overlay with opacity transition */
+.content-panel__slot {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease;
+	overflow: hidden;
+}
+
+.content-panel__slot--active {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 /* Home screen when no mode selected */
 .content-panel__home {
 	flex: 1;
@@ -5113,6 +5128,33 @@ body.resizing-row {
 	cursor: pointer;
 	white-space: nowrap;
 	box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Initial loading overlay */
+.workspace-panel__loading {
+	position: absolute;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	background: var(--bg-base, #1a1a1a);
+	color: var(--text-secondary, #888);
+	font-size: 13px;
+}
+
+.workspace-panel__loading-spinner {
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--border-color, #333);
+	border-top-color: var(--accent, #7ca0ff);
+	border-radius: 50%;
+	animation: ws-spin 0.7s linear infinite;
+}
+
+@keyframes ws-spin {
+	to { transform: rotate(360deg); }
 }
 
 /* Panel drag-resize handle */

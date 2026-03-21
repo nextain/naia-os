@@ -225,8 +225,8 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
-	// Keep-alive panels: render always but CSS-hide when inactive (preserves state)
-	const WorkspaceCenter = panelRegistry.get("workspace")?.center ?? null;
+	// Keep-alive: all builtIn panels always mounted, CSS opacity transition between them
+	const [builtInPanels] = useState(() => panelRegistry.list().filter((p) => p.builtIn));
 
 	type WinResizeDir = "North" | "South" | "East" | "West" | "NorthEast" | "NorthWest" | "SouthEast" | "SouthWest";
 	const handleWinResize = (dir: WinResizeDir) => (e: React.PointerEvent) => {
@@ -296,17 +296,32 @@ export function App() {
 					)}
 					<div className="right-content">
 						<div className="content-panel">
-							{/* Workspace panel: always mounted, CSS-hidden when inactive */}
-							{WorkspaceCenter && (
-								<div style={{ display: activePanel === "workspace" ? "contents" : "none" }}>
-									<WorkspaceCenter naia={activeBridge} />
+							{/* builtIn panels: always mounted, CSS opacity fade on switch */}
+							{builtInPanels.map((panel) => {
+								const PanelCenter = panel.center;
+								return (
+									<div
+										key={panel.id}
+										className={`content-panel__slot${activePanel === panel.id ? " content-panel__slot--active" : ""}`}
+									>
+										<PanelCenter naia={activeBridge} />
+									</div>
+								);
+							})}
+							{/* Installed (non-builtIn) panels: mount/unmount */}
+							{activePanel && !builtInPanels.some((p) => p.id === activePanel) && (
+								<div className="content-panel__slot content-panel__slot--active">
+									{CenterComponent
+										? <CenterComponent naia={activeBridge} />
+										: <div className="content-panel__home" />
+									}
 								</div>
 							)}
-							{/* Other panels: normal mount/unmount */}
-							{activePanel !== "workspace" && (
-								CenterComponent
-									? <CenterComponent naia={activeBridge} />
-									: <div className="content-panel__home" />
+							{/* No panel selected */}
+							{!activePanel && (
+								<div className="content-panel__slot content-panel__slot--active">
+									<div className="content-panel__home" />
+								</div>
 							)}
 						</div>
 					</div>
