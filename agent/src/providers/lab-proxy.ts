@@ -69,7 +69,7 @@ export function createLabProxyProvider(
 			>();
 
 			try {
-				while (true) {
+				outer: while (true) {
 					const { done, value } = await reader.read();
 					if (done) break;
 
@@ -82,7 +82,9 @@ export function createLabProxyProvider(
 						const trimmed = line.trim();
 						if (!trimmed.startsWith("data: ")) continue;
 						const data = trimmed.slice(6);
-						if (data === "[DONE]") continue;
+						// Break out of the outer read loop — gateway may keep HTTP connection
+						// open after [DONE], causing reader.read() to hang indefinitely.
+						if (data === "[DONE]") break outer;
 
 						let parsed: Record<string, unknown>;
 						try {

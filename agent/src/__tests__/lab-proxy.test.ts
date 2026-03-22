@@ -284,6 +284,65 @@ describe("Lab Proxy Provider", () => {
 		expect(body.tools[0].function.name).toBe("read_file");
 	});
 
+	it("terminates on [DONE] even when HTTP connection stays open", async () => {
+		// Simulate a gateway that sends [DONE] but never closes the HTTP connection.
+		// Without `break outer`, reader.read() would hang indefinitely.
+		const encoder = new TextEncoder();
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(
+					encoder.encode(
+						'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\ndata: [DONE]\n\n',
+					),
+				);
+				// Deliberately NOT calling controller.close() — simulates keep-alive HTTP
+			},
+		});
+
+		mockFetch.mockResolvedValue({ ok: true, body: stream });
+
+		const gen = provider.stream([{ role: "user", content: "test" }], "sys");
+		const chunks = [];
+		for await (const chunk of gen) {
+			chunks.push(chunk);
+		}
+
+		// Generator must terminate (not hang) and content before [DONE] must be emitted
+		expect(chunks.find((c) => c.type === "text")).toEqual({
+			type: "text",
+			text: "Hi",
+		});
+		expect(chunks[chunks.length - 1]).toEqual({ type: "finish" });
+	});
+
+	it("silently drops empty and non-content SSE events", async () => {
+		const sseData = [
+			"data: \n\n", // empty data field
+			"data: {}\n\n", // valid JSON but no choices
+			'data: {"choices":[]}\n\n', // empty choices array
+			'data: {"choices":[{"delta":{}}]}\n\n', // delta with no content/tool_calls
+			'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n', // valid content
+			"data: [DONE]\n\n",
+		];
+
+		mockFetch.mockResolvedValue({
+			ok: true,
+			body: createSSEStream(sseData),
+		});
+
+		const gen = provider.stream([{ role: "user", content: "test" }], "sys");
+		const chunks = [];
+		for await (const chunk of gen) {
+			chunks.push(chunk);
+		}
+
+		// Only "ok" text + finish should be emitted — all empty events silently dropped
+		const textChunks = chunks.filter((c) => c.type === "text");
+		expect(textChunks).toHaveLength(1);
+		expect(textChunks[0]).toEqual({ type: "text", text: "ok" });
+		expect(chunks[chunks.length - 1]).toEqual({ type: "finish" });
+	});
+
 	it("converts tool call messages correctly", async () => {
 		mockFetch.mockResolvedValue({
 			ok: true,
