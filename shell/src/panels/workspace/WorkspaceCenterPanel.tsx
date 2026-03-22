@@ -22,11 +22,11 @@ export interface WorkspacePanelApi {
 	/** Open a file in the Editor. */
 	openFile: (path: string) => void;
 	/**
-	 * Highlight (visually focus) a session card by its `dir` identifier.
-	 * Full scroll-into-view is implemented in #117.
+	 * Highlight (visually focus) a session card by its `dir` identifier
+	 * and scroll it into view.
 	 * Caller should invoke `activatePanel()` first if the Workspace panel
-	 * is not currently visible — focusSession only highlights, it does not
-	 * switch panels.
+	 * is not currently visible — focusSession only highlights/scrolls, it
+	 * does not switch panels.
 	 */
 	focusSession: (dir: string) => void;
 	/** Return the current live session list. */
@@ -77,6 +77,15 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		string | null
 	>(null);
 	const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	/** Highlight a session card for 3s, canceling any in-flight highlight first. */
+	const startHighlight = useCallback((dir: string) => {
+		if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+		setHighlightedSessionDir(dir);
+		highlightTimerRef.current = setTimeout(() => {
+			setHighlightedSessionDir(null);
+			highlightTimerRef.current = null;
+		}, 3000);
+	}, []); // stable: setters and refs never change
 	/** True until the first session fetch resolves (hides blank flash on first render) */
 	const initializedRef = useRef(false);
 	const [initialized, setInitialized] = useState(false);
@@ -331,14 +340,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					Logger.warn("WorkspaceCenterPanel", "focusSession: dir not found", { dir });
 					return;
 				}
-				// Cancel any in-flight highlight timer before starting a new one
-				if (highlightTimerRef.current)
-					clearTimeout(highlightTimerRef.current);
-				setHighlightedSessionDir(dir);
-				highlightTimerRef.current = setTimeout(() => {
-					setHighlightedSessionDir(null);
-					highlightTimerRef.current = null;
-				}, 3000);
+				startHighlight(dir);
 			},
 			getActiveSessions: () => sessionsRef.current,
 			activatePanel: () =>
@@ -352,7 +354,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				highlightTimerRef.current = null;
 			}
 		};
-	}, []); // stable: setters and refs never change
+	}, [startHighlight]); // stable: setters and refs never change (startHighlight is useCallback([]))
 
 	// ── Naia tool: skill_workspace_get_sessions ───────────────────────────
 	useEffect(() => {
@@ -432,6 +434,43 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		);
 		return unsub;
 	}, [naia]);
+
+	// ── Naia tool: skill_workspace_focus_session ──────────────────────────
+	useEffect(() => {
+		const unsub = naia.onToolCall("skill_workspace_focus_session", (args) => {
+			const dir = String(args.dir ?? "");
+			if (!dir) return "Error: dir is required";
+			const session = sessionsRef.current.find((s) => s.dir === dir);
+			if (!session) return `Error: session not found: ${dir}`;
+
+			// Activate workspace panel
+			usePanelStore.getState().setActivePanel("workspace");
+			startHighlight(dir);
+
+			// Optionally open recent file
+			let openedFile: string | null = null;
+			if (args.open_recent_file === true) {
+				if (session.recent_file) {
+					const fullPath = `${session.path}/${session.recent_file}`;
+					setOpenFilePath(fullPath);
+					setEditorBadge(
+						session.progress?.issue && session.progress?.phase
+							? `${session.progress.issue} · ${session.progress.phase}`
+							: "",
+					);
+					openedFile = fullPath;
+				} else {
+					// No recent_file — clear stale badge consistent with skill_workspace_open_file
+					setEditorBadge("");
+				}
+			}
+
+			return openedFile
+				? `Focused: ${dir}, opened: ${openedFile}`
+				: `Focused: ${dir}`;
+		});
+		return unsub;
+	}, [naia, startHighlight]); // startHighlight is stable (useCallback([]))
 
 	// ── Active session dirs (for FileTree highlighting) ───────────────────
 	const activeDirs = sessions

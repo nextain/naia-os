@@ -23,6 +23,7 @@ export function SessionDashboard({
 	const onSessionsUpdateRef = useRef(onSessionsUpdate);
 	onSessionsUpdateRef.current = onSessionsUpdate;
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const gridRef = useRef<HTMLDivElement>(null);
 	// Monotonically increasing ID — prevents stale invoke responses from overwriting
 	// a fresher result when multiple loadSessions calls are in-flight simultaneously.
 	const fetchIdRef = useRef(0);
@@ -73,6 +74,15 @@ export function SessionDashboard({
 		};
 	}, [loadSessions, debouncedLoadSessions]);
 
+	// Scroll highlighted session card into view whenever highlightedDir changes
+	useEffect(() => {
+		if (!highlightedDir || !gridRef.current) return;
+		const card = gridRef.current.querySelector<HTMLElement>(
+			`[data-dir="${CSS.escape(highlightedDir)}"]`,
+		);
+		card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+	}, [highlightedDir]);
+
 	if (loading) {
 		return (
 			<div className="workspace-dashboard workspace-dashboard--loading">
@@ -110,7 +120,7 @@ export function SessionDashboard({
 					↻
 				</button>
 			</div>
-			<div className="workspace-dashboard__grid">
+			<div className="workspace-dashboard__grid" ref={gridRef}>
 				{sessions.map((session) => (
 					<SessionCard
 						key={session.path}

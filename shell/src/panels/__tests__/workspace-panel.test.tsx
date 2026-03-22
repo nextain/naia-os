@@ -298,6 +298,204 @@ describe("WorkspaceCenterPanel", () => {
 		expect(panelRegistry.getApi("workspace")).toBeUndefined();
 	});
 
+	it("registers skill_workspace_focus_session handler on mount", async () => {
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+
+		await waitFor(() => {
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true);
+		});
+	});
+
+	it("skill_workspace_focus_session returns error when dir is missing", async () => {
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		const result = await bridge.callTool("skill_workspace_focus_session", {});
+		expect(result).toContain("Error");
+		expect(result).toContain("dir");
+	});
+
+	it("skill_workspace_focus_session returns error when session not found", async () => {
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		const result = await bridge.callTool("skill_workspace_focus_session", {
+			dir: "nonexistent",
+		});
+		expect(result).toContain("Error");
+		expect(result).toContain("nonexistent");
+	});
+
+	it("skill_workspace_focus_session returns Focused and passes highlightedDir to SessionDashboard", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		const testSessions: SessionInfo[] = [
+			{ dir: "naia-os", path: "/dev/naia-os", status: "active" },
+		];
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				onSessionsUpdate?.(testSessions);
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		await waitFor(async () => {
+			const result = await bridge.callTool("skill_workspace_focus_session", {
+				dir: "naia-os",
+			});
+			expect(result).toBe("Focused: naia-os");
+		});
+
+		// Verify highlightedDir was propagated to SessionDashboard
+		await waitFor(() => {
+			const calls = vi.mocked(SessionDashboard).mock.calls;
+			const lastProps = calls[calls.length - 1]?.[0];
+			expect(lastProps?.highlightedDir).toBe("naia-os");
+		});
+	});
+
+	it("skill_workspace_focus_session with open_recent_file opens the correct path", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		const testSessions: SessionInfo[] = [
+			{
+				dir: "naia-os",
+				path: "/dev/naia-os",
+				status: "active",
+				recent_file: "shell/src/App.tsx",
+				progress: { issue: "#117", phase: "build" },
+			},
+		];
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				onSessionsUpdate?.(testSessions);
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		// Return value includes the opened path — verifies path combination (session.path + "/" + recent_file)
+		await waitFor(async () => {
+			const result = await bridge.callTool("skill_workspace_focus_session", {
+				dir: "naia-os",
+				open_recent_file: true,
+			});
+			expect(result).toBe("Focused: naia-os, opened: /dev/naia-os/shell/src/App.tsx");
+		});
+	});
+
+	it("skill_workspace_focus_session ignores non-boolean open_recent_file (trust boundary)", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		const testSessions: SessionInfo[] = [
+			{
+				dir: "naia-os",
+				path: "/dev/naia-os",
+				status: "active",
+				recent_file: "shell/src/App.tsx",
+			},
+		];
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				onSessionsUpdate?.(testSessions);
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		// Truthy string "yes" must NOT trigger file open (LLM trust boundary)
+		// waitFor ensures sessions are injected into sessionsRef before callTool
+		await waitFor(async () => {
+			const result = await bridge.callTool("skill_workspace_focus_session", {
+				dir: "naia-os",
+				open_recent_file: "yes",
+			});
+			// File not opened: return value must not contain "opened:"
+			expect(result).toBe("Focused: naia-os");
+		});
+	});
+
+	it("skill_workspace_focus_session clears badge when open_recent_file=true but no recent_file", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		// Session with NO recent_file
+		const testSessions: SessionInfo[] = [
+			{
+				dir: "naia-os",
+				path: "/dev/naia-os",
+				status: "active",
+			},
+		];
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				onSessionsUpdate?.(testSessions);
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_focus_session")).toBe(true),
+		);
+
+		// open_recent_file=true but session has no recent_file → "Focused: {dir}" (no "opened:")
+		await waitFor(async () => {
+			const result = await bridge.callTool("skill_workspace_focus_session", {
+				dir: "naia-os",
+				open_recent_file: true,
+			});
+			expect(result).toBe("Focused: naia-os");
+		});
+	});
+
 	it("skill_workspace_open_file updates editor filepath", async () => {
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -535,6 +733,17 @@ describe("Workspace panel registry", () => {
 
 		const tool = panel?.tools?.find(
 			(t) => t.name === "skill_workspace_open_file",
+		);
+		expect(tool).toBeDefined();
+		expect(tool?.tier).toBe(1);
+	});
+
+	it("workspace panel has skill_workspace_focus_session tool", async () => {
+		const { panelRegistry } = await import("../../lib/panel-registry");
+		const panel = panelRegistry.get("workspace");
+
+		const tool = panel?.tools?.find(
+			(t) => t.name === "skill_workspace_focus_session",
 		);
 		expect(tool).toBeDefined();
 		expect(tool?.tier).toBe(1);

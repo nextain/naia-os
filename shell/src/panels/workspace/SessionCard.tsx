@@ -80,6 +80,7 @@ export function SessionCard({ session, onClick, highlighted }: SessionCardProps)
 			className={`workspace-session-card workspace-session-card--${session.status}${highlighted ? " workspace-session-card--highlighted" : ""}`}
 			onClick={() => onClick(session)}
 			title={`${session.dir}\n${session.path}`}
+			data-dir={session.dir}
 		>
 			<div className="workspace-session-card__header">
 				<span className="workspace-session-card__status-icon">{statusIcon}</span>

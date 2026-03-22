@@ -27,6 +27,28 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 		tier: 1, // notify
 	},
 	{
+		name: "skill_workspace_focus_session",
+		description:
+			"워크스페이스 패널을 활성화하고 지정한 세션 카드로 스크롤·하이라이트한다. 3초 후 하이라이트 자동 해제. open_recent_file: true이면 세션의 마지막 작업 파일도 에디터에 연다.",
+		parameters: {
+			type: "object",
+			properties: {
+				dir: {
+					type: "string",
+					description:
+						"세션의 dir 식별자 (skill_workspace_get_sessions 반환값의 sessions[].dir 필드)",
+				},
+				open_recent_file: {
+					type: "boolean",
+					description:
+						"true이면 세션의 recent_file을 에디터에 연다. 성공 시 반환값: 'Focused: {dir}, opened: {path}'. recent_file이 없으면 파일 열기를 건너뛰고 'Focused: {dir}'만 반환된다.",
+				},
+			},
+			required: ["dir"],
+		},
+		tier: 1, // notify
+	},
+	{
 		name: "skill_workspace_classify_dirs",
 		description:
 			"dev 디렉토리의 하위 폴더를 분류(project/worktree/reference/docs/other)한다. 인자 없이 호출하면 추천 분류 결과를 반환하고, confirmed 배열을 넘기면 해당 분류를 적용하고 저장한다.",
