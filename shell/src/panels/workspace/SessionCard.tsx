@@ -17,6 +17,8 @@ export interface SessionInfo {
 interface SessionCardProps {
 	session: SessionInfo;
 	onClick: (session: SessionInfo) => void;
+	/** Highlight this card (triggered by Panel API focusSession) */
+	highlighted?: boolean;
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -62,7 +64,7 @@ function useRelativeTime(timestamp: number | null | undefined): string {
 	return label;
 }
 
-export function SessionCard({ session, onClick }: SessionCardProps) {
+export function SessionCard({ session, onClick, highlighted }: SessionCardProps) {
 	const relTime = useRelativeTime(session.last_change);
 	const statusIcon = STATUS_ICONS[session.status] ?? "⚫";
 	const statusLabel = STATUS_LABELS[session.status] ?? session.status;
@@ -75,7 +77,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
 	return (
 		<button
 			type="button"
-			className={`workspace-session-card workspace-session-card--${session.status}`}
+			className={`workspace-session-card workspace-session-card--${session.status}${highlighted ? " workspace-session-card--highlighted" : ""}`}
 			onClick={() => onClick(session)}
 			title={`${session.dir}\n${session.path}`}
 		>

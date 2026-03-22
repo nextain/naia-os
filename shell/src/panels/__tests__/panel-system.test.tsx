@@ -134,6 +134,47 @@ describe("Panel Registry", () => {
 	});
 });
 
+// ─── Tests: Panel Registry API (updateApi / getApi) ──────────────────────────
+
+describe("Panel Registry — API", () => {
+	const FakeCenterPanel = () => <div />;
+
+	beforeEach(() => {
+		panelRegistry.register({ id: "api-test-panel", name: "API Test", center: FakeCenterPanel });
+	});
+
+	afterEach(() => {
+		panelRegistry.unregister("api-test-panel");
+	});
+
+	it("getApi returns undefined before updateApi is called", () => {
+		expect(panelRegistry.getApi("api-test-panel")).toBeUndefined();
+	});
+
+	it("updateApi + getApi round-trip returns the registered api object", () => {
+		const api = { doSomething: () => "result" };
+		panelRegistry.updateApi("api-test-panel", api);
+		expect(panelRegistry.getApi("api-test-panel")).toBe(api);
+	});
+
+	it("updateApi(id, undefined) clears the api — getApi returns undefined", () => {
+		panelRegistry.updateApi("api-test-panel", { fn: () => {} });
+		panelRegistry.updateApi("api-test-panel", undefined);
+		expect(panelRegistry.getApi("api-test-panel")).toBeUndefined();
+	});
+
+	it("getApi for unregistered panel returns undefined gracefully", () => {
+		expect(panelRegistry.getApi("nonexistent-panel")).toBeUndefined();
+	});
+
+	it("updateApi for unregistered panel is a silent no-op", () => {
+		// Should not throw
+		expect(() =>
+			panelRegistry.updateApi("nonexistent-panel", { fn: () => {} }),
+		).not.toThrow();
+	});
+});
+
 // ─── Tests: SampleNote Panel Tools ───────────────────────────────────────────
 
 describe("SampleNote Panel — tool interaction", () => {

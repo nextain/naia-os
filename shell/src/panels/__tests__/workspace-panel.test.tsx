@@ -7,8 +7,9 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { panelRegistry } from "../../lib/panel-registry";
 import type {
 	NaiaContextBridge,
 	PanelContext,
@@ -93,11 +94,12 @@ vi.mock("../workspace/SessionDashboard", () => ({
 		}: {
 			onSessionsUpdate?: (sessions: SessionInfo[]) => void;
 			onSessionClick: (session: SessionInfo) => void;
+			highlightedDir?: string;
 		}) => {
 			useEffect(() => {
 				onSessionsUpdate?.([]);
 			}, [onSessionsUpdate]);
-			return null;
+			return null as unknown as React.ReactElement;
 		},
 	),
 }));
@@ -237,7 +239,7 @@ describe("WorkspaceCenterPanel", () => {
 			useEffect(() => {
 				onSessionsUpdate?.(testSessions);
 			}, [onSessionsUpdate]);
-			return null;
+			return null as unknown as React.ReactElement;
 		});
 
 		const { WorkspaceCenterPanel } = await import(
@@ -270,6 +272,30 @@ describe("WorkspaceCenterPanel", () => {
 			expect(p.summary.description).toContain("[main]");
 			expect(p.summary.description).toContain("(#79)");
 		});
+	});
+
+	it("Panel API: getApi returns WorkspacePanelApi after mount, undefined after unmount", async () => {
+		// Ensure workspace panel is registered in the registry (normally done by index.tsx)
+		await import("../workspace/index");
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+		const { unmount } = render(<WorkspaceCenterPanel naia={bridge} />);
+
+		// After mount the API should be registered
+		await waitFor(() =>
+			expect(panelRegistry.getApi("workspace")).toBeDefined(),
+		);
+		const api = panelRegistry.getApi("workspace");
+		expect(typeof api?.openFile).toBe("function");
+		expect(typeof api?.focusSession).toBe("function");
+		expect(typeof api?.getActiveSessions).toBe("function");
+		expect(typeof api?.activatePanel).toBe("function");
+
+		// After unmount the API should be cleared
+		unmount();
+		expect(panelRegistry.getApi("workspace")).toBeUndefined();
 	});
 
 	it("skill_workspace_open_file updates editor filepath", async () => {

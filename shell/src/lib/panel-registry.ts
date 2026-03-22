@@ -113,6 +113,18 @@ export interface PanelCenterProps {
 
 // ─── Descriptor ──────────────────────────────────────────────────────────────
 
+// ─── Panel API ───────────────────────────────────────────────────────────────
+
+/**
+ * Built-in panels expose a versioned API for other panels to call without
+ * importing internal component modules.
+ *
+ * Registered via `panelRegistry.updateApi(id, api)` when the panel mounts,
+ * cleared when it unmounts. Callers use `panelRegistry.getApi<T>(id)`.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: intentionally open API contract
+export type PanelApi = Record<string, (...args: any[]) => unknown>;
+
 /** Full description of a panel. Register via `panelRegistry.register()`. */
 export interface PanelDescriptor {
 	/** Unique identifier, e.g. "avatar", "browser", "issues" */
@@ -158,6 +170,12 @@ export interface PanelDescriptor {
 	onActivate?: () => void;
 	/** Called when this panel is deactivated */
 	onDeactivate?: () => void;
+	/**
+	 * Programmatic API exposed to other panels.
+	 * Set/cleared by the panel component via `panelRegistry.updateApi()`.
+	 * Typed via `panelRegistry.getApi<MyPanelApi>(id)`.
+	 */
+	api?: PanelApi;
 }
 
 // ─── Registry ────────────────────────────────────────────────────────────────
@@ -179,6 +197,27 @@ class PanelRegistryImpl {
 
 	list(): PanelDescriptor[] {
 		return Array.from(this.panels.values());
+	}
+
+	/**
+	 * Get the live API exposed by a panel.
+	 * Returns undefined if the panel is not registered or has no API mounted.
+	 *
+	 * @example
+	 * const api = panelRegistry.getApi<WorkspacePanelApi>("workspace");
+	 * api?.openFile("/path/to/file.ts");
+	 */
+	getApi<T extends PanelApi = PanelApi>(id: string): T | undefined {
+		return this.panels.get(id)?.api as T | undefined;
+	}
+
+	/**
+	 * Set (or clear) the live API for a panel.
+	 * Called by the panel component on mount/unmount.
+	 */
+	updateApi(id: string, api: PanelApi | undefined): void {
+		const panel = this.panels.get(id);
+		if (panel) panel.api = api;
 	}
 }
 

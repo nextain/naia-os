@@ -5521,6 +5521,17 @@ body.resizing-row {
 	opacity: 0.6;
 }
 
+.workspace-session-card--highlighted {
+	outline: 2px solid var(--naia-accent, #58a6ff);
+	outline-offset: 1px;
+	animation: session-card-highlight-pulse 0.4s ease-out;
+}
+
+@keyframes session-card-highlight-pulse {
+	0% { outline-color: #fff; }
+	100% { outline-color: var(--naia-accent, #58a6ff); }
+}
+
 .workspace-session-card__header {
 	display: flex;
 	align-items: center;

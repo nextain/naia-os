@@ -3,12 +3,39 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatStore } from "../../stores/chat";
 import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
+import { panelRegistry } from "../../lib/panel-registry";
 import type { PanelCenterProps } from "../../lib/panel-registry";
+import { usePanelStore } from "../../stores/panel";
 import { Editor } from "./Editor";
 import { FileTree } from "./FileTree";
 import type { SessionInfo } from "./SessionCard";
 import { SessionDashboard } from "./SessionDashboard";
 import { ACTIVE_THRESHOLD_SECONDS } from "./constants";
+
+// ─── Panel API ───────────────────────────────────────────────────────────────
+
+/**
+ * Programmatic API exposed by the Workspace panel.
+ * Access via `panelRegistry.getApi<WorkspacePanelApi>("workspace")`.
+ */
+export interface WorkspacePanelApi {
+	/** Open a file in the Editor. */
+	openFile: (path: string) => void;
+	/**
+	 * Highlight (visually focus) a session card by its `dir` identifier.
+	 * Full scroll-into-view is implemented in #117.
+	 * Caller should invoke `activatePanel()` first if the Workspace panel
+	 * is not currently visible — focusSession only highlights, it does not
+	 * switch panels.
+	 */
+	focusSession: (dir: string) => void;
+	/** Return the current live session list. */
+	getActiveSessions: () => SessionInfo[];
+	/** Switch the center panel to Workspace. */
+	activatePanel: () => void;
+}
+
+// ─── Re-export for FileTree ───────────────────────────────────────────────────
 
 // Re-export for FileTree to use
 export interface ClassifiedDir {
@@ -45,6 +72,11 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const [idleToast, setIdleToast] = useState<string | null>(null);
 	const idleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const idleNotifiedRef = useRef<Set<string>>(new Set());
+	/** Session dir highlighted by focusSession() API call — cleared after 3s */
+	const [highlightedSessionDir, setHighlightedSessionDir] = useState<
+		string | null
+	>(null);
+	const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	/** True until the first session fetch resolves (hides blank flash on first render) */
 	const initializedRef = useRef(false);
 	const [initialized, setInitialized] = useState(false);
@@ -285,6 +317,43 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		setEditorBadge("");
 	}, []);
 
+	// ── Panel API (WorkspacePanelApi) ─────────────────────────────────────
+	// Register a live API so other panels (e.g. Issue Desk) can call
+	// openFile / focusSession without importing internal component modules.
+	useEffect(() => {
+		panelRegistry.updateApi("workspace", {
+			openFile: (path: string) => {
+				setOpenFilePath(path);
+				setEditorBadge("");
+			},
+			focusSession: (dir: string) => {
+				if (!sessionsRef.current.some((s) => s.dir === dir)) {
+					Logger.warn("WorkspaceCenterPanel", "focusSession: dir not found", { dir });
+					return;
+				}
+				// Cancel any in-flight highlight timer before starting a new one
+				if (highlightTimerRef.current)
+					clearTimeout(highlightTimerRef.current);
+				setHighlightedSessionDir(dir);
+				highlightTimerRef.current = setTimeout(() => {
+					setHighlightedSessionDir(null);
+					highlightTimerRef.current = null;
+				}, 3000);
+			},
+			getActiveSessions: () => sessionsRef.current,
+			activatePanel: () =>
+				usePanelStore.getState().setActivePanel("workspace"),
+		} satisfies WorkspacePanelApi);
+		return () => {
+			panelRegistry.updateApi("workspace", undefined);
+			// Cancel pending highlight timer on unmount to avoid setState after unmount
+			if (highlightTimerRef.current) {
+				clearTimeout(highlightTimerRef.current);
+				highlightTimerRef.current = null;
+			}
+		};
+	}, []); // stable: setters and refs never change
+
 	// ── Naia tool: skill_workspace_get_sessions ───────────────────────────
 	useEffect(() => {
 		const unsub = naia.onToolCall("skill_workspace_get_sessions", () => {
@@ -443,6 +512,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				<SessionDashboard
 					onSessionClick={handleSessionClick}
 					onSessionsUpdate={handleSessionsUpdate}
+					highlightedDir={highlightedSessionDir ?? undefined}
 				/>
 			</div>
 		</div>

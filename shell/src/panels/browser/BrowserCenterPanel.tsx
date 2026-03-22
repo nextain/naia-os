@@ -3,7 +3,26 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { addAllowedTool } from "../../lib/config";
 import { Logger } from "../../lib/logger";
+import { panelRegistry } from "../../lib/panel-registry";
 import type { PanelCenterProps } from "../../lib/panel-registry";
+import { usePanelStore } from "../../stores/panel";
+
+// ─── Panel API ───────────────────────────────────────────────────────────────
+
+/**
+ * Programmatic API exposed by the Browser panel.
+ * Access via `panelRegistry.getApi<BrowserPanelApi>("browser")`.
+ */
+export interface BrowserPanelApi {
+	/** Navigate the embedded Chrome to a URL. */
+	navigate: (url: string) => void;
+	/** Switch the center panel to Browser. */
+	activatePanel: () => void;
+	/** Hide the embedded Chrome X11 window. */
+	hide: () => void;
+	/** Show the embedded Chrome X11 window. */
+	show: () => void;
+}
 
 type EmbedStatus =
 	| "checking" // checking chrome + agent-browser availability
@@ -335,6 +354,20 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		syncBounds(); // immediately sync after embed
 		return () => obs.disconnect();
 	}, [status]);
+
+	// ── Panel API (BrowserPanelApi) ───────────────────────────────────────────
+	useEffect(() => {
+		panelRegistry.updateApi("browser", {
+			navigate: (url: string) => {
+				invoke("browser_embed_navigate", { url }).catch(() => {});
+			},
+			activatePanel: () =>
+				usePanelStore.getState().setActivePanel("browser"),
+			hide: () => invoke("browser_embed_hide").catch(() => {}),
+			show: () => invoke("browser_embed_show").catch(() => {}),
+		} satisfies BrowserPanelApi);
+		return () => panelRegistry.updateApi("browser", undefined);
+	}, []); // stable: invoke and store never change
 
 	// ── Auto-allow browser tools globally (no PermissionModal for these) ─────
 	// Called once on mount so the tools are in allowedTools config even when

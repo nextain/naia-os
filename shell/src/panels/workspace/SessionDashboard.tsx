@@ -9,11 +9,14 @@ interface SessionDashboardProps {
 	onSessionClick: (session: SessionInfo) => void;
 	/** Callback to expose current session list to parent */
 	onSessionsUpdate?: (sessions: SessionInfo[]) => void;
+	/** Dir identifier of the session to visually highlight (from Panel API focusSession) */
+	highlightedDir?: string;
 }
 
 export function SessionDashboard({
 	onSessionClick,
 	onSessionsUpdate,
+	highlightedDir,
 }: SessionDashboardProps) {
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -113,6 +116,7 @@ export function SessionDashboard({
 						key={session.path}
 						session={session}
 						onClick={onSessionClick}
+						highlighted={session.dir === highlightedDir}
 					/>
 				))}
 			</div>
