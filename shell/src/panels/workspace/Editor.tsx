@@ -6,7 +6,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { yaml } from "@codemirror/lang-yaml";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
@@ -56,6 +56,10 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const [viewMode, setViewMode] = useState<ViewMode>("editor");
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState("");
+	/** Error message from a failed file load; null = no error. Shown in UI instead of editor. */
+	const [loadError, setLoadError] = useState<string | null>(null);
+	/** Ref mirror of loadError for synchronous updateListener access */
+	const loadErrorRef = useRef(false);
 	const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const filePathRef = useRef(filePath);
 	filePathRef.current = filePath;
@@ -72,14 +76,21 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	useEffect(() => {
 		if (!filePath) {
 			setContent("");
+			setLoadError(null);
+			loadErrorRef.current = false;
 			return;
 		}
 		const thisPath = filePath;
+		// Reset error state at load start (ref first — read synchronously by updateListener)
+		loadErrorRef.current = false;
+		setLoadError(null);
 		invoke<string>("workspace_read_file", { path: thisPath })
 			.then((text) => {
 				// Guard against stale response when user switches files quickly
 				if (filePathRef.current !== thisPath) return;
 				justLoadedRef.current = true;
+				loadErrorRef.current = false;
+				setLoadError(null);
 				setContent(text);
 				Logger.info("Editor", "File loaded", {
 					path: thisPath,
@@ -88,12 +99,14 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			})
 			.catch((e) => {
 				if (filePathRef.current !== thisPath) return;
-				justLoadedRef.current = true;
+				// Mark load as failed — autosave is disabled while this is true.
+				// Do NOT set content to the error string; show error in UI instead.
+				loadErrorRef.current = true;
+				setLoadError(String(e));
 				Logger.error("Editor", "Failed to load file", {
 					path: thisPath,
 					error: String(e),
 				});
-				setContent(`// Error loading file: ${String(e)}`);
 			});
 	}, [filePath]);
 
@@ -145,22 +158,26 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			oneDark,
 			EditorView.lineWrapping,
 			EditorView.updateListener.of((update) => {
-				if (update.docChanged && !readOnly) {
-					const text = update.state.doc.toString();
+				if (update.docChanged) {
 					// Don't trigger autosave/preview-sync on the initial load sync
 					if (justLoadedRef.current) {
 						justLoadedRef.current = false;
 						return;
 					}
-					// Update content state for live split-view preview
-					setContent(text);
-					// Autosave debounce
-					if (autosaveTimerRef.current) {
-						clearTimeout(autosaveTimerRef.current);
+					if (!readOnly) {
+						const text = update.state.doc.toString();
+						// Don't autosave while a file-load error is active
+						if (loadErrorRef.current) return;
+						// Update content state for live split-view preview
+						setContent(text);
+						// Autosave debounce
+						if (autosaveTimerRef.current) {
+							clearTimeout(autosaveTimerRef.current);
+						}
+						autosaveTimerRef.current = setTimeout(() => {
+							void saveFile(text);
+						}, AUTOSAVE_DEBOUNCE_MS);
 					}
-					autosaveTimerRef.current = setTimeout(() => {
-						void saveFile(text);
-					}, AUTOSAVE_DEBOUNCE_MS);
 				}
 			}),
 			...(readOnly ? [EditorState.readOnly.of(true)] : []),
@@ -177,9 +194,23 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 
 		viewRef.current = view;
 
+		// If a file was loaded while viewMode was "preview", the sync effect could not
+		// clear justLoadedRef (viewRef was null at that time). Clear it now so the user's
+		// first edit after switching to editor mode is not mistakenly swallowed.
+		// The doc was initialised with `content` above, so no dispatch is needed.
+		if (justLoadedRef.current) {
+			justLoadedRef.current = false;
+		}
+
 		return () => {
 			view.destroy();
 			viewRef.current = null;
+			// Clear any pending autosave when the view is torn down (viewMode change,
+			// file switch, or unmount) to prevent stale saves after the context changes.
+			if (autosaveTimerRef.current) {
+				clearTimeout(autosaveTimerRef.current);
+				autosaveTimerRef.current = null;
+			}
 		};
 		// content excluded intentionally — we update it via transaction below
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,25 +221,28 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 		const view = viewRef.current;
 		if (!view) return;
 		const currentDoc = view.state.doc.toString();
+		const isFileLoad = justLoadedRef.current;
 		if (currentDoc !== content) {
+			// When the change originates from a file load (justLoadedRef=true), mark the
+			// transaction as non-history so it does not pollute the undo stack.
+			// The updateListener will clear justLoadedRef.current after this dispatch.
 			view.dispatch({
 				changes: {
 					from: 0,
 					to: view.state.doc.length,
 					insert: content,
 				},
+				...(isFileLoad && {
+					annotations: Transaction.addToHistory.of(false),
+				}),
 			});
+		} else if (isFileLoad) {
+			// Content unchanged after file load (new file has same content as previous).
+			// No dispatch needed, but clear the flag so the user's first edit is not
+			// mistakenly swallowed by the justLoadedRef guard in updateListener.
+			justLoadedRef.current = false;
 		}
 	}, [content]);
-
-	// ── Cleanup autosave timer ─────────────────────────────────────────────
-	useEffect(() => {
-		return () => {
-			if (autosaveTimerRef.current) {
-				clearTimeout(autosaveTimerRef.current);
-			}
-		};
-	}, []);
 
 	// ── Empty state ───────────────────────────────────────────────────────
 	if (!filePath) {
@@ -222,6 +256,20 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	}
 
 	const shortName = filePath.split("/").pop() ?? filePath;
+
+	// ── Load error state ──────────────────────────────────────────────────
+	if (loadError) {
+		return (
+			<div className="workspace-editor workspace-editor--error">
+				<div className="workspace-editor__header">
+					<span className="workspace-editor__filename">{shortName}</span>
+				</div>
+				<div className="workspace-editor__load-error">
+					파일을 열 수 없습니다: {loadError}
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="workspace-editor">
