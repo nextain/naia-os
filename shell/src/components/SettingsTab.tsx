@@ -625,7 +625,7 @@ function sanitizeDeviceLabel(label: string): string {
 	const stripped = [...label]
 		.filter((c) => {
 			const cp = c.codePointAt(0) ?? 0;
-			return !(cp <= 0x1F || (cp >= 0x7F && cp <= 0x00FF) || cp === 0xFFFD);
+			return !(cp <= 0x1f || (cp >= 0x7f && cp <= 0x00ff) || cp === 0xfffd);
 		})
 		.join("")
 		// 2. Punctuation isolated by stripping → collapse to space
@@ -635,7 +635,11 @@ function sanitizeDeviceLabel(label: string): string {
 	// 3. Remove short tokens (≤2 chars) that aren't Korean/CJK — EUC-KR byte remnants
 	const result = stripped
 		.split(" ")
-		.filter((tok) => tok.length >= 3 || /[\uAC00-\uD7A3\u4E00-\u9FFF\uFF00-\uFFEF]/.test(tok))
+		.filter(
+			(tok) =>
+				tok.length >= 3 ||
+				/[\uAC00-\uD7A3\u4E00-\u9FFF\uFF00-\uFFEF]/.test(tok),
+		)
 		.join(" ")
 		.trim();
 	return result || label.trim();
@@ -643,7 +647,12 @@ function sanitizeDeviceLabel(label: string): string {
 
 /** Custom dropdown for audio device selection.
  * Replaces native <select> to avoid WebKitGTK native popup ignoring CSS font-family (Korean garbling). */
-function DeviceSelect({ value, options, onChange, placeholder = "기본 장치" }: {
+function DeviceSelect({
+	value,
+	options,
+	onChange,
+	placeholder = "기본 장치",
+}: {
 	value: string;
 	options: { value: string; label: string }[];
 	onChange: (value: string) => void;
@@ -668,13 +677,18 @@ function DeviceSelect({ value, options, onChange, placeholder = "기본 장치" 
 		<div ref={ref} className="device-select">
 			<div className="device-select-trigger" onClick={() => setOpen((v) => !v)}>
 				<span>{label}</span>
-				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4"/></svg>
+				<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+					<path fill="currentColor" d="M2 4l4 4 4-4" />
+				</svg>
 			</div>
 			{open && (
 				<div className="device-select-dropdown">
 					<div
 						className={`device-select-option${!value ? " selected" : ""}`}
-						onClick={() => { onChange(""); setOpen(false); }}
+						onClick={() => {
+							onChange("");
+							setOpen(false);
+						}}
 					>
 						{placeholder}
 					</div>
@@ -682,7 +696,10 @@ function DeviceSelect({ value, options, onChange, placeholder = "기본 장치" 
 						<div
 							key={o.value}
 							className={`device-select-option${o.value === value ? " selected" : ""}`}
-							onClick={() => { onChange(o.value); setOpen(false); }}
+							onClick={() => {
+								onChange(o.value);
+								setOpen(false);
+							}}
 						>
 							{o.label}
 						</div>
@@ -782,18 +799,24 @@ export function SettingsTab() {
 		existing?.vllmHost ?? DEFAULT_VLLM_HOST,
 	);
 	const [vllmConnected, setVllmConnected] = useState(false);
-	const [vllmSttHost, setVllmSttHost] = useState(
-		existing?.vllmSttHost ?? "",
-	);
-	const [vllmTtsHost, setVllmTtsHost] = useState(
-		existing?.vllmTtsHost ?? "",
-	);
+	const [vllmSttHost, setVllmSttHost] = useState(existing?.vllmSttHost ?? "");
+	const [vllmTtsHost, setVllmTtsHost] = useState(existing?.vllmTtsHost ?? "");
 
-	const [vllmSttModels, setVllmSttModels] = useState<import("../lib/llm/types").LlmModelMeta[]>([]);
-	const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
-	const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
-	const [sttInputDeviceId, setSttInputDeviceId] = useState(existing?.sttInputDeviceId ?? "");
-	const [ttsOutputDeviceId, setTtsOutputDeviceId] = useState(existing?.ttsOutputDeviceId ?? "");
+	const [vllmSttModels, setVllmSttModels] = useState<
+		import("../lib/llm/types").LlmModelMeta[]
+	>([]);
+	const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>(
+		[],
+	);
+	const [audioOutputDevices, setAudioOutputDevices] = useState<
+		MediaDeviceInfo[]
+	>([]);
+	const [sttInputDeviceId, setSttInputDeviceId] = useState(
+		existing?.sttInputDeviceId ?? "",
+	);
+	const [ttsOutputDeviceId, setTtsOutputDeviceId] = useState(
+		existing?.ttsOutputDeviceId ?? "",
+	);
 	const [micTestActive, setMicTestActive] = useState(false);
 	const [micTestLevel, setMicTestLevel] = useState(0);
 	const micTestCleanupRef = useRef<(() => void) | null>(null);
@@ -980,7 +1003,11 @@ export function SettingsTab() {
 
 						const pushModel = (key: string) => {
 							if (!grouped[key]?.some((x) => x.id === modelId)) {
-								grouped[key].push({ id: modelId, label, capabilities: ["llm"] as const });
+								grouped[key].push({
+									id: modelId,
+									label,
+									capabilities: ["llm"] as const,
+								});
 							}
 						};
 
@@ -1039,7 +1066,9 @@ export function SettingsTab() {
 			if (models.length > 0) {
 				setDynamicModels((prev) => ({ ...prev, vllm: models }));
 				// Auto-select: skip ASR-only models (they belong in STT, not LLM)
-				const nonAsrModels = models.filter((m) => !m.capabilities.includes("asr"));
+				const nonAsrModels = models.filter(
+					(m) => !m.capabilities.includes("asr"),
+				);
 				const currentValid = nonAsrModels.some((m) => m.id === model);
 				if (!currentValid) {
 					setModel(nonAsrModels[0]?.id ?? "");
@@ -1069,31 +1098,52 @@ export function SettingsTab() {
 				.then((sinks) => {
 					Logger.debug("SettingsTab", "pw-dump sinks", { count: sinks.length });
 					setAudioOutputDevices(
-						sinks.map((s) => ({ deviceId: s.id, label: s.label, kind: "audiooutput", groupId: "" }) as MediaDeviceInfo),
+						sinks.map(
+							(s) =>
+								({
+									deviceId: s.id,
+									label: s.label,
+									kind: "audiooutput",
+									groupId: "",
+								}) as MediaDeviceInfo,
+						),
 					);
 				})
-				.catch((e) => Logger.warn("SettingsTab", "list_audio_output_devices failed", { e }));
+				.catch((e) =>
+					Logger.warn("SettingsTab", "list_audio_output_devices failed", { e }),
+				);
 		};
 		refreshOutputDevices();
 
 		const enumerate = () => {
 			refreshOutputDevices();
-			navigator.mediaDevices.enumerateDevices().then((devices) => {
-				const inputs = devices.filter((d) => d.kind === "audioinput");
-				// Debug: check raw label encoding — if Korean appears garbled, chars will show wrong codepoints
-				Logger.debug("SettingsTab", "Audio input devices enumerated", {
-					inputs: inputs.map((d) => ({ label: d.label, codes: [...d.label].map((c) => c.codePointAt(0)) })),
-				});
-				setAudioInputDevices(inputs);
-			}).catch(() => {});
+			navigator.mediaDevices
+				.enumerateDevices()
+				.then((devices) => {
+					const inputs = devices.filter((d) => d.kind === "audioinput");
+					// Debug: check raw label encoding — if Korean appears garbled, chars will show wrong codepoints
+					Logger.debug("SettingsTab", "Audio input devices enumerated", {
+						inputs: inputs.map((d) => ({
+							label: d.label,
+							codes: [...d.label].map((c) => c.codePointAt(0)),
+						})),
+					});
+					setAudioInputDevices(inputs);
+				})
+				.catch(() => {});
 		};
 		// Request mic permission briefly — WebKitGTK requires this before enumerating input labels.
-		navigator.mediaDevices.getUserMedia({ audio: true })
-			.then((stream) => { stream.getTracks().forEach((t) => t.stop()); enumerate(); })
+		navigator.mediaDevices
+			.getUserMedia({ audio: true })
+			.then((stream) => {
+				stream.getTracks().forEach((t) => t.stop());
+				enumerate();
+			})
 			.catch(() => enumerate());
 
 		navigator.mediaDevices.addEventListener("devicechange", enumerate);
-		return () => navigator.mediaDevices.removeEventListener("devicechange", enumerate);
+		return () =>
+			navigator.mediaDevices.removeEventListener("devicechange", enumerate);
 	}, []);
 
 	async function startMicTest() {
@@ -1106,7 +1156,9 @@ export function SettingsTab() {
 					echoCancellation: false,
 					noiseSuppression: false,
 					autoGainControl: false,
-					...(sttInputDeviceId ? { deviceId: { exact: sttInputDeviceId } } : {}),
+					...(sttInputDeviceId
+						? { deviceId: { exact: sttInputDeviceId } }
+						: {}),
 				},
 			});
 			const ctx = new AudioContext();
@@ -1147,8 +1199,8 @@ export function SettingsTab() {
 		const notes = [
 			{ freq: 261.63, dur: 0.15 },
 			{ freq: 329.63, dur: 0.15 },
-			{ freq: 392.00, dur: 0.15 },
-			{ freq: 523.25, dur: 0.30 },
+			{ freq: 392.0, dur: 0.15 },
+			{ freq: 523.25, dur: 0.3 },
 		];
 		const allSamples: number[] = [];
 		for (const { freq, dur } of notes) {
@@ -1157,23 +1209,40 @@ export function SettingsTab() {
 				const t = i / sampleRate;
 				const attack = Math.min(1, t / 0.01);
 				const release = Math.min(1, (dur - t) / 0.04);
-				allSamples.push(Math.round(0.35 * 32767 * attack * release * Math.sin(2 * Math.PI * freq * t)));
+				allSamples.push(
+					Math.round(
+						0.35 * 32767 * attack * release * Math.sin(2 * Math.PI * freq * t),
+					),
+				);
 			}
 		}
 		const pcm = new Int16Array(allSamples);
 		const wavBuffer = new ArrayBuffer(44 + pcm.byteLength);
 		const view = new DataView(wavBuffer);
-		const ws = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-		ws(0, "RIFF"); view.setUint32(4, 36 + pcm.byteLength, true);
-		ws(8, "WAVE"); ws(12, "fmt "); view.setUint32(16, 16, true);
-		view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-		view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true);
-		view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-		ws(36, "data"); view.setUint32(40, pcm.byteLength, true);
+		const ws = (o: number, s: string) => {
+			for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i));
+		};
+		ws(0, "RIFF");
+		view.setUint32(4, 36 + pcm.byteLength, true);
+		ws(8, "WAVE");
+		ws(12, "fmt ");
+		view.setUint32(16, 16, true);
+		view.setUint16(20, 1, true);
+		view.setUint16(22, 1, true);
+		view.setUint32(24, sampleRate, true);
+		view.setUint32(28, sampleRate * 2, true);
+		view.setUint16(32, 2, true);
+		view.setUint16(34, 16, true);
+		ws(36, "data");
+		view.setUint32(40, pcm.byteLength, true);
 		new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm.buffer));
-		const url = URL.createObjectURL(new Blob([wavBuffer], { type: "audio/wav" }));
+		const url = URL.createObjectURL(
+			new Blob([wavBuffer], { type: "audio/wav" }),
+		);
 		const audio = new Audio(url);
-		const setSinkId = (audio as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+		const setSinkId = (
+			audio as unknown as { setSinkId?: (id: string) => Promise<void> }
+		).setSinkId;
 		if (ttsOutputDeviceId && setSinkId) {
 			setSinkId.call(audio, ttsOutputDeviceId).catch(() => {});
 		}
@@ -1933,9 +2002,7 @@ export function SettingsTab() {
 					? ollamaHost.trim() || undefined
 					: existing?.ollamaHost,
 			vllmHost:
-				provider === "vllm"
-					? vllmHost.trim() || undefined
-					: existing?.vllmHost,
+				provider === "vllm" ? vllmHost.trim() || undefined : existing?.vllmHost,
 			voice: isOmniModel(provider, model) ? voice : existing?.voice,
 			openaiRealtimeApiKey: openaiRealtimeApiKey.trim() || undefined,
 			sttInputDeviceId: sttInputDeviceId || undefined,
@@ -1989,7 +2056,8 @@ export function SettingsTab() {
 	const providerModels = dynamicModels[provider] ?? [];
 	const selectedModelMeta = providerModels.find((m) => m.id === model);
 	const hasSelectedModel = Boolean(selectedModelMeta);
-	const isSelectedOmni = selectedModelMeta?.capabilities.includes("omni") ?? false;
+	const isSelectedOmni =
+		selectedModelMeta?.capabilities.includes("omni") ?? false;
 	const modelIdLower = model?.toLowerCase() ?? "";
 	const isSelectedAsr =
 		(selectedModelMeta?.capabilities.includes("asr") ?? false) ||
@@ -2433,22 +2501,25 @@ export function SettingsTab() {
 			</div>
 
 			{/* API key — shown before model selector so user can enter key first */}
-			{provider !== "nextain" && provider !== "ollama" && provider !== "vllm" && provider !== "claude-code-cli" && (
-				<div className="settings-field">
-					<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
-					<input
-						id="apikey-input"
-						type="password"
-						value={apiKey}
-						onChange={(e) => {
-							setApiKey(e.target.value);
-							setError("");
-						}}
-						placeholder="sk-..."
-					/>
-					{error && <div className="settings-error">{error}</div>}
-				</div>
-			)}
+			{provider !== "nextain" &&
+				provider !== "ollama" &&
+				provider !== "vllm" &&
+				provider !== "claude-code-cli" && (
+					<div className="settings-field">
+						<label htmlFor="apikey-input">{t("settings.apiKey")}</label>
+						<input
+							id="apikey-input"
+							type="password"
+							value={apiKey}
+							onChange={(e) => {
+								setApiKey(e.target.value);
+								setError("");
+							}}
+							placeholder="sk-..."
+						/>
+						{error && <div className="settings-error">{error}</div>}
+					</div>
+				)}
 
 			{provider === "ollama" && (
 				<div className="settings-field">
@@ -2495,7 +2566,10 @@ export function SettingsTab() {
 						setModel(e.target.value);
 						// When switching to an omni model, set default voice if not already set
 						const newMeta = providerModels.find((m) => m.id === e.target.value);
-						if (newMeta?.capabilities.includes("omni") && newMeta.voices?.length) {
+						if (
+							newMeta?.capabilities.includes("omni") &&
+							newMeta.voices?.length
+						) {
 							const currentVoiceValid = newMeta.voices.some(
 								(v) => v.id === voice,
 							);
@@ -2508,11 +2582,13 @@ export function SettingsTab() {
 					{!hasSelectedModel && model ? (
 						<option value="__custom__">{`${model}${isSelectedAsr ? " 🎤" : ""} (현재값)`}</option>
 					) : null}
-					{providerModels.filter((m) => !m.capabilities.includes("asr")).map((m) => (
-						<option key={m.id} value={m.id}>
-							{formatModelLabel(m)}
-						</option>
-					))}
+					{providerModels
+						.filter((m) => !m.capabilities.includes("asr"))
+						.map((m) => (
+							<option key={m.id} value={m.id}>
+								{formatModelLabel(m)}
+							</option>
+						))}
 				</select>
 				<div className="settings-hint">{selectedModelMeta?.label ?? model}</div>
 			</div>
@@ -2593,7 +2669,8 @@ export function SettingsTab() {
 			{provider === "vllm" && (
 				<div className="settings-field">
 					<span className="settings-hint">
-						음성 버튼 → <code>ws://[vLLM Host]/ws</code> 자동 연결 (MiniCPM-o audio output)
+						음성 버튼 → <code>ws://[vLLM Host]/ws</code> 자동 연결 (MiniCPM-o
+						audio output)
 					</span>
 				</div>
 			)}
@@ -2823,178 +2900,202 @@ export function SettingsTab() {
 						<span>{t("settings.voiceSection")}</span>
 					</div>
 
-					{!isSelectedAsr && (<>
-					{/* Voice status summary */}
-					<div
-						className="settings-field"
-						style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}
-					>
-						{!sttProvider && <div>{t("settings.voiceStatusSttNeeded")}</div>}
-						{sttProvider && !sttModel && (
-							<div>{t("settings.voiceStatusModelNeeded")}</div>
-						)}
-						{sttProvider && sttModel && !ttsEnabled && (
-							<div>{t("settings.voiceStatusTtsOff")}</div>
-						)}
-						{sttProvider && sttModel && ttsEnabled && (
-							<div style={{ color: "var(--success-color, #4caf50)" }}>
-								{t("settings.voiceStatusReady")}
-							</div>
-						)}
-					</div>
-
-					{/* STT Provider */}
-					<div className="settings-field">
-						<label>{t("settings.sttProvider")}</label>
-						<select
-							value={sttProvider}
-							onChange={(e) => {
-								const next = e.target.value as SttProviderId;
-								setSttProvider(next);
-								// Clear model selection when switching engine type
-								setSttModel("");
-							}}
-						>
-							<option value="">{t("settings.sttNone")}</option>
-							{listSttProviders().map((p) => (
-								<option
-									key={p.id}
-									value={p.id}
-									disabled={p.requiresNaiaKey && !naiaKey}
-								>
-									{p.name}
-									{p.pricing ? ` — ${p.pricing}` : ""}
-									{p.requiresNaiaKey && !naiaKey
-										? ` (${t("settings.ttsNaiaRequired")})`
-										: ""}
-								</option>
-							))}
-						</select>
-					</div>
-					{/* Naia Cloud STT — backend engine selector */}
-					{sttProvider === "nextain" && naiaKey && (
-						<div className="settings-field">
-							<label>{t("settings.naiaCloudBackend")}</label>
-							<select
-								value={existing?.naiaCloudSttBackend ?? "google-cloud-stt"}
-								onChange={(e) => {
-									if (existing)
-										saveConfig({
-											...existing,
-											naiaCloudSttBackend: e.target.value,
-										});
-								}}
-							>
-								<option value="google-cloud-stt">Google Cloud STT</option>
-							</select>
-						</div>
-					)}
-					{/* STT API key — shown for API-based providers */}
-					{(() => {
-						const sttMeta = listSttProviders().find(
-							(p) => p.id === sttProvider,
-						);
-						if (sttMeta?.requiresNaiaKey && !naiaKey) {
-							return (
-								<div className="settings-field">
-									<span className="settings-hint">
-										{t("settings.ttsNaiaRequired")}
-									</span>
-								</div>
-							);
-						}
-						if (sttMeta?.requiresApiKey) {
-							const currentKey =
-								sttMeta.apiKeyConfigField === "googleApiKey"
-									? (existing?.googleApiKey ?? "")
-									: sttMeta.apiKeyConfigField === "elevenlabsApiKey"
-										? (existing?.elevenlabsApiKey ?? "")
-										: "";
-							return (
-								<div className="settings-field">
-									<label htmlFor="stt-api-key">{t("settings.sttApiKey")}</label>
-									<input
-										id="stt-api-key"
-										type="password"
-										defaultValue={currentKey}
-										onChange={(e) => {
-											if (sttMeta.apiKeyConfigField === "googleApiKey") {
-												setGatewayTtsApiKey(e.target.value);
-											}
-										}}
-										placeholder={`${sttMeta.name} API Key`}
-									/>
-								</div>
-							);
-						}
-						return null;
-					})()}
-
-					{/* STT Model — current selection + manage button (offline engines only) */}
-					{/* vLLM ASR: endpoint URL + ASR model picker */}
-					{sttProvider === "vllm" && (
+					{!isSelectedAsr && (
 						<>
-							<div className="settings-field">
-								<label>vLLM STT Host</label>
-								<input
-									type="text"
-									value={vllmSttHost}
-									onChange={(e) => {
-										setVllmSttHost(e.target.value);
-									if (existing) saveConfig({ ...existing, vllmSttHost: e.target.value });
-									}}
-									placeholder={DEFAULT_VLLM_HOST}
-								/>
-							</div>
-							{(() => {
-								const asrModels = vllmSttModels;
-								if (asrModels.length === 0) return (
-									<div className="settings-field"><span className="settings-hint">ASR 모델 불러오는 중... (Host URL 확인)</span></div>
-								);
-								return (
-									<div className="settings-field">
-										<label>ASR 모델</label>
-										<select
-											value={existing?.vllmSttModel ?? ""}
-											onChange={(e) => {
-												if (existing) saveConfig({ ...existing, vllmSttModel: e.target.value });
-											}}
-										>
-											{asrModels.map((m) => (
-												<option key={m.id} value={m.id}>{m.label} 🎤</option>
-											))}
-										</select>
+							{/* Voice status summary */}
+							<div
+								className="settings-field"
+								style={{ fontSize: "0.85em", opacity: 0.8, lineHeight: 1.6 }}
+							>
+								{!sttProvider && (
+									<div>{t("settings.voiceStatusSttNeeded")}</div>
+								)}
+								{sttProvider && !sttModel && (
+									<div>{t("settings.voiceStatusModelNeeded")}</div>
+								)}
+								{sttProvider && sttModel && !ttsEnabled && (
+									<div>{t("settings.voiceStatusTtsOff")}</div>
+								)}
+								{sttProvider && sttModel && ttsEnabled && (
+									<div style={{ color: "var(--success-color, #4caf50)" }}>
+										{t("settings.voiceStatusReady")}
 									</div>
+								)}
+							</div>
+
+							{/* STT Provider */}
+							<div className="settings-field">
+								<label>{t("settings.sttProvider")}</label>
+								<select
+									value={sttProvider}
+									onChange={(e) => {
+										const next = e.target.value as SttProviderId;
+										setSttProvider(next);
+										// Clear model selection when switching engine type
+										setSttModel("");
+									}}
+								>
+									<option value="">{t("settings.sttNone")}</option>
+									{listSttProviders().map((p) => (
+										<option
+											key={p.id}
+											value={p.id}
+											disabled={p.requiresNaiaKey && !naiaKey}
+										>
+											{p.name}
+											{p.pricing ? ` — ${p.pricing}` : ""}
+											{p.requiresNaiaKey && !naiaKey
+												? ` (${t("settings.ttsNaiaRequired")})`
+												: ""}
+										</option>
+									))}
+								</select>
+							</div>
+							{/* Naia Cloud STT — backend engine selector */}
+							{sttProvider === "nextain" && naiaKey && (
+								<div className="settings-field">
+									<label>{t("settings.naiaCloudBackend")}</label>
+									<select
+										value={existing?.naiaCloudSttBackend ?? "google-cloud-stt"}
+										onChange={(e) => {
+											if (existing)
+												saveConfig({
+													...existing,
+													naiaCloudSttBackend: e.target.value,
+												});
+										}}
+									>
+										<option value="google-cloud-stt">Google Cloud STT</option>
+									</select>
+								</div>
+							)}
+							{/* STT API key — shown for API-based providers */}
+							{(() => {
+								const sttMeta = listSttProviders().find(
+									(p) => p.id === sttProvider,
 								);
+								if (sttMeta?.requiresNaiaKey && !naiaKey) {
+									return (
+										<div className="settings-field">
+											<span className="settings-hint">
+												{t("settings.ttsNaiaRequired")}
+											</span>
+										</div>
+									);
+								}
+								if (sttMeta?.requiresApiKey) {
+									const currentKey =
+										sttMeta.apiKeyConfigField === "googleApiKey"
+											? (existing?.googleApiKey ?? "")
+											: sttMeta.apiKeyConfigField === "elevenlabsApiKey"
+												? (existing?.elevenlabsApiKey ?? "")
+												: "";
+									return (
+										<div className="settings-field">
+											<label htmlFor="stt-api-key">
+												{t("settings.sttApiKey")}
+											</label>
+											<input
+												id="stt-api-key"
+												type="password"
+												defaultValue={currentKey}
+												onChange={(e) => {
+													if (sttMeta.apiKeyConfigField === "googleApiKey") {
+														setGatewayTtsApiKey(e.target.value);
+													}
+												}}
+												placeholder={`${sttMeta.name} API Key`}
+											/>
+										</div>
+									);
+								}
+								return null;
 							})()}
+
+							{/* STT Model — current selection + manage button (offline engines only) */}
+							{/* vLLM ASR: endpoint URL + ASR model picker */}
+							{sttProvider === "vllm" && (
+								<>
+									<div className="settings-field">
+										<label>vLLM STT Host</label>
+										<input
+											type="text"
+											value={vllmSttHost}
+											onChange={(e) => {
+												setVllmSttHost(e.target.value);
+												if (existing)
+													saveConfig({
+														...existing,
+														vllmSttHost: e.target.value,
+													});
+											}}
+											placeholder={DEFAULT_VLLM_HOST}
+										/>
+									</div>
+									{(() => {
+										const asrModels = vllmSttModels;
+										if (asrModels.length === 0)
+											return (
+												<div className="settings-field">
+													<span className="settings-hint">
+														ASR 모델 불러오는 중... (Host URL 확인)
+													</span>
+												</div>
+											);
+										return (
+											<div className="settings-field">
+												<label>ASR 모델</label>
+												<select
+													value={existing?.vllmSttModel ?? ""}
+													onChange={(e) => {
+														if (existing)
+															saveConfig({
+																...existing,
+																vllmSttModel: e.target.value,
+															});
+													}}
+												>
+													{asrModels.map((m) => (
+														<option key={m.id} value={m.id}>
+															{m.label} 🎤
+														</option>
+													))}
+												</select>
+											</div>
+										);
+									})()}
+								</>
+							)}
+
+							{(sttProvider === "vosk" || sttProvider === "whisper") && (
+								<div className="settings-field">
+									<label>{t("settings.sttCurrentModel")}</label>
+									<div
+										style={{
+											display: "flex",
+											alignItems: "center",
+											gap: "8px",
+										}}
+									>
+										<span style={{ fontSize: "0.9em" }}>
+											{sttModel
+												? (sttModels.find((m) => m.modelId === sttModel)
+														?.modelName ?? sttModel)
+												: "—"}
+										</span>
+										<button
+											type="button"
+											className="onboarding-next-btn"
+											style={{ fontSize: "0.8em", padding: "4px 12px" }}
+											onClick={() => setSttModelModalOpen(true)}
+										>
+											{t("settings.sttManageModels")}
+										</button>
+									</div>
+								</div>
+							)}
 						</>
 					)}
-
-					{(sttProvider === "vosk" || sttProvider === "whisper") && (
-						<div className="settings-field">
-							<label>{t("settings.sttCurrentModel")}</label>
-							<div
-								style={{ display: "flex", alignItems: "center", gap: "8px" }}
-							>
-								<span style={{ fontSize: "0.9em" }}>
-									{sttModel
-										? (sttModels.find((m) => m.modelId === sttModel)
-												?.modelName ?? sttModel)
-										: "—"}
-								</span>
-								<button
-									type="button"
-									className="onboarding-next-btn"
-									style={{ fontSize: "0.8em", padding: "4px 12px" }}
-									onClick={() => setSttModelModalOpen(true)}
-								>
-									{t("settings.sttManageModels")}
-								</button>
-							</div>
-						</div>
-					)}
-
-					</>)}
 
 					{/* TTS */}
 					<div className="settings-field settings-toggle-row">
@@ -3155,7 +3256,8 @@ export function SettingsTab() {
 								value={vllmTtsHost}
 								onChange={(e) => {
 									setVllmTtsHost(e.target.value);
-									if (existing) saveConfig({ ...existing, vllmTtsHost: e.target.value });
+									if (existing)
+										saveConfig({ ...existing, vllmTtsHost: e.target.value });
 								}}
 								placeholder={DEFAULT_VLLM_HOST}
 							/>
@@ -3163,8 +3265,7 @@ export function SettingsTab() {
 						</div>
 					)}
 
-
-				{/* TTS Voice picker — dynamic based on provider */}
+					{/* TTS Voice picker — dynamic based on provider */}
 					{(() => {
 						const providerMeta = listTtsProviderMetas().find(
 							(p) => p.id === ttsProvider,
@@ -3255,10 +3356,16 @@ export function SettingsTab() {
 				<label>마이크 (입력 장치)</label>
 				<DeviceSelect
 					value={sttInputDeviceId}
-					options={audioInputDevices.map((d) => ({ value: d.deviceId, label: sanitizeDeviceLabel(d.label) || `마이크 ${d.deviceId.slice(0, 8)}` }))}
+					options={audioInputDevices.map((d) => ({
+						value: d.deviceId,
+						label:
+							sanitizeDeviceLabel(d.label) ||
+							`마이크 ${d.deviceId.slice(0, 8)}`,
+					}))}
 					onChange={(v) => {
 						setSttInputDeviceId(v);
-						if (existing) saveConfig({ ...existing, sttInputDeviceId: v || undefined });
+						if (existing)
+							saveConfig({ ...existing, sttInputDeviceId: v || undefined });
 					}}
 				/>
 			</div>
@@ -3286,10 +3393,16 @@ export function SettingsTab() {
 				<label>스피커 (출력 장치)</label>
 				<DeviceSelect
 					value={ttsOutputDeviceId}
-					options={audioOutputDevices.map((d) => ({ value: d.deviceId, label: sanitizeDeviceLabel(d.label) || `스피커 ${d.deviceId.slice(0, 8)}` }))}
+					options={audioOutputDevices.map((d) => ({
+						value: d.deviceId,
+						label:
+							sanitizeDeviceLabel(d.label) ||
+							`스피커 ${d.deviceId.slice(0, 8)}`,
+					}))}
 					onChange={(v) => {
 						setTtsOutputDeviceId(v);
-						if (existing) saveConfig({ ...existing, ttsOutputDeviceId: v || undefined });
+						if (existing)
+							saveConfig({ ...existing, ttsOutputDeviceId: v || undefined });
 					}}
 					placeholder="기본 장치"
 				/>
