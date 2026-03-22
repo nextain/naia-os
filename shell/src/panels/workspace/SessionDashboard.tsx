@@ -2,10 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
+import { WORKSPACE_ROOT } from "./constants";
 import { SessionCard, type SessionInfo } from "./SessionCard";
-
-// TODO(#107): derive from AppConfig once WORKSPACE_ROOT is moved to config.
-const WORKSPACE_ROOT = "/var/home/luke/dev";
 
 interface SessionDashboardProps {
 	onSessionClick: (session: SessionInfo) => void;
@@ -66,7 +64,7 @@ export function SessionDashboard({
 		const intervalId = setInterval(() => void loadSessions(), 15000);
 
 		return () => {
-			unlistenPromise.then((fn) => fn());
+			unlistenPromise.then((fn) => fn()).catch(() => {});
 			clearInterval(intervalId);
 			if (debounceRef.current) clearTimeout(debounceRef.current);
 		};
