@@ -168,8 +168,13 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			streamingContent,
 			streamingThinking,
 			streamingToolCalls,
+			pendingApproval,
 		} = get();
 		if (!isStreaming) return;
+		// If approval was pending and browser is active, re-show Chrome (mirrors clearPendingApproval)
+		if (pendingApproval && usePanelStore.getState().activePanel === "browser") {
+			invoke("browser_embed_show").catch(() => {});
+		}
 		const toolCalls =
 			streamingToolCalls.length > 0 ? streamingToolCalls : undefined;
 		set((s) => ({
@@ -254,9 +259,19 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 		set({ pendingApproval: approval });
 	},
 
-	clearPendingApproval: () => set({ pendingApproval: null }),
+	clearPendingApproval: () => {
+		// browser panel 활성 중이고 실제 approval이 있었을 때만 show — setPendingApproval의 hide와 대칭
+		if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") {
+			invoke("browser_embed_show").catch(() => {});
+		}
+		set({ pendingApproval: null });
+	},
 
-	newConversation: () =>
+	newConversation: () => {
+		// If approval was pending and browser is active, re-show Chrome before clearing
+		if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") {
+			invoke("browser_embed_show").catch(() => {});
+		}
 		set({
 			sessionId: null,
 			messages: [],
@@ -268,7 +283,8 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 			sessionCostEntries: [],
 			pendingApproval: null,
 			messageQueue: [],
-		}),
+		});
+	},
 
 	enqueueMessage: (text) =>
 		set((s) => ({ messageQueue: [...s.messageQueue, text] })),

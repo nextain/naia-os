@@ -35,6 +35,7 @@ argument-hint: "[선택사항: 특정 스킬 이름 또는 집중할 영역]"
 |------|------|---------------|
 | `verify-resource-viewer` | workspace 리소스 뷰어 핵심 불변식 (FILE_PATH_RE, 이미지/CSV/로그 분기, E2E mock 패턴) | `shell/src/panels/workspace/Editor.tsx`, `shell/src/components/ChatPanel.tsx`, `shell/e2e/116-resource-viewer.spec.ts` |
 | `verify-pty-terminal` | PTY 터미널 탭 핵심 불변식 (openDirsRef add-before-await, terminalsRef timing, xterm keepAlive opacity, E2E mock 패턴) | `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`, `shell/src/panels/workspace/Terminal.tsx`, `shell/e2e/119-pty-terminal.spec.ts` |
+| `verify-browser-panel` | Browser 패널 핵심 불변식 (setPendingApproval invoke-before-set, clearPendingApproval/finishStreaming/newConversation 대칭 show 패턴, E2E browser_check 명령 정확성) | `shell/src/stores/chat.ts`, `shell/src/panels/browser/`, `shell/e2e/browser-panel.spec.ts` |
 
 ## 워크플로우
 

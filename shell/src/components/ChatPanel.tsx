@@ -435,17 +435,6 @@ export function ChatPanel() {
 
 	const setEmotion = useAvatarStore((s) => s.setEmotion);
 
-	// When the modal is dismissed and browser panel is active, re-show Chrome.
-	// (hide is handled in chat store's setPendingApproval, before React renders)
-	useEffect(() => {
-		if (!pendingApproval) {
-			const { activePanel } = usePanelStore.getState();
-			if (activePanel === "browser") {
-				invoke("browser_embed_show").catch(() => {});
-			}
-		}
-	}, [pendingApproval]);
-
 	// Load previous session from Gateway (SoT)
 	useEffect(() => {
 		if (sessionLoaded.current) return;

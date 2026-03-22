@@ -18,6 +18,8 @@ import { expect, test } from "@playwright/test";
  *   B3: Switching back to browser tab calls browser_embed_show
  *   B4: setPendingApproval while browser is active calls browser_embed_hide
  *   B5: AI toolbar wraps at narrow viewport (no overflow)
+ *   B6: clearPendingApproval while browser is active calls browser_embed_show
+ *   B7: finishStreaming with pending approval calls browser_embed_show
  */
 
 const TAURI_MOCK_SCRIPT = `
@@ -85,7 +87,7 @@ const TAURI_MOCK_SCRIPT = `
 		if (cmd === "browser_embed_navigate") return;
 		if (cmd === "browser_embed_focus") return;
 		if (cmd === "browser_embed_resize") return;
-		if (cmd === "browser_check_available") return true;
+		if (cmd === "browser_check") return true;
 		if (cmd === "browser_set_permission") return;
 
 		// Workspace
@@ -243,9 +245,8 @@ test.describe("Browser Panel E2E", () => {
 		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
 
 		// The toolbar is only rendered when status === "ready".
-		// In E2E mock, browser_check_available returns true but browser_embed_init
-		// is a no-op. Force status to "ready" by manipulating localStorage and
-		// instead check structural properties of the toolbar CSS.
+		// In E2E mock, browser_check returns true and browser_embed_init is a no-op,
+		// so the panel reaches "ready" status. Check structural properties of toolbar CSS.
 		// We test: toolbar element allows wrapping (overflow-x should NOT clip content).
 		const toolbar = page.locator(".browser-panel__ai-toolbar");
 
@@ -297,8 +298,46 @@ test.describe("Browser Panel E2E", () => {
 			store.getState().clearPendingApproval();
 		});
 
-		// React needs one tick for useEffect to fire
-		await page.waitForTimeout(100);
+		// mock invoke is synchronous — no waitForTimeout needed
+		const log = await page.evaluate(() => window.__invokeLog as string[]);
+		expect(log).toContain("browser_embed_show");
+	});
+
+	// ── B7: finishStreaming with pending approval → browser_embed_show ────
+
+	test("B7: pendingApproval 중 finishStreaming 시 browser_embed_show 호출됨", async ({ page }) => {
+		await setupPage(page);
+
+		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+
+		// Set pending approval
+		await page.evaluate(() => {
+			const store = (window as any).useChatStore;
+			if (!store) throw new Error("useChatStore not exposed on window");
+			store.getState().setPendingApproval({
+				requestId: "test-req-3",
+				toolCallId: "test-tc-3",
+				toolName: "test_tool",
+				args: {},
+				tier: 2,
+				description: "Test",
+			});
+		});
+
+		// Simulate streaming start (required for finishStreaming guard)
+		await page.evaluate(() => {
+			const store = (window as any).useChatStore;
+			store.setState({ isStreaming: true });
+		});
+
+		// Clear log
+		await page.evaluate(() => { window.__invokeLog = []; });
+
+		// Call finishStreaming (e.g. stream error path)
+		await page.evaluate(() => {
+			const store = (window as any).useChatStore;
+			store.getState().finishStreaming();
+		});
 
 		const log = await page.evaluate(() => window.__invokeLog as string[]);
 		expect(log).toContain("browser_embed_show");

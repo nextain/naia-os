@@ -353,3 +353,43 @@ lessons:
     problem: "Terminal component needed keepAlive stacking (multiple PTY instances, one active at a time). display:none was considered but breaks FitAddon."
     root_cause: "FitAddon.fit() computes terminal dimensions from the container's offsetWidth/offsetHeight. When display:none is applied, these values are 0 — fit() returns 0×0 cols/rows, and the PTY gets resized to an invalid size."
     fix: "Use CSS position:absolute; inset:0 on all terminal containers (stacked). Hide inactive terminals via inline opacity:0; pointerEvents:none. The ResizeObserver callback guards against 0×0 with 'if (!rows || !cols) return' before calling pty_resize."
+
+  - id: L034
+    date: "2026-03-23"
+    issue: "#102"
+    category: frontend
+    scope: "shell/src/panels/browser/*, shell/src/stores/panel.ts"
+    title: "X11 native embed keepAlive: use IPC XUnmapWindow/XMapWindow, not CSS opacity — completes L022"
+    problem: "L022 noted CSS opacity has no effect on X11 native windows and set keepAlive:false as a workaround (unmount/remount = Chrome restart on each tab switch = slow, blank screen)."
+    root_cause: "X11 native child windows are composited at OS level; WebKit compositor has no authority over them. Unmounting React component causes browser_embed_close (Chrome restart) on next activation."
+    fix: "Set keepAlive:true on browser panel. Rust adds browser_embed_hide (XUnmapWindow) and browser_embed_show (XMapWindow). panel.ts setActivePanel calls these IPC commands. Chrome stays alive across tab switches — no restart, no blank screen."
+
+  - id: L035
+    date: "2026-03-23"
+    issue: "#102"
+    category: react
+    scope: "shell/src/stores/chat.ts, shell/src/components/ChatPanel.tsx"
+    title: "Store action invoke-before-set pattern: invoke must be called BEFORE set() to guarantee modal ordering"
+    problem: "PermissionModal appeared but was hidden behind the Chrome X11 window for 1 frame. ChatPanel useEffect called browser_embed_hide after React re-render, so Chrome was visible during the render where the modal appeared."
+    root_cause: "useEffect fires AFTER React commits to DOM (post-paint). In that window, the native Chrome window remained visible over the freshly-rendered modal."
+    fix: "Move invoke('browser_embed_hide') into setPendingApproval store action, BEFORE set({pendingApproval}). Store actions execute synchronously; the invoke is dispatched before React sees the state change. useEffect approach is 1 frame too late for native window ordering."
+
+  - id: L036
+    date: "2026-03-23"
+    issue: "#102"
+    category: react
+    scope: "shell/src/stores/chat.ts"
+    title: "All pendingApproval-clearing paths must be symmetric with setPendingApproval hide — clearPendingApproval, finishStreaming, newConversation"
+    problem: "After adding browser_embed_hide to setPendingApproval, Chrome remained permanently hidden when approval was cleared via finishStreaming or newConversation. These paths set pendingApproval:null without calling browser_embed_show."
+    root_cause: "Only clearPendingApproval was written as the 'mirror' of setPendingApproval. finishStreaming and newConversation used set() directly, bypassing the show guard."
+    fix: "Every path that sets pendingApproval:null must have the guard: 'if (get().pendingApproval && usePanelStore.getState().activePanel === \"browser\") invoke(\"browser_embed_show\")'. Three paths: clearPendingApproval, finishStreaming (before set()), newConversation (before set()). Also add get().pendingApproval guard to clearPendingApproval — prevents show() when there was no prior hide()."
+
+  - id: L037
+    date: "2026-03-23"
+    issue: "#102"
+    category: e2e
+    scope: "shell/e2e/*.spec.ts"
+    title: "E2E Tauri mock command name must exactly match Rust invoke() call — wrong name causes silent no-op state"
+    problem: "Browser panel E2E tests showed the panel stuck in 'no-chrome' state. B4/B6/B7 tests failed. browser_check was mocked as browser_check_available, so mock returned undefined (not true). Panel status guard never reached 'ready'."
+    root_cause: "Tauri mock intercepts by exact string match. When the command name in the mock differs from the actual Rust command, the mock falls through to 'return undefined'. For browser_check, undefined is falsy — panel state machine branched to 'no-chrome' path."
+    fix: "Always grep the actual Rust invoke name (shell/src-tauri/src/*.rs invoke! macro or shell TS files) before writing mock entries. Use 'browser_check', not 'browser_check_available'. Verify mock by checking that the panel reaches expected status before making behavioral assertions."

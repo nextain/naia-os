@@ -32,6 +32,7 @@ argument-hint: "[선택사항: 특정 verify 스킬 이름]"
 |---|------|------|
 | 1 | `verify-resource-viewer` | workspace 리소스 뷰어 핵심 불변식 (FILE_PATH_RE lookbehind, 이미지 격리, CSV/로그 분기, E2E mock 패턴) |
 | 2 | `verify-pty-terminal` | PTY 터미널 탭 핵심 불변식 (openDirsRef add-before-await, terminalsRef timing, xterm keepAlive opacity, E2E mock 패턴) |
+| 3 | `verify-browser-panel` | Browser 패널 핵심 불변식 (setPendingApproval invoke-before-set, clearPendingApproval/finishStreaming/newConversation 대칭 show, E2E browser_check 명령) |
 
 ## 워크플로우
 

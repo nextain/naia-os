@@ -408,3 +408,51 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: `FitAddon.fit()` computes terminal dimensions from the container's `offsetWidth`/`offsetHeight`. When `display:none` is applied, these values are `0` — `fit()` returns `0×0` cols/rows, and the PTY gets resized to an invalid size.
 
 **Fix**: Use `position:absolute; inset:0` CSS on all terminal containers (stacked). Hide inactive terminals via inline `opacity:0; pointerEvents:none`. Guard `pty_resize` with `if (!rows || !cols) return` before calling the Rust command.
+
+---
+
+## L034 — X11 native embed keepAlive: use IPC XUnmapWindow/XMapWindow, not CSS opacity — completes L022 (#102)
+
+**Date**: 2026-03-23 | **Category**: Frontend | **Scope**: `shell/src/panels/browser/*, shell/src/stores/panel.ts`
+
+**Problem**: L022 noted CSS opacity has no effect on X11 native windows and set `keepAlive:false` as a workaround (unmount/remount = Chrome restart on each tab switch = slow, blank screen).
+
+**Root cause**: X11 native child windows are composited at OS level; WebKit compositor has no authority over them. Unmounting the React component causes `browser_embed_close` (Chrome restart) on next activation.
+
+**Fix**: Set `keepAlive:true` on browser panel. Rust adds `browser_embed_hide` (XUnmapWindow) and `browser_embed_show` (XMapWindow). `panel.ts setActivePanel` calls these IPC commands on tab switch. Chrome stays alive — no restart, no blank screen.
+
+---
+
+## L035 — Store action invoke-before-set pattern: invoke must be called BEFORE set() to guarantee modal ordering (#102)
+
+**Date**: 2026-03-23 | **Category**: React | **Scope**: `shell/src/stores/chat.ts, shell/src/components/ChatPanel.tsx`
+
+**Problem**: PermissionModal appeared but was hidden behind the Chrome X11 window for 1 frame. `ChatPanel` `useEffect` called `browser_embed_hide` after React re-render, so Chrome was visible during the render where the modal first appeared.
+
+**Root cause**: `useEffect` fires **after** React commits to DOM (post-paint). In that window, the native Chrome window remained visible over the freshly-rendered modal.
+
+**Fix**: Move `invoke('browser_embed_hide')` into `setPendingApproval` store action, **before** `set({pendingApproval})`. Store actions execute synchronously; the invoke is dispatched before React sees the state change. `useEffect` approach is 1 frame too late for native window ordering.
+
+---
+
+## L036 — All pendingApproval-clearing paths must be symmetric with setPendingApproval hide (#102)
+
+**Date**: 2026-03-23 | **Category**: React | **Scope**: `shell/src/stores/chat.ts`
+
+**Problem**: After adding `browser_embed_hide` to `setPendingApproval`, Chrome remained permanently hidden when approval was cleared via `finishStreaming` or `newConversation`. These paths set `pendingApproval:null` without calling `browser_embed_show`.
+
+**Root cause**: Only `clearPendingApproval` was written as the "mirror" of `setPendingApproval`. `finishStreaming` and `newConversation` used `set()` directly, bypassing the show guard.
+
+**Fix**: Every path that sets `pendingApproval:null` must have the guard: `if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") invoke("browser_embed_show")`. Three paths: `clearPendingApproval`, `finishStreaming` (before `set()`), `newConversation` (before `set()`). Also add `get().pendingApproval` guard to `clearPendingApproval` — prevents `show()` when there was no prior `hide()`.
+
+---
+
+## L037 — E2E Tauri mock command name must exactly match Rust invoke() call — wrong name causes silent no-op state (#102)
+
+**Date**: 2026-03-23 | **Category**: E2E | **Scope**: `shell/e2e/*.spec.ts`
+
+**Problem**: Browser panel E2E tests showed the panel stuck in `"no-chrome"` state. `browser_check` was mocked as `browser_check_available`, so the mock returned `undefined` (not `true`). The panel status guard never reached `"ready"`.
+
+**Root cause**: Tauri mock intercepts by exact string match. When the command name in the mock differs from the actual Rust command, it falls through to `return undefined`. For `browser_check`, `undefined` is falsy — panel state machine branched to the `"no-chrome"` path.
+
+**Fix**: Always grep the actual Rust invoke name (`shell/src-tauri/src/*.rs` `invoke!` macro or TS files) before writing mock entries. Use `"browser_check"`, not `"browser_check_available"`. Verify mock by checking that the panel reaches expected status before making behavioral assertions.

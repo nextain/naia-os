@@ -146,9 +146,10 @@ export interface PanelDescriptor {
 	builtIn?: boolean;
 	/**
 	 * Keep-alive: panel is always mounted, shown/hidden via CSS opacity.
-	 * Set false for panels that embed native OS windows (e.g. browser via X11
-	 * XReparentWindow) — CSS opacity cannot hide native windows, so they must
-	 * unmount to disappear. Defaults to true for builtIn panels.
+	 * Native-embed panels (e.g. browser via X11 XReparentWindow) can also use
+	 * keepAlive:true when paired with explicit IPC hide/show commands — CSS
+	 * opacity alone cannot hide native windows, but IPC commands can.
+	 * Defaults to true for builtIn panels.
 	 */
 	keepAlive?: boolean;
 	/**

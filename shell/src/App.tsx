@@ -227,8 +227,9 @@ export function App() {
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
-	// Keep-alive: builtIn panels without native embeds, always mounted, CSS opacity transition
-	// Panels with keepAlive: false (e.g. browser via X11 XReparentWindow) must unmount to hide
+	// Keep-alive: builtIn panels always mounted, shown/hidden via CSS opacity.
+	// Native-embed panels (e.g. browser) use keepAlive:true + IPC hide/show instead of CSS opacity.
+	// Panels with keepAlive: false must unmount to become invisible.
 	const [keepAlivePanels] = useState(() =>
 		panelRegistry.list().filter((p) => p.builtIn && p.keepAlive !== false),
 	);

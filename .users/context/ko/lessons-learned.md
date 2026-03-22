@@ -408,3 +408,51 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: `FitAddon.fit()`이 컨테이너의 `offsetWidth`/`offsetHeight`로 크기를 계산. `display:none` 시 이 값이 `0` → `fit()`이 `0×0` 반환 → PTY가 잘못된 크기로 리사이즈됨.
 
 **수정**: 모든 터미널 컨테이너에 `position:absolute; inset:0` CSS 적용(스태킹). 비활성 터미널은 인라인 `opacity:0; pointerEvents:none`으로 숨김. `pty_resize` 호출 전 `if (!rows || !cols) return` 가드 추가.
+
+---
+
+## L034 — X11 네이티브 임베드 keepAlive: CSS opacity 대신 IPC XUnmapWindow/XMapWindow 사용 — L022 완결 (#102)
+
+**날짜**: 2026-03-23 | **분류**: 프론트엔드 | **범위**: `shell/src/panels/browser/*, shell/src/stores/panel.ts`
+
+**문제**: L022에서 CSS opacity가 X11 네이티브 윈도우에 효과 없음을 문서화하고 `keepAlive:false`를 임시방편으로 사용(언마운트/리마운트 = 탭 전환마다 Chrome 재시작 = 느림, 검은 화면).
+
+**근본 원인**: X11 네이티브 자식 윈도우는 OS 레벨에서 합성됨. WebKit 컴포지터가 제어 불가. React 컴포넌트 언마운트 시 `browser_embed_close`(Chrome 재시작) 발생.
+
+**수정**: browser 패널에 `keepAlive:true` 설정. Rust에 `browser_embed_hide`(XUnmapWindow)와 `browser_embed_show`(XMapWindow) 추가. `panel.ts setActivePanel`이 탭 전환 시 IPC 명령 호출. Chrome이 살아있음 — 재시작 없음, 검은 화면 없음.
+
+---
+
+## L035 — Store action invoke-before-set 패턴: 모달 순서 보장을 위해 invoke는 set() 이전 호출 필수 (#102)
+
+**날짜**: 2026-03-23 | **분류**: React | **범위**: `shell/src/stores/chat.ts, shell/src/components/ChatPanel.tsx`
+
+**문제**: PermissionModal이 나타났으나 1프레임 동안 Chrome X11 윈도우 뒤에 가려짐. `ChatPanel` `useEffect`가 React 리렌더 후 `browser_embed_hide`를 호출해, 모달이 처음 나타나는 렌더 중 Chrome이 여전히 보임.
+
+**근본 원인**: `useEffect`는 React DOM 커밋 **이후** 실행됨(post-paint). 이 창에서 네이티브 Chrome 윈도우가 새로 렌더된 모달 위에 남아있음.
+
+**수정**: `invoke('browser_embed_hide')`를 `setPendingApproval` store action에서 `set({pendingApproval})` **이전**에 호출. Store action은 동기 실행 — React가 상태 변경을 인식하기 전에 invoke 디스패치됨. `useEffect` 방식은 네이티브 윈도우 순서에 1프레임 늦음.
+
+---
+
+## L036 — pendingApproval을 null로 설정하는 모든 경로는 setPendingApproval hide와 대칭이어야 함 (#102)
+
+**날짜**: 2026-03-23 | **분류**: React | **범위**: `shell/src/stores/chat.ts`
+
+**문제**: `setPendingApproval`에 `browser_embed_hide`를 추가한 후, `finishStreaming`이나 `newConversation`으로 approval이 해제되면 Chrome이 영구적으로 숨겨진 채로 남음. 이 경로들이 `browser_embed_show` 없이 직접 `set()`을 호출.
+
+**근본 원인**: `clearPendingApproval`만 `setPendingApproval`의 "mirror"로 작성됨. `finishStreaming`과 `newConversation`은 show 가드를 우회해 `set()`을 직접 사용.
+
+**수정**: `pendingApproval:null`로 설정하는 모든 경로에 가드 필수: `if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") invoke("browser_embed_show")`. 3곳: `clearPendingApproval`, `finishStreaming`(`set()` 이전), `newConversation`(`set()` 이전). `clearPendingApproval`에도 `get().pendingApproval` 가드 추가 — 이전 hide가 없었을 때 show() 발화 방지.
+
+---
+
+## L037 — E2E Tauri mock 명령 이름은 Rust invoke() 호출과 정확히 일치해야 함 — 불일치 시 silent no-op 상태 (#102)
+
+**날짜**: 2026-03-23 | **분류**: E2E | **범위**: `shell/e2e/*.spec.ts`
+
+**문제**: Browser 패널 E2E 테스트에서 패널이 `"no-chrome"` 상태에 고착. `browser_check`가 `browser_check_available`로 mock되어 `undefined`(not `true`)를 반환. 패널 상태 머신이 `"ready"` 상태에 도달하지 못함.
+
+**근본 원인**: Tauri mock은 정확한 문자열 매치로 인터셉트. mock의 명령 이름이 실제 Rust 명령과 다르면 `return undefined`로 폴스루. `browser_check`의 경우 `undefined`는 falsy — 상태 머신이 `"no-chrome"` 경로로 분기.
+
+**수정**: mock 작성 전 항상 실제 Rust invoke 이름(`shell/src-tauri/src/*.rs` `invoke!` 매크로 또는 TS 파일)을 grep으로 확인. `"browser_check_available"` 아닌 `"browser_check"` 사용. 동작 단언 전 패널이 예상 상태에 도달하는지 mock 검증.
