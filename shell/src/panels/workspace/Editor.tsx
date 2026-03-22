@@ -14,7 +14,7 @@ import AnsiToHtml from "ansi-to-html";
 import DOMPurify from "dompurify";
 import Papa from "papaparse";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import Markdown from "react-markdown";
 import { Logger } from "../../lib/logger";
 import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
@@ -175,8 +175,16 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	);
 
 	// ── Setup CodeMirror ──────────────────────────────────────────────────
+	// biome-ignore lint/correctness/useExhaustiveDependencies: content intentionally excluded (synced via dispatch)
 	useEffect(() => {
-		if (!editorRef.current || viewMode === "preview" || viewMode === "image" || viewMode === "csv" || viewMode === "log") return;
+		if (
+			!editorRef.current ||
+			viewMode === "preview" ||
+			viewMode === "image" ||
+			viewMode === "csv" ||
+			viewMode === "log"
+		)
+			return;
 
 		const langExt = filePath ? getLanguageExtension(filePath) : null;
 
@@ -409,30 +417,48 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						<table className="workspace-editor__csv-table">
 							<thead>
 								<tr>
-									{csvResult.data[0].map((header, i) => (
-										<th
-											key={i}
-											className="workspace-editor__csv-th"
-											onClick={() => {
-												if (sortCol === i) {
-													setSortAsc((prev) => !prev);
-												} else {
-													setSortCol(i);
-													setSortAsc(true);
-												}
-											}}
-										>
-											{header}
-											{sortCol === i ? (sortAsc ? " ▲" : " ▼") : ""}
-										</th>
-									))}
+									{csvResult.data[0].map((header, i) => {
+										const toggleSort = () => {
+											if (sortCol === i) {
+												setSortAsc((prev) => !prev);
+											} else {
+												setSortCol(i);
+												setSortAsc(true);
+											}
+										};
+										return (
+											<th
+												// biome-ignore lint/suspicious/noArrayIndexKey: CSV columns have no natural key
+												key={i}
+												tabIndex={0}
+												className="workspace-editor__csv-th"
+												onClick={toggleSort}
+												onKeyDown={(e) => {
+													if (e.key === "Enter" || e.key === " ") {
+														e.preventDefault();
+														toggleSort();
+													}
+												}}
+											>
+												{header}
+												{sortCol === i ? (sortAsc ? " ▲" : " ▼") : ""}
+											</th>
+										);
+									})}
 								</tr>
 							</thead>
 							<tbody>
 								{csvRows.map((row, ri) => (
-									<tr key={ri}>
+									<tr
+										// biome-ignore lint/suspicious/noArrayIndexKey: CSV rows have no natural key
+										key={ri}
+									>
 										{row.map((cell, ci) => (
-											<td key={ci} className="workspace-editor__csv-td">
+											<td
+												// biome-ignore lint/suspicious/noArrayIndexKey: CSV cells have no natural key
+												key={ci}
+												className="workspace-editor__csv-td"
+											>
 												{cell}
 											</td>
 										))}
@@ -441,20 +467,22 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 							</tbody>
 						</table>
 					) : (
-						<div className="workspace-editor__empty-hint">CSV 데이터가 없습니다</div>
+						<div className="workspace-editor__empty-hint">
+							CSV 데이터가 없습니다
+						</div>
 					)}
 				</div>
 			) : viewMode === "log" ? (
 				<div className="workspace-editor__log-viewer">
-					{/* eslint-disable-next-line react/no-danger */}
 					<pre
 						className="workspace-editor__log-pre"
+						// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized by DOMPurify
 						dangerouslySetInnerHTML={{ __html: logHtml }}
 					/>
 				</div>
 			) : viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
-					<ReactMarkdown>{content}</ReactMarkdown>
+					<Markdown>{content}</Markdown>
 				</div>
 			) : viewMode === "split" ? (
 				<div className="workspace-editor__body--split">
@@ -463,7 +491,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						className="workspace-editor__codemirror workspace-editor__codemirror--half"
 					/>
 					<div className="workspace-editor__preview workspace-editor__preview--half">
-						<ReactMarkdown>{content}</ReactMarkdown>
+						<Markdown>{content}</Markdown>
 					</div>
 				</div>
 			) : (

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -18,7 +24,6 @@ vi.mock("../../lib/logger", () => ({
 // Mock CodeMirror — not available in jsdom
 vi.mock("@codemirror/view", () => {
 	class EditorView {
-		constructor() {}
 		destroy() {}
 		state = { doc: { toString: () => "" } };
 		dispatch = vi.fn();
@@ -93,7 +98,9 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 	});
 
 	it("renders CSV table viewer for .csv", async () => {
-		mockInvoke.mockResolvedValueOnce("name,age,city\nAlice,30,Seoul\nBob,25,Busan");
+		mockInvoke.mockResolvedValueOnce(
+			"name,age,city\nAlice,30,Seoul\nBob,25,Busan",
+		);
 		render(<Editor filePath="/data/users.csv" />);
 		await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
 		// Header row
@@ -106,7 +113,9 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 	});
 
 	it("CSV table is sortable — clicking header sorts ascending then descending", async () => {
-		mockInvoke.mockResolvedValueOnce("name,score\nCharlie,80\nAlice,95\nBob,70");
+		mockInvoke.mockResolvedValueOnce(
+			"name,score\nCharlie,80\nAlice,95\nBob,70",
+		);
 		render(<Editor filePath="/data/scores.csv" />);
 		await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
 
@@ -128,6 +137,23 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 		expect(screen.getByText("name ▼")).toBeInTheDocument();
 	});
 
+	it("CSV header onKeyDown (Enter/Space) sorts the same as click", async () => {
+		mockInvoke.mockResolvedValueOnce(
+			"name,score\nCharlie,80\nAlice,95\nBob,70",
+		);
+		render(<Editor filePath="/data/scores.csv" />);
+		await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+
+		const nameHeader = screen.getByText("name");
+		// Enter key → ascending sort
+		fireEvent.keyDown(nameHeader, { key: "Enter" });
+		expect(screen.getByText("name ▲")).toBeInTheDocument();
+
+		// Space key → descending sort
+		fireEvent.keyDown(nameHeader, { key: " " });
+		expect(screen.getByText("name ▼")).toBeInTheDocument();
+	});
+
 	it("shows empty hint for empty CSV", async () => {
 		mockInvoke.mockResolvedValueOnce("");
 		render(<Editor filePath="/data/empty.csv" />);
@@ -137,7 +163,9 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 	});
 
 	it("renders log viewer for .log (contains pre element)", async () => {
-		mockInvoke.mockResolvedValueOnce("INFO: server started\nERROR: connection refused");
+		mockInvoke.mockResolvedValueOnce(
+			"INFO: server started\nERROR: connection refused",
+		);
 		render(<Editor filePath="/var/log/app.log" />);
 		await waitFor(() => {
 			const pre = document.querySelector(".workspace-editor__log-pre");

@@ -156,8 +156,10 @@ function formatCost(cost: number): string {
 // ── Chat file deep-link ────────────────────────────────────────────────
 // Matches absolute file paths ending with common extensions.
 // Uses a capturing group so split() includes the matched path in the result.
+// (?<![/\w]) lookbehind prevents false positives on relative paths like "shell/src/App.tsx"
+// (where /src/App.tsx would otherwise be matched as a sub-path).
 const FILE_PATH_RE =
-	/(\/[\w\-\.\/]+\.(?:png|jpe?g|gif|webp|csv|json|log|pdf|tsx|ts|jsx|js|rs|py|md|yaml|yml|sh|toml)(?![.\w]))/;
+	/(?<![/\w])(\/[\w\-\.\/]+\.(?:png|jpe?g|gif|webp|csv|json|log|pdf|tsx|ts|jsx|js|rs|py|md|yaml|yml|sh|toml)(?![.\w]))/;
 
 function openFileInWorkspace(path: string): void {
 	panelRegistry.getApi("workspace")?.openFile(path);

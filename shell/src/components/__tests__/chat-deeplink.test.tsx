@@ -58,7 +58,11 @@ beforeEach(() => {
 	// to the "chat" tab (otherwise it defaults to "settings" and messages are hidden)
 	localStorage.setItem(
 		"naia-config",
-		JSON.stringify({ apiKey: "test-key", provider: "anthropic", model: "claude-opus-4-6" }),
+		JSON.stringify({
+			apiKey: "test-key",
+			provider: "anthropic",
+			model: "claude-opus-4-6",
+		}),
 	);
 });
 
@@ -135,9 +139,13 @@ describe("ChatPanel — file deep-links", () => {
 	it("does NOT render a deeplink for a relative path without leading slash", () => {
 		setAssistantMessage("파일명: shell/src/App.tsx 참고.");
 		render(<ChatPanel />);
-		// No button for relative path (only absolute paths are matched)
+		// No button for full relative path
 		expect(
 			screen.queryByRole("button", { name: "shell/src/App.tsx" }),
+		).not.toBeInTheDocument();
+		// No button for sub-path either — /src/App.tsx must NOT be extracted from shell/src/App.tsx
+		expect(
+			screen.queryByRole("button", { name: /\/src\/App\.tsx/ }),
 		).not.toBeInTheDocument();
 	});
 
@@ -163,9 +171,7 @@ describe("ChatPanel — file deep-links", () => {
 	});
 
 	it("renders multiple deeplinks in one message", () => {
-		setAssistantMessage(
-			"파일 /tmp/a.ts 와 /tmp/b.rs 를 수정했습니다.",
-		);
+		setAssistantMessage("파일 /tmp/a.ts 와 /tmp/b.rs 를 수정했습니다.");
 		render(<ChatPanel />);
 		expect(
 			screen.getByRole("button", { name: "/tmp/a.ts" }),
