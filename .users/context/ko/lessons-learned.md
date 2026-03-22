@@ -331,3 +331,44 @@
 **근본 원인**: `upsertProfile`은 `repo` 필드로 매칭. `repo`가 바뀌면 `findIndex`가 `-1`을 반환해 기존 항목 제거 없이 추가됨.
 
 **수정**: 저장 시 `editingOriginalRepo !== editingProfile.repo`이면 먼저 `deleteProfile(editingOriginalRepo)` 호출 후 `upsertProfile(editingProfile)`. 이전 키 항목이 제거된 뒤 새 항목 삽입.
+
+---
+
+## L028 — E2E Tauri mock에서 `plugin:store|get`은 `[value, exists]` 튜플 반환 필수 — `null` 반환 시 `Store.get()` 크래시 (#116)
+
+**날짜**: 2026-03-22 | **분류**: E2E | **범위**: `shell/e2e/*.spec.ts`
+
+**문제**: E2E 딥링크 테스트(D1/D2)가 실패. `@tauri-apps/plugin-store`의 `Store.get(key)`가 `invoke('plugin:store|get')` 결과를 `[value, exists]`로 구조분해하는데, mock이 `null`을 반환해 `TypeError: Cannot destructure property '0' of null` 발생.
+
+**근본 원인**: Store API 계약: `invoke('plugin:store|get')`은 항상 `[value, exists]` 튜플 반환. `invoke('plugin:store|load')`는 Resource ID 정수 반환(null 아님). mock이 둘 다 `null`을 반환해 구조분해 실패.
+
+**수정**:
+```js
+if (cmd === "plugin:store|load") return 1;
+if (cmd === "plugin:store|get") return [null, false];
+```
+
+---
+
+## L029 — keepAlive 패널: Playwright `toBeVisible()`은 부모 `opacity:0` 무시 — `slot--active` 선택자 사용 (#116)
+
+**날짜**: 2026-03-22 | **분류**: E2E | **범위**: `shell/e2e/*.spec.ts`
+
+**문제**: E2E 테스트에서 `.workspace-panel`이 `not.toBeVisible()`이어야 하는데 이미 "visible"로 판정. keepAlive 패널은 항상 마운트 상태. 부모 `.content-panel__slot`이 비활성 시 `opacity:0` (display:none 아님) 사용.
+
+**근본 원인**: Playwright의 `toBeVisible()`은 요소 자신의 CSS(`display`, `visibility`, `opacity`)는 체크하지만, 부모의 `opacity`는 무시. 부모 `opacity:0`이어도 자식 요소는 "visible"로 판정됨.
+
+**수정**: `.content-panel__slot--active .workspace-panel` 선택자 사용. 활성 슬롯은 `opacity:1`이고, 패널이 비활성이면 선택자 자체가 매칭 안 되므로 `not.toBeVisible()` 정상 통과.
+
+---
+
+## L030 — `FILE_PATH_RE`에 `(?<![/\w])` lookbehind 필수 — 서브 경로 오탐 방지 (#116)
+
+**날짜**: 2026-03-22 | **분류**: 정규식 | **범위**: `shell/src/components/ChatPanel.tsx`
+
+**문제**: 정규식 `/(\/[\w\-\.\/]+\.ext)/`가 `shell/src/App.tsx`에서 `/src/App.tsx`를 추출. 상대경로의 서브 경로가 절대경로 딥링크 버튼으로 렌더링됨.
+
+**근본 원인**: lookbehind 없음. 문자열 내 모든 `/`가 절대경로 시작점으로 매칭 가능(단어 문자, 다른 `/` 뒤에 있어도).
+
+**수정**: `(?<![/\w])` lookbehind 추가 — `/` 앞이 단어 문자나 다른 `/`이면 매칭 차단. 또한 `tsx`/`jsx`를 `ts`/`js`보다 앞에 위치(longest-match 확장자 해석).
+

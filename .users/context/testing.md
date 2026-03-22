@@ -69,6 +69,14 @@ Spawn agent as child process, pipe stdin, assert stdout.
 
 **E2E Mock** (`shell/e2e/*.spec.ts`): Playwright with mocked Tauri IPC. Fast but no real binary or Gateway.
 
+#### E2E Mock Gotchas
+
+| Gotcha | Rule |
+|--------|------|
+| `plugin:store\|get` tuple | `Store.get()` returns `[value, exists]` tuple. Mock MUST return `[null, false]`, NOT `null`. `plugin:store\|load` returns integer RID (e.g. `1`). Wrong values cause silent failures. |
+| keepAlive panel visibility | keepAlive panels stay mounted in DOM. Inactive panels use `opacity: 0` on parent `.content-panel__slot`. Playwright `toBeVisible()` does NOT check ancestor opacity → false positive. Use `.content-panel__slot--active .panel-class` selector instead. |
+| `exposeFunction` timing | `page.exposeFunction()` must be called BEFORE `page.goto()`. If registered after navigation, the function won't exist in already-loaded pages. Order: `exposeFunction → goto`. |
+
 **E2E Tauri** (`shell/e2e-tauri/specs/*.spec.ts`): Real Tauri app via WebdriverIO v9 + tauri-driver. Real LLM calls (Gemini), real Gateway, real skill execution.
 
 ### E2E Tauri Prerequisites

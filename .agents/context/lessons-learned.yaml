@@ -293,3 +293,33 @@ lessons:
     problem: "Editing a community profile repo name (the key) and saving with upsertProfile left the old-key entry in the persisted array. Both old and new entries coexisted."
     root_cause: "upsertProfile matches by repo field. If repo changes, findIndex returns -1, so it appends instead of replacing. The old entry is never removed."
     fix: "On save: if editingOriginalRepo !== editingProfile.repo, call deleteProfile(editingOriginalRepo) first, then upsertProfile(editingProfile). This ensures old key is removed before inserting the renamed entry."
+
+  - id: L028
+    date: "2026-03-22"
+    issue: "#116"
+    category: e2e
+    scope: "shell/e2e/*.spec.ts"
+    title: "plugin:store|get must return [value, exists] tuple in E2E Tauri mock — null crashes Store.get()"
+    problem: "E2E deeplink tests (D1/D2) failed because @tauri-apps/plugin-store's Store.get(key) destructures [value, exists] from invoke('plugin:store|get') result. Mock returned null → TypeError: Cannot destructure property '0' of null."
+    root_cause: "Store API contract: invoke('plugin:store|get') always returns a [value, exists] tuple. invoke('plugin:store|load') returns a Resource ID integer (not null). Mock was returning null for both, breaking destructuring."
+    fix: "if (cmd === 'plugin:store|load') return 1; if (cmd === 'plugin:store|get') return [null, false];"
+
+  - id: L029
+    date: "2026-03-22"
+    issue: "#116"
+    category: e2e
+    scope: "shell/e2e/*.spec.ts"
+    title: "keepAlive panels: Playwright toBeVisible() ignores parent opacity:0 — use slot--active selector"
+    problem: "E2E test asserted '.workspace-panel' not.toBeVisible() before deeplink click, but it was already visible. keepAlive panels are always mounted. Parent .content-panel__slot uses opacity:0 (not display:none) for inactive panels."
+    root_cause: "Playwright's toBeVisible() checks the element's own CSS (display, visibility, opacity) but NOT ancestor opacity. opacity:0 on a parent does not make the child 'not visible' to Playwright."
+    fix: "Use '.content-panel__slot--active .workspace-panel' selector: active slot has opacity:1, and the selector doesn't match at all when panel is inactive — so not.toBeVisible() passes when panel is not the active one."
+
+  - id: L030
+    date: "2026-03-22"
+    issue: "#116"
+    category: regex
+    scope: "shell/src/components/ChatPanel.tsx"
+    title: "FILE_PATH_RE must use (?<![/\\w]) lookbehind to prevent sub-path false positives"
+    problem: "Regex /(\/[\w\-\.\/]+\.ext)/ extracted '/src/App.tsx' from 'shell/src/App.tsx' because the leading '/' was matched as an absolute path separator. Relative paths produce clickable deeplink buttons for their sub-paths."
+    root_cause: "No lookbehind check. Any '/' in a string was a valid path start, including those preceded by path segment characters."
+    fix: "Added (?<![/\\w]) lookbehind: if the char before '/' is a word character or another '/', the match is blocked. Also tsx/jsx must be listed before ts/js for longest-match extension resolution."

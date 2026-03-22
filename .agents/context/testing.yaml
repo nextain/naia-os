@@ -120,6 +120,28 @@ shell:
     examples:
       - name: "Chat tools"
         assert: "Tool UI components render correctly with mock data"
+    gotchas:
+      plugin_store_get_tuple: |
+        Store.get(key) returns [value, exists] tuple — NOT a plain value.
+        E2E mock for plugin:store|get MUST return [null, false] (not null).
+        plugin:store|load returns integer RID (e.g. 1), not null.
+        Wrong mock values cause silent failures (store returns undefined/falsy).
+        Pattern:
+          if (cmd === "plugin:store|get") return [null, false];
+          if (cmd === "plugin:store|load") return 1;
+      keepalive_panel_visibility: |
+        keepAlive panels stay mounted in DOM at all times.
+        Inactive panels are hidden via `opacity: 0` on the parent `.content-panel__slot`.
+        Playwright's `toBeVisible()` checks the element's own CSS but NOT ancestor opacity.
+        A `.workspace-panel` inside an `opacity: 0` slot PASSES toBeVisible() — false positive.
+        Correct selector: `.content-panel__slot--active .workspace-panel`
+          — this selector only matches when the panel's slot has the active class.
+          — use this pattern to distinguish "panel mounted but hidden" from "panel visible to user".
+      expose_function_timing: |
+        page.exposeFunction() must be called before page.goto() (or addInitScript before goto).
+        If registered after navigation, the injected window function won't exist in already-loaded pages.
+        Order: exposeFunction → goto → addInitScript (for reload-proof injection).
+        For spy functions, expose early so the mock invoke can call them from the first render.
 
   e2e_tauri:
     location: "shell/e2e-tauri/specs/*.spec.ts"

@@ -28,13 +28,9 @@ argument-hint: "[선택사항: 특정 verify 스킬 이름]"
 
 이 스킬이 순차 실행하는 검증 스킬 목록입니다. `/manage-skills`가 스킬을 생성/삭제할 때 이 목록을 자동 업데이트합니다.
 
-(아직 등록된 검증 스킬이 없습니다)
-
-<!-- 스킬이 추가되면 아래 형식으로 등록:
 | # | 스킬 | 설명 |
 |---|------|------|
-| 1 | `verify-example` | 예시 검증 설명 |
--->
+| 1 | `verify-resource-viewer` | workspace 리소스 뷰어 핵심 불변식 (FILE_PATH_RE lookbehind, 이미지 격리, CSV/로그 분기, E2E mock 패턴) |
 
 ## 워크플로우
 
