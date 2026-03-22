@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
 import {
 	type RecognitionResult,
 	onError as sttOnError,
@@ -152,6 +152,51 @@ function formatCost(cost: number): string {
 	if (cost < 0.01) return `$${cost.toFixed(4)}`;
 	return `$${cost.toFixed(3)}`;
 }
+
+// ── Chat file deep-link ────────────────────────────────────────────────
+// Matches absolute file paths ending with common extensions.
+// Uses a capturing group so split() includes the matched path in the result.
+const FILE_PATH_RE =
+	/(\/[\w\-\.\/]+\.(?:png|jpe?g|gif|webp|csv|json|log|pdf|tsx|ts|jsx|js|rs|py|md|yaml|yml|sh|toml)(?![.\w]))/;
+
+function openFileInWorkspace(path: string): void {
+	panelRegistry.getApi("workspace")?.openFile(path);
+	usePanelStore.getState().setActivePanel("workspace");
+}
+
+/** Split a text string on file paths and return an array of strings / buttons. */
+function processFilePaths(text: string): ReactNode[] {
+	const parts = text.split(FILE_PATH_RE);
+	return parts.map((part, i) =>
+		FILE_PATH_RE.test(part) ? (
+			<button
+				key={i}
+				type="button"
+				className="chat-file-deeplink"
+				onClick={() => openFileInWorkspace(part)}
+				title={`워크스페이스에서 열기: ${part}`}
+			>
+				{part}
+			</button>
+		) : (
+			part
+		),
+	);
+}
+
+/** React-Markdown components override — detects file paths in <p> text nodes. */
+const mdComponents: Components = {
+	p({ children, ...props }) {
+		const processed = Array.isArray(children)
+			? children.flatMap((child) =>
+					typeof child === "string" ? processFilePaths(child) : [child],
+				)
+			: typeof children === "string"
+				? processFilePaths(children)
+				: children;
+		return <p {...props}>{processed}</p>;
+	},
+};
 
 /** Summarize a previous session and extract facts (fire-and-forget). */
 async function summarizePreviousSession(
@@ -1948,7 +1993,7 @@ export function ChatPanel() {
 						))}
 						<div className="message-content">
 							{msg.role === "assistant" ? (
-								<Markdown>{parseEmotion(msg.content).cleanText}</Markdown>
+								<Markdown components={mdComponents}>{parseEmotion(msg.content).cleanText}</Markdown>
 							) : (
 								msg.content
 							)}
@@ -1977,7 +2022,7 @@ export function ChatPanel() {
 						))}
 						<div className="message-content">
 							{streamingContent ? (
-								<Markdown>{parseEmotion(streamingContent).cleanText}</Markdown>
+								<Markdown components={mdComponents}>{parseEmotion(streamingContent).cleanText}</Markdown>
 							) : null}
 							<span className="cursor-blink">▌</span>
 						</div>

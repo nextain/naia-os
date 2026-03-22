@@ -9,13 +9,16 @@ import { yaml } from "@codemirror/lang-yaml";
 import { EditorState, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import AnsiToHtml from "ansi-to-html";
+import DOMPurify from "dompurify";
+import Papa from "papaparse";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Logger } from "../../lib/logger";
 import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
-type ViewMode = "editor" | "preview" | "split";
+type ViewMode = "editor" | "preview" | "split" | "image" | "csv" | "log";
 
 interface EditorProps {
 	/** Absolute path of the file being edited. Empty = no file open. */
@@ -48,6 +51,31 @@ function isMarkdownFile(filePath: string): boolean {
 	return ext === "md" || ext === "mdx";
 }
 
+function isImageFile(filePath: string): boolean {
+	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+	return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+}
+
+function isCsvFile(filePath: string): boolean {
+	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+	return ext === "csv";
+}
+
+function isLogFile(filePath: string): boolean {
+	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+	return ext === "log";
+}
+
+function detectViewMode(filePath: string): ViewMode {
+	if (isImageFile(filePath)) return "image";
+	if (isCsvFile(filePath)) return "csv";
+	if (isLogFile(filePath)) return "log";
+	if (isMarkdownFile(filePath)) return "preview";
+	return "editor";
+}
+
+const ansiConverter = new AnsiToHtml({ escapeXML: true });
+
 export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const viewRef = useRef<EditorView | null>(null);
@@ -65,16 +93,30 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	filePathRef.current = filePath;
 	/** Track whether the editor was just loaded so we don't trigger double-sync */
 	const justLoadedRef = useRef(false);
+
+	/** CSV sort state */
+	const [sortCol, setSortCol] = useState<number | null>(null);
+	const [sortAsc, setSortAsc] = useState(true);
+
 	const isMd = filePath ? isMarkdownFile(filePath) : false;
 
-	// ── Reset viewMode when file changes ──────────────────────────────────
+	// ── Reset viewMode (and sort state) when file changes ────────────────
 	useEffect(() => {
-		setViewMode(isMarkdownFile(filePath) ? "preview" : "editor");
+		setViewMode(filePath ? detectViewMode(filePath) : "editor");
+		setSortCol(null);
+		setSortAsc(true);
 	}, [filePath]);
 
 	// ── Load file ─────────────────────────────────────────────────────────
 	useEffect(() => {
 		if (!filePath) {
+			setContent("");
+			setLoadError(null);
+			loadErrorRef.current = false;
+			return;
+		}
+		// Images are rendered via convertFileSrc — no text read needed
+		if (isImageFile(filePath)) {
 			setContent("");
 			setLoadError(null);
 			loadErrorRef.current = false;
@@ -134,7 +176,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 
 	// ── Setup CodeMirror ──────────────────────────────────────────────────
 	useEffect(() => {
-		if (!editorRef.current || viewMode === "preview") return;
+		if (!editorRef.current || viewMode === "preview" || viewMode === "image" || viewMode === "csv" || viewMode === "log") return;
 
 		const langExt = filePath ? getLanguageExtension(filePath) : null;
 
@@ -244,6 +286,30 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 		}
 	}, [content]);
 
+	// ── CSV: parse and sort ───────────────────────────────────────────────
+	const csvResult = useMemo(() => {
+		if (!isCsvFile(filePath) || !content) return null;
+		return Papa.parse<string[]>(content, { skipEmptyLines: true });
+	}, [filePath, content]);
+
+	const csvRows = useMemo(() => {
+		if (!csvResult || csvResult.data.length < 2) return [];
+		const rows = csvResult.data.slice(1);
+		if (sortCol === null) return rows;
+		return [...rows].sort((a, b) => {
+			const av = a[sortCol] ?? "";
+			const bv = b[sortCol] ?? "";
+			const cmp = av.localeCompare(bv, undefined, { numeric: true });
+			return sortAsc ? cmp : -cmp;
+		});
+	}, [csvResult, sortCol, sortAsc]);
+
+	// ── Log: ANSI → sanitized HTML ────────────────────────────────────────
+	const logHtml = useMemo(() => {
+		if (!isLogFile(filePath) || !content) return "";
+		return DOMPurify.sanitize(ansiConverter.toHtml(content));
+	}, [filePath, content]);
+
 	// ── Empty state ───────────────────────────────────────────────────────
 	if (!filePath) {
 		return (
@@ -328,8 +394,65 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				)}
 			</div>
 
-			{/* Editor / Preview area */}
-			{viewMode === "preview" ? (
+			{/* Viewer / Editor area */}
+			{viewMode === "image" ? (
+				<div className="workspace-editor__image-viewer">
+					<img
+						src={convertFileSrc(filePath)}
+						alt={shortName}
+						className="workspace-editor__image"
+					/>
+				</div>
+			) : viewMode === "csv" ? (
+				<div className="workspace-editor__csv-viewer">
+					{csvResult && csvResult.data.length > 0 ? (
+						<table className="workspace-editor__csv-table">
+							<thead>
+								<tr>
+									{csvResult.data[0].map((header, i) => (
+										<th
+											key={i}
+											className="workspace-editor__csv-th"
+											onClick={() => {
+												if (sortCol === i) {
+													setSortAsc((prev) => !prev);
+												} else {
+													setSortCol(i);
+													setSortAsc(true);
+												}
+											}}
+										>
+											{header}
+											{sortCol === i ? (sortAsc ? " ▲" : " ▼") : ""}
+										</th>
+									))}
+								</tr>
+							</thead>
+							<tbody>
+								{csvRows.map((row, ri) => (
+									<tr key={ri}>
+										{row.map((cell, ci) => (
+											<td key={ci} className="workspace-editor__csv-td">
+												{cell}
+											</td>
+										))}
+									</tr>
+								))}
+							</tbody>
+						</table>
+					) : (
+						<div className="workspace-editor__empty-hint">CSV 데이터가 없습니다</div>
+					)}
+				</div>
+			) : viewMode === "log" ? (
+				<div className="workspace-editor__log-viewer">
+					{/* eslint-disable-next-line react/no-danger */}
+					<pre
+						className="workspace-editor__log-pre"
+						dangerouslySetInnerHTML={{ __html: logHtml }}
+					/>
+				</div>
+			) : viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
 					<ReactMarkdown>{content}</ReactMarkdown>
 				</div>
