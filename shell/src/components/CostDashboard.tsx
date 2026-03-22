@@ -227,8 +227,12 @@ export function CostDashboard({
 							<td>{g.provider}</td>
 							<td>{g.model}</td>
 							<td>{g.count > 0 ? g.count : "-"}</td>
-							<td>{g.inputTokens > 0 ? g.inputTokens.toLocaleString() : "-"}</td>
-							<td>{g.outputTokens > 0 ? g.outputTokens.toLocaleString() : "-"}</td>
+							<td>
+								{g.inputTokens > 0 ? g.inputTokens.toLocaleString() : "-"}
+							</td>
+							<td>
+								{g.outputTokens > 0 ? g.outputTokens.toLocaleString() : "-"}
+							</td>
 							<td>{formatCost(g.cost)}</td>
 						</tr>
 					))}
