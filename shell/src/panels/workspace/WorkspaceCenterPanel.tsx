@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useChatStore } from "../../stores/chat";
 import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
 import type { PanelCenterProps } from "../../lib/panel-registry";
@@ -144,6 +145,15 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				setInitialized(true);
 			}
 
+			// Re-arm idle notification immediately when a session becomes active,
+			// without waiting for the 10-second setInterval tick. This prevents
+			// brief active periods (<10s) from being invisible to the notifier.
+			for (const s of updated) {
+				if (s.status === "active") {
+					idleNotifiedRef.current.delete(s.path);
+				}
+			}
+
 			// Update Naia context with session state
 			naia.pushContext({
 				type: "workspace",
@@ -176,15 +186,16 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 						!idleNotifiedRef.current.has(session.path)
 					) {
 						idleNotifiedRef.current.add(session.path);
-						const alertMsg = `${session.dir} 세션이 ${Math.floor(idleSec / 60)}분째 입력을 기다리고 있어요`;
+						const idleMin = Math.max(1, Math.floor(idleSec / 60));
+						const alertMsg = `${session.dir} 세션이 ${idleMin}분째 입력을 기다리고 있어요`;
 						// Visible toast in panel
 						if (idleToastTimerRef.current)
 							clearTimeout(idleToastTimerRef.current);
 						setIdleToast(alertMsg);
-						idleToastTimerRef.current = setTimeout(
-							() => setIdleToast(null),
-							6000,
-						);
+						idleToastTimerRef.current = setTimeout(() => {
+							setIdleToast(null);
+							idleToastTimerRef.current = null;
+						}, 6000);
 						// Also push to Naia context for AI awareness
 						naia.pushContext({
 							type: "workspace",
@@ -201,17 +212,35 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 							idleSec,
 						});
 					}
-				} else if (session.status === "active") {
-					// Reset notification if session becomes active again
-					idleNotifiedRef.current.delete(session.path);
 				}
+				// Active re-arm is handled in handleSessionsUpdate on every session
+				// poll — no need to duplicate here every 10 seconds.
 			}
 		}, 10000);
 		return () => {
 			clearInterval(id);
-			if (idleToastTimerRef.current) clearTimeout(idleToastTimerRef.current);
+			if (idleToastTimerRef.current) {
+				clearTimeout(idleToastTimerRef.current);
+				idleToastTimerRef.current = null;
+			}
 		};
 	}, [naia]);
+
+	// ── Clear idle state on new conversation ──────────────────────────────
+	const sessionId = useChatStore((s) => s.sessionId);
+	useEffect(() => {
+		if (sessionId !== null) return;
+		// newConversation() sets sessionId to null — user is starting fresh,
+		// so dismiss any lingering idle toast and re-arm all notifications.
+		// On initial mount sessionId is also null, but idleNotifiedRef is empty
+		// and idleToast is null, so this is a no-op and causes no harm.
+		idleNotifiedRef.current.clear();
+		setIdleToast(null);
+		if (idleToastTimerRef.current) {
+			clearTimeout(idleToastTimerRef.current);
+			idleToastTimerRef.current = null;
+		}
+	}, [sessionId]);
 
 	// ── Session card click → open recent file ─────────────────────────────
 	const handleSessionClick = useCallback(async (session: SessionInfo) => {
