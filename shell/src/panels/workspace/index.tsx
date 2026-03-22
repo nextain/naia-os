@@ -7,7 +7,7 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 	{
 		name: "skill_workspace_get_sessions",
 		description:
-			"현재 모니터링 중인 모든 Claude Code 세션의 상태를 반환한다. 각 세션의 디렉토리, 상태(active/idle/stopped), 브랜치, 이슈/단계, 최근 변경 파일을 포함한다.",
+			"현재 모니터링 중인 모든 Claude Code 세션의 상태를 반환한다. { sessions: SessionInfo[], summary: { total, active, idle, stopped, error, description } } 형태로 반환. summary.description은 '내가 뭐 하고 있어?' 질문에 답할 수 있는 자연어 설명을 포함한다.",
 		parameters: { type: "object", properties: {}, required: [] },
 		tier: 0, // auto (read-only)
 	},

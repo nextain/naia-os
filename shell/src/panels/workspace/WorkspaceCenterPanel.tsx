@@ -288,7 +288,37 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	// ── Naia tool: skill_workspace_get_sessions ───────────────────────────
 	useEffect(() => {
 		const unsub = naia.onToolCall("skill_workspace_get_sessions", () => {
-			return JSON.stringify(sessionsRef.current);
+			const currentSessions = sessionsRef.current;
+			const counts = { active: 0, idle: 0, stopped: 0, error: 0 };
+			for (const s of currentSessions) {
+				const key = s.status as keyof typeof counts;
+				if (key in counts) counts[key]++;
+			}
+			// Build natural-language description for "내가 뭐 하고 있어?" queries
+			const activeDetails = currentSessions
+				.filter((s) => s.status === "active")
+				.map((s) => {
+					const issue = s.progress?.issue ? ` (${s.progress.issue})` : "";
+					const branch = s.branch ? ` [${s.branch}]` : "";
+					return `${s.dir}${branch}${issue}`;
+				});
+			const parts: string[] = [];
+			if (counts.active > 0) parts.push(`active ${counts.active}개: ${activeDetails.join(", ")}`);
+			if (counts.idle > 0) parts.push(`idle ${counts.idle}개`);
+			if (counts.stopped > 0) parts.push(`stopped ${counts.stopped}개`);
+			if (counts.error > 0) parts.push(`error ${counts.error}개`);
+			const description = parts.length > 0 ? parts.join(", ") : "세션 없음";
+			return JSON.stringify({
+				sessions: currentSessions,
+				summary: {
+					total: counts.active + counts.idle + counts.stopped + counts.error,
+					active: counts.active,
+					idle: counts.idle,
+					stopped: counts.stopped,
+					error: counts.error,
+					description,
+				},
+			});
 		});
 		return unsub;
 	}, [naia]);

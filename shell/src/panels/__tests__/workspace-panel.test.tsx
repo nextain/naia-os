@@ -7,12 +7,14 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	NaiaContextBridge,
 	PanelContext,
 	ToolHandler,
 } from "../../lib/panel-registry";
+import type { SessionInfo } from "../workspace/SessionCard";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,24 @@ vi.mock("@codemirror/theme-one-dark", () => ({
 
 vi.mock("react-markdown", () => ({
 	default: ({ children }: { children: string }) => <div data-testid="md-preview">{children}</div>,
+}));
+
+// ─── Mock SessionDashboard — removes dependency on SessionDashboard internals ─
+
+vi.mock("../workspace/SessionDashboard", () => ({
+	SessionDashboard: vi.fn(
+		({
+			onSessionsUpdate,
+		}: {
+			onSessionsUpdate?: (sessions: SessionInfo[]) => void;
+			onSessionClick: (session: SessionInfo) => void;
+		}) => {
+			useEffect(() => {
+				onSessionsUpdate?.([]);
+			}, [onSessionsUpdate]);
+			return null;
+		},
+	),
 }));
 
 // ─── Mock NaiaContextBridge ──────────────────────────────────────────────────
@@ -184,9 +204,72 @@ describe("WorkspaceCenterPanel", () => {
 		await waitFor(() => expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true));
 
 		const result = await bridge.callTool("skill_workspace_get_sessions", {});
-		// Returns JSON array (empty initially because invoke is mocked to return [])
+		// Returns { sessions: SessionInfo[], summary: { total, active, idle, stopped, error, description } }
 		const parsed = JSON.parse(result);
-		expect(Array.isArray(parsed)).toBe(true);
+		expect(parsed).toHaveProperty("sessions");
+		expect(Array.isArray(parsed.sessions)).toBe(true);
+		expect(parsed).toHaveProperty("summary");
+		// Numeric fields must be present and zero (no sessions)
+		expect(parsed.summary.total).toBe(0);
+		expect(parsed.summary.active).toBe(0);
+		expect(parsed.summary.idle).toBe(0);
+		expect(parsed.summary.stopped).toBe(0);
+		expect(parsed.summary.error).toBe(0);
+		// No sessions → description must be "세션 없음"
+		expect(parsed.summary.description).toBe("세션 없음");
+	});
+
+	it("skill_workspace_get_sessions counts sessions by status correctly", async () => {
+		// Override SessionDashboard mock to inject known session data directly,
+		// eliminating any dependency on SessionDashboard internals or invoke timing.
+		// Safety: WorkspaceCenterPanel renders SessionDashboard unconditionally (no
+		// conditional rendering), so it is never unmounted/remounted during this test.
+		// handleSessionsUpdate = useCallback([naia]) provides a stable onSessionsUpdate
+		// reference — the default mock's effect cannot re-fire and overwrite sessionsRef.
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		const testSessions: SessionInfo[] = [
+			{ dir: "naia-os", path: "/dev/naia-os", status: "active", branch: "main", progress: { issue: "#79", phase: "build" } },
+			{ dir: "vllm", path: "/dev/vllm", status: "idle" },
+			{ dir: "test", path: "/dev/test", status: "stopped" },
+			{ dir: "broken", path: "/dev/broken", status: "error" },
+		];
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				onSessionsUpdate?.(testSessions);
+			}, [onSessionsUpdate]);
+			return null;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+
+		render(<WorkspaceCenterPanel naia={bridge} />);
+
+		await waitFor(() => expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true));
+
+		// callTool reads sessionsRef (no state mutation) so retries in waitFor are safe.
+		// waitFor retries until onSessionsUpdate has been called with testSessions.
+		await waitFor(async () => {
+			const r = await bridge.callTool("skill_workspace_get_sessions", {});
+			const p = JSON.parse(r);
+			expect(p.summary.total).toBe(4);
+			expect(p.summary.active).toBe(1);
+			expect(p.summary.idle).toBe(1);
+			expect(p.summary.stopped).toBe(1);
+			expect(p.summary.error).toBe(1);
+			// Counts must always add up to total
+			expect(p.summary.active + p.summary.idle + p.summary.stopped + p.summary.error).toBe(p.summary.total);
+			// Description should mention each status group and active session details
+			expect(p.summary.description).toContain("active 1개");
+			expect(p.summary.description).toContain("idle 1개");
+			expect(p.summary.description).toContain("stopped 1개");
+			expect(p.summary.description).toContain("error 1개");
+			expect(p.summary.description).toContain("naia-os");
+			expect(p.summary.description).toContain("[main]");
+			expect(p.summary.description).toContain("(#79)");
+		});
 	});
 
 	it("skill_workspace_open_file updates editor filepath", async () => {
@@ -359,7 +442,7 @@ describe("Editor", () => {
 		expect(screen.getByText("#79 · Build")).toBeDefined();
 	});
 
-	it("shows preview toggle button for markdown files", async () => {
+	it("shows edit toggle button for markdown files (default preview mode)", async () => {
 		const { invoke } = await import("@tauri-apps/api/core");
 		vi.mocked(invoke).mockResolvedValueOnce("# Heading\n\nContent");
 
@@ -369,7 +452,8 @@ describe("Editor", () => {
 			<Editor filePath="/var/home/luke/dev/naia-os/docs/design/workspace-panel.ko.md" />,
 		);
 
-		expect(screen.getByText("미리보기")).toBeDefined();
+		// Markdown files start in preview mode → "편집" button is shown to switch back
+		expect(screen.getByText("편집")).toBeDefined();
 	});
 
 	it("shows read-only label for ref- directories", async () => {
