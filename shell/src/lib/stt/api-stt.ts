@@ -28,9 +28,11 @@ const SEND_INTERVAL_MS = 3000;
  * Captures mic via AudioContext (WebKitGTK compatible), sends PCM chunks to API.
  */
 export function createApiSttSession(options: ApiSttOptions): SttSession {
-	const { provider, apiKey, language, endpointUrl, model, inputDeviceId } = options;
+	const { provider, apiKey, language, endpointUrl, model, inputDeviceId } =
+		options;
 	let resultCallbacks: ((result: SttResult) => void)[] = [];
-	let errorCallbacks: ((error: { code: string; message: string }) => void)[] = [];
+	let errorCallbacks: ((error: { code: string; message: string }) => void)[] =
+		[];
 	let costCallbacks: ((cost: { durationSeconds: number }) => void)[] = [];
 	let stopped = false;
 	let mediaStream: MediaStream | null = null;
@@ -48,7 +50,11 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 	}
 
 	function int16ToBase64(samples: Int16Array): string {
-		const bytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+		const bytes = new Uint8Array(
+			samples.buffer,
+			samples.byteOffset,
+			samples.byteLength,
+		);
 		let binary = "";
 		for (let i = 0; i < bytes.length; i++) {
 			binary += String.fromCharCode(bytes[i]);
@@ -79,14 +85,23 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 		for (let i = 0; i < pcm.length; i++) sumSq += pcm[i] * pcm[i];
 		const rms = Math.sqrt(sumSq / pcm.length);
 		if (rms < 150) {
-			Logger.info("api-stt", "Skipping silence", { rms: Math.round(rms), samples: pcm.length });
+			Logger.info("api-stt", "Skipping silence", {
+				rms: Math.round(rms),
+				samples: pcm.length,
+			});
 			return;
 		}
 
 		const durationSeconds = pcm.length / TARGET_SAMPLE_RATE;
 		const base64 = int16ToBase64(pcm);
 		const peak = Math.max(...Array.from(pcm).map(Math.abs));
-		Logger.info("api-stt", "transcribeChunk called", { provider, samples: pcm.length, durationSeconds: Math.round(durationSeconds), rms: Math.round(rms), peak });
+		Logger.info("api-stt", "transcribeChunk called", {
+			provider,
+			samples: pcm.length,
+			durationSeconds: Math.round(durationSeconds),
+			rms: Math.round(rms),
+			peak,
+		});
 
 		// Notify cost BEFORE API call (API call = billing)
 		for (const cb of costCallbacks) cb({ durationSeconds });
@@ -100,17 +115,28 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 			} else if (provider === "elevenlabs") {
 				result = await transcribeElevenLabs(base64, apiKey, language);
 			} else if (provider === "vllm") {
-				result = await transcribeLocalVllm(base64, endpointUrl ?? "http://localhost:8000", language, model);
+				result = await transcribeLocalVllm(
+					base64,
+					endpointUrl ?? "http://localhost:8000",
+					language,
+					model,
+				);
 			}
-			Logger.info("api-stt", "transcribeChunk result", { provider, result: result?.slice(0, 50) ?? "(null)" });
+			Logger.info("api-stt", "transcribeChunk result", {
+				provider,
+				result: result?.slice(0, 50) ?? "(null)",
+			});
 			if (result && result.trim()) {
 				for (const cb of resultCallbacks) {
 					cb({ transcript: result.trim(), isFinal: true });
 				}
 			}
 		} catch (err) {
-			Logger.warn("api-stt", `${provider} transcription error`, { error: String(err) });
-			for (const cb of errorCallbacks) cb({ code: "API_ERROR", message: String(err) });
+			Logger.warn("api-stt", `${provider} transcription error`, {
+				error: String(err),
+			});
+			for (const cb of errorCallbacks)
+				cb({ code: "API_ERROR", message: String(err) });
 		}
 	}
 
@@ -131,7 +157,8 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 					},
 				});
 			} catch (err) {
-				for (const cb of errorCallbacks) cb({ code: "MIC_ERROR", message: String(err) });
+				for (const cb of errorCallbacks)
+					cb({ code: "MIC_ERROR", message: String(err) });
 				throw err;
 			}
 
@@ -139,7 +166,10 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 			// non-native rate (e.g. 16000 Hz vs device native 48000 Hz). Downsample in SW.
 			audioCtx = new AudioContext();
 			const nativeSampleRate = audioCtx.sampleRate;
-			const downsampleRatio = Math.max(1, Math.round(nativeSampleRate / TARGET_SAMPLE_RATE));
+			const downsampleRatio = Math.max(
+				1,
+				Math.round(nativeSampleRate / TARGET_SAMPLE_RATE),
+			);
 			const source = audioCtx.createMediaStreamSource(mediaStream);
 			const processor = audioCtx.createScriptProcessor(BUFFER_SIZE, 1, 1);
 			// NOTE: GainNode must NOT be inserted between source and processor in WebKitGTK.
@@ -154,8 +184,17 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 					firstChunkLogged = true;
 					const f32min = Math.min(...raw).toFixed(4);
 					const f32max = Math.max(...raw).toFixed(4);
-					const f32rms = Math.sqrt(raw.reduce((s, v) => s + v * v, 0) / raw.length).toFixed(4);
-					Logger.info("api-stt", "First audio chunk (float32 raw)", { f32min, f32max, f32rms, swGain: SW_GAIN, nativeSampleRate, downsampleRatio });
+					const f32rms = Math.sqrt(
+						raw.reduce((s, v) => s + v * v, 0) / raw.length,
+					).toFixed(4);
+					Logger.info("api-stt", "First audio chunk (float32 raw)", {
+						f32min,
+						f32max,
+						f32rms,
+						swGain: SW_GAIN,
+						nativeSampleRate,
+						downsampleRatio,
+					});
 				}
 				// Downsample: decimate by ratio to reach TARGET_SAMPLE_RATE
 				const outLen = Math.floor(raw.length / downsampleRatio);
@@ -175,7 +214,12 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 				if (!stopped) sendAndTranscribe();
 			}, SEND_INTERVAL_MS);
 
-			Logger.info("api-stt", `${provider} STT started`, { language, nativeSampleRate, targetSampleRate: TARGET_SAMPLE_RATE, downsampleRatio });
+			Logger.info("api-stt", `${provider} STT started`, {
+				language,
+				nativeSampleRate,
+				targetSampleRate: TARGET_SAMPLE_RATE,
+				downsampleRatio,
+			});
 		},
 
 		async stop() {
@@ -200,24 +244,34 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 
 		onResult(callback) {
 			resultCallbacks.push(callback);
-			return () => { resultCallbacks = resultCallbacks.filter((cb) => cb !== callback); };
+			return () => {
+				resultCallbacks = resultCallbacks.filter((cb) => cb !== callback);
+			};
 		},
 
 		onError(callback) {
 			errorCallbacks.push(callback);
-			return () => { errorCallbacks = errorCallbacks.filter((cb) => cb !== callback); };
+			return () => {
+				errorCallbacks = errorCallbacks.filter((cb) => cb !== callback);
+			};
 		},
 
 		onCost(callback: (cost: { durationSeconds: number }) => void) {
 			costCallbacks.push(callback);
-			return () => { costCallbacks = costCallbacks.filter((cb) => cb !== callback); };
+			return () => {
+				costCallbacks = costCallbacks.filter((cb) => cb !== callback);
+			};
 		},
 	};
 }
 
 // ── Google Cloud Speech-to-Text (PCM LINEAR16) ──
 
-async function transcribeGoogle(pcmBase64: string, apiKey: string, language: string): Promise<string | null> {
+async function transcribeGoogle(
+	pcmBase64: string,
+	apiKey: string,
+	language: string,
+): Promise<string | null> {
 	const response = await fetch(
 		`https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
 		{
@@ -243,15 +297,24 @@ async function transcribeGoogle(pcmBase64: string, apiKey: string, language: str
 
 	const data = await response.json();
 	const results = data.results ?? [];
-	return results
-		.map((r: { alternatives?: { transcript?: string }[] }) => r.alternatives?.[0]?.transcript ?? "")
-		.join(" ")
-		.trim() || null;
+	return (
+		results
+			.map(
+				(r: { alternatives?: { transcript?: string }[] }) =>
+					r.alternatives?.[0]?.transcript ?? "",
+			)
+			.join(" ")
+			.trim() || null
+	);
 }
 
 // ── Naia Cloud STT (via any-llm gateway → Google Cloud STT) ──
 
-async function transcribeNextain(pcmBase64: string, naiaKey: string, language: string): Promise<string | null> {
+async function transcribeNextain(
+	pcmBase64: string,
+	naiaKey: string,
+	language: string,
+): Promise<string | null> {
 	// Convert PCM base64 to WAV blob for gateway upload
 	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
 	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
@@ -260,7 +323,8 @@ async function transcribeNextain(pcmBase64: string, naiaKey: string, language: s
 	formData.append("file", wavBlob, "audio.wav");
 	formData.append("language", language);
 
-	const gatewayUrl = "https://naia-gateway-181404717065.asia-northeast3.run.app";
+	const gatewayUrl =
+		"https://naia-gateway-181404717065.asia-northeast3.run.app";
 	const response = await fetch(`${gatewayUrl}/v1/audio/transcriptions`, {
 		method: "POST",
 		headers: { "X-AnyLLM-Key": `Bearer ${naiaKey}` },
@@ -278,7 +342,11 @@ async function transcribeNextain(pcmBase64: string, naiaKey: string, language: s
 
 // ── ElevenLabs Speech-to-Text ──
 
-async function transcribeElevenLabs(pcmBase64: string, apiKey: string, language: string): Promise<string | null> {
+async function transcribeElevenLabs(
+	pcmBase64: string,
+	apiKey: string,
+	language: string,
+): Promise<string | null> {
 	// Convert PCM base64 to WAV blob for ElevenLabs upload
 	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
 	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
@@ -305,7 +373,12 @@ async function transcribeElevenLabs(pcmBase64: string, apiKey: string, language:
 
 // ── Local vLLM STT (OpenAI-compatible /v1/audio/transcriptions) ──
 
-async function transcribeLocalVllm(pcmBase64: string, baseUrl: string, language: string, model?: string): Promise<string | null> {
+async function transcribeLocalVllm(
+	pcmBase64: string,
+	baseUrl: string,
+	language: string,
+	model?: string,
+): Promise<string | null> {
 	const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
 	const wavBlob = pcmToWavBlob(pcmBytes, TARGET_SAMPLE_RATE);
 
@@ -337,7 +410,8 @@ function pcmToWavBlob(pcmBytes: Uint8Array, sampleRate: number): Blob {
 
 	// WAV header
 	const writeString = (offset: number, str: string) => {
-		for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+		for (let i = 0; i < str.length; i++)
+			view.setUint8(offset + i, str.charCodeAt(i));
 	};
 	writeString(0, "RIFF");
 	view.setUint32(4, 36 + pcmBytes.length, true);

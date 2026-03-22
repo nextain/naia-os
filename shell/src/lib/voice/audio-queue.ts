@@ -112,7 +112,9 @@ export class AudioQueue {
 
 		const audio = new Audio(`data:audio/mp3;base64,${mp3Base64}`);
 		// Apply output device if specified (setSinkId is non-standard, guarded)
-		const setSinkId = (audio as unknown as { setSinkId?: (id: string) => Promise<void> }).setSinkId;
+		const setSinkId = (
+			audio as unknown as { setSinkId?: (id: string) => Promise<void> }
+		).setSinkId;
 		if (this.callbacks.outputDeviceId && setSinkId) {
 			setSinkId.call(audio, this.callbacks.outputDeviceId).catch(() => {});
 		}

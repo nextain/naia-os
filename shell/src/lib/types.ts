@@ -13,7 +13,14 @@
  *   "vlm"   — vision-language (image understanding)
  *   "world" — world model (future)
  */
-export type ModelCapability = "llm" | "omni" | "asr" | "stt" | "tts" | "vlm" | "world";
+export type ModelCapability =
+	| "llm"
+	| "omni"
+	| "asr"
+	| "stt"
+	| "tts"
+	| "vlm"
+	| "world";
 
 // === Provider ===
 

@@ -129,10 +129,22 @@ registerLlmProvider({
 	requiresNaiaKey: true,
 	defaultModel: "gemini-3-flash-preview",
 	models: [
-		{ id: "gemini-3-pro-preview", label: "Gemini 3 Pro", capabilities: ["llm"] },
-		{ id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash", capabilities: ["llm"] },
+		{
+			id: "gemini-3-pro-preview",
+			label: "Gemini 3 Pro",
+			capabilities: ["llm"],
+		},
+		{
+			id: "gemini-3-flash-preview",
+			label: "Gemini 3.0 Flash",
+			capabilities: ["llm"],
+		},
 		{ id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", capabilities: ["llm"] },
-		{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", capabilities: ["llm"] },
+		{
+			id: "gemini-2.5-flash",
+			label: "Gemini 2.5 Flash",
+			capabilities: ["llm"],
+		},
 		{
 			id: "gemini-2.5-flash-live",
 			label: "Gemini 2.5 Flash Live 🗣️",
@@ -153,8 +165,16 @@ registerLlmProvider({
 	defaultModel: "claude-sonnet-4-6",
 	models: [
 		{ id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["llm"] },
-		{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["llm"] },
-		{ id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", capabilities: ["llm"] },
+		{
+			id: "claude-sonnet-4-6",
+			label: "Claude Sonnet 4.6",
+			capabilities: ["llm"],
+		},
+		{
+			id: "claude-haiku-4-5-20251001",
+			label: "Claude Haiku 4.5",
+			capabilities: ["llm"],
+		},
 	],
 });
 
@@ -209,7 +229,12 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "gpt-4o",
 	models: [
-		{ id: "gpt-4o", label: "GPT-4o", capabilities: ["llm"], pricing: [2.5, 10.0] },
+		{
+			id: "gpt-4o",
+			label: "GPT-4o",
+			capabilities: ["llm"],
+			pricing: [2.5, 10.0],
+		},
 		{
 			id: "gpt-4o-realtime",
 			label: "GPT-4o Realtime 🗣️ (~$0.10/min)",
@@ -275,7 +300,12 @@ registerLlmProvider({
 	requiresApiKey: true,
 	defaultModel: "glm-4.7",
 	models: [
-		{ id: "glm-4.7", label: "GLM 4.7", capabilities: ["llm"], pricing: [0.6, 2.2] },
+		{
+			id: "glm-4.7",
+			label: "GLM 4.7",
+			capabilities: ["llm"],
+			pricing: [0.6, 2.2],
+		},
 	],
 });
 
@@ -319,7 +349,8 @@ registerLlmProvider({
 registerLlmProvider({
 	id: "vllm",
 	name: "vLLM",
-	description: "Local vLLM server — OpenAI-compatible API, no API key required.",
+	description:
+		"Local vLLM server — OpenAI-compatible API, no API key required.",
 	descKey: "provider.localRequired",
 	requiresApiKey: false,
 	isLocal: true,
@@ -337,7 +368,11 @@ registerLlmProvider({
 				return {
 					id: m.id,
 					label: isOmni ? `${m.id} 🗣️` : m.id,
-					capabilities: (isAsr ? ["asr"] : isOmni ? ["llm", "omni"] : ["llm"]) as ModelCapability[],
+					capabilities: (isAsr
+						? ["asr"]
+						: isOmni
+							? ["llm", "omni"]
+							: ["llm"]) as ModelCapability[],
 				};
 			});
 		} catch {
