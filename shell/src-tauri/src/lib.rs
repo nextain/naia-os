@@ -2267,6 +2267,8 @@ pub fn run() {
             browser::browser_set_permission,
             panel::panel_list_installed,
             panel::panel_remove_installed,
+            panel::panel_read_file,
+            panel::panel_run_shell,
             workspace::workspace_list_dirs,
             workspace::workspace_read_file,
             workspace::workspace_write_file,

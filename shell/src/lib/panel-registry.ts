@@ -1,4 +1,10 @@
 import type React from "react";
+import { invoke } from "@tauri-apps/api/core";
+import type { BehaviorEntry, BehaviorFilter } from "./behavior-log";
+import { logBehavior, queryBehavior } from "./behavior-log";
+import { getSecretKey, saveSecretKey } from "./secure-store";
+
+export type { BehaviorEntry, BehaviorFilter };
 
 // ─── Context ────────────────────────────────────────────────────────────────
 
@@ -42,11 +48,20 @@ export type ToolHandler = (
 	args: Record<string, unknown>,
 ) => Promise<string | void> | string | void;
 
+export interface ShellResult {
+	stdout: string;
+	stderr: string;
+	code: number;
+}
+
 // ─── Bridge ─────────────────────────────────────────────────────────────────
 
 /**
  * Narrow bridge between a panel and Naia.
  * Panels interact with Naia only through this interface — never via direct imports.
+ *
+ * Built-in (TypeScript) panels receive this bridge directly as a prop.
+ * Installed (iframe) panels communicate via postMessage through iframe-bridge.ts.
  */
 export interface NaiaContextBridge {
 	/** Push updated context to Naia's next message system prompt. */
@@ -57,15 +72,61 @@ export interface NaiaContextBridge {
 	 * Returns an unsubscribe function.
 	 */
 	onToolCall(toolName: string, handler: ToolHandler): () => void;
+
+	/** Log a behavior event. Stored in Shell WebView IndexedDB (30-day retention). */
+	logBehavior(event: string, data?: Record<string, unknown>): Promise<void>;
+
+	/**
+	 * Query behavior log for this panel's events.
+	 * Returns newest-first.
+	 */
+	queryBehavior(filter?: BehaviorFilter): Promise<BehaviorEntry[]>;
+
+	/**
+	 * Get a secret value stored by this panel.
+	 * Keys are namespaced per panel — panels cannot access each other's secrets.
+	 */
+	getSecret(key: string): Promise<string | null>;
+
+	/** Set a secret value for this panel. */
+	setSecret(key: string, value: string): Promise<void>;
+
+	/**
+	 * Read a file from disk. Restricted to the user's HOME directory.
+	 * Returns file contents as a UTF-8 string.
+	 */
+	readFile(path: string): Promise<string>;
+
+	/**
+	 * Run an allowlisted shell command.
+	 * The Shell enforces an allowlist on the Rust side — unknown commands are rejected.
+	 */
+	runShell(cmd: string, args?: string[]): Promise<ShellResult>;
 }
 
 /** No-op bridge used as placeholder until a real bridge is wired. */
 export class NoopContextBridge implements NaiaContextBridge {
-	pushContext(_ctx: PanelContext): void {
-		// not yet wired
-	}
+	pushContext(_ctx: PanelContext): void {}
 	onToolCall(_toolName: string, _handler: ToolHandler): () => void {
 		return () => {};
+	}
+	logBehavior(_event: string, _data?: Record<string, unknown>): Promise<void> {
+		return Promise.resolve();
+	}
+	queryBehavior(_filter?: BehaviorFilter): Promise<BehaviorEntry[]> {
+		return Promise.resolve([]);
+	}
+	getSecret(_key: string): Promise<string | null> {
+		return Promise.resolve(null);
+	}
+	setSecret(_key: string, _value: string): Promise<void> {
+		return Promise.resolve();
+	}
+	readFile(_path: string): Promise<string> {
+		return Promise.resolve("");
+	}
+	runShell(_cmd: string, _args?: string[]): Promise<ShellResult> {
+		return Promise.resolve({ stdout: "", stderr: "", code: 0 });
 	}
 }
 
@@ -75,9 +136,13 @@ export class NoopContextBridge implements NaiaContextBridge {
  *
  * Panel tools execute in the Shell (WebView). When the Agent receives a
  * panel_tool_call from the LLM, it forwards it here via callTool().
+ *
+ * panelId is required for key namespacing in getSecret/setSecret/logBehavior.
  */
 export class ActivePanelBridge implements NaiaContextBridge {
 	private handlers = new Map<string, ToolHandler>();
+
+	constructor(private readonly panelId: string = "__builtin__") {}
 
 	pushContext(ctx: PanelContext): void {
 		// Dynamic import avoids circular dep (stores/panel → panel-registry → stores/panel)
@@ -102,6 +167,30 @@ export class ActivePanelBridge implements NaiaContextBridge {
 		if (!handler) return `No handler registered for tool: ${toolName}`;
 		const result = await handler(args);
 		return result ?? "ok";
+	}
+
+	logBehavior(event: string, data?: Record<string, unknown>): Promise<void> {
+		return logBehavior(this.panelId, event, data);
+	}
+
+	queryBehavior(filter?: BehaviorFilter): Promise<BehaviorEntry[]> {
+		return queryBehavior({ ...filter, panelId: this.panelId });
+	}
+
+	getSecret(key: string): Promise<string | null> {
+		return getSecretKey(`panel:${this.panelId}:${key}`);
+	}
+
+	setSecret(key: string, value: string): Promise<void> {
+		return saveSecretKey(`panel:${this.panelId}:${key}`, value);
+	}
+
+	readFile(path: string): Promise<string> {
+		return invoke<string>("panel_read_file", { path });
+	}
+
+	runShell(cmd: string, args?: string[]): Promise<ShellResult> {
+		return invoke<ShellResult>("panel_run_shell", { cmd, args: args ?? [] });
 	}
 }
 

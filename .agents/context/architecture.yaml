@@ -410,10 +410,20 @@ panel_system:
     panel_list_installed:
       file: "shell/src-tauri/src/panel.rs"
       returns: "Vec<PanelManifest> — scans ~/.naia/panels/, loads panel.json, reads iconSvg from iconUrl"
+    panel_read_file:
+      file: "shell/src-tauri/src/panel.rs"
+      params: "path: String"
+      security: "canonicalize() to resolve symlinks + HOME boundary check + 1 MB size limit"
+    panel_run_shell:
+      file: "shell/src-tauri/src/panel.rs"
+      params: "cmd: String, args: Vec<String>"
+      security: "SHELL_CMD_MAP allowlist (absolute paths, no PATH lookup) + arg metachar/separator/traversal filter + cwd=HOME"
+      allowed_cmds: "ls, echo, pwd, date, uname, whoami (all absolute /usr/bin/ paths)"
     panel_remove_installed:
       file: "shell/src-tauri/src/panel.rs"
       params: "panelId: String"
       validates: "no '/', '\\', '..' in panelId (path traversal guard)"
+      security: "canonicalize() after exists() + HOME boundary check before remove_dir_all (symlink attack prevention)"
       removes: "~/.naia/panels/{panelId}/ directory"
 
   shell_files:
@@ -434,6 +444,34 @@ panel_system:
       panel_install_result has no requestId field — the filter would block it.
     zip_extension: "deriveNameFromSource MUST strip .zip — otherwise panel dir is named 'foo.zip' not 'foo'."
     file_url_as_git: "file:// URLs are treated as git (clone), not zip. Useful for local git repos."
+
+  iframe_bridge:
+    description: "postMessage server/client for iframe-based installed panels — added 2026-03-23 (#98)"
+    files:
+      server: "shell/src/lib/iframe-bridge.ts — Shell-side message listener (startIframeBridge)"
+      client: "shell/src/lib/naia-bridge-client.ts — panel-side wrapper (NaiaBridgeClient class)"
+      behavior_log: "shell/src/lib/behavior-log.ts — IndexedDB naia_behavior, 30-day purge"
+    bridge_messages:
+      logBehavior: "panel → Shell IndexedDB (panelId-scoped)"
+      queryBehavior: "panel → Shell IndexedDB read (panelId forced by bridge, panel cannot query others)"
+      getSecret: "panel → secure-store.ts key=panel:{panelId}:{key}"
+      setSecret: "panel → secure-store.ts key=panel:{panelId}:{key}"
+      readFile: "panel → Tauri panel_read_file (HOME-restricted, 1 MB limit)"
+      runShell: "panel → Tauri panel_run_shell (allowlist)"
+    security:
+      origin_guard: "event.origin === 'http://asset.localhost' only"
+      unknown_block: "panelId === '__unknown__' → all operations denied immediately"
+      panel_id_source: "panelIdFromSource() — regex /\\/([^/]+)\\/index\\.html(?:[?#].*)?$/ on iframe.src"
+      respond_target: "respond() uses ALLOWED_ORIGIN as targetOrigin (iframe origin)"
+      client_send_target: "window.parent.postMessage(req, '*') — '*' needed because window.parent.origin throws SecurityError cross-origin; Shell validates event.origin on receipt"
+      namespacing: "getSecret/setSecret keys namespaced panel:{panelId}:{key} — cross-panel isolation"
+    naia_context_bridge:
+      interface: "NaiaContextBridge in panel-registry.ts — 6 methods added in #98"
+      implementations:
+        ActivePanelBridge: "full impl via active-bridge.ts getBridgeForPanel(panelId) factory + Map cache"
+        NoopContextBridge: "stub for panels without NaiaContextBridge support"
+      factory: "getBridgeForPanel(panelId) in active-bridge.ts — returns cached ActivePanelBridge"
+      app_integration: "App.tsx startIframeBridge() in useEffect + getBridgeForPanel(panelId) for all panels"
 
   built_in_panels:
     browser:

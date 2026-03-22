@@ -644,3 +644,52 @@ Built-in panel for Claude Code session monitoring and PTY terminal tabs. Always 
 - **Events**: `pty:output:{pty_id}` / `pty:exit:{pty_id}` (Tauri events from Rust)
 - **Dedup**: `openDirsRef` (`Set<string>`) — add dir **before** `await pty_create`; delete only on failure or tab close
 - **keepAlive**: `opacity:0 + pointerEvents:none` (NOT `display:none` — FitAddon breaks on hidden elements)
+
+---
+
+## Panel System — Iframe Bridge (#98, 2026-03-23)
+
+Installed panels can be iframe-based (have `index.html`). The iframe bridge gives these panels access to Shell services via `postMessage`.
+
+### Files
+
+| File | Role |
+|------|------|
+| `shell/src/lib/iframe-bridge.ts` | Shell-side postMessage server (`startIframeBridge`) |
+| `shell/src/lib/naia-bridge-client.ts` | Panel-side client wrapper (`NaiaBridgeClient` class) |
+| `shell/src/lib/behavior-log.ts` | IndexedDB behavior log (`naia_behavior`, 30-day purge) |
+
+### Bridge Messages
+
+| Type | Handler |
+|------|---------|
+| `naia-bridge:logBehavior` | Shell IndexedDB (panelId-scoped) |
+| `naia-bridge:queryBehavior` | Shell IndexedDB read (panelId forced — panel can't query others) |
+| `naia-bridge:getSecret` | secure-store.ts key `panel:{panelId}:{key}` |
+| `naia-bridge:setSecret` | secure-store.ts key `panel:{panelId}:{key}` |
+| `naia-bridge:readFile` | Tauri `panel_read_file` (HOME-restricted, 1 MB) |
+| `naia-bridge:runShell` | Tauri `panel_run_shell` (allowlist) |
+
+### Security Model
+
+- **Origin guard**: `event.origin === 'http://asset.localhost'` only
+- **`__unknown__` block**: panelId unresolvable → all operations denied
+- **panelId source**: regex `/\/([^/]+)\/index\.html(?:[?#].*)?$/` on `iframe.src`
+- **Namespacing**: getSecret/setSecret keys `panel:{panelId}:{key}` — cross-panel isolation
+- **Respond targetOrigin**: Shell responds to iframe via `postMessage(data, ALLOWED_ORIGIN)` — `ALLOWED_ORIGIN = "http://asset.localhost"` (iframe origin)
+- **`"*"` targetOrigin**: Panel sends requests with `window.parent.postMessage(req, "*")` — `window.parent.origin` throws SecurityError cross-origin. Shell validates `event.origin` on receipt.
+
+### Tauri Commands (panel.rs)
+
+| Command | Security |
+|---------|---------|
+| `panel_read_file` | `canonicalize()` + HOME boundary + 1 MB limit |
+| `panel_run_shell` | SHELL_CMD_MAP allowlist (absolute `/usr/bin/` paths) + arg metachar/separator/traversal filter |
+| `panel_remove_installed` | panelId validation + `canonicalize()` + HOME boundary before `remove_dir_all` |
+
+### NaiaContextBridge Integration
+
+`NaiaContextBridge` interface in `panel-registry.ts` — 6 methods:
+- `ActivePanelBridge` — full implementation; `NoopContextBridge` — stub for panels without bridge support
+- `getBridgeForPanel(panelId)` factory in `active-bridge.ts` returns cached `ActivePanelBridge`
+- All panels (keepAlive + non-keepAlive) receive per-panel bridge instance via `App.tsx`

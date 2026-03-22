@@ -8,8 +8,9 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PanelInstallDialog } from "./components/PanelInstallDialog";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
-import { activeBridge } from "./lib/active-bridge";
+import { getBridgeForPanel } from "./lib/active-bridge";
 import { syncLinkedChannels } from "./lib/channel-sync";
+import { startIframeBridge } from "./lib/iframe-bridge";
 import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
 import {
 	type ThemeId,
@@ -76,6 +77,11 @@ export function App() {
 			}
 		}
 	}, [activePanel]);
+
+	useEffect(() => {
+		const stopIframeBridge = startIframeBridge();
+		return stopIframeBridge;
+	}, []);
 
 	useEffect(() => {
 		void migrateLabKeyToNaiaKey();
@@ -315,7 +321,7 @@ export function App() {
 										key={panel.id}
 										className={`content-panel__slot${activePanel === panel.id ? " content-panel__slot--active" : ""}`}
 									>
-										<PanelCenter naia={activeBridge} />
+										<PanelCenter naia={getBridgeForPanel(panel.id)} />
 									</div>
 								);
 							})}
@@ -324,7 +330,7 @@ export function App() {
 								!keepAlivePanels.some((p) => p.id === activePanel) && (
 									<div className="content-panel__slot content-panel__slot--active">
 										{CenterComponent ? (
-											<CenterComponent naia={activeBridge} />
+											<CenterComponent naia={getBridgeForPanel(activePanel)} />
 										) : (
 											<div className="content-panel__home" />
 										)}

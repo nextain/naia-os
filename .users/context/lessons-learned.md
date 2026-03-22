@@ -456,3 +456,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: Tauri mock intercepts by exact string match. When the command name in the mock differs from the actual Rust command, it falls through to `return undefined`. For `browser_check`, `undefined` is falsy — panel state machine branched to the `"no-chrome"` path.
 
 **Fix**: Always grep the actual Rust invoke name (`shell/src-tauri/src/*.rs` `invoke!` macro or TS files) before writing mock entries. Use `"browser_check"`, not `"browser_check_available"`. Verify mock by checking that the panel reaches expected status before making behavioral assertions.
+
+---
+
+## L038 — `window.parent.origin` throws SecurityError in cross-origin iframe — use `"*"` with server-side validation (#98)
+
+**Date**: 2026-03-23 | **Category**: Security | **Scope**: `shell/src/lib/naia-bridge-client.ts`
+
+**Problem**: `naia-bridge-client.ts` used `window.parent.postMessage(req, window.parent.origin)`. In Tauri, the iframe (`http://asset.localhost`) and Shell (`tauri://localhost`) are cross-origin, so accessing `window.parent.origin` throws SecurityError.
+
+**Root cause**: Cross-origin iframe spec: accessing `parent.origin` from a child of a different origin throws SecurityError. Browser security restriction, not Tauri-specific.
+
+**Fix**: Use `window.parent.postMessage(req, "*")`. Safe because `iframe-bridge.ts` validates `event.origin === 'http://asset.localhost'` on receipt.
+
+---
+
+## L039 — jsdom drops postMessage with mismatched targetOrigin — spy on `source.postMessage` to capture bridge responses (#98)
+
+**Date**: 2026-03-23 | **Category**: Testing | **Scope**: `shell/src/lib/__tests__/iframe-bridge.test.ts`
+
+**Problem**: `iframe-bridge.ts` sends `respond()` via `postMessage(data, 'http://asset.localhost')`. jsdom silently drops the message if the receiver window origin doesn't match.
+
+**Root cause**: jsdom enforces targetOrigin matching. Test window origin is `'null'` (jsdom default), so the message is dropped.
+
+**Fix**: Use `vi.spyOn(source, 'postMessage')` before dispatching. After `await setTimeout(30)`, check `spy.mock.calls` to find the response by `id` — intercepts before jsdom filtering.
+
+---
+
+## L040 — `remove_dir_all` without canonicalize allows symlink attack on panel removal (#98)
+
+**Date**: 2026-03-23 | **Category**: Security | **Scope**: `shell/src-tauri/src/panel.rs`
+
+**Problem**: `panel_remove_installed` validated `panelId` for path separators but called `remove_dir_all(&panel_dir)` directly. If `~/.naia/panels/{id}` was a symlink outside HOME, `remove_dir_all` would follow it and delete target contents.
+
+**Root cause**: String validation on `panelId` doesn't prevent the directory itself from being a symlink.
+
+**Fix**: After `exists()`, call `canonicalize()` and verify `starts_with(home_path)` before `remove_dir_all(&canonical)`. Mirrors `panel_read_file`'s pattern.
