@@ -320,6 +320,36 @@ lessons:
     category: regex
     scope: "shell/src/components/ChatPanel.tsx"
     title: "FILE_PATH_RE must use (?<![/\\w]) lookbehind to prevent sub-path false positives"
-    problem: "Regex /(\/[\w\-\.\/]+\.ext)/ extracted '/src/App.tsx' from 'shell/src/App.tsx' because the leading '/' was matched as an absolute path separator. Relative paths produce clickable deeplink buttons for their sub-paths."
+    problem: "Regex /(\\/[\\w\\-\\.\\/]+\\.ext)/ extracted '/src/App.tsx' from 'shell/src/App.tsx' because the leading '/' was matched as an absolute path separator. Relative paths produce clickable deeplink buttons for their sub-paths."
     root_cause: "No lookbehind check. Any '/' in a string was a valid path start, including those preceded by path segment characters."
     fix: "Added (?<![/\\w]) lookbehind: if the char before '/' is a word character or another '/', the match is blocked. Also tsx/jsx must be listed before ts/js for longest-match extension resolution."
+
+  - id: L031
+    date: "2026-03-23"
+    issue: "#119"
+    category: react
+    scope: "shell/src/panels/workspace/WorkspaceCenterPanel.tsx"
+    title: "openDirsRef add-before-await pattern for async dedup in concurrent tool calls"
+    problem: "Concurrent skill_workspace_new_session calls for the same dir spawned duplicate PTY processes. setTerminals-based dedup had a race: React state had not yet committed when the second call checked terminalsRef."
+    root_cause: "React state updates (setTerminals) are async — terminalsRef.current is only updated during the render body, not when setTerminals() is called. A second tool call arriving during await pty_create could bypass the state-based dedup check."
+    fix: "Use a separate useRef Set (openDirsRef) as the dedup source of truth. Add the dir BEFORE await pty_create (blocks concurrent calls immediately). Delete only on failure (catch) or tab close — NOT on success (the entry stays until the tab is closed)."
+
+  - id: L032
+    date: "2026-03-23"
+    issue: "#119"
+    category: react
+    scope: "shell/src/panels/workspace/WorkspaceCenterPanel.tsx"
+    title: "terminalsRef.current updates on render, not on setTerminals — safe to read in callbacks"
+    problem: "Reviewers flagged handleCloseTerminal as having a race condition: 'terminalsRef might not find the tab if setTerminals already queued a filter'. This caused confusion about whether the find() was safe."
+    root_cause: "terminalsRef.current = terminals runs in the render body (synchronously during React render). It is NOT updated when setTerminals() is called. Between a setTerminals() call and the next render, terminalsRef.current still holds the previous array."
+    fix: "No code change needed — the pattern is correct. Add a comment: 'terminalsRef.current is updated synchronously in the render body, NOT on setTerminals(). So even if another handler already queued a setTerminals(), terminalsRef still holds the current (pre-render) tabs here — find() is safe.'"
+
+  - id: L033
+    date: "2026-03-23"
+    issue: "#119"
+    category: frontend
+    scope: "shell/src/panels/workspace/Terminal.tsx"
+    title: "xterm.js keepAlive: use opacity:0+pointerEvents:none, never display:none"
+    problem: "Terminal component needed keepAlive stacking (multiple PTY instances, one active at a time). display:none was considered but breaks FitAddon."
+    root_cause: "FitAddon.fit() computes terminal dimensions from the container's offsetWidth/offsetHeight. When display:none is applied, these values are 0 — fit() returns 0×0 cols/rows, and the PTY gets resized to an invalid size."
+    fix: "Use CSS position:absolute; inset:0 on all terminal containers (stacked). Hide inactive terminals via inline opacity:0; pointerEvents:none. The ResizeObserver callback guards against 0×0 with 'if (!rows || !cols) return' before calling pty_resize."

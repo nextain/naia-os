@@ -49,6 +49,23 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 		tier: 1, // notify
 	},
 	{
+		name: "skill_workspace_new_session",
+		description:
+			"지정한 디렉토리에 새 PTY 터미널 세션을 시작한다. 워크스페이스 패널이 활성화되고 새 터미널 탭이 열린다. 같은 dir의 터미널이 이미 열려 있으면 해당 탭으로 전환만 한다. 반환값: 'Started: {dir}, pid: {pid}' 또는 'Already open: {dir}, pid: {pid}'",
+		parameters: {
+			type: "object",
+			properties: {
+				dir: {
+					type: "string",
+					description:
+						"터미널을 열 디렉토리 절대 경로 (e.g. /var/home/luke/dev/naia-os)",
+				},
+			},
+			required: ["dir"],
+		},
+		tier: 2, // confirm (process spawn)
+	},
+	{
 		name: "skill_workspace_classify_dirs",
 		description:
 			"dev 디렉토리의 하위 폴더를 분류(project/worktree/reference/docs/other)한다. 인자 없이 호출하면 추천 분류 결과를 반환하고, confirmed 배열을 넘기면 해당 분류를 적용하고 저장한다.",

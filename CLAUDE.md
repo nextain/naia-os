@@ -221,6 +221,7 @@ Claude Code development assistant skills. **SoT: `.agents/skills/`** — `.claud
 | `verify-implementation` | Run all registered `verify-*` skills sequentially, generate unified report | Auto (phase 7, 9) |
 | `manage-skills` | Analyze session changes, create/update `verify-*` skills, update AGENTS.md | Auto (phase 10) |
 | `verify-resource-viewer` | workspace 리소스 뷰어 핵심 불변식 (FILE_PATH_RE lookbehind, 이미지 격리, E2E mock 패턴) | Auto |
+| `verify-pty-terminal` | PTY 터미널 탭 핵심 불변식 (openDirsRef add-before-await, terminalsRef timing, xterm keepAlive opacity, E2E mock 패턴) | Auto |
 
 ## Harness Engineering (Mechanical Rule Enforcement)
 

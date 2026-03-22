@@ -445,6 +445,23 @@ panel_system:
       chrome_profile: "~/.naia/chrome-profile/ — persistent (login sessions survive restarts)"
       requires: "GDK_BACKEND=x11 (XWayland mode), google-chrome binary in PATH"
 
+    workspace:
+      id: "workspace"
+      added: "2026-03-23 (#119)"
+      file: "shell/src/panels/workspace/index.tsx + WorkspaceCenterPanel.tsx + Terminal.tsx"
+      description: "Claude Code session monitor + PTY terminal tabs. Always keepAlive mounted."
+      tools:
+        - "skill_workspace_get_sessions (tier:0) — all session statuses"
+        - "skill_workspace_open_file (tier:1) — open file in editor"
+        - "skill_workspace_focus_session (tier:1) — scroll+highlight session card"
+        - "skill_workspace_new_session (tier:2) — spawn bash PTY, open terminal tab"
+        - "skill_workspace_classify_dirs (tier:0) — classify ~/dev subdirs"
+      pty_terminal:
+        rust: "shell/src-tauri/src/pty.rs — portable-pty 0.9.0; commands: pty_create, pty_write, pty_resize, pty_kill"
+        frontend: "Terminal.tsx — @xterm/xterm + @xterm/addon-fit; keepAlive opacity:0+pointerEvents:none (NOT display:none — FitAddon breaks on hidden elements)"
+        events: "pty:output:{pty_id} / pty:exit:{pty_id} (Tauri events from Rust)"
+        dedup: "openDirsRef (Set<string>) — add dir BEFORE await pty_create to block concurrent duplicate spawns; delete only on failure or tab close"
+
   future:
     panstore: "Built-in panel tab showing a curated list of installable panels (separate issue)"
     dynamic_loading: "JS dynamic import for installed panels (planned, not yet implemented)"

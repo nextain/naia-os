@@ -620,3 +620,27 @@ await session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt 
 ```
 
 The system prompt is also augmented with an explicit tool list and "call them proactively" instruction.
+
+---
+
+## Workspace Panel (#119, 2026-03-23)
+
+Built-in panel for Claude Code session monitoring and PTY terminal tabs. Always keepAlive mounted.
+
+### Tools
+
+| Tool | Tier | Description |
+|------|------|-------------|
+| `skill_workspace_get_sessions` | 0 (auto) | All session statuses |
+| `skill_workspace_open_file` | 1 (notify) | Open file in editor |
+| `skill_workspace_focus_session` | 1 (notify) | Scroll + highlight session card |
+| `skill_workspace_new_session` | 2 (confirm) | Spawn bash PTY, open terminal tab |
+| `skill_workspace_classify_dirs` | 0 (auto) | Classify ~/dev subdirs |
+
+### PTY Terminal
+
+- **Rust**: `shell/src-tauri/src/pty.rs` — portable-pty 0.9.0; commands: `pty_create`, `pty_write`, `pty_resize`, `pty_kill`
+- **Frontend**: `Terminal.tsx` — `@xterm/xterm` + `@xterm/addon-fit`
+- **Events**: `pty:output:{pty_id}` / `pty:exit:{pty_id}` (Tauri events from Rust)
+- **Dedup**: `openDirsRef` (`Set<string>`) — add dir **before** `await pty_create`; delete only on failure or tab close
+- **keepAlive**: `opacity:0 + pointerEvents:none` (NOT `display:none` — FitAddon breaks on hidden elements)

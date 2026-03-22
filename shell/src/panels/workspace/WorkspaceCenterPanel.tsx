@@ -1,15 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useChatStore } from "../../stores/chat";
 import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
 import { panelRegistry } from "../../lib/panel-registry";
 import type { PanelCenterProps } from "../../lib/panel-registry";
+import { useChatStore } from "../../stores/chat";
 import { usePanelStore } from "../../stores/panel";
 import { Editor } from "./Editor";
 import { FileTree } from "./FileTree";
 import type { SessionInfo } from "./SessionCard";
 import { SessionDashboard } from "./SessionDashboard";
+import { Terminal } from "./Terminal";
 import { ACTIVE_THRESHOLD_SECONDS } from "./constants";
 
 // ─── Panel API ───────────────────────────────────────────────────────────────
@@ -33,6 +34,14 @@ export interface WorkspacePanelApi {
 	getActiveSessions: () => SessionInfo[];
 	/** Switch the center panel to Workspace. */
 	activatePanel: () => void;
+}
+
+// ─── Terminal tab ─────────────────────────────────────────────────────────────
+
+interface TerminalTab {
+	pty_id: string;
+	dir: string;
+	pid: number;
 }
 
 // ─── Re-export for FileTree ───────────────────────────────────────────────────
@@ -64,6 +73,14 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const [openFilePath, setOpenFilePath] = useState("");
 	const [editorBadge, setEditorBadge] = useState("");
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
+	// Terminal tab management
+	const [terminals, setTerminals] = useState<TerminalTab[]>([]);
+	const terminalsRef = useRef<TerminalTab[]>(terminals);
+	terminalsRef.current = terminals;
+	// Tracks dirs of all open+pending terminals. Updated synchronously BEFORE await so
+	// concurrent duplicate spawn is blocked even before React commits the new state.
+	const openDirsRef = useRef(new Set<string>());
+	const [activeTab, setActiveTab] = useState<string>("editor");
 	const sessionsRef = useRef<SessionInfo[]>([]);
 	const [classifiedDirs, setClassifiedDirs] = useState<ClassifiedDir[] | null>(
 		null,
@@ -337,14 +354,15 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			},
 			focusSession: (dir: string) => {
 				if (!sessionsRef.current.some((s) => s.dir === dir)) {
-					Logger.warn("WorkspaceCenterPanel", "focusSession: dir not found", { dir });
+					Logger.warn("WorkspaceCenterPanel", "focusSession: dir not found", {
+						dir,
+					});
 					return;
 				}
 				startHighlight(dir);
 			},
 			getActiveSessions: () => sessionsRef.current,
-			activatePanel: () =>
-				usePanelStore.getState().setActivePanel("workspace"),
+			activatePanel: () => usePanelStore.getState().setActivePanel("workspace"),
 		} satisfies WorkspacePanelApi);
 		return () => {
 			panelRegistry.updateApi("workspace", undefined);
@@ -374,7 +392,8 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					return `${s.dir}${branch}${issue}`;
 				});
 			const parts: string[] = [];
-			if (counts.active > 0) parts.push(`active ${counts.active}개: ${activeDetails.join(", ")}`);
+			if (counts.active > 0)
+				parts.push(`active ${counts.active}개: ${activeDetails.join(", ")}`);
 			if (counts.idle > 0) parts.push(`idle ${counts.idle}개`);
 			if (counts.stopped > 0) parts.push(`stopped ${counts.stopped}개`);
 			if (counts.error > 0) parts.push(`error ${counts.error}개`);
@@ -428,6 +447,90 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					const dirs = await invoke<ClassifiedDir[]>("workspace_classify_dirs");
 					return JSON.stringify(dirs);
 				} catch (e) {
+					return `Error: ${String(e)}`;
+				}
+			},
+		);
+		return unsub;
+	}, [naia]);
+
+	// ── Terminal: close (user-initiated) ─────────────────────────────────
+	const handleCloseTerminal = useCallback((pty_id: string) => {
+		// pty_kill is fire-and-forget. On failure, the OS process may stay alive, but
+		// we still remove the dir from openDirsRef so the user can re-open the same dir.
+		// Trade-off: in the rare case pty_kill fails and the process survives, a second
+		// spawn creates two PTYs for the same dir. Keeping the dir blocked on kill failure
+		// would be worse UX (permanent lockout until app restart).
+		invoke("pty_kill", { pty_id }).catch((e) => {
+			Logger.warn("WorkspaceCenterPanel", "pty_kill failed", {
+				error: String(e),
+			});
+		});
+		// terminalsRef.current is updated synchronously in the render body, NOT on
+		// setTerminals(). So even if handleTerminalExit already queued a setTerminals(),
+		// terminalsRef still holds the current (pre-render) tabs here — find() is safe.
+		const tab = terminalsRef.current.find((t) => t.pty_id === pty_id);
+		if (tab) openDirsRef.current.delete(tab.dir);
+		// React 18 automatic batching: these two setStates are committed in a single
+		// render pass, so there is no intermediate frame where terminals is empty
+		// but activeTab still holds the old pty_id.
+		setTerminals((prev) => prev.filter((t) => t.pty_id !== pty_id));
+		setActiveTab((prev) => (prev === pty_id ? "editor" : prev));
+	}, []);
+
+	// ── Terminal: exit (process-initiated) ───────────────────────────────
+	const handleTerminalExit = useCallback((pty_id: string) => {
+		// Same terminalsRef timing guarantee as handleCloseTerminal above.
+		const tab = terminalsRef.current.find((t) => t.pty_id === pty_id);
+		if (tab) openDirsRef.current.delete(tab.dir);
+		setTerminals((prev) => prev.filter((t) => t.pty_id !== pty_id));
+		setActiveTab((prev) => (prev === pty_id ? "editor" : prev));
+	}, []);
+
+	// ── Naia tool: skill_workspace_new_session ────────────────────────────
+	useEffect(() => {
+		const unsub = naia.onToolCall(
+			"skill_workspace_new_session",
+			async (args) => {
+				// Normalize trailing slash so "/path/" and "/path" map to the same openDirsRef key.
+				const dir = String(args.dir ?? "").replace(/\/+$/, "");
+				if (!dir) return "Error: dir is required";
+				if (!dir.startsWith("/")) return "Error: dir must be an absolute path";
+				// openDirsRef tracks both committed AND in-flight dirs. Add BEFORE the
+				// await so concurrent calls for the same dir are blocked immediately —
+				// before any state update and before React renders. Only delete on
+				// failure; on success the entry stays until the tab is closed.
+				if (openDirsRef.current.has(dir)) {
+					const existing = terminalsRef.current.find((t) => t.dir === dir);
+					if (existing) {
+						setActiveTab(existing.pty_id);
+						usePanelStore.getState().setActivePanel("workspace");
+						return `Already open: ${dir}, pid: ${existing.pid}`;
+					}
+					// openDirsRef has the dir but terminalsRef doesn't yet — pty_create
+					// is in-flight for this dir. Do NOT delete from openDirsRef here;
+					// the in-flight call will either add the tab (success) or delete
+					// from openDirsRef itself (catch). No permanent lock.
+					return "Error: terminal creation already in progress for this dir";
+				}
+				openDirsRef.current.add(dir);
+				try {
+					const result = await invoke<{ pty_id: string; pid: number }>(
+						"pty_create",
+						{ dir, command: "bash", rows: 24, cols: 80 },
+					);
+					// React 18 batching: setTerminals + setActiveTab committed in one render
+					// — no intermediate frame where activeTab === pty_id but terminals is
+					// still empty (same guarantee as in handleCloseTerminal).
+					setTerminals((prev) => [
+						...prev,
+						{ pty_id: result.pty_id, dir, pid: result.pid },
+					]);
+					setActiveTab(result.pty_id);
+					usePanelStore.getState().setActivePanel("workspace");
+					return `Started: ${dir}, pid: ${result.pid}`;
+				} catch (e) {
+					openDirsRef.current.delete(dir);
 					return `Error: ${String(e)}`;
 				}
 			},
@@ -530,13 +633,77 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				onPointerDown={onTreeResizeStart}
 			/>
 
-			{/* Center: Editor */}
-			<div className="workspace-panel__editor">
-				<Editor
-					filePath={openFilePath}
-					badge={editorBadge}
-					readOnly={editorReadOnly}
-				/>
+			{/* Center: Editor / Terminal tabs */}
+			<div className="workspace-panel__center">
+				{terminals.length > 0 && (
+					<div className="workspace-panel__tab-bar" role="tablist">
+						<div
+							role="tab"
+							tabIndex={0}
+							aria-selected={activeTab === "editor"}
+							className={`workspace-panel__tab${activeTab === "editor" ? " workspace-panel__tab--active" : ""}`}
+							onClick={() => setActiveTab("editor")}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") setActiveTab("editor");
+							}}
+						>
+							에디터
+						</div>
+						{terminals.map((t) => (
+							<div
+								key={t.pty_id}
+								role="tab"
+								tabIndex={0}
+								aria-selected={activeTab === t.pty_id}
+								className={`workspace-panel__tab${activeTab === t.pty_id ? " workspace-panel__tab--active" : ""}`}
+								onClick={() => setActiveTab(t.pty_id)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ")
+										setActiveTab(t.pty_id);
+								}}
+							>
+								<span className="workspace-panel__tab-label">
+									{t.dir.split("/").pop() ?? t.dir}
+								</span>
+								<button
+									type="button"
+									aria-label={`터미널 닫기: ${t.dir}`}
+									className="workspace-panel__tab-close"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleCloseTerminal(t.pty_id);
+									}}
+								>
+									×
+								</button>
+							</div>
+						))}
+					</div>
+				)}
+				<div className="workspace-panel__center-content">
+					<div
+						className="workspace-panel__editor-slot"
+						style={
+							activeTab !== "editor"
+								? { opacity: 0, pointerEvents: "none" }
+								: undefined
+						}
+					>
+						<Editor
+							filePath={openFilePath}
+							badge={editorBadge}
+							readOnly={editorReadOnly}
+						/>
+					</div>
+					{terminals.map((t) => (
+						<Terminal
+							key={t.pty_id}
+							pty_id={t.pty_id}
+							active={activeTab === t.pty_id}
+							onExit={handleTerminalExit}
+						/>
+					))}
+				</div>
 			</div>
 			<div
 				className="workspace-panel__resize-handle"

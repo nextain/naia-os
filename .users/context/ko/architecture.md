@@ -620,3 +620,27 @@ await session.connect({ tools: voiceTools, systemInstruction: voiceSystemPrompt 
 ```
 
 시스템 프롬프트에도 도구 목록과 "적극적으로 호출하라"는 지시가 추가됨.
+
+---
+
+## 워크스페이스 패널 (#119, 2026-03-23)
+
+Claude Code 세션 모니터링 + PTY 터미널 탭 기능을 제공하는 내장 패널. keepAlive로 항상 마운트된 상태 유지.
+
+### 도구
+
+| 도구 | Tier | 설명 |
+|------|------|------|
+| `skill_workspace_get_sessions` | 0 (자동) | 전체 세션 상태 |
+| `skill_workspace_open_file` | 1 (알림) | 파일을 에디터에 열기 |
+| `skill_workspace_focus_session` | 1 (알림) | 세션 카드 스크롤+하이라이트 |
+| `skill_workspace_new_session` | 2 (확인) | bash PTY 생성, 터미널 탭 열기 |
+| `skill_workspace_classify_dirs` | 0 (자동) | ~/dev 하위 폴더 분류 |
+
+### PTY 터미널
+
+- **Rust**: `shell/src-tauri/src/pty.rs` — portable-pty 0.9.0; 명령: `pty_create`, `pty_write`, `pty_resize`, `pty_kill`
+- **Frontend**: `Terminal.tsx` — `@xterm/xterm` + `@xterm/addon-fit`
+- **이벤트**: `pty:output:{pty_id}` / `pty:exit:{pty_id}` (Rust → Tauri 이벤트)
+- **중복 방지**: `openDirsRef` (`Set<string>`) — `await pty_create` 이전에 dir 추가; 실패 시 또는 탭 닫기 시에만 삭제
+- **keepAlive**: `opacity:0 + pointerEvents:none` 사용 (절대 `display:none` 사용 금지 — FitAddon이 숨겨진 요소에서 0×0 반환)

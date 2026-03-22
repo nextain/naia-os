@@ -76,6 +76,7 @@ Spawn agent as child process, pipe stdin, assert stdout.
 | `plugin:store\|get` tuple | `Store.get()` returns `[value, exists]` tuple. Mock MUST return `[null, false]`, NOT `null`. `plugin:store\|load` returns integer RID (e.g. `1`). Wrong values cause silent failures. |
 | keepAlive panel visibility | keepAlive panels stay mounted in DOM. Inactive panels use `opacity: 0` on parent `.content-panel__slot`. Playwright `toBeVisible()` does NOT check ancestor opacity → false positive. Use `.content-panel__slot--active .panel-class` selector instead. |
 | `exposeFunction` timing | `page.exposeFunction()` must be called BEFORE `page.goto()`. If registered after navigation, the function won't exist in already-loaded pages. Order: `exposeFunction → goto`. |
+| xterm.js keepAlive stacking | Terminal components use `opacity:0 + pointerEvents:none` stacking. NEVER `display:none` — FitAddon.fit() returns 0×0 on hidden elements. In E2E, the canvas is not testable; test tab bar UI only. Mock `pty_create` → `{ pty_id, pid }`. See `shell/e2e/119-pty-terminal.spec.ts`. |
 
 **E2E Tauri** (`shell/e2e-tauri/specs/*.spec.ts`): Real Tauri app via WebdriverIO v9 + tauri-driver. Real LLM calls (Gemini), real Gateway, real skill execution.
 

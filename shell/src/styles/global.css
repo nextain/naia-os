@@ -5324,12 +5324,95 @@ body.resizing-row {
 	flex: 1;
 }
 
-/* Center: Editor */
-.workspace-panel__editor {
+/* Center: Editor / Terminal tabs */
+.workspace-panel__center {
 	flex: 1;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+}
+
+/* Tab bar (only visible when terminals are open) */
+.workspace-panel__tab-bar {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+	flex-shrink: 0;
+	background: var(--surface, #242424);
+	border-bottom: 1px solid var(--border-color, #333);
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+
+.workspace-panel__tab {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 12px;
+	font-size: 12px;
+	color: var(--text-secondary, #888);
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	border-right: 1px solid var(--border-color, #333);
+	user-select: none;
+}
+
+.workspace-panel__tab:hover {
+	background: var(--surface-hover, #2e2e2e);
+	color: var(--text-primary, #e0e0e0);
+}
+
+.workspace-panel__tab--active {
+	color: var(--text-primary, #e0e0e0);
+	background: var(--bg-base, #1a1a1a);
+	border-bottom: 2px solid var(--accent, #7ca0ff);
+}
+
+.workspace-panel__tab-label {
+	max-width: 120px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.workspace-panel__tab-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	font-size: 14px;
+	line-height: 1;
+	color: var(--text-secondary, #888);
+	flex-shrink: 0;
+}
+
+.workspace-panel__tab-close:hover {
+	background: rgba(255, 255, 255, 0.15);
+	color: var(--text-primary, #e0e0e0);
+}
+
+/* Content area: editor + terminals stacked (keepAlive) */
+.workspace-panel__center-content {
+	position: relative;
+	flex: 1;
+	overflow: hidden;
+}
+
+.workspace-panel__editor-slot {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* Terminal container — always absolute so keepAlive works */
+.workspace-panel__terminal {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
 }
 
 /* Right: Session sidebar (vertical card list) */

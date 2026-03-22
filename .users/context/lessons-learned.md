@@ -372,3 +372,39 @@ if (cmd === "plugin:store|get") return [null, false];
 
 **Fix**: Added `(?<![/\w])` lookbehind: if the char before `/` is a word character or another `/`, the match is blocked. Also: `tsx`/`jsx` must be listed before `ts`/`js` for longest-match extension resolution.
 
+
+---
+
+## L031 — `openDirsRef` add-before-await pattern for async dedup in concurrent tool calls (#119)
+
+**Date**: 2026-03-23 | **Category**: React | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: Concurrent `skill_workspace_new_session` calls for the same dir spawned duplicate PTY processes. State-based dedup had a race: React state had not yet committed when the second call checked `terminalsRef`.
+
+**Root cause**: React state updates (`setTerminals`) are async — `terminalsRef.current` is only updated during the render body, not when `setTerminals()` is called. A second tool call arriving during `await pty_create` could bypass the state-based dedup check.
+
+**Fix**: Use a separate `useRef` Set (`openDirsRef`) as the dedup source of truth. Add the dir **before** `await pty_create` (blocks concurrent calls immediately). Delete only on failure (`catch`) or tab close — NOT on success.
+
+---
+
+## L032 — `terminalsRef.current` updates on render, not on `setTerminals` — safe to read in callbacks (#119)
+
+**Date**: 2026-03-23 | **Category**: React | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: Reviewers flagged `handleCloseTerminal` as having a race condition: "terminalsRef might not find the tab if setTerminals already queued a filter".
+
+**Root cause**: `terminalsRef.current = terminals` runs in the **render body** (synchronously during React render). It is NOT updated when `setTerminals()` is called. Between a `setTerminals()` call and the next render, `terminalsRef.current` still holds the previous array.
+
+**Fix**: No code change needed — the pattern is correct. Add a comment explaining the timing invariant so future reviewers understand why `find()` is safe immediately after `setTerminals()`.
+
+---
+
+## L033 — xterm.js keepAlive: use `opacity:0 + pointerEvents:none`, never `display:none` (#119)
+
+**Date**: 2026-03-23 | **Category**: Frontend | **Scope**: `shell/src/panels/workspace/Terminal.tsx`
+
+**Problem**: Terminal component needed keepAlive stacking (multiple PTY instances, one active at a time). `display:none` was considered but breaks FitAddon.
+
+**Root cause**: `FitAddon.fit()` computes terminal dimensions from the container's `offsetWidth`/`offsetHeight`. When `display:none` is applied, these values are `0` — `fit()` returns `0×0` cols/rows, and the PTY gets resized to an invalid size.
+
+**Fix**: Use `position:absolute; inset:0` CSS on all terminal containers (stacked). Hide inactive terminals via inline `opacity:0; pointerEvents:none`. Guard `pty_resize` with `if (!rows || !cols) return` before calling the Rust command.

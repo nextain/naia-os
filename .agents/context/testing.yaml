@@ -142,6 +142,12 @@ shell:
         If registered after navigation, the injected window function won't exist in already-loaded pages.
         Order: exposeFunction → goto → addInitScript (for reload-proof injection).
         For spy functions, expose early so the mock invoke can call them from the first render.
+      xterm_keepalive_stacking: |
+        Terminal components (xterm.js) use keepAlive opacity:0+pointerEvents:none stacking.
+        display:none MUST NOT be used — FitAddon.fit() returns 0×0 when element is hidden.
+        In E2E: the terminal canvas is not testable (no real PTY); test tab bar UI only.
+        Mock pty_create to return { pty_id: string, pid: number }; pty:output/pty:exit events not needed for tab UI tests.
+        See shell/e2e/119-pty-terminal.spec.ts for reference mock pattern.
 
   e2e_tauri:
     location: "shell/e2e-tauri/specs/*.spec.ts"

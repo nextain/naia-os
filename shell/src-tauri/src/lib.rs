@@ -3,6 +3,7 @@ mod browser;
 mod gemini_live;
 mod memory;
 mod panel;
+mod pty;
 mod stt_models;
 mod workspace;
 
@@ -2208,6 +2209,7 @@ pub fn run() {
             gemini_live: gemini_live::new_shared_handle(),
         })
         .manage(workspace::new_shared_watcher())
+        .manage(pty::new_registry())
         .invoke_handler(tauri::generate_handler![
             list_skills,
             frontend_log,
@@ -2274,6 +2276,10 @@ pub fn run() {
             workspace::workspace_start_watch,
             workspace::workspace_stop_watch,
             workspace::workspace_classify_dirs,
+            pty::pty_create,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

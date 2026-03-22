@@ -372,3 +372,39 @@ if (cmd === "plugin:store|get") return [null, false];
 
 **수정**: `(?<![/\w])` lookbehind 추가 — `/` 앞이 단어 문자나 다른 `/`이면 매칭 차단. 또한 `tsx`/`jsx`를 `ts`/`js`보다 앞에 위치(longest-match 확장자 해석).
 
+
+---
+
+## L031 — 비동기 도구 호출 중복 방지를 위한 `openDirsRef` add-before-await 패턴 (#119)
+
+**날짜**: 2026-03-23 | **분류**: React | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 동일 dir로 `skill_workspace_new_session`이 동시 호출되어 중복 PTY 프로세스가 생성됨. 상태 기반 dedup에 경쟁 조건 존재.
+
+**근본 원인**: React 상태 업데이트(`setTerminals`)는 비동기 — `terminalsRef.current`는 렌더 바디에서만 갱신됨. `await pty_create` 중 두 번째 호출이 state 커밋 전에 도착하면 dedup 체크를 통과.
+
+**수정**: 별도 `useRef` Set(`openDirsRef`)을 dedup의 단일 진실 원천으로 사용. `await pty_create` **이전**에 dir 추가(즉시 차단). 실패(`catch`) 또는 탭 닫기 시에만 삭제.
+
+---
+
+## L032 — `terminalsRef.current`는 `setTerminals` 시점이 아닌 렌더 시점에 갱신됨 (#119)
+
+**날짜**: 2026-03-23 | **분류**: React | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: 리뷰어들이 "`setTerminals`가 이미 filter를 큐에 넣었으면 `terminalsRef`에서 탭을 못 찾을 수 있다"며 경쟁 조건을 반복 플래깅.
+
+**근본 원인**: `terminalsRef.current = terminals`는 **렌더 바디**에서 동기적으로 실행됨. `setTerminals()` 호출 시 즉시 갱신되지 않음. `setTerminals()`와 다음 렌더 사이에 `terminalsRef.current`는 여전히 이전 배열.
+
+**수정**: 코드 변경 불필요 — 패턴이 정확함. 타이밍 불변성을 설명하는 주석 추가로 향후 리뷰어 혼란 방지.
+
+---
+
+## L033 — xterm.js keepAlive: `opacity:0 + pointerEvents:none` 사용, `display:none` 절대 금지 (#119)
+
+**날짜**: 2026-03-23 | **분류**: 프론트엔드 | **범위**: `shell/src/panels/workspace/Terminal.tsx`
+
+**문제**: 터미널 컴포넌트에 keepAlive 스태킹 필요(여러 PTY, 하나만 활성). `display:none`을 고려했으나 FitAddon이 깨짐.
+
+**근본 원인**: `FitAddon.fit()`이 컨테이너의 `offsetWidth`/`offsetHeight`로 크기를 계산. `display:none` 시 이 값이 `0` → `fit()`이 `0×0` 반환 → PTY가 잘못된 크기로 리사이즈됨.
+
+**수정**: 모든 터미널 컨테이너에 `position:absolute; inset:0` CSS 적용(스태킹). 비활성 터미널은 인라인 `opacity:0; pointerEvents:none`으로 숨김. `pty_resize` 호출 전 `if (!rows || !cols) return` 가드 추가.
