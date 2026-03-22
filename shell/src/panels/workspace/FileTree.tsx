@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
 import { WORKSPACE_ROOT } from "./constants";
 
@@ -31,12 +32,17 @@ interface TreeNodeProps {
 	activeDirs?: string[];
 }
 
+/** Strip trailing slash for path comparison */
+function normPath(p: string): string {
+	return p.replace(/\/$/, "");
+}
+
 function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: TreeNodeProps) {
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<DirEntry[] | null>(null);
 	const [loading, setLoading] = useState(false);
-	const isOpen = openFilePath === entry.path;
-	const isActive = activeDirs?.includes(entry.path);
+	const isOpen = openFilePath ? normPath(openFilePath) === normPath(entry.path) : false;
+	const isActive = activeDirs?.some((d) => normPath(d) === normPath(entry.path)) ?? false;
 
 	const toggle = useCallback(async () => {
 		if (!entry.is_dir) {
@@ -143,18 +149,51 @@ function getFileIcon(name: string): string {
 export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDirs }: FileTreeProps) {
 	const [entries, setEntries] = useState<DirEntry[]>([]);
 	const [loading, setLoading] = useState(true);
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Monotonically increasing ID — prevents stale invoke responses from
+	// overwriting a fresher result when multiple loadEntries calls are in-flight.
+	const fetchIdRef = useRef(0);
+
+	const loadEntries = useCallback(async () => {
+		const id = ++fetchIdRef.current;
+		try {
+			const result = await invoke<DirEntry[]>("workspace_list_dirs", {
+				parent: WORKSPACE_ROOT,
+			});
+			if (id !== fetchIdRef.current) return; // stale response — discard
+			setEntries(result);
+			Logger.info("FileTree", "Loaded workspace root", { count: result.length });
+		} catch (e) {
+			if (id !== fetchIdRef.current) return;
+			Logger.warn("FileTree", "Failed to load workspace root", { error: String(e) });
+		} finally {
+			if (id === fetchIdRef.current) setLoading(false);
+		}
+	}, []);
+
+	const debouncedLoadEntries = useCallback(() => {
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => void loadEntries(), 300);
+	}, [loadEntries]);
 
 	useEffect(() => {
-		invoke<DirEntry[]>("workspace_list_dirs", { parent: WORKSPACE_ROOT })
-			.then((result) => {
-				setEntries(result);
-				Logger.info("FileTree", "Loaded workspace root", { count: result.length });
-			})
-			.catch((e) => {
-				Logger.error("FileTree", "Failed to load workspace root", { error: String(e) });
-			})
-			.finally(() => setLoading(false));
-	}, []);
+		void loadEntries();
+
+		// Refresh root entries on file-change events — debounced to coalesce
+		// rapid bursts (e.g. git checkout rewriting many files at once).
+		const unlistenPromise = listen<{
+			session: string;
+			file: string;
+			timestamp: number;
+		}>("workspace:file-changed", () => {
+			debouncedLoadEntries();
+		});
+
+		return () => {
+			unlistenPromise.then((fn) => fn()).catch(() => {});
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+		};
+	}, [debouncedLoadEntries]);
 
 	if (loading) {
 		return <div className="workspace-tree workspace-tree--loading">불러오는 중…</div>;
@@ -182,12 +221,26 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 			other: "📁 기타",
 		};
 
+		// Guard: if no classified dir matches any loaded entry (path mismatch or
+		// entries not yet loaded), show a fallback instead of a blank panel.
+		const hasAnyMatch = Object.values(sections).some((dirs) =>
+			dirs.some((d) => entries.some((e) => normPath(d.path) === normPath(e.path))),
+		);
+
+		if (!hasAnyMatch) {
+			return (
+				<div className="workspace-tree workspace-tree--empty">
+					<div className="workspace-tree__empty-hint">분류된 디렉토리를 찾을 수 없습니다</div>
+				</div>
+			);
+		}
+
 		return (
 			<div className="workspace-tree">
 				{Object.entries(sections).map(([cat, dirs]) => {
 					if (dirs.length === 0) return null;
 					const classifiedEntries = entries.filter((e) =>
-						dirs.some((d) => d.path === e.path),
+						dirs.some((d) => normPath(d.path) === normPath(e.path)),
 					);
 					if (classifiedEntries.length === 0) return null;
 					return (
