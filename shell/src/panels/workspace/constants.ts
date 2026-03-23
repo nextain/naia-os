@@ -1,4 +1,4 @@
-/** Root directory where all Claude Code sessions live. */
+/** Compile-time fallback workspace root. Used when AppConfig.workspaceRoot is not set. */
 export const WORKSPACE_ROOT = "/var/home/luke/dev";
 
 /** Threshold in seconds for "active" session status. */

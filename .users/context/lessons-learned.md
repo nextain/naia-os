@@ -492,3 +492,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: String validation on `panelId` doesn't prevent the directory itself from being a symlink.
 
 **Fix**: After `exists()`, call `canonicalize()` and verify `starts_with(home_path)` before `remove_dir_all(&canonical)`. Mirrors `panel_read_file`'s pattern.
+
+---
+
+## L041 — `OnceLock<Mutex<String>>` initial value must be the compile-time fallback, not `String::new()` (#107)
+
+**Date**: 2026-03-23 | **Category**: Rust | **Scope**: `shell/src-tauri/src/workspace.rs`
+
+**Problem**: `OnceLock::get_or_init(|| Mutex::new(String::new()))` initializes the Mutex with an empty string. Any thread calling `get_workspace_root()` between OnceLock initialization and the first `workspace_set_root` call sees `""` instead of the fallback root.
+
+**Root cause**: `String::new()` was chosen for ergonomics. But the initial value is the first observable value for any reader arriving before `workspace_set_root` runs — empty string silently produces wrong behavior (empty scan root, missing sessions).
+
+**Fix**: Use `WORKSPACE_ROOT.to_string()` as the initial value: `get_or_init(|| Mutex::new(WORKSPACE_ROOT.to_string()))`. Matches the compile-time fallback semantics and eliminates the race window.
+
+---
+
+## L042 — `workspaceReady` gate: React child effects can fire before parent IPC completes (#107)
+
+**Date**: 2026-03-23 | **Category**: React | **Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: `SessionDashboard`'s `workspace_get_sessions` `useEffect` fired before `WorkspaceCenterPanel`'s `workspace_set_root` invoke completed. Sessions were scanned from the wrong (stale hardcoded) root.
+
+**Root cause**: React's `useEffect` runs children effects before parent effects in some mount orderings. Without a gate, `SessionDashboard` mounted and triggered its load before `workspace_set_root` resolved.
+
+**Fix**: Add `workspaceReady` boolean state in the parent. Only render the child component when `workspaceReady === true`. Set it to `true` inside `.finally()` of the `workspace_set_root` invoke chain. Child never mounts until IPC completes.
+
+---
+
+## L043 — Return canonical path from Tauri IPC command to keep frontend and backend in sync (#107)
+
+**Date**: 2026-03-23 | **Category**: Tauri | **Scope**: `shell/src-tauri/src/workspace.rs, shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: `workspace_set_root` originally returned `()`. Frontend displayed the raw config path in empty-state messages. On Fedora, `/home/luke` is a symlink to `/var/home/luke` — the raw and canonical paths differ, causing confusing UI.
+
+**Root cause**: Backend calls `p.canonicalize()` internally but discarded the result. Frontend had no way to know the actual path the backend scanned.
+
+**Fix**: Return `Result<String, String>` from `workspace_set_root` with the canonical path on success. Frontend: `.then(canonical => setResolvedRoot(canonical)).catch(() => setResolvedRoot(WORKSPACE_ROOT)).finally(() => setWorkspaceReady(true))`. Pass `resolvedRoot` (not raw config value) to all child components.

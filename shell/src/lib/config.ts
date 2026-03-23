@@ -136,6 +136,8 @@ export interface AppConfig {
 	voice?: string;
 	/** Panel IDs that the user has explicitly deleted (build-time panels only). */
 	deletedPanels?: string[];
+	/** Workspace root directory override. Defaults to the compile-time WORKSPACE_ROOT constant if not set. */
+	workspaceRoot?: string;
 }
 
 // ── Sync API (localStorage only, backwards compatible) ──

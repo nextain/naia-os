@@ -11,7 +11,7 @@ import { FileTree } from "./FileTree";
 import type { SessionInfo } from "./SessionCard";
 import { SessionDashboard } from "./SessionDashboard";
 import { Terminal } from "./Terminal";
-import { ACTIVE_THRESHOLD_SECONDS } from "./constants";
+import { ACTIVE_THRESHOLD_SECONDS, WORKSPACE_ROOT } from "./constants";
 
 // ─── Panel API ───────────────────────────────────────────────────────────────
 
@@ -70,6 +70,12 @@ function saveClassifiedDirs(dirs: ClassifiedDir[]): void {
 }
 
 export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
+	// Resolved workspace root — synchronously read from config at mount time.
+	// Used for display (SessionDashboard empty state) and for the workspace_set_root IPC call.
+	const [activeWorkspaceRoot] = useState(() => {
+		const cfg = loadConfig();
+		return cfg?.workspaceRoot || WORKSPACE_ROOT;
+	});
 	const [openFilePath, setOpenFilePath] = useState("");
 	const [editorBadge, setEditorBadge] = useState("");
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -151,6 +157,29 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		window.addEventListener("pointermove", onMove);
 		window.addEventListener("pointerup", onUp);
 	}, []);
+
+	// Gates SessionDashboard mount until workspace_set_root has completed (or failed).
+	// This ensures workspace_get_sessions always uses the correct configured root,
+	// not the compile-time fallback. React child effects (SessionDashboard) fire before
+	// parent effects, so without this gate the first session fetch could race set_root.
+	const [workspaceReady, setWorkspaceReady] = useState(false);
+	// Tracks the root actually accepted by the backend. If workspace_set_root fails
+	// (e.g. path does not exist), falls back to WORKSPACE_ROOT so the empty-state
+	// message shown to the user matches what the backend actually scans.
+	const [resolvedRoot, setResolvedRoot] = useState(activeWorkspaceRoot);
+
+	// ── Set workspace root from config on mount ────────────────────────────
+	useEffect(() => {
+		invoke<string>("workspace_set_root", { root: activeWorkspaceRoot })
+			.then((canonical) => setResolvedRoot(canonical))
+			.catch((e) => {
+				Logger.warn("WorkspaceCenterPanel", "workspace_set_root failed", {
+					error: String(e),
+				});
+				setResolvedRoot(WORKSPACE_ROOT);
+			})
+			.finally(() => setWorkspaceReady(true));
+	}, [activeWorkspaceRoot]);
 
 	// ── Load persisted classification ─────────────────────────────────────
 	useEffect(() => {
@@ -715,11 +744,14 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				className="workspace-panel__sessions"
 				style={{ width: `${sessionsWidth}px` }}
 			>
-				<SessionDashboard
-					onSessionClick={handleSessionClick}
-					onSessionsUpdate={handleSessionsUpdate}
-					highlightedDir={highlightedSessionDir ?? undefined}
-				/>
+				{workspaceReady && (
+					<SessionDashboard
+						onSessionClick={handleSessionClick}
+						onSessionsUpdate={handleSessionsUpdate}
+						highlightedDir={highlightedSessionDir ?? undefined}
+						workspaceRoot={resolvedRoot}
+					/>
+				)}
 			</div>
 		</div>
 	);

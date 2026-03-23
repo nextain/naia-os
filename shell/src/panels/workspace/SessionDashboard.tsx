@@ -11,12 +11,15 @@ interface SessionDashboardProps {
 	onSessionsUpdate?: (sessions: SessionInfo[]) => void;
 	/** Dir identifier of the session to visually highlight (from Panel API focusSession) */
 	highlightedDir?: string;
+	/** Actual workspace root (runtime override or compile-time fallback). Used in empty state display. */
+	workspaceRoot?: string;
 }
 
 export function SessionDashboard({
 	onSessionClick,
 	onSessionsUpdate,
 	highlightedDir,
+	workspaceRoot = WORKSPACE_ROOT,
 }: SessionDashboardProps) {
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -97,7 +100,7 @@ export function SessionDashboard({
 				<div className="workspace-dashboard__empty-hint">
 					Git 레포가 없습니다.{" "}
 					<span className="workspace-dashboard__empty-path">
-						{WORKSPACE_ROOT}
+						{workspaceRoot}
 					</span>
 					에 git 레포가 있어야 합니다.
 				</div>

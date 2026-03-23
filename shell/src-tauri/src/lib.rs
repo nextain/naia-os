@@ -2278,6 +2278,7 @@ pub fn run() {
             workspace::workspace_start_watch,
             workspace::workspace_stop_watch,
             workspace::workspace_classify_dirs,
+            workspace::workspace_set_root,
             pty::pty_create,
             pty::pty_write,
             pty::pty_resize,

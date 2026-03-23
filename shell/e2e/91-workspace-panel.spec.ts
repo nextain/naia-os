@@ -137,6 +137,10 @@ const TAURI_MOCK_SCRIPT = `
 		if (cmd === "panel_list_installed") return [];
 
 		// Workspace commands
+		if (cmd === "workspace_set_root") {
+			window.__NAIA_E2E__.lastSetRootArg = (args && args.root) || null;
+			return (args && args.root) || "${FAKE_ROOT}";
+		}
 		if (cmd === "workspace_get_sessions") return fakeSessions;
 		if (cmd === "workspace_list_dirs") return fakeDirs;
 		if (cmd === "workspace_get_git_info") return { branch: "main" };
@@ -385,6 +389,49 @@ test.describe("Workspace Panel E2E", () => {
 			// Workspace panel should no longer be visible
 			await expect(page.locator(".workspace-panel")).toBeHidden({ timeout: 3_000 });
 		}
+	});
+
+	// ── S12: workspaceReady gate — sessions load after workspace_set_root ──
+
+	test("S12: workspaceReady 게이트 — workspace_set_root 완료 후 세션 로드됨", async ({ page }) => {
+		// workspace_set_root mock returns a canonical string (Result<String, String>).
+		// If the gate works correctly, sessions should load after set_root resolves.
+		await openWorkspacePanel(page);
+
+		// Verify both dashboard (gated) and sessions load successfully
+		await expect(page.locator(".workspace-dashboard")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+	});
+
+	// ── S13: workspaceRoot config override reflected in SessionDashboard ──
+
+	test("S13: config workspaceRoot 설정 시 workspace_set_root가 해당 경로로 호출됨", async ({ page }) => {
+		const CUSTOM_ROOT = "/custom/workspace/path";
+
+		// Re-navigate with custom workspaceRoot in config (overrides beforeEach config)
+		await page.addInitScript(`
+			localStorage.setItem("naia-config", JSON.stringify({
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+				apiKey: "e2e-mock-key",
+				locale: "ko",
+				onboardingComplete: true,
+				workspaceRoot: "${CUSTOM_ROOT}",
+			}));
+			localStorage.removeItem("workspace-classified-dirs");
+		`);
+
+		await page.goto("/");
+		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
+		await openWorkspacePanel(page);
+
+		// workspaceReady gate should resolve with custom root → sessions load
+		await expect(page.locator(".workspace-dashboard")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+
+		// Verify workspace_set_root was called with the config workspaceRoot value
+		const capturedRoot = await page.evaluate(() => (window as any).__NAIA_E2E__?.lastSetRootArg);
+		expect(capturedRoot).toBe(CUSTOM_ROOT);
 	});
 
 	// ── S11: panel_tool_call via workspace:file-changed event ─────────────

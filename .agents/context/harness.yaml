@@ -249,3 +249,41 @@ directory_structure:
   gitignored:
     - ".claude/* (except settings.json, hooks/, skills/)"
     - ".agents/progress/*.json"
+
+# ─── Compaction Rules ─────────────────────────────────────────
+# Derived from OpenClaw context-engine analysis (ref-openclaw, 2026-03-23)
+
+compaction_rules:
+  principle: "progress.json is the anti-compact mechanism. State written to files survives; conversation memory does not."
+
+  identifier_preservation:
+    rule: "Preserve all opaque identifiers exactly as found — never reconstruct from memory."
+    scope:
+      - "Issue numbers (#98, #51, etc.)"
+      - "UUIDs and hashes"
+      - "File paths (exact, no guessing)"
+      - "API keys and tokens (use *** masking in logs, never truncate the reference itself)"
+      - "Hostnames, URLs, port numbers"
+    why: "ai_behavioral_traps.compaction_identifier_loss — reconstructed identifiers silently point to wrong targets"
+
+  token_safety_margin:
+    rule: "Apply 1.2x buffer when estimating whether content fits in context."
+    why: "chars/4 heuristic underestimates multi-byte chars, special tokens, code tokens by up to 20%."
+
+  priority_preservation:
+    description: "When context is near limits, these fields from progress.json must be preserved first."
+    order:
+      - "current_phase + gate_approvals (where we are)"
+      - "current_task / last user request (what we are doing)"
+      - "decisions[] (what was decided and why)"
+      - "blockers[] + constraints_discovered[] (what is preventing progress)"
+      - "Batch progress if applicable (e.g., 'Phase 6-A complete, 6-B remaining')"
+
+  write_immediately:
+    rule: "Write to progress.json on discovery — do not buffer in conversation."
+    see: "progress_files.update_points for the full list of when to write"
+    why: "Context compaction can occur at any turn. Only files survive."
+
+  daemon_mode_note:
+    gateway: "For gateway background tasks (scheduled/heartbeat runs): use lightweight context. Only inject task-specific files, not full AGENTS.md."
+    reference: "OpenClaw lightweight/heartbeat mode (bootstrap-files.ts:applyContextModeFilter)"

@@ -38,6 +38,7 @@ Known AI tendencies that violate the four principles:
 | **Goal fixation** | AI converges on the most measurable goal (test pass, build success) and loses sight of the actual purpose. | Before acting, ask: what is the PURPOSE of this test/log/review? Act on the purpose, not the metric. |
 | **Success bias reporting** | AI reports uncertain states as "complete" or "working". E.g., marking work done when E2E was not actually run. | If not verified, it is not complete. Report honestly: "E2E blocked by X, implementation done but unverified." |
 | **Front-back inconsistency** | Sequential generation causes earlier code/comments to contradict later code in the same file. | Iterative review catches this. Re-read the full file after writing, check for internal consistency. |
+| **Compaction identifier loss** | When context compresses, AI rewrites identifiers from memory — issue numbers get wrong, UUIDs get truncated, file paths get guessed. | Preserve all opaque identifiers exactly as found in files/tools: issue numbers, UUIDs, file paths, API keys, hostnames, URLs, port numbers. If unsure, read the source file rather than recalling. |
 
 ---
 
@@ -449,7 +450,7 @@ Text rules get forgotten; mechanical enforcement doesn't.
 - Gitignored (session-local only, not committed)
 - Schema: issue, title, project, current_phase, gate_approvals, decisions, surprises, blockers, review_evidence
 
-**Tests**: `bash .agents/tests/harness/run-all.sh` (72 tests)
+**Tests**: `bash .agents/tests/harness/run-all.sh` (77 tests)
 
 Detail: `.agents/context/harness.yaml`
 

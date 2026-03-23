@@ -2,7 +2,7 @@ use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watche
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Emitter};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -82,16 +82,27 @@ pub fn new_shared_watcher() -> SharedWatcherState {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/// Workspace root — all file I/O is restricted to this subtree.
-/// TODO(#107): derive from AppConfig once WORKSPACE_ROOT is moved to config.
+/// Compile-time fallback workspace root. Overridden at runtime via `workspace_set_root`.
 const WORKSPACE_ROOT: &str = "/var/home/luke/dev";
+
+/// Runtime override set by `workspace_set_root` on app start from AppConfig.workspaceRoot.
+static WORKSPACE_ROOT_OVERRIDE: OnceLock<Mutex<String>> = OnceLock::new();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/// Returns the canonical form of WORKSPACE_ROOT, resolving any symlinks.
+/// Returns the current workspace root — runtime override (if set) or compile-time constant.
+fn get_workspace_root() -> String {
+    if let Some(m) = WORKSPACE_ROOT_OVERRIDE.get() {
+        m.lock().unwrap().clone()
+    } else {
+        WORKSPACE_ROOT.to_string()
+    }
+}
+
+/// Returns the canonical form of the workspace root, resolving any symlinks.
 /// All path comparisons must use this form for consistency.
 fn canonical_workspace_root() -> Result<PathBuf, String> {
-    PathBuf::from(WORKSPACE_ROOT)
+    PathBuf::from(get_workspace_root())
         .canonicalize()
         .map_err(|e| format!("Workspace root inaccessible: {e}"))
 }
@@ -225,10 +236,10 @@ fn classify_dir_heuristic(path: &Path) -> &'static str {
 // ─── Tauri Commands ───────────────────────────────────────────────────────────
 
 /// Lists top-level directories under the given path.
-/// If `parent` is `None`, defaults to WORKSPACE_ROOT (`/var/home/luke/dev`).
+/// If `parent` is `None`, defaults to the current workspace root (runtime override or compile-time fallback).
 #[tauri::command]
 pub fn workspace_list_dirs(parent: Option<String>) -> Result<Vec<DirEntry>, String> {
-    let root = parent.unwrap_or_else(|| WORKSPACE_ROOT.to_string());
+    let root = parent.unwrap_or_else(get_workspace_root);
     let root_path = validate_in_workspace(&root)?;
     let mut entries: Vec<DirEntry> = Vec::new();
 
@@ -281,7 +292,7 @@ pub fn workspace_get_git_info(path: String) -> GitInfo {
     }
 }
 
-/// Scans WORKSPACE_ROOT for git-repo subdirectories and returns session info.
+/// Scans the configured workspace root for git-repo subdirectories and returns session info.
 #[tauri::command]
 pub fn workspace_get_sessions(
     watcher: tauri::State<'_, SharedWatcherState>,
@@ -510,6 +521,34 @@ pub fn workspace_stop_watch(
     recent_files_arc.lock().unwrap().clear();
     branch_cache_arc.lock().unwrap().clear();
     Ok(())
+}
+
+/// Sets the workspace root at runtime from AppConfig.workspaceRoot.
+/// Returns the canonicalized path that the backend actually stored, so the caller
+/// can display the resolved path rather than the raw config string.
+///
+/// **Ordering requirement**: Must be called before `workspace_start_watch`. The watcher
+/// registers paths at startup and does not detect root changes made after it starts.
+/// If the root is changed after the watcher is running, call `workspace_stop_watch` →
+/// `workspace_set_root` → `workspace_start_watch` to pick up the new root.
+///
+/// In the default app flow this ordering holds: WorkspaceCenterPanel calls this command
+/// in its mount useEffect before panel activation triggers `workspace_start_watch`.
+/// Note: if the workspace panel is already active when the component mounts, the watcher
+/// may start before this command completes — callers are responsible for the ordering.
+#[tauri::command]
+pub fn workspace_set_root(root: String) -> Result<String, String> {
+    let p = PathBuf::from(&root);
+    if !p.is_dir() {
+        return Err(format!("Workspace root is not a directory: {root}"));
+    }
+    let canonical = p
+        .canonicalize()
+        .map_err(|e| format!("Workspace root inaccessible: {e}"))?;
+    let canonical_str = canonical.to_string_lossy().to_string();
+    let m = WORKSPACE_ROOT_OVERRIDE.get_or_init(|| Mutex::new(WORKSPACE_ROOT.to_string()));
+    *m.lock().unwrap() = canonical_str.clone();
+    Ok(canonical_str)
 }
 
 /// Classifies all git-repo (and other) subdirectories of WORKSPACE_ROOT.

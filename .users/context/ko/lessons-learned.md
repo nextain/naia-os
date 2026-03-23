@@ -372,8 +372,6 @@ if (cmd === "plugin:store|get") return [null, false];
 
 **수정**: `(?<![/\w])` lookbehind 추가 — `/` 앞이 단어 문자나 다른 `/`이면 매칭 차단. 또한 `tsx`/`jsx`를 `ts`/`js`보다 앞에 위치(longest-match 확장자 해석).
 
-<<<<<<< HEAD
-
 ---
 
 ## L031 — 비동기 도구 호출 중복 방지를 위한 `openDirsRef` add-before-await 패턴 (#119)
@@ -493,3 +491,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: `panelId` 문자열 검증은 세그먼트 이름의 경로 순회만 방지 — 디렉토리 자체가 심링크인 경우는 방어하지 못함.
 
 **수정**: `exists()` 후 `canonicalize()` 호출, `starts_with(home_path)` 검증 통과 후 `remove_dir_all(&canonical)` 사용. `panel_read_file`의 경계 검사 패턴과 동일.
+
+---
+
+## L041 — `OnceLock<Mutex<String>>` 초기값은 빈 문자열이 아닌 컴파일 타임 폴백이어야 함 (#107)
+
+**날짜**: 2026-03-23 | **분류**: Rust | **범위**: `shell/src-tauri/src/workspace.rs`
+
+**문제**: `OnceLock::get_or_init(|| Mutex::new(String::new()))`은 Mutex를 빈 문자열로 초기화. `workspace_set_root` 첫 호출 이전에 `get_workspace_root()`를 호출하는 스레드는 폴백 루트가 아닌 `""`를 반환받음.
+
+**근본 원인**: `String::new()`는 편의성 때문에 선택됨. 그러나 초기값은 `workspace_set_root` 실행 이전에 도달하는 모든 reader에게 첫 번째로 보이는 값 — 빈 문자열은 조용히 잘못된 동작을 유발함(빈 스캔 루트, 세션 없음).
+
+**수정**: `get_or_init(|| Mutex::new(WORKSPACE_ROOT.to_string()))` 사용. 컴파일 타임 폴백 의미론과 일치하며 경쟁 조건 창을 제거.
+
+---
+
+## L042 — `workspaceReady` 게이트: React 자식 effect가 부모 IPC 완료 전에 실행될 수 있음 (#107)
+
+**날짜**: 2026-03-23 | **분류**: React | **범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: `SessionDashboard`의 `workspace_get_sessions` `useEffect`가 `WorkspaceCenterPanel`의 `workspace_set_root` invoke 완료 전에 실행됨. 세션이 잘못된(하드코딩된 구) 루트에서 스캔됨.
+
+**근본 원인**: React의 `useEffect`는 일부 마운트 순서에서 자식 effect를 부모 effect보다 먼저 실행. 게이트 없이는 `SessionDashboard`가 마운트되어 `workspace_set_root` 완료 전에 load를 트리거.
+
+**수정**: 부모에 `workspaceReady` boolean 상태 추가. `workspaceReady === true`일 때만 자식 컴포넌트를 렌더링. `workspace_set_root` invoke 체인의 `.finally()`에서 `true`로 설정. IPC 완료 전까지 자식이 마운트되지 않음.
+
+---
+
+## L043 — Tauri IPC 커맨드에서 canonical path를 반환해 프론트엔드와 백엔드 동기화 (#107)
+
+**날짜**: 2026-03-23 | **분류**: Tauri | **범위**: `shell/src-tauri/src/workspace.rs, shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: `workspace_set_root`가 원래 `()`를 반환함. 프론트엔드가 빈 상태 메시지에 raw config 경로를 표시. Fedora에서 `/home/luke`는 `/var/home/luke`의 심링크 — raw 경로와 canonical 경로가 달라 혼란스러운 UI 발생.
+
+**근본 원인**: 백엔드가 `p.canonicalize()`를 내부적으로 호출하지만 결과를 버림. 프론트엔드가 실제 스캔된 경로를 알 방법이 없음.
+
+**수정**: `workspace_set_root`에서 `Result<String, String>`으로 canonical path 반환. 프론트엔드: `.then(canonical => setResolvedRoot(canonical)).catch(() => setResolvedRoot(WORKSPACE_ROOT)).finally(() => setWorkspaceReady(true))`. 자식 컴포넌트에 raw config 값이 아닌 `resolvedRoot` 전달.

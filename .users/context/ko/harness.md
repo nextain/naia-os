@@ -244,3 +244,51 @@ bash .agents/tests/harness/run-all.sh
 .claude/*          (settings.json, hooks/, skills/ 제외)
 .agents/progress/*.json
 ```
+
+---
+
+## 컴팩션 규칙
+
+*OpenClaw 컨텍스트 엔진 분석에서 도출 (2026-03-23).*
+
+**원칙**: `progress.json`이 anti-compact 메커니즘이다. 파일에 기록된 상태는 살아남고, 대화 기억은 사라진다.
+
+### 식별자 보존
+
+모든 불투명 식별자를 **발견된 그대로** 보존 — 기억으로 재구성 금지:
+
+- 이슈 번호 (`#98`, `#51` 등)
+- UUID와 해시
+- 파일 경로 (정확하게, 추측 금지)
+- 호스트명, URL, 포트 번호
+
+→ `agents-rules.json`의 `ai_behavioral_traps.compaction_identifier_loss` 참조.
+
+### 토큰 안전 마진
+
+컨텍스트 용량 추정 시 **1.2x 버퍼** 적용. `chars/4` 휴리스틱은 멀티바이트 문자와 특수 토큰을 최대 20% 과소평가한다.
+
+### 우선 보존 순서
+
+컨텍스트가 한계에 가까울 때 `progress.json`의 이 필드를 먼저 보존:
+
+1. `current_phase` + `gate_approvals` — 현재 위치
+2. `current_task` / 마지막 사용자 요청 — 현재 작업
+3. `decisions[]` — 결정한 것과 이유
+4. `blockers[]` + `constraints_discovered[]` — 진행을 막는 것
+5. 배치 진행률 (예: "Phase 6-A 완료, 6-B 남음")
+
+### 즉시 기록 규칙
+
+발견 즉시 `progress.json`에 기록 — 대화에 버퍼링 금지:
+
+| 발견 | 필드 |
+|------|------|
+| 결정 | `decisions[]` |
+| 접근법 기각 | `rejected_alternatives[]` |
+| 제약 발견 | `constraints_discovered[]` |
+| 예상치 못한 발견 | `surprises[]` |
+
+### 데몬 모드 (Gateway)
+
+Gateway 백그라운드/스케줄 실행 시: 경량 컨텍스트 사용. 전체 `AGENTS.md` 대신 작업 특화 파일만 주입.

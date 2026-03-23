@@ -244,3 +244,51 @@ bash .agents/tests/harness/run-all.sh
 .claude/*          (except settings.json, hooks/, skills/)
 .agents/progress/*.json
 ```
+
+---
+
+## Compaction Rules
+
+*Derived from OpenClaw context-engine analysis (2026-03-23).*
+
+**Principle**: `progress.json` is the anti-compact mechanism. State written to files survives; conversation memory does not.
+
+### Identifier Preservation
+
+Preserve all opaque identifiers **exactly as found** — never reconstruct from memory:
+
+- Issue numbers (`#98`, `#51`, etc.)
+- UUIDs and hashes
+- File paths (exact, no guessing)
+- Hostnames, URLs, port numbers
+
+→ See `ai_behavioral_traps.compaction_identifier_loss` in `agents-rules.json`.
+
+### Token Safety Margin
+
+Apply **1.2x buffer** when estimating whether content fits in context. The `chars/4` heuristic underestimates multi-byte chars and special tokens by up to 20%.
+
+### Priority Preservation Order
+
+When context is near limits, preserve these fields from `progress.json` first:
+
+1. `current_phase` + `gate_approvals` — where we are
+2. `current_task` / last user request — what we are doing
+3. `decisions[]` — what was decided and why
+4. `blockers[]` + `constraints_discovered[]` — what is blocking progress
+5. Batch progress (e.g., "Phase 6-A complete, 6-B remaining")
+
+### Write Immediately Rule
+
+Write to `progress.json` on discovery — do not buffer in conversation:
+
+| Discovery | Field |
+|-----------|-------|
+| Decision made | `decisions[]` |
+| Approach rejected | `rejected_alternatives[]` |
+| Constraint found | `constraints_discovered[]` |
+| Surprise | `surprises[]` |
+
+### Daemon Mode (Gateway)
+
+For gateway background/scheduled tasks: use lightweight context. Only inject task-specific files, not full `AGENTS.md`.

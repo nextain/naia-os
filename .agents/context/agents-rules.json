@@ -35,6 +35,10 @@
       "front_back_inconsistency": {
         "trap": "Sequential generation causes earlier code/comments to contradict later code in the same file.",
         "counter": "Iterative review catches this. Re-read the full file after writing, check for internal consistency."
+      },
+      "compaction_identifier_loss": {
+        "trap": "When context compresses, AI rewrites identifiers from memory — issue numbers get wrong, UUIDs get truncated, file paths get guessed.",
+        "counter": "Preserve all opaque identifiers exactly as found in files/tools: issue numbers, UUIDs, file paths, API keys, hostnames, URLs, port numbers. If unsure, read the source file rather than recalling from memory."
       }
     }
   },
