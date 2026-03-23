@@ -9,7 +9,32 @@ set -euo pipefail
 echo "[dev-setup] Installing build dependencies..."
 
 # Detect package manager
-if command -v apt-get &>/dev/null; then
+# Check rpm-ostree first: Bazzite/Fedora Atomic has dnf but it blocks installs
+if [ -f /run/ostree-booted ] || command -v rpm-ostree &>/dev/null; then
+    echo "[dev-setup] Detected rpm-ostree system (Bazzite / Fedora Atomic)"
+    PKGS=(
+        webkit2gtk4.1-devel
+        gtk3-devel
+        libappindicator-gtk3-devel
+        librsvg2-devel
+        openssl-devel
+        pipewire-alsa
+        alsa-lib-devel
+    )
+    # Filter out already-installed packages
+    TO_INSTALL=()
+    for pkg in "${PKGS[@]}"; do
+        if ! rpm -q "$pkg" &>/dev/null; then
+            TO_INSTALL+=("$pkg")
+        fi
+    done
+    if [ ${#TO_INSTALL[@]} -eq 0 ]; then
+        echo "[dev-setup] ✓ All packages already installed"
+    else
+        echo "[dev-setup] Installing: ${TO_INSTALL[*]}"
+        sudo rpm-ostree install --apply-live "${TO_INSTALL[@]}"
+    fi
+elif command -v apt-get &>/dev/null; then
     sudo apt-get update -qq
     sudo apt-get install -y --no-install-recommends \
         build-essential \
