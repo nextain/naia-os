@@ -59,6 +59,25 @@ class MockBridge implements NaiaContextBridge {
 	hasHandler(toolName: string): boolean {
 		return this.handlers.has(toolName);
 	}
+
+	logBehavior(_event: string, _data?: Record<string, unknown>): Promise<void> {
+		return Promise.resolve();
+	}
+	queryBehavior(): Promise<import("../../lib/panel-registry").BehaviorEntry[]> {
+		return Promise.resolve([]);
+	}
+	getSecret(_key: string): Promise<string | null> {
+		return Promise.resolve(null);
+	}
+	setSecret(_key: string, _value: string): Promise<void> {
+		return Promise.resolve();
+	}
+	readFile(_path: string): Promise<string> {
+		return Promise.resolve("");
+	}
+	runShell(_cmd: string, _args?: string[]): Promise<import("../../lib/panel-registry").ShellResult> {
+		return Promise.resolve({ stdout: "", stderr: "", code: 0 });
+	}
 }
 
 // ─── Tests: Panel Registry CRUD ──────────────────────────────────────────────
