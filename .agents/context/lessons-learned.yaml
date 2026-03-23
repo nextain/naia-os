@@ -493,3 +493,23 @@ lessons:
     problem: "origin_path_cache was added to WatcherState and used in workspace_get_sessions, but workspace_stop_watch only cleared last_change, recent_files, and branch_cache. Missing clear meant stale origin_path data persisted after stop→start (e.g. after git worktree remove)."
     root_cause: "workspace_stop_watch manually enumerates cache Arcs — new fields require explicit addition. No compile-time enforcement."
     fix: "Add origin_path_cache_arc to the stop_watch Arc clone block and call .lock().unwrap().clear(). Rule: any new Arc<Mutex<HashMap>> field in WatcherState must be added to both workspace_get_sessions clone block AND workspace_stop_watch clear block."
+
+  - id: L048
+    date: "2026-03-23"
+    issue: "#91"
+    category: react
+    scope: "issue-desk/src/components/TriageView.tsx"
+    title: "Zustand store value in useEffect deps causes infinite loop when effect writes to the same key — use getState() instead"
+    problem: "TriageView orphan-cleanup useEffect listed triageBuckets as a dependency. The effect reads triageBuckets to find orphan entries and then calls setTriageBuckets to remove them. This modification triggers a re-render, which re-runs the effect, creating an infinite loop."
+    root_cause: "React useEffect runs whenever any listed dependency changes. If the effect itself mutates a dep (even indirectly via a store action), the effect oscillates until React's infinite-loop guard fires."
+    fix: "Inside the useEffect body, read the value via useWorkflowStore.getState().triageBuckets instead of the destructured reactive triageBuckets. This accesses the store directly without subscribing as a dependency, breaking the loop. Pattern: use getState() for read-only side-effect access when the dep would cause oscillation."
+
+  - id: L049
+    date: "2026-03-23"
+    issue: "#91"
+    category: react
+    scope: "issue-desk/src/components/IssueCard.tsx"
+    title: "Compute date-derived values once per render — avoid calling daysSince()/Date.now() multiple times for the same field"
+    problem: "IssueCard needed both the stale boolean and the raw staleDays count (for the tooltip title). Calling isStale(issue.updated_at) for the boolean and then daysSince(issue.updated_at) for the count calls Date.now() twice with a tiny time gap, meaning the rendered tooltip title could disagree with the badge condition at a 30-day boundary."
+    root_cause: "isStale() and daysSince() each call Date.now() internally. In the same render, two calls to Date.now() return values that differ by microseconds but can differ by 1 day at an exact boundary."
+    fix: "Compute const staleDays = daysSince(issue.updated_at); then derive const stale = staleDays >= 30;. Reuse both in JSX. This guarantees logical consistency and avoids the double-sampling problem."

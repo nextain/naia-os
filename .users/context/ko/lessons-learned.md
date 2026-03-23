@@ -579,3 +579,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: `workspace_stop_watch`에는 각 캐시 필드(`branch_cache_arc`, `status_cache_arc`, …)에 대한 명시적 clear 블록이 있음. 새 캐시 필드를 `WatcherState`에 추가하면서 이 clear 블록에 추가하지 않으면 고아 상태로 남음.
 
 **수정**: `origin_path_cache_arc`를 `workspace_get_sessions`의 clone 블록과 `workspace_stop_watch`의 clear 블록 모두에 추가. 규칙: `WatcherState`에 추가하는 모든 `Arc<Mutex<HashMap>>` 필드는 반드시 두 곳 모두에 등재.
+
+---
+
+### L048 — Zustand store 값을 useEffect deps에 넣으면 effect가 같은 키를 수정할 때 무한 루프 발생 — getState() 사용
+
+**날짜**: 2026-03-23 | **이슈**: #91 | **카테고리**: react
+**범위**: `issue-desk/src/components/TriageView.tsx`
+
+**문제**: TriageView 고아 정리 useEffect가 `triageBuckets`를 deps에 추가. effect는 `triageBuckets`를 읽어 고아 항목을 찾고 `setTriageBuckets`로 제거. 이 수정이 리렌더를 유발해 effect가 다시 실행 → 무한 루프.
+
+**근본 원인**: React useEffect는 deps 변경 시마다 실행. effect 자체가 deps를 (스토어 액션 경유라도) 변경하면 React의 무한 루프 가드가 발동할 때까지 진동.
+
+**수정**: useEffect 내부에서 반응형 `triageBuckets` 대신 `useWorkflowStore.getState().triageBuckets`로 읽음. 구독 없이 스토어에 직접 접근하여 루프 차단. 패턴: dep 진동을 유발하는 경우 읽기 전용 side-effect 접근에는 `getState()` 사용.
+
+---
+
+### L049 — 날짜 파생 값은 렌더당 한 번만 계산 — 같은 필드에 daysSince()/Date.now()를 여러 번 호출 금지
+
+**날짜**: 2026-03-23 | **이슈**: #91 | **카테고리**: react
+**범위**: `issue-desk/src/components/IssueCard.tsx`
+
+**문제**: IssueCard가 stale boolean과 tooltip용 `staleDays` 숫자를 모두 필요로 함. `isStale(issue.updated_at)`으로 boolean, `daysSince(issue.updated_at)`으로 숫자를 각각 계산하면 `Date.now()`를 두 번 호출 → 30일 경계에서 tooltip 숫자와 badge 조건이 불일치 가능.
+
+**근본 원인**: `isStale()`과 `daysSince()` 모두 내부에서 `Date.now()` 호출. 같은 렌더에서 두 번 호출하면 정확한 경계(30일)에서 1일 차이 발생 가능.
+
+**수정**: `const staleDays = daysSince(issue.updated_at); const stale = staleDays >= 30;` — 한 번 계산 후 JSX에서 재사용. 논리적 일관성 보장 및 이중 샘플링 방지.
