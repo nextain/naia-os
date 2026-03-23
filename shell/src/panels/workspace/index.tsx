@@ -66,6 +66,27 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 		tier: 2, // confirm (process spawn)
 	},
 	{
+		name: "skill_workspace_send_to_session",
+		description:
+			"실행 중인 PTY 세션의 stdin에 텍스트를 전송한다. skill_workspace_new_session으로 시작된 터미널 세션에만 동작한다. text에 \\n을 포함하면 Enter 입력. 반환값: 'Sent to: {dir}'",
+		parameters: {
+			type: "object",
+			properties: {
+				dir: {
+					type: "string",
+					description:
+						"세션의 dir 식별자 (skill_workspace_get_sessions 반환값의 sessions[].dir 필드)",
+				},
+				text: {
+					type: "string",
+					description: "PTY stdin에 전송할 텍스트 (\\n 포함 시 Enter 입력)",
+				},
+			},
+			required: ["dir", "text"],
+		},
+		tier: 2, // confirm (PTY 입력)
+	},
+	{
 		name: "skill_workspace_classify_dirs",
 		description:
 			"dev 디렉토리의 하위 폴더를 분류(project/worktree/reference/docs/other)한다. 인자 없이 호출하면 추천 분류 결과를 반환하고, confirmed 배열을 넘기면 해당 분류를 적용하고 저장한다.",

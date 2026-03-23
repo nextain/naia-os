@@ -34,6 +34,7 @@ argument-hint: "[선택사항: 특정 verify 스킬 이름]"
 | 2 | `verify-pty-terminal` | PTY 터미널 탭 핵심 불변식 (openDirsRef add-before-await, terminalsRef timing, xterm keepAlive opacity, E2E mock 패턴) |
 | 3 | `verify-browser-panel` | Browser 패널 핵심 불변식 (setPendingApproval invoke-before-set, clearPendingApproval/finishStreaming/newConversation 대칭 show, E2E browser_check 명령) |
 | 4 | `verify-workspace-root` | workspace 루트 설정 핵심 불변식 (OnceLock 초기값, workspace_set_root 반환 타입, workspaceReady 게이트, resolvedRoot 업데이트 패턴, E2E mock 정확성) |
+| 5 | `verify-send-to-session` | skill_workspace_send_to_session 핵심 불변식 (tool descriptor 등록, ChatPanel per-panel bridge 라우팅, messageQueue stale closure 패턴, E2E mock JSON.stringify 이스케이프, 119 regression mock) |
 
 ## 워크플로우
 

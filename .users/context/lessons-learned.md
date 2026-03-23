@@ -528,3 +528,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: Backend calls `p.canonicalize()` internally but discarded the result. Frontend had no way to know the actual path the backend scanned.
 
 **Fix**: Return `Result<String, String>` from `workspace_set_root` with the canonical path on success. Frontend: `.then(canonical => setResolvedRoot(canonical)).catch(() => setResolvedRoot(WORKSPACE_ROOT)).finally(() => setWorkspaceReady(true))`. Pass `resolvedRoot` (not raw config value) to all child components.
+
+---
+
+### L044 — panel_tool_call routing: per-panel bridge factory breaks activeBridge singleton dispatch
+
+**Date**: 2026-03-23 | **Issue**: #120 | **Category**: react
+**Scope**: `shell/src/components/ChatPanel.tsx`
+
+**Problem**: After commit 916a657 introduced `getBridgeForPanel()` factory (per-panel bridge instances), `App.tsx` passed `getBridgeForPanel(panel.id)` to each panel but `ChatPanel` still called `activeBridge.callTool()`. These are different `ActivePanelBridge` instances with separate `handlers` Maps — workspace tool calls silently returned `'No handler registered'`.
+
+**Root cause**: The 916a657 commit updated `App.tsx` to use per-panel bridges for isolation, but did not update `ChatPanel`'s `panel_tool_call` handler to route to the owning panel's bridge.
+
+**Fix**: In `panel_tool_call` handler: look up owning panel via `panelRegistry.list().find(p => p.tools?.some(t => t.name === chunk.toolName))`, then use `getBridgeForPanel(ownerPanel.id)` if found, else fall back to `activeBridge`.
+
+---
+
+### L045 — messageQueue stale closure: setInput(next) + setTimeout(() => handleSend()) uses pre-render handleSend
+
+**Date**: 2026-03-23 | **Issue**: #120 | **Category**: react
+**Scope**: `shell/src/components/ChatPanel.tsx`
+
+**Problem**: Queue processing `useEffect` called `setInput(next)` then `setTimeout(() => handleSend(), 50)`. The `setTimeout` captured `handleSend` from the current render (where `input = ''`). Even after `setInput(next)` triggered a re-render, the `setTimeout` still held the OLD `handleSend` closure with `input = ''`. `handleSend()` resolved `text = ''` and returned early — message never sent.
+
+**Root cause**: React functional component: every render creates a new `handleSend` closure. `useEffect` captures `handleSend` at the time the effect runs. `setInput(next)` schedules a NEW render but cannot retroactively update the already-captured closure in `setTimeout`.
+
+**Fix**: Pass the queued message directly: `handleSend(next)`. This uses `overrideText` instead of the `input` state closure. Also removed the `setInput(next)` call since `handleSend` already calls `setInput('')`.

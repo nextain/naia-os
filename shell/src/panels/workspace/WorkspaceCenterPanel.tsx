@@ -604,6 +604,27 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		return unsub;
 	}, [naia, startHighlight]); // startHighlight is stable (useCallback([]))
 
+	// ── Naia tool: skill_workspace_send_to_session ────────────────────────
+	useEffect(() => {
+		const unsub = naia.onToolCall(
+			"skill_workspace_send_to_session",
+			async (args) => {
+				const dir = String(args.dir ?? "");
+				const text = String(args.text ?? "");
+				if (!dir || !text) return "Error: dir and text are required";
+				const tab = terminalsRef.current.find((t) => t.dir === dir);
+				if (!tab) return `Error: no PTY session for: ${dir}`;
+				try {
+					await invoke("pty_write", { pty_id: tab.pty_id, data: text });
+					return `Sent to: ${dir}`;
+				} catch (e) {
+					return `Error: pty_write failed: ${String(e)}`;
+				}
+			},
+		);
+		return unsub;
+	}, [naia]);
+
 	// ── Active session dirs (for FileTree highlighting) ───────────────────
 	const activeDirs = sessions
 		.filter((s) => {

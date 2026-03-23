@@ -1,22 +1,21 @@
 import { type Page, expect, test } from "@playwright/test";
 
 /**
- * PTY Terminal E2E — #119
+ * skill_workspace_send_to_session E2E — #120
  *
- * Tests the terminal tab management in the Workspace panel.
- * xterm.js canvas is not tested (no actual PTY in Playwright browser).
- * Focus: tab bar UI, tab switching, tab close, skill_workspace_new_session.
+ * Tests that pty_write is invoked with the correct pty_id and data
+ * when the agent calls skill_workspace_send_to_session.
  *
  * Out of scope:
- * - tier:2 approval_request → PermissionModal → send_approval_response flow
- *   (mock emits panel_tool_call directly to test tab UI behavior only)
- * - PTY I/O: pty:output / pty:exit events (no real PTY in Playwright)
+ * - tier:2 approval_request → PermissionModal flow (mock bypasses it)
+ * - actual PTY I/O (no real PTY in Playwright)
  *
  * Prerequisites: pnpm tauri dev (Vite serves at localhost:1420)
  */
 
 const FAKE_ROOT = "/var/home/luke/dev";
 const FAKE_DIR = `${FAKE_ROOT}/naia-os`;
+const SEND_TEXT = "ls -la\n";
 
 const FAKE_SESSIONS = [
 	{
@@ -24,7 +23,7 @@ const FAKE_SESSIONS = [
 		path: FAKE_DIR,
 		branch: "main",
 		status: "active",
-		progress: { issue: "#119", phase: "build", title: "PTY terminal" },
+		progress: { issue: "#120", phase: "build", title: "send_to_session" },
 		recent_file: "shell/src/App.tsx",
 		last_change: Math.floor(Date.now() / 1000) - 10,
 	},
@@ -65,12 +64,15 @@ const TAURI_MOCK_SCRIPT = `
 		return (proto || "asset") + "://localhost/" + encodeURIComponent(p);
 	};
 
-	window.__NAIA_E2E__ = { emitEvent: emitEvent };
+	window.__NAIA_E2E__ = {
+		emitEvent: emitEvent,
+		lastPtyWriteCall: null,  // { pty_id, data } — set by pty_write mock
+		lastCreatedPtyId: null,  // pty_id from pty_create mock
+	};
 
 	var fakeSessions = ${JSON.stringify(FAKE_SESSIONS)};
-	var nextPtyPid = 10001;
+	var nextPtyPid = 20001;
 
-	// Simulate panel_tool_call response from agent
 	function buildPanelToolCallResponse(requestId, toolName, args, followUpText) {
 		var tcId = "ptc-1";
 		return [
@@ -80,11 +82,7 @@ const TAURI_MOCK_SCRIPT = `
 		];
 	}
 
-	// plugin:store mock (required by store plugin)
-	var storeData = {};
-
 	window.__TAURI_INTERNALS__.invoke = async function(cmd, args) {
-		// Event system
 		if (cmd === "plugin:event|listen") {
 			if (!eventListeners.has(args.event)) eventListeners.set(args.event, []);
 			eventListeners.get(args.event).push(args.handler);
@@ -93,25 +91,20 @@ const TAURI_MOCK_SCRIPT = `
 		if (cmd === "plugin:event|emit") { emitEvent(args.event, args.payload); return null; }
 		if (cmd === "plugin:event|unlisten") return;
 
-		// plugin:store
 		if (cmd === "plugin:store|load") return 1;
 		if (cmd === "plugin:store|get") return [null, false];
 		if (cmd === "plugin:store|set") return;
 		if (cmd === "plugin:store|delete") return;
 		if (cmd === "plugin:store|save") return;
 
-		// Window management
 		if (cmd === "plugin:window|get_cursor_position") return null;
 		if (cmd === "plugin:window|start_resize_dragging") return null;
 
-		// Misc
 		if (cmd === "send_to_agent_command") {
 			var msg = JSON.parse(args.message);
-			if (msg.type === "panel_tool_result") return; // result already applied to state
-			// Regular chat — trigger skill_workspace_new_session tool call
+			if (msg.type === "panel_tool_result") return;
 			var requestId = msg.requestId;
 			var lastMsg = msg.messages && msg.messages[msg.messages.length - 1];
-			// content may be a string or an array of {type,text} blocks (Anthropic format)
 			var rawContent = lastMsg && lastMsg.content ? lastMsg.content : "";
 			var contentStr = typeof rawContent === "string"
 				? rawContent
@@ -123,7 +116,11 @@ const TAURI_MOCK_SCRIPT = `
 			if (content.indexOf("터미널") !== -1 || content.indexOf("terminal") !== -1) {
 				chunks = buildPanelToolCallResponse(requestId, "skill_workspace_new_session",
 					{ dir: "${FAKE_DIR}" },
-					"터미널을 열었어요! naia-os 디렉토리에 새 터미널 세션을 시작했습니다.");
+					"터미널을 열었어요!");
+			} else if (content.indexOf("stdin") !== -1 || content.indexOf("send") !== -1) {
+				chunks = buildPanelToolCallResponse(requestId, "skill_workspace_send_to_session",
+					{ dir: "${FAKE_DIR}", text: ${JSON.stringify(SEND_TEXT)} },
+					"터미널에 입력을 전송했어요!");
 			} else {
 				chunks = [
 					{ type: "text", requestId: requestId, text: "안녕하세요!" },
@@ -143,11 +140,8 @@ const TAURI_MOCK_SCRIPT = `
 		if (cmd === "frontend_log") return;
 		if (cmd === "list_skills") return [];
 		if (cmd === "list_stt_models") return [];
-
-		// Panel
 		if (cmd === "panel_list_installed") return [];
 
-		// Workspace commands
 		if (cmd === "workspace_get_sessions") return fakeSessions;
 		if (cmd === "workspace_list_dirs") return [{ name: "naia-os", path: "${FAKE_DIR}", is_dir: true, children: null }];
 		if (cmd === "workspace_get_git_info") return { branch: "main" };
@@ -159,16 +153,18 @@ const TAURI_MOCK_SCRIPT = `
 		if (cmd === "workspace_read_file") return "// file content";
 		if (cmd === "workspace_write_file") return;
 
-		// PTY commands
 		if (cmd === "pty_create") {
 			var pid = nextPtyPid++;
-			return { pty_id: "pty-" + pid, pid: pid };
+			var pty_id = "pty-" + pid;
+			window.__NAIA_E2E__.lastCreatedPtyId = pty_id;
+			return { pty_id: pty_id, pid: pid };
 		}
-		if (cmd === "pty_write") return;
+		if (cmd === "pty_write") {
+			window.__NAIA_E2E__.lastPtyWriteCall = { pty_id: args.pty_id, data: args.data };
+			return;
+		}
 		if (cmd === "pty_resize") return;
 		if (cmd === "pty_kill") return;
-
-		// send_approval_response (for panel tool results)
 		if (cmd === "send_approval_response") return;
 
 		return undefined;
@@ -190,14 +186,13 @@ async function sendMessage(page: Page, text: string): Promise<void> {
 	await expect(input).toBeEnabled({ timeout: 5_000 });
 	await input.fill(text);
 	await input.press("Enter");
-	// Wait for response to start streaming
 	await page
 		.locator(".chat-message.assistant")
 		.last()
 		.waitFor({ state: "attached", timeout: 8_000 });
 }
 
-test.describe("PTY Terminal E2E — #119", () => {
+test.describe("skill_workspace_send_to_session E2E — #120", () => {
 	test.beforeEach(async ({ page }) => {
 		await page.addInitScript(TAURI_MOCK_SCRIPT);
 		await page.addInitScript(() => {
@@ -226,95 +221,37 @@ test.describe("PTY Terminal E2E — #119", () => {
 		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
 	});
 
-	// T1: Tab bar hidden when no terminals
-	test("T1: 터미널 없을 때 탭 바가 표시되지 않음", async ({ page }) => {
-		await openWorkspacePanel(page);
-		// Tab bar should not exist yet
-		await expect(page.locator(".workspace-panel__tab-bar")).not.toBeAttached();
-		// Editor slot should be active (no opacity:0 override — no terminals yet)
-		await expect(page.locator(".workspace-panel__editor-slot")).not.toHaveCSS(
-			"opacity",
-			"0",
-		);
-	});
-
-	// T2: skill_workspace_new_session → tab bar appears
-	test("T2: skill_workspace_new_session 호출 후 터미널 탭 등장", async ({
+	// SS1: pty_write called with correct pty_id and data
+	test("SS1: skill_workspace_send_to_session → pty_write가 올바른 pty_id와 data로 호출됨", async ({
 		page,
 	}) => {
 		await openWorkspacePanel(page);
 
-		// Simulate the agent calling skill_workspace_new_session via chat
+		// Step 1: Create a terminal session (establishes dir → pty_id mapping)
 		await sendMessage(page, "터미널 열어줘");
-
-		// Wait for tab bar to appear (tool call processed → React state updated)
 		await expect(page.locator(".workspace-panel__tab-bar")).toBeVisible({
 			timeout: 5_000,
 		});
 
-		// "에디터" tab should exist
-		const editorTab = page.locator('.workspace-panel__tab:has-text("에디터")');
-		await expect(editorTab).toBeVisible();
+		// Step 2: Trigger skill_workspace_send_to_session for the same dir
+		await sendMessage(page, "stdin 보내줘");
 
-		// Terminal tab with dir name should exist
-		const terminalTab = page.locator(
-			'.workspace-panel__tab:has-text("naia-os")',
+		// Step 3: Wait for pty_write to be recorded by the mock
+		await page.waitForFunction(
+			() => (window as any).__NAIA_E2E__?.lastPtyWriteCall !== null,
+			{ timeout: 5_000 },
 		);
-		await expect(terminalTab).toBeVisible();
-	});
 
-	// T3: Terminal tab is active after creation
-	test("T3: 터미널 탭 생성 후 터미널 탭이 활성화됨", async ({ page }) => {
-		await openWorkspacePanel(page);
-		await sendMessage(page, "터미널 열어줘");
-
-		await expect(page.locator(".workspace-panel__tab-bar")).toBeVisible({
-			timeout: 5_000,
-		});
-
-		// The terminal tab (not editor) should be active
-		const activeTab = page.locator(".workspace-panel__tab--active");
-		await expect(activeTab).toContainText("naia-os");
-	});
-
-	// T4: Click editor tab → editor becomes active
-	test("T4: 에디터 탭 클릭 시 에디터 탭이 활성화됨", async ({ page }) => {
-		await openWorkspacePanel(page);
-		await sendMessage(page, "터미널 열어줘");
-
-		await expect(page.locator(".workspace-panel__tab-bar")).toBeVisible({
-			timeout: 5_000,
-		});
-
-		// Click editor tab
-		await page.locator('.workspace-panel__tab:has-text("에디터")').click();
-
-		// Editor tab should now be active
-		const activeTab = page.locator(".workspace-panel__tab--active");
-		await expect(activeTab).toContainText("에디터");
-	});
-
-	// T5: Click × button → terminal tab removed
-	test("T5: × 버튼 클릭 시 터미널 탭 제거, 에디터로 복귀", async ({ page }) => {
-		await openWorkspacePanel(page);
-		await sendMessage(page, "터미널 열어줘");
-
-		await expect(page.locator(".workspace-panel__tab-bar")).toBeVisible({
-			timeout: 5_000,
-		});
-
-		// Click the close button on the terminal tab
-		await page.locator(".workspace-panel__tab-close").first().click();
-
-		// Tab bar should disappear (no more terminals)
-		await expect(page.locator(".workspace-panel__tab-bar")).not.toBeAttached({
-			timeout: 3_000,
-		});
-
-		// Editor slot should be active (opacity not hidden — activeTab fell back to "editor")
-		await expect(page.locator(".workspace-panel__editor-slot")).not.toHaveCSS(
-			"opacity",
-			"0",
+		// Step 4: Assert pty_write received the correct pty_id (from the created terminal)
+		const ptyWriteCall = await page.evaluate(
+			() => (window as any).__NAIA_E2E__?.lastPtyWriteCall,
 		);
+		const createdPtyId = await page.evaluate(
+			() => (window as any).__NAIA_E2E__?.lastCreatedPtyId,
+		);
+
+		expect(ptyWriteCall).not.toBeNull();
+		expect(ptyWriteCall.pty_id).toBe(createdPtyId);
+		expect(ptyWriteCall.data).toBe(SEND_TEXT);
 	});
 });

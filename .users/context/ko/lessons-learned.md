@@ -527,3 +527,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: 백엔드가 `p.canonicalize()`를 내부적으로 호출하지만 결과를 버림. 프론트엔드가 실제 스캔된 경로를 알 방법이 없음.
 
 **수정**: `workspace_set_root`에서 `Result<String, String>`으로 canonical path 반환. 프론트엔드: `.then(canonical => setResolvedRoot(canonical)).catch(() => setResolvedRoot(WORKSPACE_ROOT)).finally(() => setWorkspaceReady(true))`. 자식 컴포넌트에 raw config 값이 아닌 `resolvedRoot` 전달.
+
+---
+
+### L044 — panel_tool_call 라우팅: per-panel bridge 팩토리가 activeBridge 싱글톤 디스패치를 깨뜨림
+
+**날짜**: 2026-03-23 | **이슈**: #120 | **카테고리**: react
+**범위**: `shell/src/components/ChatPanel.tsx`
+
+**문제**: 916a657 커밋에서 `getBridgeForPanel()` 팩토리(패널별 bridge 인스턴스)가 도입된 후, `App.tsx`는 각 패널에 `getBridgeForPanel(panel.id)`를 전달했지만 `ChatPanel`은 여전히 `activeBridge.callTool()`을 호출함. 이 두 객체는 별도의 `handlers` Map을 가진 다른 `ActivePanelBridge` 인스턴스 — workspace tool 호출이 `'No handler registered'`를 조용히 반환.
+
+**근본 원인**: 916a657 커밋이 `App.tsx`를 per-panel bridge로 업데이트했지만 `ChatPanel`의 `panel_tool_call` 핸들러에서 소유 패널 bridge로 라우팅하는 부분을 업데이트하지 않음.
+
+**수정**: `panel_tool_call` 핸들러에서 `panelRegistry.list().find(p => p.tools?.some(t => t.name === chunk.toolName))`로 소유 패널 조회 후 `getBridgeForPanel(ownerPanel.id)` 사용. 없으면 `activeBridge` fallback.
+
+---
+
+### L045 — messageQueue stale closure: setInput(next) + setTimeout(() => handleSend())이 이전 렌더의 handleSend 사용
+
+**날짜**: 2026-03-23 | **이슈**: #120 | **카테고리**: react
+**범위**: `shell/src/components/ChatPanel.tsx`
+
+**문제**: 큐 처리 `useEffect`에서 `setInput(next)` 후 `setTimeout(() => handleSend(), 50)` 호출. `setTimeout`이 현재 렌더의 `handleSend`(`input = ''`)를 캡처. `setInput(next)`가 새 렌더를 스케줄했음에도 `setTimeout`은 여전히 `input = ''`인 OLD `handleSend` 클로저를 보유. `handleSend()`에서 `text = ''` → early return → 메시지 미전송.
+
+**근본 원인**: React 함수형 컴포넌트: 렌더마다 새 `handleSend` 클로저 생성. `useEffect`는 effect 실행 시점의 `handleSend`를 캡처. `setInput(next)`는 새 렌더를 스케줄하지만 이미 캡처된 `setTimeout` 클로저를 소급해 업데이트할 수 없음.
+
+**수정**: 큐 메시지를 직접 전달: `handleSend(next)`. `overrideText`를 사용하므로 `input` 상태 클로저에 의존하지 않음. `handleSend`가 `setInput('')`을 호출하므로 `setInput(next)` 제거.

@@ -11,7 +11,7 @@ import {
 } from "tauri-plugin-stt-api";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { getDefaultVoiceForAvatar } from "../lib/avatar-presets";
-import { activeBridge } from "../lib/active-bridge";
+import { activeBridge, getBridgeForPanel } from "../lib/active-bridge";
 import {
 	cancelChat,
 	directToolCall,
@@ -541,9 +541,10 @@ export function ChatPanel() {
 		if (!isStreaming && messageQueue.length > 0) {
 			const next = useChatStore.getState().dequeueMessage();
 			if (next) {
-				setInput(next);
-				// Send on next tick after state update
-				setTimeout(() => handleSend(), 50);
+				// Pass next as overrideText to avoid stale-closure over input state
+				// (setInput(next) schedules a re-render but handleSend() in the timeout
+				// still captures input="" from this render).
+				handleSend(next);
 			}
 		}
 	}, [isStreaming, messageQueue.length]);
@@ -841,7 +842,14 @@ export function ChatPanel() {
 				}
 				break;
 			case "panel_tool_call": {
-				activeBridge
+				// Route to the panel that declared the tool, fall back to activeBridge.
+				const ownerPanel = panelRegistry
+					.list()
+					.find((p) => p.tools?.some((t) => t.name === chunk.toolName));
+				const bridge = ownerPanel
+					? getBridgeForPanel(ownerPanel.id)
+					: activeBridge;
+				bridge
 					.callTool(chunk.toolName, chunk.args)
 					.then((result) =>
 						sendPanelToolResult(chunk.requestId, chunk.toolCallId, result, true),
