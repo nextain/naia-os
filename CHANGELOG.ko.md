@@ -7,6 +7,24 @@ Naia OS의 주요 변경 사항을 기록합니다.
 
 ---
 
+## v0.1.3 (2026-03-23)
+
+워크스페이스 패널, 브라우저 패널, PTY 터미널, 프로바이더 레지스트리, 인스톨러 개선
+
+- **feat(shell)**: 워크스페이스 패널 — 세션 대시보드, 파일 탐색기, 코드 에디터 ([#99](https://github.com/nextain/naia-os/issues/99))
+- **feat(workspace)**: xterm.js 기반 PTY 터미널 탭 ([#119](https://github.com/nextain/naia-os/issues/119))
+- **feat(workspace)**: 이미지·CSV·로그 파일 뷰어 및 채팅 딥링크 ([#116](https://github.com/nextain/naia-os/issues/116))
+- **feat(workspace)**: 세션 대시보드 git 워크트리 그룹핑 ([#121](https://github.com/nextain/naia-os/issues/121))
+- **feat(shell)**: 브라우저 패널 — Chrome X11 임베드, CDP 툴, 음성 툴, 테마 지원 ([#95](https://github.com/nextain/naia-os/issues/95))
+- **feat(panels)**: 패널 통신을 위한 iframe 브릿지 및 NaiaContextBridge 확장 ([#122](https://github.com/nextain/naia-os/issues/122))
+- **feat(shell)**: Panel API — panelRegistry를 통한 프로그래매틱 인터페이스 ([#118](https://github.com/nextain/naia-os/issues/118))
+- **feat(shell)**: 설치된 패널 동적 iframe 렌더링 ([#89](https://github.com/nextain/naia-os/issues/89))
+- **feat(shell)**: STT/TTS 프로바이더 레지스트리 (Web Speech API, Browser TTS 지원) ([#51](https://github.com/nextain/naia-os/issues/51))
+- **feat(shell)**: vLLM STT/TTS 프로바이더 + STT 모델 선택기 + 오디오 장치 설정 ([#79](https://github.com/nextain/naia-os/issues/79))
+- **feat(shell)**: 마이크 테스트 포함 오디오 입출력 장치 선택 ([#81](https://github.com/nextain/naia-os/issues/81))
+- **fix(installer)**: GRUB USB 부팅 수정 — insmod iso9660 추가로 부팅 메뉴 미표시 해결
+- **fix(browser)**: 브라우저 패널 keepAlive, 모달 타이밍, 툴바 오버플로우 수정 ([#102](https://github.com/nextain/naia-os/issues/102))
+
 ## v0.1.2 (2026-03-10)
 
 인앱 자동 업데이트, 음성 프로바이더 리팩토링, 스킬/음성 버그 수정, CI 품질 게이트 및 OS 개선

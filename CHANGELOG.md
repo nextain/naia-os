@@ -7,6 +7,24 @@ Source data: [`releases/v*.yaml`](releases/)
 
 ---
 
+## v0.1.3 (2026-03-23)
+
+Workspace panel, browser panel, PTY terminal, provider registries, and installer improvements
+
+- **feat(shell)**: Workspace panel — session dashboard, file explorer, and code editor ([#99](https://github.com/nextain/naia-os/issues/99))
+- **feat(workspace)**: PTY terminal tabs with xterm.js ([#119](https://github.com/nextain/naia-os/issues/119))
+- **feat(workspace)**: Image, CSV, and log file viewer with chat deeplinks ([#116](https://github.com/nextain/naia-os/issues/116))
+- **feat(workspace)**: Git worktree grouping in session dashboard ([#121](https://github.com/nextain/naia-os/issues/121))
+- **feat(shell)**: Browser panel — Chrome X11 embed, CDP tools, voice tools, theme support ([#95](https://github.com/nextain/naia-os/issues/95))
+- **feat(panels)**: Iframe bridge + NaiaContextBridge expansion for panel communication ([#122](https://github.com/nextain/naia-os/issues/122))
+- **feat(shell)**: Panel API — programmatic interface via panelRegistry ([#118](https://github.com/nextain/naia-os/issues/118))
+- **feat(shell)**: Dynamic iframe rendering for installed panels ([#89](https://github.com/nextain/naia-os/issues/89))
+- **feat(shell)**: STT/TTS provider registry with Web Speech API and Browser TTS ([#51](https://github.com/nextain/naia-os/issues/51))
+- **feat(shell)**: vLLM STT/TTS providers + STT model selector + audio device settings ([#79](https://github.com/nextain/naia-os/issues/79))
+- **feat(shell)**: Audio input/output device selection with mic test ([#81](https://github.com/nextain/naia-os/issues/81))
+- **fix(installer)**: GRUB USB boot fix — insmod iso9660 added to prevent boot menu failure
+- **fix(browser)**: Browser panel keepAlive, modal timing, toolbar overflow ([#102](https://github.com/nextain/naia-os/issues/102))
+
 ## v0.1.2 (2026-03-10)
 
 In-app auto-update, voice provider refactoring, skill/voice bug fixes, CI quality gates, and OS improvements

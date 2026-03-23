@@ -1,7 +1,7 @@
 {
 	"name": "naia-shell",
 	"private": true,
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"type": "module",
 	"scripts": {
 		"dev": "node -e \"try{const p=require('child_process').execSync('lsof -ti:1420',{encoding:'utf8'}).trim();if(p)require('child_process').execSync('kill -9 '+p,{stdio:'ignore'})}catch{}\" && sleep 0.5 && vite",
