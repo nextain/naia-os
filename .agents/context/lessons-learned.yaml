@@ -393,3 +393,33 @@ lessons:
     problem: "Browser panel E2E tests showed the panel stuck in 'no-chrome' state. B4/B6/B7 tests failed. browser_check was mocked as browser_check_available, so mock returned undefined (not true). Panel status guard never reached 'ready'."
     root_cause: "Tauri mock intercepts by exact string match. When the command name in the mock differs from the actual Rust command, the mock falls through to 'return undefined'. For browser_check, undefined is falsy — panel state machine branched to 'no-chrome' path."
     fix: "Always grep the actual Rust invoke name (shell/src-tauri/src/*.rs invoke! macro or shell TS files) before writing mock entries. Use 'browser_check', not 'browser_check_available'. Verify mock by checking that the panel reaches expected status before making behavioral assertions."
+
+  - id: L038
+    date: "2026-03-23"
+    issue: "#98"
+    category: security
+    scope: "shell/src/lib/naia-bridge-client.ts"
+    title: "window.parent.origin throws SecurityError in cross-origin iframe — use '*' with server-side origin validation"
+    problem: "naia-bridge-client.ts used window.parent.postMessage(req, window.parent.origin). In Tauri, iframe (http://asset.localhost) and Shell (tauri://localhost) are cross-origin, so accessing window.parent.origin throws SecurityError."
+    root_cause: "Cross-origin iframe spec: accessing parent.origin from a child of a different origin throws SecurityError. This is a browser security restriction, not a Tauri-specific issue."
+    fix: "Use window.parent.postMessage(req, '*'). Safe because iframe-bridge.ts validates event.origin === 'http://asset.localhost' on the receiving end. Document in comment."
+
+  - id: L039
+    date: "2026-03-23"
+    issue: "#98"
+    category: testing
+    scope: "shell/src/lib/__tests__/iframe-bridge.test.ts"
+    title: "jsdom postMessage with targetOrigin mismatch is silently dropped — spy on source.postMessage to capture bridge responses"
+    problem: "iframe-bridge.ts sends respond() via postMessage(data, 'http://asset.localhost'). In jsdom, a postMessage with specific targetOrigin is dropped if the receiver window's origin doesn't match. Test tried to listen for the response via addEventListener('message') but never received it."
+    root_cause: "jsdom enforces targetOrigin matching for postMessage. When the bridge responds to ALLOWED_ORIGIN and the test window's origin is 'null' (jsdom default), the message is silently dropped."
+    fix: "Use vi.spyOn(source, 'postMessage') before dispatching the test message. After await setTimeout(30), check spy.mock.calls to find the response by id. This intercepts the call before jsdom targetOrigin filtering."
+
+  - id: L040
+    date: "2026-03-23"
+    issue: "#98"
+    category: security
+    scope: "shell/src-tauri/src/panel.rs"
+    title: "remove_dir_all without canonicalize allows symlink attack on panel removal"
+    problem: "panel_remove_installed validated panelId for '/', '\\', '..' but called remove_dir_all(&panel_dir) directly. If ~/.naia/panels/{id} was a symlink to a directory outside HOME, remove_dir_all would follow the symlink and delete the target's contents."
+    root_cause: "String validation on panelId only prevents path traversal in the segment name — it doesn't prevent the directory itself from being a symlink to an external path."
+    fix: "After panel_dir.exists(), call panel_dir.canonicalize() and verify canonical path starts_with(home_path) before calling remove_dir_all(&canonical). Mirrors panel_read_file's boundary check pattern."

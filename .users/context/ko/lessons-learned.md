@@ -372,6 +372,7 @@ if (cmd === "plugin:store|get") return [null, false];
 
 **수정**: `(?<![/\w])` lookbehind 추가 — `/` 앞이 단어 문자나 다른 `/`이면 매칭 차단. 또한 `tsx`/`jsx`를 `ts`/`js`보다 앞에 위치(longest-match 확장자 해석).
 
+<<<<<<< HEAD
 
 ---
 
@@ -456,3 +457,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: Tauri mock은 정확한 문자열 매치로 인터셉트. mock의 명령 이름이 실제 Rust 명령과 다르면 `return undefined`로 폴스루. `browser_check`의 경우 `undefined`는 falsy — 상태 머신이 `"no-chrome"` 경로로 분기.
 
 **수정**: mock 작성 전 항상 실제 Rust invoke 이름(`shell/src-tauri/src/*.rs` `invoke!` 매크로 또는 TS 파일)을 grep으로 확인. `"browser_check_available"` 아닌 `"browser_check"` 사용. 동작 단언 전 패널이 예상 상태에 도달하는지 mock 검증.
+
+---
+
+## L038 — 크로스 오리진 iframe에서 `window.parent.origin`은 SecurityError — `"*"` + 서버측 검증으로 해결 (#98)
+
+**날짜**: 2026-03-23 | **분류**: 보안 | **범위**: `shell/src/lib/naia-bridge-client.ts`
+
+**문제**: `naia-bridge-client.ts`에서 `window.parent.postMessage(req, window.parent.origin)` 사용. Tauri에서 iframe(`http://asset.localhost`)과 Shell(`tauri://localhost`)은 cross-origin이므로 `window.parent.origin` 접근 시 SecurityError 발생.
+
+**근본 원인**: 크로스 오리진 iframe 스펙: 다른 origin의 부모의 `.origin`에 접근하면 SecurityError. 브라우저 보안 제한.
+
+**수정**: `window.parent.postMessage(req, "*")` 사용. `iframe-bridge.ts`가 수신 측에서 `event.origin === 'http://asset.localhost'` 검증하므로 안전.
+
+---
+
+## L039 — jsdom에서 targetOrigin 불일치 postMessage는 무음 드롭 — `source.postMessage` spy로 응답 캡처 (#98)
+
+**날짜**: 2026-03-23 | **분류**: 테스트 | **범위**: `shell/src/lib/__tests__/iframe-bridge.test.ts`
+
+**문제**: `iframe-bridge.ts`의 `respond()`가 `postMessage(data, 'http://asset.localhost')`로 응답. jsdom에서 targetOrigin 불일치 시 메시지 무음 드롭. 테스트의 `addEventListener('message')` 리스너에서 응답을 수신하지 못함.
+
+**근본 원인**: jsdom이 targetOrigin 매칭 강제. 테스트 창 origin은 `'null'`(jsdom 기본값)이므로 메시지 드롭.
+
+**수정**: `vi.spyOn(source, 'postMessage')`로 호출 가로채기. `await setTimeout(30)` 후 `spy.mock.calls`에서 `id`로 응답 검색 — jsdom 필터링 이전에 가로챔.
+
+---
+
+## L040 — canonicalize 없는 `remove_dir_all`은 패널 삭제 시 심링크 공격 허용 (#98)
+
+**날짜**: 2026-03-23 | **분류**: 보안 | **범위**: `shell/src-tauri/src/panel.rs`
+
+**문제**: `panel_remove_installed`이 `panelId`의 경로 구분자를 검증했지만 `remove_dir_all(&panel_dir)`을 직접 호출. `~/.naia/panels/{id}`가 HOME 외부 디렉토리의 심링크인 경우 심링크 타겟 내용이 삭제됨.
+
+**근본 원인**: `panelId` 문자열 검증은 세그먼트 이름의 경로 순회만 방지 — 디렉토리 자체가 심링크인 경우는 방어하지 못함.
+
+**수정**: `exists()` 후 `canonicalize()` 호출, `starts_with(home_path)` 검증 통과 후 `remove_dir_all(&canonical)` 사용. `panel_read_file`의 경계 검사 패턴과 동일.
