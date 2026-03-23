@@ -20,6 +20,7 @@ pub struct SessionInfo {
     pub dir: String,
     pub path: String,
     pub branch: Option<String>,
+    pub origin_path: Option<String>, // main worktree path if this is a linked worktree; None if main
     pub status: String, // "active" | "idle" | "stopped"
     pub progress: Option<ProgressInfo>,
     pub recent_file: Option<String>,
@@ -60,6 +61,12 @@ pub struct WatcherState {
     /// Populated lazily on first workspace_get_sessions call; refreshed whenever
     /// a file-change event fires for that session.
     pub branch_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
+    /// Maps directory path → main worktree path (Some) or None (is the main worktree itself).
+    /// Both None and Some values are cached (unlike branch_cache which only caches Some).
+    /// Reset by `workspace_stop_watch` — call stop → start to pick up worktree topology changes
+    /// (e.g. after `git worktree add/remove`). The file-change watcher does NOT invalidate
+    /// this cache on content events because worktree topology changes are rare.
+    pub origin_path_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
 
 impl WatcherState {
@@ -69,6 +76,7 @@ impl WatcherState {
             last_change: Arc::new(Mutex::new(HashMap::new())),
             recent_files: Arc::new(Mutex::new(HashMap::new())),
             branch_cache: Arc::new(Mutex::new(HashMap::new())),
+            origin_path_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -302,13 +310,14 @@ pub fn workspace_get_sessions(
 
     let read = std::fs::read_dir(&root).map_err(|e| e.to_string())?;
     // Clone the Arc handles while holding the outer lock once (avoids double-lock deadlock)
-    let (last_change_map, recent_files_map, branch_cache_map) = {
+    let (last_change_map, recent_files_map, branch_cache_map, origin_path_cache_map) = {
         let state = watcher.lock().unwrap();
-        (state.last_change.clone(), state.recent_files.clone(), state.branch_cache.clone())
+        (state.last_change.clone(), state.recent_files.clone(), state.branch_cache.clone(), state.origin_path_cache.clone())
     };
     let lc = last_change_map.lock().unwrap();
     let rf = recent_files_map.lock().unwrap();
     let mut bc = branch_cache_map.lock().unwrap();
+    let mut opc = origin_path_cache_map.lock().unwrap();
 
     let now = now_secs();
 
@@ -325,7 +334,13 @@ pub fn workspace_get_sessions(
         if !is_git_repo(&path) {
             continue;
         }
-        let path_str = path.to_string_lossy().to_string();
+        // Canonicalize so path_str matches the canonical form returned by get_main_worktree()
+        // and stored by the file-change watcher (which also uses canonical_workspace_root).
+        // Without this, /home/luke/... vs /var/home/luke/... symlink differences would cause
+        // groupBy key mismatch and last_change/branch cache lookups to miss.
+        let path_str = std::fs::canonicalize(&path)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| path.to_string_lossy().to_string());
 
         let last_change = lc.get(&path_str).copied();
         let recent_file = rf.get(&path_str).cloned();
@@ -353,10 +368,22 @@ pub fn workspace_get_sessions(
             None => "stopped",
         };
 
+        // Use cached origin_path — avoids spawning git worktree list per repo on every call.
+        // Both None (main worktree) and Some(path) (linked worktree) are cached permanently.
+        let origin_path = match opc.get(&path_str) {
+            Some(cached) => cached.clone(),
+            None => {
+                let op = get_main_worktree(&path);
+                opc.insert(path_str.clone(), op.clone());
+                op
+            }
+        };
+
         sessions.push(SessionInfo {
             dir: dir_name,
             path: path_str,
             branch,
+            origin_path,
             status: status.to_string(),
             progress,
             recent_file,
@@ -505,21 +532,23 @@ pub fn workspace_stop_watch(
     // Clone Arc handles then release the outer lock before acquiring inner locks.
     // Mirrors workspace_get_sessions pattern — avoids holding the outer WatcherState
     // lock while acquiring inner HashMap locks (which the watcher callback also acquires).
-    let (last_change_arc, recent_files_arc, branch_cache_arc) = {
+    let (last_change_arc, recent_files_arc, branch_cache_arc, origin_path_cache_arc) = {
         let mut state = watcher_state.lock().unwrap();
         state.watcher = None; // drop watcher → stops callback thread
         (
             state.last_change.clone(),
             state.recent_files.clone(),
             state.branch_cache.clone(),
+            state.origin_path_cache.clone(),
         )
     }; // outer lock released here
     // Clear all session data so a subsequent start_watch begins clean.
-    // Prevents stale last_change / recent_files / branch_cache from the
+    // Prevents stale last_change / recent_files / branch_cache / origin_path_cache from the
     // previous watch session bleeding into new reads.
     last_change_arc.lock().unwrap().clear();
     recent_files_arc.lock().unwrap().clear();
     branch_cache_arc.lock().unwrap().clear();
+    origin_path_cache_arc.lock().unwrap().clear();
     Ok(())
 }
 
@@ -574,7 +603,10 @@ pub fn workspace_classify_dirs() -> Result<Vec<ClassifiedDir>, String> {
         if name.starts_with('.') {
             continue;
         }
-        let path_str = path.to_string_lossy().to_string();
+        // Canonicalize to match canonical paths returned by get_all_worktree_paths()
+        let path_str = std::fs::canonicalize(&path)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| path.to_string_lossy().to_string());
 
         // Check if this dir is a worktree according to git worktree list
         let is_worktree_listed = worktree_paths.contains(&path_str);
@@ -616,6 +648,33 @@ fn find_session_dir(file_path: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Returns the main worktree path for `path` if it is a linked git worktree, or `None` if it is
+/// the main worktree (or not a worktree at all). Uses `git worktree list --porcelain` run from
+/// `path`; the first `worktree` block is always the main worktree.
+fn get_main_worktree(path: &Path) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["worktree", "list", "--porcelain"])
+        .current_dir(path)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let main_path = text
+        .lines()
+        .find_map(|l| l.strip_prefix("worktree "))
+        .map(str::to_string)?;
+    // Canonicalize both for comparison (symlinks, e.g. /home → /var/home on Fedora)
+    let canon_main = std::fs::canonicalize(&main_path).ok()?;
+    let canon_path = std::fs::canonicalize(path).ok()?;
+    if canon_main == canon_path {
+        None // this IS the main worktree
+    } else {
+        Some(canon_main.to_string_lossy().to_string())
+    }
+}
+
 /// Runs `git worktree list --porcelain` from the workspace root to get all worktree paths.
 fn get_all_worktree_paths(root: &Path) -> Vec<String> {
     // Try each git-repo child dir
@@ -633,7 +692,11 @@ fn get_all_worktree_paths(root: &Path) -> Vec<String> {
                         let text = String::from_utf8_lossy(&output.stdout);
                         for line in text.lines() {
                             if let Some(wt_path) = line.strip_prefix("worktree ") {
-                                paths.push(wt_path.to_string());
+                                // Canonicalize so paths match classify_dirs and get_sessions keys
+                                let canonical = std::fs::canonicalize(wt_path)
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_else(|_| wt_path.to_string());
+                                paths.push(canonical);
                             }
                         }
                     }

@@ -20,6 +20,7 @@ const FAKE_SESSIONS = [
 		dir: "naia-os-issue-79",
 		path: `${FAKE_ROOT}/naia-os-issue-79`,
 		branch: "issue-79-qwen3-asr",
+		origin_path: null,
 		status: "active",
 		progress: { issue: "#79", phase: "build", title: "Qwen3 ASR integration" },
 		recent_file: "shell/src/lib/stt/registry.ts",
@@ -29,6 +30,7 @@ const FAKE_SESSIONS = [
 		dir: "naia.nextain.io",
 		path: `${FAKE_ROOT}/naia.nextain.io`,
 		branch: "main",
+		origin_path: null,
 		status: "idle",
 		progress: { issue: "#8", phase: "e2e", title: null },
 		recent_file: null,
@@ -38,6 +40,41 @@ const FAKE_SESSIONS = [
 		dir: "vllm",
 		path: `${FAKE_ROOT}/vllm`,
 		branch: "main",
+		origin_path: null,
+		status: "stopped",
+		progress: null,
+		recent_file: null,
+		last_change: Math.floor(Date.now() / 1000) - 7200,
+	},
+];
+
+/** Fake sessions: worktree grouping scenario (naia-os main + linked worktree) */
+const FAKE_SESSIONS_WORKTREE = [
+	{
+		dir: "naia-os",
+		path: `${FAKE_ROOT}/naia-os`,
+		branch: "main",
+		origin_path: null,
+		status: "idle",
+		progress: null,
+		recent_file: null,
+		last_change: Math.floor(Date.now() / 1000) - 300,
+	},
+	{
+		dir: "naia-os-issue-121",
+		path: `${FAKE_ROOT}/naia-os-issue-121`,
+		branch: "issue-121-worktree-grouping",
+		origin_path: `${FAKE_ROOT}/naia-os`,
+		status: "active",
+		progress: { issue: "#121", phase: "build", title: "Worktree grouping" },
+		recent_file: "shell/src/panels/workspace/WorktreeGroup.tsx",
+		last_change: Math.floor(Date.now() / 1000) - 5,
+	},
+	{
+		dir: "naia.nextain.io",
+		path: `${FAKE_ROOT}/naia.nextain.io`,
+		branch: "main",
+		origin_path: null,
 		status: "stopped",
 		progress: null,
 		recent_file: null,
@@ -452,5 +489,84 @@ test.describe("Workspace Panel E2E", () => {
 
 		// Session cards should still be visible after refresh
 		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+	});
+});
+
+test.describe("WG: Worktree grouping", () => {
+	test.beforeEach(async ({ page }) => {
+		await page.addInitScript(TAURI_MOCK_SCRIPT);
+		// Override workspace_get_sessions to return worktree grouping scenario
+		await page.addInitScript(`(function(){
+			var wgSessions = ${JSON.stringify(FAKE_SESSIONS_WORKTREE)};
+			var _orig = window.__TAURI_INTERNALS__.invoke;
+			window.__TAURI_INTERNALS__.invoke = async function(cmd, args) {
+				if (cmd === "workspace_get_sessions") return wgSessions;
+				return _orig(cmd, args);
+			};
+		})();`);
+		await page.addInitScript(() => {
+			localStorage.setItem(
+				"naia-config",
+				JSON.stringify({
+					provider: "gemini",
+					model: "gemini-2.5-flash",
+					apiKey: "e2e-mock-key",
+					locale: "ko",
+					onboardingComplete: true,
+				}),
+			);
+			// Ensure clean classification state (same as main describe beforeEach)
+			localStorage.removeItem("workspace-classified-dirs");
+		});
+
+		await page.goto("/");
+		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
+	});
+
+	test("WG1: 같은 origin_path 세션이 WorktreeGroup으로 묶임", async ({ page }) => {
+		await openWorkspacePanel(page);
+
+		// One WorktreeGroup visible
+		await expect(page.locator(".workspace-worktree-group")).toBeVisible({
+			timeout: 5_000,
+		});
+		// Group starts expanded — cards container must be visible before counting cards
+		await expect(
+			page.locator(".workspace-worktree-group__cards"),
+		).toBeVisible({ timeout: 3_000 });
+		// 3 session cards total: 2 inside group (expanded) + 1 standalone
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
+		// Group header shows repo basename "naia-os"
+		await expect(page.locator(".workspace-worktree-group__name")).toContainText(
+			"naia-os",
+		);
+		// Group count badge shows 2
+		await expect(
+			page.locator(".workspace-worktree-group__count"),
+		).toContainText("2");
+	});
+
+	test("WG2: WorktreeGroup 헤더 클릭 시 접기/펼치기", async ({ page }) => {
+		await openWorkspacePanel(page);
+
+		await expect(page.locator(".workspace-worktree-group")).toBeVisible({
+			timeout: 5_000,
+		});
+		// Initially expanded — cards container visible
+		await expect(
+			page.locator(".workspace-worktree-group__cards"),
+		).toBeVisible();
+		// Collapse
+		await page.locator(".workspace-worktree-group__header").click();
+		await expect(
+			page.locator(".workspace-worktree-group__cards"),
+		).not.toBeVisible();
+		// Re-expand
+		await page.locator(".workspace-worktree-group__header").click();
+		await expect(
+			page.locator(".workspace-worktree-group__cards"),
+		).toBeVisible();
 	});
 });

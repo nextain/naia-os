@@ -553,3 +553,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: React 함수형 컴포넌트: 렌더마다 새 `handleSend` 클로저 생성. `useEffect`는 effect 실행 시점의 `handleSend`를 캡처. `setInput(next)`는 새 렌더를 스케줄하지만 이미 캡처된 `setTimeout` 클로저를 소급해 업데이트할 수 없음.
 
 **수정**: 큐 메시지를 직접 전달: `handleSend(next)`. `overrideText`를 사용하므로 `input` 상태 클로저에 의존하지 않음. `handleSend`가 `setInput('')`을 호출하므로 `setInput(next)` 제거.
+
+---
+
+### L046 — Rust 경로 정규화(canonicalize)는 모든 호출 지점에서 일관되게 적용해야 함
+
+**날짜**: 2026-03-23 | **이슈**: #121 | **카테고리**: rust
+**범위**: `shell/src-tauri/src/workspace.rs`
+
+**문제**: `workspace_get_sessions`가 `path.to_string_lossy()`(비정규화)로 `path_str`을 생성했지만, `get_main_worktree`는 `std::fs::canonicalize`로 정규화된 경로를 반환. Fedora/Bazzite에서 `/home`은 `/var/home` 심링크이므로 비정규화 경로는 `/home/…`, 정규화 경로는 `/var/home/…`를 사용. `groupBy(origin_path ?? path)` 키 비교가 묵묵히 불일치 — 세션이 절대 그룹화되지 않음.
+
+**근본 원인**: 세 함수(`workspace_get_sessions`, `workspace_classify_dirs`, `get_all_worktree_paths`)가 각각 `std::fs::canonicalize` 없이 경로 문자열을 독립적으로 계산. `get_main_worktree`만 정규화를 사용해 비대칭 발생.
+
+**수정**: 세 호출 지점 모두에 `std::fs::canonicalize(&path).map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| path.to_string_lossy().to_string())` 적용. 디스크에 아직 존재하지 않는 경로는 fallback 사용.
+
+---
+
+### L047 — WatcherState: 모든 캐시 필드는 workspace_get_sessions AND workspace_stop_watch 양쪽에 추가해야 함
+
+**날짜**: 2026-03-23 | **이슈**: #121 | **카테고리**: rust
+**범위**: `shell/src-tauri/src/workspace.rs`
+
+**문제**: `origin_path_cache`를 `WatcherState`에 추가하고 `workspace_get_sessions`에서 clone/사용했지만 `workspace_stop_watch`에서 clear하지 않음. stop → start 사이클 후 stale 캐시가 유지되어 워크트리 토폴로지가 변경되어도 `get_main_worktree`가 재실행되지 않음.
+
+**근본 원인**: `workspace_stop_watch`에는 각 캐시 필드(`branch_cache_arc`, `status_cache_arc`, …)에 대한 명시적 clear 블록이 있음. 새 캐시 필드를 `WatcherState`에 추가하면서 이 clear 블록에 추가하지 않으면 고아 상태로 남음.
+
+**수정**: `origin_path_cache_arc`를 `workspace_get_sessions`의 clone 블록과 `workspace_stop_watch`의 clear 블록 모두에 추가. 규칙: `WatcherState`에 추가하는 모든 `Arc<Mutex<HashMap>>` 필드는 반드시 두 곳 모두에 등재.

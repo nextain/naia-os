@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
 import { WORKSPACE_ROOT } from "./constants";
 import { SessionCard, type SessionInfo } from "./SessionCard";
+import { WorktreeGroup } from "./WorktreeGroup";
 
 interface SessionDashboardProps {
 	onSessionClick: (session: SessionInfo) => void;
@@ -124,15 +125,54 @@ export function SessionDashboard({
 				</button>
 			</div>
 			<div className="workspace-dashboard__grid" ref={gridRef}>
-				{sessions.map((session) => (
-					<SessionCard
-						key={session.path}
-						session={session}
-						onClick={onSessionClick}
-						highlighted={session.dir === highlightedDir}
-					/>
-				))}
+				{renderGrouped(sessions, onSessionClick, highlightedDir)}
 			</div>
 		</div>
 	);
+}
+
+/**
+ * Group sessions by their main-repo key (origin_path ?? path), then render:
+ * - group size > 1  → WorktreeGroup (collapsible)
+ * - group size == 1 → standalone SessionCard
+ */
+function renderGrouped(
+	sessions: SessionInfo[],
+	onSessionClick: (s: SessionInfo) => void,
+	highlightedDir?: string,
+): React.ReactNode {
+	const groupMap = new Map<string, SessionInfo[]>();
+	for (const session of sessions) {
+		const key = session.origin_path ?? session.path;
+		const bucket = groupMap.get(key);
+		if (bucket) {
+			bucket.push(session);
+		} else {
+			groupMap.set(key, [session]);
+		}
+	}
+
+	return [...groupMap.entries()].map(([key, group]) => {
+		if (group.length > 1) {
+			const repoName =
+				key.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? key;
+			return (
+				<WorktreeGroup
+					key={key}
+					repoName={repoName}
+					sessions={group}
+					onSessionClick={onSessionClick}
+					highlightedDir={highlightedDir}
+				/>
+			);
+		}
+		return (
+			<SessionCard
+				key={group[0].path}
+				session={group[0]}
+				onClick={onSessionClick}
+				highlighted={group[0].dir === highlightedDir}
+			/>
+		);
+	});
 }

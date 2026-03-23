@@ -23,6 +23,7 @@ const FAKE_SESSIONS = [
 		dir: "naia-os",
 		path: FAKE_DIR,
 		branch: "main",
+		origin_path: null,
 		status: "active",
 		progress: { issue: "#119", phase: "build", title: "PTY terminal" },
 		recent_file: "shell/src/App.tsx",

@@ -22,6 +22,7 @@ const FAKE_SESSIONS = [
 		dir: "naia-os",
 		path: FAKE_DIR,
 		branch: "main",
+		origin_path: null,
 		status: "active",
 		progress: { issue: "#120", phase: "build", title: "send_to_session" },
 		recent_file: "shell/src/App.tsx",

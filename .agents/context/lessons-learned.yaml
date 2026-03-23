@@ -473,3 +473,23 @@ lessons:
     problem: "Queue processing useEffect called setInput(next) then setTimeout(() => handleSend(), 50). The setTimeout captured handleSend from the current render (where input = ''). Even after setInput(next) triggered a re-render, the setTimeout still held the OLD handleSend closure with input = ''. handleSend() resolved text = '' and returned early — message never sent."
     root_cause: "React functional component: every render creates a new handleSend closure. useEffect captures handleSend at the time the effect runs. setInput(next) schedules a NEW render but cannot retroactively update the already-captured closure in setTimeout."
     fix: "Pass the queued message directly: handleSend(next). This uses overrideText instead of the input state closure, eliminating the stale-closure dependency entirely. Also removed the setInput(next) call since handleSend already calls setInput('')."
+
+  - id: L046
+    date: "2026-03-23"
+    issue: "#121"
+    category: rust
+    scope: "shell/src-tauri/src/workspace.rs"
+    title: "Rust path canonicalization consistency: path_str must use std::fs::canonicalize throughout workspace.rs"
+    problem: "workspace_get_sessions and workspace_classify_dirs constructed path_str via path.to_string_lossy() (non-canonical), while get_main_worktree returned canon_main.to_string_lossy() (canonical via std::fs::canonicalize). On Fedora/Bazzite with /home → /var/home symlink, groupBy key in TypeScript (origin_path ?? path) would mismatch — main worktree 'path' = /home/luke/dev/naia-os vs linked worktree 'origin_path' = /var/home/luke/dev/naia-os. Also affected last_change/branch_cache lookup misses in the file-change watcher callback."
+    root_cause: "canonical_workspace_root() was already canonical but path_str for each entry was formed from entry.path() without canonicalize. The inconsistency was invisible in non-symlink environments."
+    fix: "Replace path.to_string_lossy() with std::fs::canonicalize(&path).map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| path.to_string_lossy().to_string()) in workspace_get_sessions and workspace_classify_dirs. Also canonicalize wt_path in get_all_worktree_paths."
+
+  - id: L047
+    date: "2026-03-23"
+    issue: "#121"
+    category: rust
+    scope: "shell/src-tauri/src/workspace.rs"
+    title: "WatcherState cache completeness: new cache fields must be added to stop_watch clear block"
+    problem: "origin_path_cache was added to WatcherState and used in workspace_get_sessions, but workspace_stop_watch only cleared last_change, recent_files, and branch_cache. Missing clear meant stale origin_path data persisted after stop→start (e.g. after git worktree remove)."
+    root_cause: "workspace_stop_watch manually enumerates cache Arcs — new fields require explicit addition. No compile-time enforcement."
+    fix: "Add origin_path_cache_arc to the stop_watch Arc clone block and call .lock().unwrap().clear(). Rule: any new Arc<Mutex<HashMap>> field in WatcherState must be added to both workspace_get_sessions clone block AND workspace_stop_watch clear block."

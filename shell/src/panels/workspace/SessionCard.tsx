@@ -4,6 +4,8 @@ export interface SessionInfo {
 	dir: string;
 	path: string;
 	branch?: string | null;
+	/** Main worktree absolute path when this session is a linked git worktree; null/undefined if main. */
+	origin_path?: string | null;
 	status: "active" | "idle" | "stopped" | "error";
 	progress?: {
 		issue?: string | null;

@@ -225,6 +225,7 @@ Claude Code development assistant skills. **SoT: `.agents/skills/`** — `.claud
 | `verify-browser-panel` | Browser 패널 핵심 불변식 (setPendingApproval invoke-before-set, clearPendingApproval/finishStreaming/newConversation 대칭 show, E2E browser_check 명령) | Auto |
 | `verify-workspace-root` | workspace 루트 설정 핵심 불변식 (OnceLock 초기값, workspace_set_root 반환 타입, workspaceReady 게이트, resolvedRoot 업데이트 패턴, E2E mock 정확성) | Auto |
 | `verify-send-to-session` | skill_workspace_send_to_session 핵심 불변식 (tool descriptor 등록, ChatPanel per-panel bridge 라우팅, messageQueue stale closure 패턴, E2E mock JSON.stringify 이스케이프, 119 regression mock) | Auto |
+| `verify-worktree-grouping` | workspace worktree 그룹핑 핵심 불변식 (groupBy origin_path??path 키 로직, origin_path_cache stop_watch clear, 3-함수 canonicalize 일관성, WorktreeGroup 초기 상태) | Auto |
 
 ## Harness Engineering (Mechanical Rule Enforcement)
 

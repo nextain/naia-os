@@ -554,3 +554,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: React functional component: every render creates a new `handleSend` closure. `useEffect` captures `handleSend` at the time the effect runs. `setInput(next)` schedules a NEW render but cannot retroactively update the already-captured closure in `setTimeout`.
 
 **Fix**: Pass the queued message directly: `handleSend(next)`. This uses `overrideText` instead of the `input` state closure. Also removed the `setInput(next)` call since `handleSend` already calls `setInput('')`.
+
+---
+
+### L046 — Rust path canonicalization must be consistent across all call sites
+
+**Date**: 2026-03-23 | **Issue**: #121 | **Category**: rust
+**Scope**: `shell/src-tauri/src/workspace.rs`
+
+**Problem**: `workspace_get_sessions` built `path_str` via `path.to_string_lossy()` (non-canonical), while `get_main_worktree` returned a canonical path via `std::fs::canonicalize`. On Fedora/Bazzite, `/home` is a symlink to `/var/home`, so non-canonical paths use `/home/…` while canonical paths use `/var/home/…`. The `groupBy(origin_path ?? path)` key comparison silently mismatched — standalone sessions were never grouped.
+
+**Root cause**: Three functions (`workspace_get_sessions`, `workspace_classify_dirs`, `get_all_worktree_paths`) each computed path strings independently without using `std::fs::canonicalize`. One function (`get_main_worktree`) did use canonicalization, creating an asymmetry.
+
+**Fix**: Apply `std::fs::canonicalize(&path).map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|_| path.to_string_lossy().to_string())` at all three call sites. Use the fallback for paths that do not yet exist on disk.
+
+---
+
+### L047 — WatcherState: every cache field must be added to BOTH workspace_get_sessions AND workspace_stop_watch
+
+**Date**: 2026-03-23 | **Issue**: #121 | **Category**: rust
+**Scope**: `shell/src-tauri/src/workspace.rs`
+
+**Problem**: `origin_path_cache` was added to `WatcherState` and cloned/used in `workspace_get_sessions`, but was NOT cleared in `workspace_stop_watch`. After a stop → start cycle, the stale cache persisted, causing `get_main_worktree` to never re-run even if the worktree topology changed.
+
+**Root cause**: `workspace_stop_watch` has an explicit clear block for each cache field (`branch_cache_arc`, `status_cache_arc`, …). Adding a new cache field to `WatcherState` without adding it to this clear block leaves it orphaned.
+
+**Fix**: Add `origin_path_cache_arc` to both the clone block in `workspace_get_sessions` and the clear block in `workspace_stop_watch`. Rule: any `Arc<Mutex<HashMap>>` field added to `WatcherState` must appear in both places.
