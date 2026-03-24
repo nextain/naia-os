@@ -95,6 +95,8 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const [idleToast, setIdleToast] = useState<string | null>(null);
 	const idleToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const idleNotifiedRef = useRef<Set<string>>(new Set());
+	/** Tracks sessions already notified for error — prevents repeat pushContext per session */
+	const errorNotifiedRef = useRef<Set<string>>(new Set());
 	/** Session dir highlighted by focusSession() API call — cleared after 3s */
 	const [highlightedSessionDir, setHighlightedSessionDir] = useState<
 		string | null
@@ -236,8 +238,26 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			// without waiting for the 10-second setInterval tick. This prevents
 			// brief active periods (<10s) from being invisible to the notifier.
 			for (const s of updated) {
-				if (s.status === "active") {
+				if (s.status === "active" || s.status === "idle") {
 					idleNotifiedRef.current.delete(s.path);
+					// Re-arm error notification on recovery — error → active/idle → error should re-notify
+					errorNotifiedRef.current.delete(s.path);
+				}
+				// Proactive error notification — fires once per session per conversation
+				if (s.status === "error" && !errorNotifiedRef.current.has(s.path)) {
+					errorNotifiedRef.current.add(s.path);
+					naia.pushContext({
+						type: "workspace",
+						data: {
+							errorAlert: {
+								dir: s.dir,
+								message: `${s.dir} 세션에서 오류가 발생했습니다 (blockers 감지). 확인이 필요합니다.`,
+							},
+						},
+					});
+					Logger.warn("WorkspaceCenterPanel", "Error session detected", {
+						dir: s.dir,
+					});
 				}
 			}
 
@@ -322,6 +342,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		// On initial mount sessionId is also null, but idleNotifiedRef is empty
 		// and idleToast is null, so this is a no-op and causes no harm.
 		idleNotifiedRef.current.clear();
+		errorNotifiedRef.current.clear();
 		setIdleToast(null);
 		if (idleToastTimerRef.current) {
 			clearTimeout(idleToastTimerRef.current);

@@ -532,6 +532,83 @@ describe("WorkspaceCenterPanel", () => {
 		expect(result).toContain("Opened");
 		expect(result).toContain("AGENTS.md");
 	});
+
+	it("pushes errorAlert context when a session has status=error (once per session)", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		const errorSession: SessionInfo = {
+			dir: "broken",
+			path: "/dev/broken",
+			status: "error",
+		};
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				// Fire twice with same data — should push errorAlert only once
+				onSessionsUpdate?.([errorSession]);
+				onSessionsUpdate?.([errorSession]);
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+		render(<WorkspaceCenterPanel naia={bridge} />);
+
+		await waitFor(() => {
+			const errorAlerts = bridge.contexts.filter(
+				(c) =>
+					c.type === "workspace" &&
+					(c.data as Record<string, unknown>)?.errorAlert != null,
+			);
+			// Exactly one errorAlert despite two identical updates
+			expect(errorAlerts).toHaveLength(1);
+			const alert = (errorAlerts[0].data as Record<string, unknown>).errorAlert as Record<string, unknown>;
+			expect(alert.dir).toBe("broken");
+			expect(typeof alert.message).toBe("string");
+		});
+	});
+
+	it("re-arms errorAlert after session recovers to idle/active", async () => {
+		const { SessionDashboard } = await import("../workspace/SessionDashboard");
+		let emit: ((sessions: SessionInfo[]) => void) | undefined;
+		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
+			useEffect(() => {
+				emit = onSessionsUpdate ?? undefined;
+			}, [onSessionsUpdate]);
+			return null as unknown as React.ReactElement;
+		});
+
+		const { WorkspaceCenterPanel } = await import(
+			"../workspace/WorkspaceCenterPanel"
+		);
+		const bridge = new MockBridge();
+		render(<WorkspaceCenterPanel naia={bridge} />);
+
+		await waitFor(() => emit !== undefined);
+
+		const session = { dir: "broken", path: "/dev/broken", status: "error" } satisfies SessionInfo;
+
+		// First error
+		emit?.([session]);
+		await waitFor(() => {
+			const alerts = bridge.contexts.filter(
+				(c) => c.type === "workspace" && (c.data as Record<string, unknown>)?.errorAlert != null,
+			);
+			expect(alerts).toHaveLength(1);
+		});
+
+		// Recovery → idle
+		emit?.([{ ...session, status: "idle" }]);
+		// Second error — should fire again
+		emit?.([session]);
+		await waitFor(() => {
+			const alerts = bridge.contexts.filter(
+				(c) => c.type === "workspace" && (c.data as Record<string, unknown>)?.errorAlert != null,
+			);
+			expect(alerts).toHaveLength(2);
+		});
+	});
 });
 
 // ─── Tests: SessionCard ──────────────────────────────────────────────────────
