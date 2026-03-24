@@ -1,0 +1,144 @@
+{
+	"timestamp": "2026-03-24T13:08:55.598Z",
+	"version": "0.1.0",
+	"summary": {
+		"total": 10,
+		"passed": 8,
+		"warned": 2,
+		"failed": 0,
+		"passRate": 0.8
+	},
+	"results": [
+		{
+			"criterion": "decayCurveAccuracy",
+			"category": "alpha-original",
+			"metric": "r_squared",
+			"value": 1,
+			"target": 0.95,
+			"minimum": 0.9,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "recallStrengthening",
+			"category": "alpha-original",
+			"metric": "relative_increase",
+			"value": 0.6000000000000001,
+			"target": 0.3,
+			"minimum": 0.15,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "spreadingActivation",
+			"category": "alpha-original",
+			"metric": "precision_at_k",
+			"value": 1,
+			"target": 0.6,
+			"minimum": 0.4,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "hebbianCorrelation",
+			"category": "alpha-original",
+			"metric": "spearman_rho",
+			"value": 1,
+			"target": 0.7,
+			"minimum": 0.5,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "contradictionDetection",
+			"category": "alpha-original",
+			"metric": "precision_recall",
+			"value": {
+				"precision": 1,
+				"recall": 1
+			},
+			"target": {
+				"precision": 0.5,
+				"recall": 0.8
+			},
+			"minimum": {
+				"precision": 0.3,
+				"recall": 0.6
+			},
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "reconsolidation",
+			"category": "alpha-original",
+			"metric": "pass_rate",
+			"value": 1,
+			"target": 1,
+			"minimum": 0.9,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "contextDependentRetrieval",
+			"category": "alpha-original",
+			"metric": "top_ratio",
+			"value": 1,
+			"target": 0.5,
+			"minimum": 0.3,
+			"passed": true,
+			"grade": "pass"
+		},
+		{
+			"criterion": "importanceRetention",
+			"category": "alpha-original",
+			"metric": "correlation",
+			"value": 0.3333333333333333,
+			"target": 0.5,
+			"minimum": 0.3,
+			"passed": false,
+			"grade": "warn"
+		},
+		{
+			"criterion": "consolidationCompression",
+			"category": "alpha-original",
+			"metric": "ratio_range",
+			"value": {
+				"ratio": 1,
+				"episodes": 6,
+				"facts": 6
+			},
+			"target": {
+				"min": 3,
+				"max": 10
+			},
+			"minimum": {
+				"min": 1,
+				"max": 20
+			},
+			"passed": false,
+			"grade": "warn"
+		},
+		{
+			"criterion": "importanceGating",
+			"category": "adopted",
+			"metric": "precision_recall_f1",
+			"value": {
+				"precision": 1,
+				"recall": 1,
+				"f1": 1
+			},
+			"target": {
+				"precision": 0.4,
+				"recall": 0.9,
+				"f1": 0.55
+			},
+			"minimum": {
+				"precision": 0.3,
+				"recall": 0.8,
+				"f1": 0.4
+			},
+			"passed": true,
+			"grade": "pass"
+		}
+	]
+}
