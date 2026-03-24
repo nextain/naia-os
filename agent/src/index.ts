@@ -388,19 +388,11 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		// All chat goes through the direct LLM path below which has full
 		// access to both GATEWAY_TOOLS and agent built-in skills via getAllTools().
 
-		const tools = enableTools
-			? getAllTools(gatewayConnected, disabledSkills)
-			: undefined;
-
 		// Build system prompt with tool/gateway status context
 		const basePrompt = systemPrompt ?? ALPHA_SYSTEM_PROMPT;
-		const effectiveSystemPrompt = buildToolStatusPrompt(
-			basePrompt,
-			enableTools ?? false,
-			wantGateway,
-			gatewayConnected,
-			tools,
-		);
+
+		// tools and effectiveSystemPrompt are computed inside the tool loop
+		// so they reflect the latest gatewayConnected state after reconnection.
 
 		// Build conversation messages
 		const chatMessages: ChatMessage[] = rawMessages.map((m) => ({
@@ -468,6 +460,19 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		// Tool call loop
 		for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
 			if (controller.signal.aborted) break;
+
+			// Recompute tools & system prompt each iteration so gateway
+			// reconnection mid-loop is reflected in the LLM's tool list.
+			const tools = enableTools
+				? getAllTools(gatewayConnected, disabledSkills)
+				: undefined;
+			const effectiveSystemPrompt = buildToolStatusPrompt(
+				basePrompt,
+				enableTools ?? false,
+				wantGateway,
+				gatewayConnected,
+				tools,
+			);
 
 			const stream = provider.stream(
 				chatMessages,
