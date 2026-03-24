@@ -729,23 +729,19 @@ export function ChatPanel() {
 				requestId,
 				// TTS handled by Shell — don't send TTS params to agent
 				systemPrompt: pipelineActiveRef.current
-					? `You are in a voice conversation. Keep responses brief and conversational (2-3 sentences max). Speak naturally as if talking to a friend.\n\n${buildSystemPrompt(config.persona, memoryCtx)}`
+					? `You are in a voice conversation. Keep responses brief and conversational (2-3 sentences max). Speak naturally as if talking to a friend.${config.enableTools ? "\nWhen the user asks you to perform an action that requires a tool, call the tool immediately in the same response. Include a short acknowledgement sentence before your tool call so the user hears feedback while the tool executes. After the tool completes, summarize the result in 1-2 sentences." : ""}\n\n${buildSystemPrompt(config.persona, memoryCtx)}`
 					: buildSystemPrompt(config.persona, memoryCtx),
-				enableTools: pipelineActiveRef.current ? false : config.enableTools,
-				gatewayUrl:
-					!pipelineActiveRef.current && config.enableTools
-						? config.gatewayUrl || "ws://localhost:18789"
-						: undefined,
-				gatewayToken:
-					!pipelineActiveRef.current && config.enableTools
-						? config.gatewayToken
-						: undefined,
-				disabledSkills:
-					!pipelineActiveRef.current && config.enableTools
-						? [...(sanitizeDisabledSkills(config.disabledSkills) ?? [])]
-						: undefined,
+				enableTools: config.enableTools,
+				gatewayUrl: config.enableTools
+					? config.gatewayUrl || "ws://localhost:18789"
+					: undefined,
+				gatewayToken: config.enableTools
+					? config.gatewayToken
+					: undefined,
+				disabledSkills: config.enableTools
+					? [...(sanitizeDisabledSkills(config.disabledSkills) ?? [])]
+					: undefined,
 				routeViaGateway:
-					!pipelineActiveRef.current &&
 					config.enableTools &&
 					(config.chatRouting ?? "auto") !== "direct"
 						? true
