@@ -21,7 +21,7 @@ pub struct SessionInfo {
     pub path: String,
     pub branch: Option<String>,
     pub origin_path: Option<String>, // main worktree path if this is a linked worktree; None if main
-    pub status: String, // "active" | "idle" | "stopped"
+    pub status: String, // "active" | "idle" | "stopped" | "error"
     pub progress: Option<ProgressInfo>,
     pub recent_file: Option<String>,
     pub last_change: Option<u64>, // Unix timestamp seconds
@@ -195,25 +195,44 @@ fn get_branch(path: &Path) -> Option<String> {
     None
 }
 
-/// Reads the first `.agents/progress/*.json` in the given directory.
-fn read_progress(session_path: &Path) -> Option<ProgressInfo> {
+/// Reads ALL `.agents/progress/*.json` files in the given directory.
+/// Returns `(first_ProgressInfo, has_blockers)` where:
+/// - `first_ProgressInfo` is from the first parseable file (display only)
+/// - `has_blockers` is true when ANY file's `blockers` array is non-empty
+///
+/// Iterating all files prevents a silent failure where blockers exist in a
+/// non-first file that OS read_dir returns in non-deterministic order.
+fn read_progress(session_path: &Path) -> (Option<ProgressInfo>, bool) {
     let progress_dir = session_path.join(".agents").join("progress");
-    let entries = std::fs::read_dir(&progress_dir).ok()?;
-    for entry in entries.flatten() {
+    let entries = match std::fs::read_dir(&progress_dir) {
+        Ok(e) => e,
+        Err(_) => return (None, false),
+    };
+    let mut first_info: Option<ProgressInfo> = None;
+    let mut any_blockers = false;
+    // Sort by filename for deterministic first_info selection when multiple files exist.
+    let mut sorted: Vec<_> = entries.flatten().collect();
+    sorted.sort_by_key(|e| e.file_name());
+    for entry in sorted {
         let p = entry.path();
         if p.extension().and_then(|e| e.to_str()) == Some("json") {
             if let Ok(content) = std::fs::read_to_string(&p) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    return Some(ProgressInfo {
-                        issue: val["issue"].as_str().map(|s| s.to_string()),
-                        phase: val["current_phase"].as_str().map(|s| s.to_string()),
-                        title: val["title"].as_str().map(|s| s.to_string()),
-                    });
+                    if val["blockers"].as_array().map_or(false, |a| !a.is_empty()) {
+                        any_blockers = true;
+                    }
+                    if first_info.is_none() {
+                        first_info = Some(ProgressInfo {
+                            issue: val["issue"].as_str().map(|s| s.to_string()),
+                            phase: val["current_phase"].as_str().map(|s| s.to_string()),
+                            title: val["title"].as_str().map(|s| s.to_string()),
+                        });
+                    }
                 }
             }
         }
     }
-    None
+    (first_info, any_blockers)
 }
 
 /// Classifies a directory by heuristic rules.
@@ -359,13 +378,14 @@ pub fn workspace_get_sessions(
                 b
             }
         };
-        let progress = read_progress(&path);
+        let (progress, has_blockers) = read_progress(&path);
 
-        let status = match last_change {
-            Some(t) if now.saturating_sub(t) < 30 => "active",
-            Some(t) if now.saturating_sub(t) < 1800 => "idle",
-            Some(_) => "stopped",
-            None => "stopped",
+        // "error" when the progress file has active blockers (session stuck).
+        let status = match (has_blockers, last_change) {
+            (true, _) => "error",
+            (_, Some(t)) if now.saturating_sub(t) < 30 => "active",
+            (_, Some(t)) if now.saturating_sub(t) < 1800 => "idle",
+            _ => "stopped",
         };
 
         // Use cached origin_path — avoids spawning git worktree list per repo on every call.
@@ -410,7 +430,7 @@ pub fn workspace_get_progress(path: String) -> Option<ProgressInfo> {
             e
         })
         .ok()?;
-    read_progress(&safe)
+    read_progress(&safe).0
 }
 
 /// Starts file watching for all git-repo subdirectories of WORKSPACE_ROOT.

@@ -31,6 +31,9 @@ export function SessionDashboard({
 	// Monotonically increasing ID — prevents stale invoke responses from overwriting
 	// a fresher result when multiple loadSessions calls are in-flight simultaneously.
 	const fetchIdRef = useRef(0);
+	// Tracks whether at least one successful load has completed — used to decide
+	// whether to notify the parent on error (first failure) vs. stay silent (retry failure).
+	const hasLoadedOnceRef = useRef(false);
 
 	const loadSessions = useCallback(async () => {
 		const id = ++fetchIdRef.current;
@@ -38,13 +41,19 @@ export function SessionDashboard({
 			const result = await invoke<SessionInfo[]>("workspace_get_sessions");
 			if (id !== fetchIdRef.current) return; // stale response — discard
 			setSessions(result);
+			hasLoadedOnceRef.current = true;
 			onSessionsUpdateRef.current?.(result);
 		} catch (e) {
 			if (id !== fetchIdRef.current) return;
 			Logger.warn("SessionDashboard", "Failed to load sessions", {
 				error: String(e),
 			});
-			onSessionsUpdateRef.current?.([]);
+			// On first-ever failure: notify parent with [] so the parent's
+			// initialized state unblocks (avoids permanent loading overlay).
+			// On retry failures: stay silent — parent retains last-known session list.
+			if (!hasLoadedOnceRef.current) {
+				onSessionsUpdateRef.current?.([]);
+			}
 		} finally {
 			if (id === fetchIdRef.current) setLoading(false);
 		}

@@ -22,6 +22,8 @@ interface FileTreeProps {
 	activeDirs?: string[];
 	/** Classified dirs for section display (Phase 4) */
 	classifiedDirs?: Array<{ name: string; path: string; category: string }>;
+	/** Actual workspace root (runtime override or compile-time fallback). */
+	workspaceRoot?: string;
 }
 
 interface TreeNodeProps {
@@ -146,7 +148,7 @@ function getFileIcon(name: string): string {
 	return icons[ext] ?? "📄";
 }
 
-export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDirs }: FileTreeProps) {
+export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDirs, workspaceRoot = WORKSPACE_ROOT }: FileTreeProps) {
 	const [entries, setEntries] = useState<DirEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,7 +160,7 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 		const id = ++fetchIdRef.current;
 		try {
 			const result = await invoke<DirEntry[]>("workspace_list_dirs", {
-				parent: WORKSPACE_ROOT,
+				parent: workspaceRoot,
 			});
 			if (id !== fetchIdRef.current) return; // stale response — discard
 			setEntries(result);
@@ -169,7 +171,7 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 		} finally {
 			if (id === fetchIdRef.current) setLoading(false);
 		}
-	}, []);
+	}, [workspaceRoot]);
 
 	const debouncedLoadEntries = useCallback(() => {
 		if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -193,7 +195,7 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 			unlistenPromise.then((fn) => fn()).catch(() => {});
 			if (debounceRef.current) clearTimeout(debounceRef.current);
 		};
-	}, [debouncedLoadEntries]);
+	}, [loadEntries, debouncedLoadEntries]);
 
 	if (loading) {
 		return <div className="workspace-tree workspace-tree--loading">불러오는 중…</div>;

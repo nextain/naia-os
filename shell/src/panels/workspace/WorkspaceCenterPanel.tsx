@@ -675,6 +675,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 						openFilePath={openFilePath}
 						activeDirs={activeDirs}
 						classifiedDirs={classifiedDirs ?? undefined}
+						workspaceRoot={resolvedRoot}
 					/>
 				</div>
 			</div>
