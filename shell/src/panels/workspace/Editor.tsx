@@ -6,10 +6,12 @@ import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { yaml } from "@codemirror/lang-yaml";
+import { StreamLanguage } from "@codemirror/language";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { EditorState, Transaction } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import AnsiToHtml from "ansi-to-html";
 import DOMPurify from "dompurify";
 import Papa from "papaparse";
@@ -50,6 +52,7 @@ function getLanguageExtension(filePath: string) {
 	if (ext === "yaml" || ext === "yml") return yaml();
 	if (ext === "json") return json();
 	if (ext === "css" || ext === "scss" || ext === "less") return css();
+	if (ext === "sh" || ext === "bash" || ext === "zsh") return StreamLanguage.define(shell);
 	return null;
 }
 
@@ -90,7 +93,15 @@ function detectViewMode(filePath: string): ViewMode {
 
 const ansiConverter = new AnsiToHtml({ escapeXML: true });
 
-mermaid.initialize({ startOnLoad: false, theme: "dark" });
+mermaid.initialize({
+	startOnLoad: false,
+	theme: "dark",
+	// WebKitGTK does not reliably render <foreignObject> in SVG.
+	// Force pure SVG <text> elements for all labels.
+	htmlLabels: false,
+	flowchart: { htmlLabels: false },
+	sequence: { useHtmlLabels: false },
+});
 
 let mermaidIdCounter = 0;
 
@@ -167,14 +178,114 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	/** PDF state */
 	const [pdfNumPages, setPdfNumPages] = useState(0);
 
+	/** Image viewer state */
+	const [imageZoom, setImageZoom] = useState<"fit" | "original" | number>("fit");
+	const [imageInfo, setImageInfo] = useState<{
+		width: number;
+		height: number;
+		fileSize: string;
+		format: string;
+	} | null>(null);
+	const [imageBlobUrl, setImageBlobUrl] = useState<string | null>(null);
+	const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+
 	const isMd = filePath ? isMarkdownFile(filePath) : false;
 
-	// ── Reset viewMode (and sort/pdf state) when file changes ────────────
+	// ── Reset viewMode (and sort/pdf/image state) when file changes ─────
 	useEffect(() => {
 		setViewMode(filePath ? detectViewMode(filePath) : "editor");
 		setSortCol(null);
 		setSortAsc(true);
 		setPdfNumPages(0);
+		setImageZoom("fit");
+		setImageInfo(null);
+		// Revoke previous blob URLs to free memory
+		setImageBlobUrl((prev) => {
+			if (prev) URL.revokeObjectURL(prev);
+			return null;
+		});
+		setPdfBlobUrl((prev) => {
+			if (prev) URL.revokeObjectURL(prev);
+			return null;
+		});
+	}, [filePath]);
+
+	// ── Load image as blob URL (asset protocol unreliable on Linux) ─────
+	useEffect(() => {
+		if (!filePath || !isImageFile(filePath)) return;
+		const thisPath = filePath;
+		invoke<number[]>("workspace_read_file_bytes", { path: thisPath })
+			.then((bytes) => {
+				if (filePathRef.current !== thisPath) return;
+				const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+				const mimeMap: Record<string, string> = {
+					png: "image/png",
+					jpg: "image/jpeg",
+					jpeg: "image/jpeg",
+					gif: "image/gif",
+					webp: "image/webp",
+					svg: "image/svg+xml",
+					bmp: "image/bmp",
+				};
+				const mime = mimeMap[ext] ?? "image/png";
+				const blob = new Blob([new Uint8Array(bytes)], { type: mime });
+				const url = URL.createObjectURL(blob);
+				setImageBlobUrl((prev) => {
+					if (prev) URL.revokeObjectURL(prev);
+					return url;
+				});
+				// File size from byte length
+				const kb = bytes.length / 1024;
+				const sizeStr =
+					kb >= 1024
+						? `${(kb / 1024).toFixed(1)} MB`
+						: `${Math.round(kb)} KB`;
+				setImageInfo((prev) =>
+					prev ? { ...prev, fileSize: sizeStr } : { width: 0, height: 0, format: ext.toUpperCase(), fileSize: sizeStr },
+				);
+			})
+			.catch((e) => {
+				if (filePathRef.current !== thisPath) return;
+				Logger.error("Editor", "Failed to load image bytes", {
+					path: thisPath,
+					error: String(e),
+				});
+			});
+		return () => {
+			setImageBlobUrl((prev) => {
+				if (prev) URL.revokeObjectURL(prev);
+				return null;
+			});
+		};
+	}, [filePath]);
+
+	// ── Load PDF as blob URL (asset protocol unreliable on Linux) ────────
+	useEffect(() => {
+		if (!filePath || !isPdfFile(filePath)) return;
+		const thisPath = filePath;
+		invoke<number[]>("workspace_read_file_bytes", { path: thisPath })
+			.then((bytes) => {
+				if (filePathRef.current !== thisPath) return;
+				const blob = new Blob([new Uint8Array(bytes)], {
+					type: "application/pdf",
+				});
+				const url = URL.createObjectURL(blob);
+				setPdfBlobUrl((prev) => {
+					if (prev) URL.revokeObjectURL(prev);
+					return url;
+				});
+			})
+			.catch((e) => {
+				if (filePathRef.current !== thisPath) return;
+				loadErrorRef.current = true;
+				setLoadError(`PDF 로드 실패: ${String(e)}`);
+			});
+		return () => {
+			setPdfBlobUrl((prev) => {
+				if (prev) URL.revokeObjectURL(prev);
+				return null;
+			});
+		};
 	}, [filePath]);
 
 	// ── Load file ─────────────────────────────────────────────────────────
@@ -185,7 +296,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			loadErrorRef.current = false;
 			return;
 		}
-		// Images and PDFs are rendered via convertFileSrc — no text read needed
+		// Images and PDFs are rendered via blob URL — no text read needed
 		if (isImageFile(filePath) || isPdfFile(filePath)) {
 			setContent("");
 			setLoadError(null);
@@ -476,16 +587,110 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			{/* Viewer / Editor area */}
 			{viewMode === "image" ? (
 				<div className="workspace-editor__image-viewer">
-					<img
-						src={convertFileSrc(filePath)}
-						alt={shortName}
-						className="workspace-editor__image"
-					/>
+					<div className="workspace-editor__image-toolbar">
+						<button
+							type="button"
+							className={`workspace-editor__image-btn${imageZoom === "fit" ? " workspace-editor__image-btn--active" : ""}`}
+							onClick={() => setImageZoom("fit")}
+							title="화면 맞춤"
+						>
+							맞춤
+						</button>
+						<button
+							type="button"
+							className={`workspace-editor__image-btn${imageZoom === "original" ? " workspace-editor__image-btn--active" : ""}`}
+							onClick={() => setImageZoom("original")}
+							title="원본 크기"
+						>
+							1:1
+						</button>
+						<button
+							type="button"
+							className="workspace-editor__image-btn"
+							onClick={() =>
+								setImageZoom((prev) => {
+									const current =
+										prev === "fit" ? 1 : prev === "original" ? 1 : prev;
+									return Math.max(0.1, current - 0.25);
+								})
+							}
+							title="축소"
+						>
+							−
+						</button>
+						<span className="workspace-editor__image-zoom-label">
+							{imageZoom === "fit"
+								? "맞춤"
+								: imageZoom === "original"
+									? "100%"
+									: `${Math.round(imageZoom * 100)}%`}
+						</span>
+						<button
+							type="button"
+							className="workspace-editor__image-btn"
+							onClick={() =>
+								setImageZoom((prev) => {
+									const current =
+										prev === "fit" ? 1 : prev === "original" ? 1 : prev;
+									return Math.min(5, current + 0.25);
+								})
+							}
+							title="확대"
+						>
+							+
+						</button>
+						{imageInfo && (
+							<span className="workspace-editor__image-meta">
+								{imageInfo.width}×{imageInfo.height} · {imageInfo.format} ·{" "}
+								{imageInfo.fileSize}
+							</span>
+						)}
+					</div>
+					<div className="workspace-editor__image-container">
+						{imageBlobUrl ? (
+							<img
+								src={imageBlobUrl}
+								alt={shortName}
+								className="workspace-editor__image"
+								style={
+									imageZoom === "fit"
+										? {
+												maxWidth: "100%",
+												maxHeight: "100%",
+												objectFit: "contain",
+											}
+										: imageZoom === "original"
+											? { width: "auto", height: "auto" }
+											: {
+													width: "auto",
+													height: "auto",
+													transform: `scale(${imageZoom})`,
+													transformOrigin: "top left",
+												}
+								}
+								onLoad={(e) => {
+									const img = e.currentTarget;
+									const ext =
+										filePath.split(".").pop()?.toUpperCase() ?? "IMG";
+									setImageInfo((prev) => ({
+										width: img.naturalWidth,
+										height: img.naturalHeight,
+										format: ext,
+										fileSize: prev?.fileSize ?? "",
+									}));
+								}}
+							/>
+						) : (
+							<div className="workspace-editor__image-loading">
+								이미지 로딩 중…
+							</div>
+						)}
+					</div>
 				</div>
 			) : viewMode === "pdf" ? (
 				<div className="workspace-editor__pdf-viewer">
 					<Document
-						file={convertFileSrc(filePath)}
+						file={pdfBlobUrl ?? ""}
 						onLoadSuccess={({ numPages }) => setPdfNumPages(numPages)}
 						onLoadError={(err) => {
 							loadErrorRef.current = true;

@@ -19,6 +19,22 @@ const MAX_DEPTH = 6;
 /** Maximum number of results to display */
 const MAX_RESULTS = 50;
 
+/** Directory names to exclude from search */
+const IGNORE_DIRS = new Set([
+	"node_modules",
+	".git",
+	".next",
+	"dist",
+	"build",
+	".pnpm",
+	".turbo",
+	"__pycache__",
+	".venv",
+	"target",
+	".flatpak-builder",
+	"flatpak-repo",
+]);
+
 async function collectFiles(
 	root: string,
 	depth: number,
@@ -31,6 +47,7 @@ async function collectFiles(
 		const results: string[] = [];
 		for (const entry of entries) {
 			if (entry.is_dir) {
+				if (IGNORE_DIRS.has(entry.name)) continue;
 				const children = await collectFiles(entry.path, depth + 1);
 				results.push(...children);
 			} else {
@@ -43,31 +60,110 @@ async function collectFiles(
 	}
 }
 
-/** Simple fuzzy match: all query characters must appear in order in the target */
-function fuzzyMatch(query: string, target: string): number {
+// ── Korean choseong (초성) matching ──────────────────────────────────────────
+
+const CHOSEONG = [
+	"ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ",
+	"ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ",
+];
+
+const HANGUL_BASE = 0xac00;
+const HANGUL_END = 0xd7a3;
+
+/** Extract choseong from a Korean syllable, or return the character as-is */
+function getChoseong(ch: string): string {
+	const code = ch.charCodeAt(0);
+	if (code >= HANGUL_BASE && code <= HANGUL_END) {
+		return CHOSEONG[Math.floor((code - HANGUL_BASE) / 588)];
+	}
+	return ch;
+}
+
+/** Check if query is all Korean choseong consonants */
+function isChoseongQuery(query: string): boolean {
+	return [...query].every((ch) => CHOSEONG.includes(ch));
+}
+
+/** Match choseong query against a target string */
+function choseongMatch(query: string, target: string): boolean {
+	let qi = 0;
+	for (let ti = 0; ti < target.length && qi < query.length; ti++) {
+		if (getChoseong(target[ti]) === query[qi]) {
+			qi++;
+		}
+	}
+	return qi === query.length;
+}
+
+// ── Fuzzy matching ──────────────────────────────────────────────────────────
+
+/** Check if query is an extension filter (e.g. "*.svg", ".svg", "svg") */
+function parseExtFilter(query: string): string | null {
+	const trimmed = query.trim().toLowerCase();
+	if (trimmed.startsWith("*.")) return trimmed.slice(2);
+	if (trimmed.startsWith(".") && !trimmed.includes("/")) return trimmed.slice(1);
+	return null;
+}
+
+/** Fuzzy match with filename priority: all query chars must appear in order */
+function fuzzyMatch(query: string, rel: string): number {
 	const q = query.toLowerCase();
-	const t = target.toLowerCase();
+	const filename = rel.split("/").pop() ?? rel;
+	const filenameLower = filename.toLowerCase();
+	const relLower = rel.toLowerCase();
+
+	// Extension filter: *.svg, .svg → exact extension match
+	const extFilter = parseExtFilter(q);
+	if (extFilter) {
+		const fileExt = filename.split(".").pop()?.toLowerCase() ?? "";
+		return fileExt === extFilter ? 100 : -1;
+	}
+
+	// Try choseong matching for Korean queries
+	if (isChoseongQuery(q)) {
+		const filenameMatch = choseongMatch(q, filename);
+		const relMatch = choseongMatch(q, rel);
+		if (filenameMatch) return 100;
+		if (relMatch) return 50;
+		return -1;
+	}
+
+	// Score filename match (higher priority)
+	const filenameScore = fuzzyScoreString(q, filenameLower);
+	if (filenameScore > 0) return filenameScore + 50; // filename bonus
+
+	// Score full path match (lower priority)
+	const pathScore = fuzzyScoreString(q, relLower);
+	return pathScore;
+}
+
+function fuzzyScoreString(query: string, target: string): number {
 	let qi = 0;
 	let score = 0;
 	let lastMatch = -1;
-	for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-		if (t[ti] === q[qi]) {
-			// Consecutive matches score higher
+	for (let ti = 0; ti < target.length && qi < query.length; ti++) {
+		if (target[ti] === query[qi]) {
 			score += lastMatch === ti - 1 ? 2 : 1;
-			// Bonus for matching after separator
-			if (ti === 0 || t[ti - 1] === "/" || t[ti - 1] === "-" || t[ti - 1] === "_") {
+			if (
+				ti === 0 ||
+				target[ti - 1] === "/" ||
+				target[ti - 1] === "-" ||
+				target[ti - 1] === "_" ||
+				target[ti - 1] === "."
+			) {
 				score += 3;
 			}
 			lastMatch = ti;
 			qi++;
 		}
 	}
-	return qi === q.length ? score : -1;
+	return qi === query.length ? score : -1;
 }
 
 export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) {
 	const [query, setQuery] = useState("");
 	const [files, setFiles] = useState<string[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
@@ -80,10 +176,16 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 	// Load file list on mount
 	useEffect(() => {
 		let cancelled = false;
+		setLoading(true);
 		collectFiles(workspaceRoot, 0).then((f) => {
-			if (!cancelled) setFiles(f);
+			if (!cancelled) {
+				setFiles(f);
+				setLoading(false);
+			}
 		});
-		return () => { cancelled = true; };
+		return () => {
+			cancelled = true;
+		};
 	}, [workspaceRoot]);
 
 	// Filter and sort results
@@ -102,7 +204,9 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 				.slice(0, MAX_RESULTS)
 				.map((f) => ({
 					path: f,
-					rel: f.startsWith(workspaceRoot) ? f.slice(workspaceRoot.length + 1) : f,
+					rel: f.startsWith(workspaceRoot)
+						? f.slice(workspaceRoot.length + 1)
+						: f,
 					score: 0,
 				}));
 
@@ -133,7 +237,9 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 			onClose();
 		} else if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setSelectedIndex((prev) => results.length > 0 ? Math.min(prev + 1, results.length - 1) : 0);
+			setSelectedIndex((prev) =>
+				results.length > 0 ? Math.min(prev + 1, results.length - 1) : 0,
+			);
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
 			setSelectedIndex((prev) => Math.max(prev - 1, 0));
@@ -160,12 +266,15 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 					ref={inputRef}
 					type="text"
 					className="quick-open__input"
-					placeholder="파일 이름으로 검색…"
+					placeholder="파일 이름으로 검색… (한글 초성 지원)"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
 					onKeyDown={handleKeyDown}
 				/>
 				<div ref={listRef} className="quick-open__list">
+					{loading && (
+						<div className="quick-open__empty">파일 목록 불러오는 중…</div>
+					)}
 					{results.map((r, i) => (
 						<div
 							key={r.path}
@@ -179,7 +288,7 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 							<span className="quick-open__path">{r.rel}</span>
 						</div>
 					))}
-					{results.length === 0 && query.trim() && (
+					{!loading && results.length === 0 && query.trim() && (
 						<div className="quick-open__empty">일치하는 파일이 없습니다</div>
 					)}
 				</div>

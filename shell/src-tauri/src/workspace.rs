@@ -296,6 +296,21 @@ pub fn workspace_read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&safe).map_err(|e| e.to_string())
 }
 
+/// Reads a file as raw bytes (base64-encoded for JSON transport).
+#[tauri::command]
+pub fn workspace_read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    let safe = validate_in_workspace(&path)?;
+    std::fs::read(&safe).map_err(|e| e.to_string())
+}
+
+/// Returns file size in bytes.
+#[tauri::command]
+pub fn workspace_file_size(path: String) -> Result<u64, String> {
+    let safe = validate_in_workspace(&path)?;
+    let meta = std::fs::metadata(&safe).map_err(|e| e.to_string())?;
+    Ok(meta.len())
+}
+
 /// Writes content to a file, creating parent directories as needed.
 #[tauri::command]
 pub fn workspace_write_file(path: String, content: String) -> Result<(), String> {

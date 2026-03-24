@@ -43,8 +43,44 @@ function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: Tree
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<DirEntry[] | null>(null);
 	const [loading, setLoading] = useState(false);
+	const nodeRef = useRef<HTMLButtonElement>(null);
+	/** Tracks which openFilePath we last auto-revealed for — prevents re-expanding after manual fold */
+	const lastRevealedRef = useRef<string | null>(null);
 	const isOpen = openFilePath ? normPath(openFilePath) === normPath(entry.path) : false;
 	const isActive = activeDirs?.some((d) => normPath(d) === normPath(entry.path)) ?? false;
+
+	// Auto-reveal: if this directory is an ancestor of the open file, expand it (once per file change)
+	const shouldReveal =
+		entry.is_dir &&
+		openFilePath &&
+		normPath(openFilePath).startsWith(normPath(entry.path) + "/") &&
+		lastRevealedRef.current !== openFilePath;
+
+	useEffect(() => {
+		if (!shouldReveal || !openFilePath) return;
+		lastRevealedRef.current = openFilePath;
+		setExpanded(true);
+		if (children === null && !loading) {
+			setLoading(true);
+			invoke<DirEntry[]>("workspace_list_dirs", { parent: entry.path })
+				.then((result) => setChildren(result))
+				.catch((e) => {
+					Logger.warn("FileTree", "Failed to list dir (reveal)", {
+						path: entry.path,
+						error: String(e),
+					});
+					setChildren([]);
+				})
+				.finally(() => setLoading(false));
+		}
+	}, [shouldReveal, openFilePath, entry.path, children, loading]);
+
+	// Auto-scroll to the open file node
+	useEffect(() => {
+		if (isOpen && nodeRef.current) {
+			nodeRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+		}
+	}, [isOpen]);
 
 	const toggle = useCallback(async () => {
 		if (!entry.is_dir) {
@@ -78,6 +114,7 @@ function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: Tree
 	return (
 		<div>
 			<button
+				ref={nodeRef}
 				type="button"
 				className={[
 					"workspace-tree__node",

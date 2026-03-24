@@ -2271,6 +2271,8 @@ pub fn run() {
             panel::panel_run_shell,
             workspace::workspace_list_dirs,
             workspace::workspace_read_file,
+            workspace::workspace_read_file_bytes,
+            workspace::workspace_file_size,
             workspace::workspace_write_file,
             workspace::workspace_get_git_info,
             workspace::workspace_get_sessions,
