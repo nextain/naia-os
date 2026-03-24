@@ -622,6 +622,32 @@ if (cmd === "plugin:store|get") return [null, false];
 
 ---
 
+### L052 — vLLM omni model returns audio in choices[1], non-streaming only — AudioQueue needs WAV MIME detection
+
+**Date**: 2026-03-24 | **Issue**: #72 | **Category**: audio
+**Scope**: `agent/src/providers/openai.ts`, `shell/src/lib/voice/audio-queue.ts`
+
+**Problem**: MiniCPM-o via vllm-omni returns text in `choices[0].message.content` and audio (base64 WAV) in `choices[1].message.audio.data`, but only in non-streaming mode. AudioQueue hardcoded `audio/mp3` MIME so WAV data was unplayable.
+
+**Root cause**: OpenAI streaming API doesn't support audio output. vllm-omni uses a custom non-streaming response format with dual choices. AudioQueue was written assuming all audio is MP3 (edge-tts output).
+
+**Fix**: Detect `isOmni` (`isVllm && /minicpm[-_]?o/i`) and use non-streaming fetch path in `openai.ts`. In `audio-queue.ts`, detect WAV by base64 prefix `"UklGR"` (RIFF header) and use `audio/wav` MIME. Add `omniAudioReceived` flag in `index.ts` to skip TTS synthesis when omni already sent audio.
+
+---
+
+### L053 — torch_peak_increase inflated by AOT compilation artifacts — use steady-state memory for KV cache sizing
+
+**Date**: 2026-03-24 | **Issue**: #85 | **Category**: ml-infra
+**Scope**: `vllm-omni/vllm_omni/worker/base.py`
+
+**Problem**: vllm-omni memory profiling fallback used `torch_peak_increase` to estimate profiled_usage, but `torch.compile`/AOT compilation buffers temporarily spike memory then free after compilation. This caused `available_kv_cache_memory_bytes` to be underestimated.
+
+**Root cause**: `after_profile.torch_memory` (`memory_reserved()` after `gc+empty_cache`) reflects steady state (weights + persistent buffers only). Peak captures transient compile artifacts.
+
+**Fix**: Use `steady_state_torch = profile_result.after_profile.torch_memory` instead of `model_memory_usage + torch_peak_increase`. Non-torch increase still added via `max(0, non_torch_increase)`.
+
+---
+
 ### L051 — Place panel-level tests inside the correct describe block — not the Editor describe
 
 **Date**: 2026-03-24 | **Issue**: #114 | **Category**: testing

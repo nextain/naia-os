@@ -621,6 +621,32 @@ if (cmd === "plugin:store|get") return [null, false];
 
 ---
 
+### L052 — vLLM omni 모델은 choices[1]에 오디오 반환, non-streaming 전용 — AudioQueue WAV MIME 감지 필요
+
+**날짜**: 2026-03-24 | **이슈**: #72 | **카테고리**: audio
+**범위**: `agent/src/providers/openai.ts`, `shell/src/lib/voice/audio-queue.ts`
+
+**문제**: vllm-omni를 통한 MiniCPM-o는 텍스트를 `choices[0].message.content`에, 오디오(base64 WAV)를 `choices[1].message.audio.data`에 반환하지만 non-streaming 모드에서만 가능. AudioQueue가 `audio/mp3` MIME을 하드코딩해서 WAV 데이터가 재생 불가.
+
+**근본 원인**: OpenAI streaming API는 오디오 출력을 지원하지 않음. vllm-omni는 dual choices를 가진 커스텀 non-streaming 응답 형식 사용. AudioQueue는 모든 오디오가 MP3(edge-tts 출력)라고 가정하고 작성됨.
+
+**수정**: `openai.ts`에서 `isOmni` (`isVllm && /minicpm[-_]?o/i`) 감지 후 non-streaming fetch 경로 사용. `audio-queue.ts`에서 base64 접두어 `"UklGR"` (RIFF 헤더)로 WAV 감지 후 `audio/wav` MIME 사용. `index.ts`에 `omniAudioReceived` 플래그 추가해 omni가 이미 오디오 전송 시 TTS 합성 건너뜀.
+
+---
+
+### L053 — torch_peak_increase는 AOT 컴파일 아티팩트로 부풀려짐 — KV 캐시 크기 산정에 steady-state 메모리 사용
+
+**날짜**: 2026-03-24 | **이슈**: #85 | **카테고리**: ml-infra
+**범위**: `vllm-omni/vllm_omni/worker/base.py`
+
+**문제**: vllm-omni 메모리 프로파일링 폴백이 `torch_peak_increase`로 profiled_usage를 추정했으나, `torch.compile`/AOT 컴파일 버퍼가 일시적으로 메모리를 급증시킨 뒤 컴파일 완료 후 해제됨. 이로 인해 `available_kv_cache_memory_bytes`가 과소 추정됨.
+
+**근본 원인**: `after_profile.torch_memory` (`gc+empty_cache` 후 `memory_reserved()`)는 steady state(가중치 + 영구 버퍼만)를 반영. 피크는 일시적 컴파일 아티팩트를 포함.
+
+**수정**: `model_memory_usage + torch_peak_increase` 대신 `steady_state_torch = profile_result.after_profile.torch_memory` 사용. non-torch 증가분은 `max(0, non_torch_increase)`로 추가.
+
+---
+
 ### L051 — 패널 단위 테스트는 정확한 describe 블록에 배치 — Editor describe 금지
 
 **날짜**: 2026-03-24 | **이슈**: #114 | **카테고리**: testing
