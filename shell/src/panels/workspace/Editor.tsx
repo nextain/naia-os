@@ -53,7 +53,8 @@ function isMarkdownFile(filePath: string): boolean {
 
 function isImageFile(filePath: string): boolean {
 	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-	return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+	// SVG is intentionally treated as image-only (viewer via <img>); text editing is not supported.
+	return ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext);
 }
 
 function isCsvFile(filePath: string): boolean {

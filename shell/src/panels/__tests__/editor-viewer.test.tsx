@@ -89,6 +89,17 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 		await waitFor(() => expect(screen.getByRole("img")).toBeInTheDocument());
 	});
 
+	it("renders image viewer for .svg (not text editor)", async () => {
+		// invoke is NOT called for image files — no mockInvoke setup needed
+		render(<Editor filePath="/assets/icon.svg" />);
+		await waitFor(() => expect(screen.getByRole("img")).toBeInTheDocument());
+		const img = screen.getByRole("img");
+		expect(img).toHaveAttribute("src", "asset:///assets/icon.svg");
+		// Confirm viewMode is "image": no markdown edit buttons rendered
+		expect(screen.queryByText("편집")).not.toBeInTheDocument();
+		expect(screen.queryByText("미리보기")).not.toBeInTheDocument();
+	});
+
 	it("does NOT call workspace_read_file for image files", () => {
 		render(<Editor filePath="/foo/image.png" />);
 		expect(mockInvoke).not.toHaveBeenCalledWith(

@@ -131,6 +131,7 @@ panelRegistry.register({
 	builtIn: true,
 	source: "code",
 	center: WorkspaceCenterPanel,
+	keepAlive: true, // PTY terminals must not unmount on tab switch
 	tools: WORKSPACE_TOOLS,
 	onActivate: startWorkspaceWatcher,
 	onDeactivate: stopWorkspaceWatcher,
