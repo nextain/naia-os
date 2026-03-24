@@ -513,3 +513,23 @@ lessons:
     problem: "IssueCard needed both the stale boolean and the raw staleDays count (for the tooltip title). Calling isStale(issue.updated_at) for the boolean and then daysSince(issue.updated_at) for the count calls Date.now() twice with a tiny time gap, meaning the rendered tooltip title could disagree with the badge condition at a 30-day boundary."
     root_cause: "isStale() and daysSince() each call Date.now() internally. In the same render, two calls to Date.now() return values that differ by microseconds but can differ by 1 day at an exact boundary."
     fix: "Compute const staleDays = daysSince(issue.updated_at); then derive const stale = staleDays >= 30;. Reuse both in JSX. This guarantees logical consistency and avoids the double-sampling problem."
+
+  - id: L050
+    date: "2026-03-24"
+    issue: "#114"
+    category: react
+    scope: "shell/src/panels/workspace/WorkspaceCenterPanel.tsx"
+    title: "Re-arm notification Set on recovery — error → active/idle must delete from notifiedRef"
+    problem: "errorNotifiedRef tracks sessions that already received error notifications. When a session recovered (active/idle) and then errored again, the Set still contained the path — so the second error was silently swallowed."
+    root_cause: "The Set was only added to (on error) and cleared (on sessionId null). Recovery transitions were not handled, breaking the 'fire once per session per error bout' contract."
+    fix: "In the active/idle branch of handleSessionsUpdate, call errorNotifiedRef.current.delete(s.path) alongside idleNotifiedRef.current.delete(s.path). Symmetric with the idleNotifiedRef re-arm pattern. Rule: any notifiedRef that gates on session status must be re-armed on recovery, not only cleared on conversation reset."
+
+  - id: L051
+    date: "2026-03-24"
+    issue: "#114"
+    category: testing
+    scope: "shell/src/panels/__tests__/workspace-panel.test.tsx"
+    title: "Place panel-level tests inside the correct describe block — not the Editor describe"
+    problem: "errorAlert and re-arm tests were initially placed inside the Editor describe block. This caused logical grouping errors and misleading test names in the output."
+    root_cause: "Review-pass Pass 3 caught the misplacement. The Editor describe covers file-type rendering; WorkspaceCenterPanel describe covers session lifecycle and context push behaviour."
+    fix: "Move errorAlert tests to the WorkspaceCenterPanel describe block. Rule: always match the test subject (component under test) to the describe block name."

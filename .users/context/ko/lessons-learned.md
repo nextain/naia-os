@@ -605,3 +605,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: `isStale()`과 `daysSince()` 모두 내부에서 `Date.now()` 호출. 같은 렌더에서 두 번 호출하면 정확한 경계(30일)에서 1일 차이 발생 가능.
 
 **수정**: `const staleDays = daysSince(issue.updated_at); const stale = staleDays >= 30;` — 한 번 계산 후 JSX에서 재사용. 논리적 일관성 보장 및 이중 샘플링 방지.
+
+---
+
+### L050 — 알림 Set 재장전: error → active/idle 복구 시 notifiedRef에서 삭제 필수
+
+**날짜**: 2026-03-24 | **이슈**: #114 | **카테고리**: react
+**범위**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**문제**: `errorNotifiedRef`는 이미 오류 알림을 받은 세션을 추적. 세션이 복구(`active`/`idle`)됐다가 다시 오류가 발생하면 Set에 경로가 남아 있어 두 번째 오류 알림이 무음으로 사라짐.
+
+**근본 원인**: Set는 오류 발생 시 추가, `sessionId null` 시 전체 clear만 했음. 복구 전환 처리 누락으로 "오류 발생건당 1회 알림" 계약 위반.
+
+**수정**: `handleSessionsUpdate`의 `active`/`idle` 분기에서 `idleNotifiedRef.current.delete(s.path)`와 함께 `errorNotifiedRef.current.delete(s.path)` 추가. `idleNotifiedRef` 재장전 패턴과 대칭. 규칙: 세션 상태에 게이팅되는 모든 `notifiedRef`는 복구 시 재장전 필수.
+
+---
+
+### L051 — 패널 단위 테스트는 정확한 describe 블록에 배치 — Editor describe 금지
+
+**날짜**: 2026-03-24 | **이슈**: #114 | **카테고리**: testing
+**범위**: `shell/src/panels/__tests__/workspace-panel.test.tsx`
+
+**문제**: `errorAlert` 및 재장전 테스트를 처음에 `Editor` describe 블록에 배치. 논리적 그룹 오류 및 테스트 출력에서 오해의 소지 있는 이름 발생.
+
+**근본 원인**: Review-pass Pass 3에서 잘못된 배치 감지. `Editor` describe는 파일 타입 렌더링 담당; `WorkspaceCenterPanel` describe는 세션 라이프사이클 및 context push 동작 담당.
+
+**수정**: `errorAlert` 테스트를 `WorkspaceCenterPanel` describe 블록으로 이동. 규칙: 테스트 대상(테스트 중인 컴포넌트)과 describe 블록 이름을 항상 일치시킬 것.

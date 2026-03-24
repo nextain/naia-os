@@ -606,3 +606,29 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: `isStale()` and `daysSince()` each call `Date.now()` internally. In the same render, two calls can disagree by 1 day at an exact boundary.
 
 **Fix**: `const staleDays = daysSince(issue.updated_at); const stale = staleDays >= 30;` — compute once, reuse both in JSX. Guarantees logical consistency and avoids double-sampling.
+
+---
+
+### L050 — Re-arm notification Set on recovery — error → active/idle must delete from notifiedRef
+
+**Date**: 2026-03-24 | **Issue**: #114 | **Category**: react
+**Scope**: `shell/src/panels/workspace/WorkspaceCenterPanel.tsx`
+
+**Problem**: `errorNotifiedRef` tracks sessions that already received error notifications. When a session recovered (`active`/`idle`) and then errored again, the Set still contained the path — so the second error was silently swallowed.
+
+**Root cause**: The Set was only added to (on error) and cleared (on `sessionId null`). Recovery transitions were not handled, breaking the "fire once per session per error bout" contract.
+
+**Fix**: In the `active`/`idle` branch of `handleSessionsUpdate`, call `errorNotifiedRef.current.delete(s.path)` alongside `idleNotifiedRef.current.delete(s.path)`. Symmetric with the `idleNotifiedRef` re-arm pattern. Rule: any `notifiedRef` that gates on session status must be re-armed on recovery, not only cleared on conversation reset.
+
+---
+
+### L051 — Place panel-level tests inside the correct describe block — not the Editor describe
+
+**Date**: 2026-03-24 | **Issue**: #114 | **Category**: testing
+**Scope**: `shell/src/panels/__tests__/workspace-panel.test.tsx`
+
+**Problem**: `errorAlert` and re-arm tests were initially placed inside the `Editor` describe block. This caused logical grouping errors and misleading test names in the output.
+
+**Root cause**: Review-pass Pass 3 caught the misplacement. The `Editor` describe covers file-type rendering; `WorkspaceCenterPanel` describe covers session lifecycle and context push behaviour.
+
+**Fix**: Move `errorAlert` tests to the `WorkspaceCenterPanel` describe block. Rule: always match the test subject (component under test) to the describe block name.
