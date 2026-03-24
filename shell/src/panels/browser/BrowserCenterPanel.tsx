@@ -556,7 +556,7 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 						내장 브라우저를 사용하려면 Google Chrome이 필요합니다.
 					</p>
 					<p className="browser-panel__install-desc">
-						<code>sudo apt install google-chrome-stable</code>
+						<code>flatpak install com.google.Chrome</code>
 					</p>
 				</div>
 			</div>

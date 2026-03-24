@@ -110,14 +110,36 @@ fn is_flatpak() -> bool {
     std::env::var("FLATPAK").is_ok()
 }
 
+/// Prefix returned by `chrome_bin()` when Chrome is a Flatpak app.
+/// `spawn_chrome()` uses this to choose `flatpak run` instead of direct exec.
+const FLATPAK_APP_PREFIX: &str = "flatpak::";
+
+/// Check whether a Flatpak app is installed (system or user).
+fn flatpak_app_installed(app_id: &str) -> bool {
+    // When Naia itself runs inside Flatpak, probe the host via flatpak-spawn.
+    let out = if is_flatpak() {
+        Command::new("flatpak-spawn")
+            .args(["--host", "flatpak", "info", app_id])
+            .output()
+    } else {
+        Command::new("flatpak")
+            .args(["info", app_id])
+            .output()
+    };
+    out.map(|o| o.status.success()).unwrap_or(false)
+}
+
 /// Resolve `google-chrome` or `chromium` binary.
 ///
-/// In a Flatpak sandbox the sandbox PATH does not include host binaries.
-/// When `FLATPAK=1` we use `flatpak-spawn --host which <name>` to probe the
-/// host PATH, returning the host-side path that can later be passed back to
-/// `flatpak-spawn --host` in `spawn_chrome`.
+/// Search order:
+/// 1. Native binary in PATH (works in dev / distrobox mode)
+/// 2. Host native binary via `flatpak-spawn --host` (Naia is Flatpak, Chrome is native)
+/// 3. Flatpak-installed Chrome (`com.google.Chrome` / `org.chromium.Chromium`)
+///
+/// For case 3, returns `"flatpak::com.google.Chrome"` so `spawn_chrome()` can
+/// use `flatpak run` instead of direct exec.
 fn chrome_bin() -> Option<String> {
-    // Try sandbox PATH first (works in dev / distrobox mode)
+    // 1. Try sandbox PATH first (works in dev / distrobox mode)
     for name in &["google-chrome", "chromium", "chromium-browser"] {
         if let Ok(out) = Command::new("which").arg(name).output() {
             if out.status.success() {
@@ -128,7 +150,7 @@ fn chrome_bin() -> Option<String> {
             }
         }
     }
-    // Flatpak: query the host PATH via flatpak-spawn
+    // 2. Flatpak: query the host PATH via flatpak-spawn
     // Requires --talk-name=org.freedesktop.Flatpak (already in finish-args)
     if is_flatpak() {
         for name in &["google-chrome", "chromium", "chromium-browser"] {
@@ -143,6 +165,12 @@ fn chrome_bin() -> Option<String> {
                     }
                 }
             }
+        }
+    }
+    // 3. Flatpak-installed Chrome (immutable distros: Bazzite, SteamOS, etc.)
+    for app_id in &["com.google.Chrome", "org.chromium.Chromium"] {
+        if flatpak_app_installed(app_id) {
+            return Some(format!("{FLATPAK_APP_PREFIX}{app_id}"));
         }
     }
     None
@@ -186,6 +214,7 @@ fn agent_browser_bin() -> Option<String> {
 /// which requires `--talk-name=org.freedesktop.Flatpak` in finish-args.
 fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
     let bin = chrome_bin().ok_or("google-chrome not found in PATH")?;
+    let is_flatpak_chrome = bin.starts_with(FLATPAK_APP_PREFIX);
     let chrome_flags: Vec<String> = vec![
         "--ozone-platform=x11".into(),
         "--keep-alive-for-test".into(),
@@ -196,18 +225,49 @@ fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
         "--disable-infobars".into(),
         "--disable-session-crashed-bubble".into(),
         "--disable-dev-shm-usage".into(),
-        "--disable-gpu-sandbox".into(),
         format!("--remote-debugging-port={port}"),
         format!("--user-data-dir={tmpdir}"),
     ];
 
-    let mut cmd = if is_flatpak() {
-        // Spawn Chrome on the host so it has access to DISPLAY=:0 and the
-        // host X11 socket provided by --socket=x11 in the Flatpak manifest.
+    // Execution matrix (Naia mode × Chrome install):
+    //   Naia native  + Chrome native  → direct exec
+    //   Naia native  + Chrome Flatpak → flatpak run --command=<bin> <app_id>
+    //   Naia Flatpak + Chrome native  → flatpak-spawn --host <bin>
+    //   Naia Flatpak + Chrome Flatpak → flatpak-spawn --host flatpak run --command=<bin> <app_id>
+    let mut cmd = if is_flatpak_chrome {
+        let app_id = &bin[FLATPAK_APP_PREFIX.len()..];
+        let bin_name = if app_id.contains("chromium") || app_id.contains("Chromium") {
+            "chromium"
+        } else {
+            "google-chrome"
+        };
+        let command_flag = format!("--command={bin_name}");
+        // Pass DISPLAY/GDK_BACKEND via --env for flatpak run (process .env()
+        // only affects the flatpak/flatpak-spawn wrapper, not the sandboxed app).
+        if is_flatpak() {
+            let mut c = Command::new("flatpak-spawn");
+            c.args([
+                "--host", "flatpak", "run",
+                "--env=DISPLAY=:0", "--env=GDK_BACKEND=x11",
+                &command_flag, app_id,
+            ]);
+            c
+        } else {
+            let mut c = Command::new("flatpak");
+            c.args([
+                "run",
+                "--env=DISPLAY=:0", "--env=GDK_BACKEND=x11",
+                &command_flag, app_id,
+            ]);
+            c
+        }
+    } else if is_flatpak() {
+        // Native Chrome binary, but Naia runs in Flatpak — spawn on host.
         let mut c = Command::new("flatpak-spawn");
         c.arg("--host").arg(&bin);
         c
     } else {
+        // Both native — direct exec.
         Command::new(&bin)
     };
 
