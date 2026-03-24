@@ -1846,7 +1846,7 @@ export function ChatPanel() {
 			setInput(text);
 			// After React re-renders, move cursor to start so next ArrowUp works
 			requestAnimationFrame(() => {
-				el.setSelectionRange(0, 0);
+				inputRef.current?.setSelectionRange(0, 0);
 			});
 		} else if (e.key === "ArrowDown") {
 			if (historyIndexRef.current === -1) return;
@@ -1862,7 +1862,7 @@ export function ChatPanel() {
 			}
 			setInput(text);
 			requestAnimationFrame(() => {
-				el.setSelectionRange(0, 0);
+				inputRef.current?.setSelectionRange(0, 0);
 			});
 		}
 	}
