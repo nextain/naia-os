@@ -114,7 +114,7 @@ See **Development Process** section below. Full rules: `.agents/context/contribu
 
 ```bash
 # Shell (Tauri app — Gateway + Agent auto-managed)
-cd shell && pnpm run tauri dev       # Dev run (Gateway auto-spawns)
+cd shell && pnpm run tauri:dev       # Dev run (Gateway auto-install + auto-spawns)
 cd shell && pnpm test                # Shell tests
 cd shell && pnpm build               # Production build
 
