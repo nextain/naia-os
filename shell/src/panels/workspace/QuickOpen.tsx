@@ -79,7 +79,11 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 
 	// Load file list on mount
 	useEffect(() => {
-		collectFiles(workspaceRoot, 0).then(setFiles);
+		let cancelled = false;
+		collectFiles(workspaceRoot, 0).then((f) => {
+			if (!cancelled) setFiles(f);
+		});
+		return () => { cancelled = true; };
 	}, [workspaceRoot]);
 
 	// Filter and sort results
@@ -129,7 +133,7 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 			onClose();
 		} else if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
+			setSelectedIndex((prev) => results.length > 0 ? Math.min(prev + 1, results.length - 1) : 0);
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
 			setSelectedIndex((prev) => Math.max(prev - 1, 0));

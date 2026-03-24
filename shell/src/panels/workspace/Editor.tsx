@@ -487,9 +487,10 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 					<Document
 						file={convertFileSrc(filePath)}
 						onLoadSuccess={({ numPages }) => setPdfNumPages(numPages)}
-						onLoadError={(err) =>
-							setLoadError(`PDF 로드 실패: ${String(err?.message ?? err)}`)
-						}
+						onLoadError={(err) => {
+							loadErrorRef.current = true;
+							setLoadError(`PDF 로드 실패: ${String(err?.message ?? err)}`);
+						}}
 						loading={
 							<div className="workspace-editor__pdf-loading">
 								PDF 로딩 중…
