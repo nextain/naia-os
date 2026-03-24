@@ -9,6 +9,8 @@ export function createOpenAIProvider(
 ): LLMProvider {
 	const isOllama = apiKey === "ollama";
 	const isVllm = apiKey === "vllm";
+	// vllm-omni omni model: MiniCPM-o returns audio in choices[1].message.audio.data
+	const isOmni = isVllm && /minicpm[-_]?o/i.test(model);
 	const client = new OpenAI({
 		apiKey: isOllama ? "ollama" : isVllm ? "vllm" : apiKey,
 		baseURL:
@@ -21,6 +23,37 @@ export function createOpenAIProvider(
 
 	return {
 		async *stream(messages, systemPrompt, tools, signal): AgentStream {
+			// vllm-omni: non-streaming, audio comes in choices[1].message.audio.data
+			if (isOmni) {
+				const baseUrl = (localHost || "http://localhost:8000").replace(/\/+$/, "");
+				const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", Authorization: "Bearer vllm" },
+					body: JSON.stringify({
+						model,
+						temperature: 0.7,
+						messages: toOpenAIMessages(messages, systemPrompt),
+					}),
+					signal: signal ?? undefined,
+				});
+				const data = await resp.json() as {
+					choices?: Array<{ message?: { content?: string; audio?: { data?: string } } }>;
+					usage?: { prompt_tokens?: number; completion_tokens?: number };
+				};
+				const text = data.choices?.[0]?.message?.content ?? "";
+				if (text) yield { type: "text", text };
+				const audioData = data.choices?.[1]?.message?.audio?.data;
+				if (audioData) yield { type: "audio", data: audioData };
+				if (data.usage) {
+					yield {
+						type: "usage",
+						inputTokens: data.usage.prompt_tokens ?? 0,
+						outputTokens: data.usage.completion_tokens ?? 0,
+					};
+				}
+				yield { type: "finish" };
+				return;
+			}
 			const body: OpenAI.ChatCompletionCreateParamsStreaming = {
 				model,
 				temperature: 0.7,

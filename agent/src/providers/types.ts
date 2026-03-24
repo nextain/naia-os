@@ -51,7 +51,9 @@ export type StreamChunk =
 			inputTokens: number;
 			outputTokens: number;
 	  }
-	| { type: "finish" };
+	| { type: "finish" }
+	/** Emitted by omni providers (e.g. vllm-omni MiniCPM-o) that return audio inline */
+	| { type: "audio"; data: string };
 
 /** Async generator that yields streaming chunks */
 export type AgentStream = AsyncGenerator<StreamChunk, void, undefined>;

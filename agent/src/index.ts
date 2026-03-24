@@ -411,6 +411,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		let fullText = "";
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
+		let omniAudioReceived = false;
 
 		const executeToolWithRecovery = async (
 			toolName: string,
@@ -507,6 +508,10 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				} else if (chunk.type === "usage") {
 					totalInputTokens += chunk.inputTokens;
 					totalOutputTokens += chunk.outputTokens;
+				} else if (chunk.type === "audio") {
+					// Omni provider (vllm-omni): audio comes inline, emit directly
+					omniAudioReceived = true;
+					writeLine({ type: "audio", requestId, data: chunk.data });
 				}
 			}
 
@@ -648,7 +653,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		}
 
 		// TTS synthesis via provider registry
-		if (ttsVoice && fullText.trim()) {
+		if (ttsVoice && fullText.trim() && !omniAudioReceived) {
 			const cleanText = fullText
 				.replace(EMOTION_TAG_RE, "")
 				.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")

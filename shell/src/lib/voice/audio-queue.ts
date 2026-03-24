@@ -110,7 +110,9 @@ export class AudioQueue {
 		const wasPlaying = this.playing;
 		this.playing = true;
 
-		const audio = new Audio(`data:audio/mp3;base64,${mp3Base64}`);
+		// WAV base64 starts with "UklGR" (RIFF header); use audio/wav MIME for omni model output
+		const isWav = mp3Base64.startsWith("UklGR");
+		const audio = new Audio(`data:audio/${isWav ? "wav" : "mp3"};base64,${mp3Base64}`);
 		// Apply output device if specified (setSinkId is non-standard, guarded)
 		const setSinkId = (
 			audio as unknown as { setSinkId?: (id: string) => Promise<void> }
