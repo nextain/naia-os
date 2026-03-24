@@ -23,6 +23,7 @@ const FAKE_DIRS = [
 	{ name: "data.csv", path: `${FAKE_ROOT}/data.csv`, is_dir: false, children: null },
 	{ name: "app.log", path: `${FAKE_ROOT}/app.log`, is_dir: false, children: null },
 	{ name: "screenshot.png", path: `${FAKE_ROOT}/screenshot.png`, is_dir: false, children: null },
+	{ name: "report.pdf", path: `${FAKE_ROOT}/report.pdf`, is_dir: false, children: null },
 	{ name: "AGENTS.md", path: `${FAKE_ROOT}/AGENTS.md`, is_dir: false, children: null },
 ];
 
@@ -267,6 +268,37 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 		await expect(page.locator(".workspace-editor__image")).toBeVisible({ timeout: 5_000 });
 
 		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).not.toBeVisible();
+	});
+
+	// ── V4: PDF 뷰어 ────────────────────────────────────────────────────
+
+	test("V4: .pdf 파일 선택 시 PDF 뷰어 표시 (workspace_read_file 미호출)", async ({ page }) => {
+		const invokeCalls: string[] = [];
+		await page.exposeFunction("__recordInvoke__", (cmd: string) => {
+			invokeCalls.push(cmd);
+		});
+
+		await openWorkspacePanel(page);
+		await clickFileInTree(page, "report.pdf");
+
+		await expect(page.locator(".workspace-editor__filename")).toContainText("report.pdf", {
+			timeout: 5_000,
+		});
+		await expect(page.locator(".workspace-editor__pdf-viewer")).toBeVisible({ timeout: 5_000 });
+
+		// workspace_read_file must NOT have been called for a PDF file
+		expect(invokeCalls).not.toContain("workspace_read_file");
+	});
+
+	test("V4-b: PDF 파일에 편집/미리보기 버튼 없음", async ({ page }) => {
+		await openWorkspacePanel(page);
+		await clickFileInTree(page, "report.pdf");
+		await expect(page.locator(".workspace-editor__filename")).toContainText("report.pdf", {
+			timeout: 5_000,
+		});
+
+		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).not.toBeVisible();
+		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "미리보기" })).not.toBeVisible();
 	});
 });
 

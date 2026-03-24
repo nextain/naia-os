@@ -14,11 +14,18 @@ import AnsiToHtml from "ansi-to-html";
 import DOMPurify from "dompurify";
 import Papa from "papaparse";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Document, Page as PdfPage, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import mermaid from "mermaid";
 import Markdown from "react-markdown";
 import { Logger } from "../../lib/logger";
 import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
-type ViewMode = "editor" | "preview" | "split" | "image" | "csv" | "log";
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+type ViewMode = "editor" | "preview" | "split" | "image" | "csv" | "log" | "pdf";
 
 interface EditorProps {
 	/** Absolute path of the file being edited. Empty = no file open. */
@@ -67,8 +74,14 @@ function isLogFile(filePath: string): boolean {
 	return ext === "log";
 }
 
+function isPdfFile(filePath: string): boolean {
+	const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+	return ext === "pdf";
+}
+
 function detectViewMode(filePath: string): ViewMode {
 	if (isImageFile(filePath)) return "image";
+	if (isPdfFile(filePath)) return "pdf";
 	if (isCsvFile(filePath)) return "csv";
 	if (isLogFile(filePath)) return "log";
 	if (isMarkdownFile(filePath)) return "preview";
@@ -76,6 +89,58 @@ function detectViewMode(filePath: string): ViewMode {
 }
 
 const ansiConverter = new AnsiToHtml({ escapeXML: true });
+
+mermaid.initialize({ startOnLoad: false, theme: "dark" });
+
+let mermaidIdCounter = 0;
+
+function MermaidBlock({ code }: { code: string }) {
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!containerRef.current || !code.trim()) return;
+		const id = `mermaid-${++mermaidIdCounter}`;
+		let cancelled = false;
+		mermaid
+			.render(id, code.trim())
+			.then(({ svg }) => {
+				if (!cancelled && containerRef.current) {
+					containerRef.current.innerHTML = DOMPurify.sanitize(svg);
+					setError(null);
+				}
+			})
+			.catch((err) => {
+				if (!cancelled) setError(String(err?.message ?? err));
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [code]);
+
+	if (error) {
+		return (
+			<div className="workspace-editor__mermaid-error">
+				Mermaid 오류: {error}
+			</div>
+		);
+	}
+
+	return <div ref={containerRef} className="workspace-editor__mermaid" />;
+}
+
+/** Custom code block renderer — intercepts ```mermaid blocks */
+function CodeBlock({
+	className,
+	children,
+}: { className?: string; children?: React.ReactNode }) {
+	const match = /language-mermaid/.exec(className ?? "");
+	if (match) {
+		const code = String(children).replace(/\n$/, "");
+		return <MermaidBlock code={code} />;
+	}
+	return <code className={className}>{children}</code>;
+}
 
 export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const editorRef = useRef<HTMLDivElement>(null);
@@ -99,13 +164,17 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const [sortCol, setSortCol] = useState<number | null>(null);
 	const [sortAsc, setSortAsc] = useState(true);
 
+	/** PDF state */
+	const [pdfNumPages, setPdfNumPages] = useState(0);
+
 	const isMd = filePath ? isMarkdownFile(filePath) : false;
 
-	// ── Reset viewMode (and sort state) when file changes ────────────────
+	// ── Reset viewMode (and sort/pdf state) when file changes ────────────
 	useEffect(() => {
 		setViewMode(filePath ? detectViewMode(filePath) : "editor");
 		setSortCol(null);
 		setSortAsc(true);
+		setPdfNumPages(0);
 	}, [filePath]);
 
 	// ── Load file ─────────────────────────────────────────────────────────
@@ -116,8 +185,8 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			loadErrorRef.current = false;
 			return;
 		}
-		// Images are rendered via convertFileSrc — no text read needed
-		if (isImageFile(filePath)) {
+		// Images and PDFs are rendered via convertFileSrc — no text read needed
+		if (isImageFile(filePath) || isPdfFile(filePath)) {
 			setContent("");
 			setLoadError(null);
 			loadErrorRef.current = false;
@@ -182,6 +251,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			!editorRef.current ||
 			viewMode === "preview" ||
 			viewMode === "image" ||
+			viewMode === "pdf" ||
 			viewMode === "csv" ||
 			viewMode === "log"
 		)
@@ -412,6 +482,35 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						className="workspace-editor__image"
 					/>
 				</div>
+			) : viewMode === "pdf" ? (
+				<div className="workspace-editor__pdf-viewer">
+					<Document
+						file={convertFileSrc(filePath)}
+						onLoadSuccess={({ numPages }) => setPdfNumPages(numPages)}
+						onLoadError={(err) =>
+							setLoadError(`PDF 로드 실패: ${String(err?.message ?? err)}`)
+						}
+						loading={
+							<div className="workspace-editor__pdf-loading">
+								PDF 로딩 중…
+							</div>
+						}
+					>
+						{Array.from({ length: pdfNumPages }, (_, i) => (
+							<PdfPage
+								key={`page-${i + 1}`}
+								pageNumber={i + 1}
+								width={Math.min(
+									800,
+									(typeof window !== "undefined"
+										? window.innerWidth
+										: 800) - 80,
+								)}
+								className="workspace-editor__pdf-page"
+							/>
+						))}
+					</Document>
+				</div>
 			) : viewMode === "csv" ? (
 				<div className="workspace-editor__csv-viewer">
 					{csvResult && csvResult.data.length > 0 ? (
@@ -483,7 +582,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				</div>
 			) : viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
-					<Markdown>{content}</Markdown>
+					<Markdown components={{ code: CodeBlock }}>{content}</Markdown>
 				</div>
 			) : viewMode === "split" ? (
 				<div className="workspace-editor__body--split">
@@ -492,7 +591,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						className="workspace-editor__codemirror workspace-editor__codemirror--half"
 					/>
 					<div className="workspace-editor__preview workspace-editor__preview--half">
-						<Markdown>{content}</Markdown>
+						<Markdown components={{ code: CodeBlock }}>{content}</Markdown>
 					</div>
 				</div>
 			) : (

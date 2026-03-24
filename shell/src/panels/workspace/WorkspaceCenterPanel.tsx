@@ -8,6 +8,7 @@ import { useChatStore } from "../../stores/chat";
 import { usePanelStore } from "../../stores/panel";
 import { Editor } from "./Editor";
 import { FileTree } from "./FileTree";
+import { QuickOpen } from "./QuickOpen";
 import type { SessionInfo } from "./SessionCard";
 import { SessionDashboard } from "./SessionDashboard";
 import { Terminal } from "./Terminal";
@@ -87,6 +88,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	// concurrent duplicate spawn is blocked even before React commits the new state.
 	const openDirsRef = useRef(new Set<string>());
 	const [activeTab, setActiveTab] = useState<string>("editor");
+	const [quickOpenVisible, setQuickOpenVisible] = useState(false);
 	const sessionsRef = useRef<SessionInfo[]>([]);
 	const [classifiedDirs, setClassifiedDirs] = useState<ClassifiedDir[] | null>(
 		null,
@@ -391,6 +393,18 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		setOpenFilePath(path);
 		// Clear badge when directly selecting a file
 		setEditorBadge("");
+	}, []);
+
+	// ── Ctrl+P — Quick Open ──────────────────────────────────────────────
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+				e.preventDefault();
+				setQuickOpenVisible((prev) => !prev);
+			}
+		};
+		window.addEventListener("keydown", handler);
+		return () => window.removeEventListener("keydown", handler);
 	}, []);
 
 	// ── Panel API (WorkspacePanelApi) ─────────────────────────────────────
@@ -796,6 +810,17 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 					/>
 				)}
 			</div>
+			{quickOpenVisible && (
+				<QuickOpen
+					workspaceRoot={resolvedRoot}
+					onSelect={(path) => {
+						setOpenFilePath(path);
+						setEditorBadge("");
+						setActiveTab("editor");
+					}}
+					onClose={() => setQuickOpenVisible(false)}
+				/>
+			)}
 		</div>
 	);
 }

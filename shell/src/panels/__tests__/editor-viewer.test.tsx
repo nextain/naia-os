@@ -54,6 +54,44 @@ vi.mock("@codemirror/lang-yaml", () => ({ yaml: () => ({}) }));
 vi.mock("@codemirror/lang-json", () => ({ json: () => ({}) }));
 vi.mock("@codemirror/lang-css", () => ({ css: () => ({}) }));
 
+// Mock react-pdf — pdf.js requires canvas/worker not available in jsdom
+vi.mock("react-pdf", () => {
+	function Document({
+		children,
+		onLoadSuccess,
+		loading,
+	}: {
+		children: React.ReactNode;
+		file: string;
+		onLoadSuccess?: (info: { numPages: number }) => void;
+		onLoadError?: (err: Error) => void;
+		loading?: React.ReactNode;
+	}) {
+		// Simulate async load success
+		setTimeout(() => onLoadSuccess?.({ numPages: 2 }), 0);
+		return <div data-testid="pdf-document">{loading}{children}</div>;
+	}
+	function Page({ pageNumber, className }: { pageNumber: number; width?: number; className?: string }) {
+		return <div data-testid={`pdf-page-${pageNumber}`} className={className}>PDF Page {pageNumber}</div>;
+	}
+	return {
+		Document,
+		Page,
+		pdfjs: { GlobalWorkerOptions: { workerSrc: "" } },
+	};
+});
+vi.mock("react-pdf/dist/Page/AnnotationLayer.css", () => ({}));
+vi.mock("react-pdf/dist/Page/TextLayer.css", () => ({}));
+
+// Mock mermaid — rendering requires DOM APIs not available in jsdom
+const mockRender = vi.fn().mockResolvedValue({ svg: '<svg data-testid="mermaid-svg">mocked</svg>' });
+vi.mock("mermaid", () => ({
+	default: {
+		initialize: vi.fn(),
+		render: (...args: unknown[]) => mockRender(...args),
+	},
+}));
+
 // ─── Subject ──────────────────────────────────────────────────────────────────
 
 import { Editor } from "../workspace/Editor";
@@ -231,6 +269,61 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 		await waitFor(() => expect(screen.getByText("col1")).toBeInTheDocument());
 		// No sort indicator
 		expect(screen.queryByText(/▲|▼/)).not.toBeInTheDocument();
+	});
+
+	it("renders PDF viewer for .pdf", async () => {
+		render(<Editor filePath="/docs/report.pdf" />);
+		await waitFor(() =>
+			expect(screen.getByTestId("pdf-document")).toBeInTheDocument(),
+		);
+		// After mock onLoadSuccess fires (numPages=2), pages render
+		await waitFor(() => {
+			expect(screen.getByTestId("pdf-page-1")).toBeInTheDocument();
+			expect(screen.getByTestId("pdf-page-2")).toBeInTheDocument();
+		});
+	});
+
+	it("does NOT call workspace_read_file for PDF files", () => {
+		render(<Editor filePath="/docs/spec.pdf" />);
+		expect(mockInvoke).not.toHaveBeenCalledWith(
+			"workspace_read_file",
+			expect.anything(),
+		);
+	});
+
+	it("does NOT show markdown view-mode buttons for PDF files", async () => {
+		render(<Editor filePath="/docs/report.pdf" />);
+		await waitFor(() =>
+			expect(screen.getByTestId("pdf-document")).toBeInTheDocument(),
+		);
+		expect(screen.queryByText("편집")).not.toBeInTheDocument();
+		expect(screen.queryByText("미리보기")).not.toBeInTheDocument();
+	});
+
+	it("renders Mermaid diagram in Markdown preview", async () => {
+		const mdContent = "# Test\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n";
+		mockInvoke.mockResolvedValueOnce(mdContent);
+		render(<Editor filePath="/docs/readme.md" />);
+		// Markdown preview mode — mermaid.render should be called
+		await waitFor(() => {
+			expect(mockRender).toHaveBeenCalled();
+		});
+		// The rendered SVG should be injected
+		await waitFor(() => {
+			const mermaidDiv = document.querySelector(".workspace-editor__mermaid");
+			expect(mermaidDiv).toBeInTheDocument();
+			expect(mermaidDiv?.innerHTML).toContain("mermaid-svg");
+		});
+	});
+
+	it("shows error for invalid Mermaid syntax", async () => {
+		mockRender.mockRejectedValueOnce(new Error("Parse error"));
+		const mdContent = "```mermaid\ninvalid syntax\n```\n";
+		mockInvoke.mockResolvedValueOnce(mdContent);
+		render(<Editor filePath="/docs/bad.md" />);
+		await waitFor(() =>
+			expect(screen.getByText(/Mermaid 오류/)).toBeInTheDocument(),
+		);
 	});
 
 	it("shows load error for failed file read", async () => {

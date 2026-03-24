@@ -400,6 +400,12 @@ export function ChatPanel() {
 	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
 	const lastExtractedIdx = useRef(0);
 
+	// ── Input history (↑↓ arrow key recall) ──────────────────────────────
+	const inputHistoryRef = useRef<string[]>([]);
+	const historyIndexRef = useRef(-1);
+	/** Snapshot of current input before the user starts browsing history */
+	const historyDraftRef = useRef("");
+
 	// Pipeline voice state (Vosk STT → LLM → sentence TTS → audio queue)
 	const pipelineActiveRef = useRef(false);
 	const audioQueueRef = useRef<AudioQueue | null>(null);
@@ -581,6 +587,14 @@ export function ChatPanel() {
 	async function handleSend(overrideText?: string) {
 		const text = (overrideText ?? input).trim();
 		if (!text) return;
+
+		// Record in input history (deduplicate consecutive duplicates)
+		const hist = inputHistoryRef.current;
+		if (hist.length === 0 || hist[hist.length - 1] !== text) {
+			hist.push(text);
+		}
+		historyIndexRef.current = -1;
+		historyDraftRef.current = "";
 
 		// Omni voice mode: send text via Live session
 		if (
@@ -1809,6 +1823,47 @@ export function ChatPanel() {
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			handleSend();
+			return;
+		}
+
+		// ── Arrow key input history ──────────────────────────────────────
+		const hist = inputHistoryRef.current;
+		if (hist.length === 0) return;
+		const el = e.currentTarget;
+
+		if (e.key === "ArrowUp") {
+			// Only activate when cursor is at the very start and no selection
+			if (el.selectionStart !== 0 || el.selectionEnd !== 0) return;
+
+			e.preventDefault();
+			if (historyIndexRef.current === -1) {
+				historyDraftRef.current = input;
+				historyIndexRef.current = hist.length - 1;
+			} else if (historyIndexRef.current > 0) {
+				historyIndexRef.current -= 1;
+			}
+			const text = hist[historyIndexRef.current];
+			setInput(text);
+			// After React re-renders, move cursor to start so next ArrowUp works
+			requestAnimationFrame(() => {
+				el.setSelectionRange(0, 0);
+			});
+		} else if (e.key === "ArrowDown") {
+			if (historyIndexRef.current === -1) return;
+
+			e.preventDefault();
+			let text: string;
+			if (historyIndexRef.current < hist.length - 1) {
+				historyIndexRef.current += 1;
+				text = hist[historyIndexRef.current];
+			} else {
+				historyIndexRef.current = -1;
+				text = historyDraftRef.current;
+			}
+			setInput(text);
+			requestAnimationFrame(() => {
+				el.setSelectionRange(0, 0);
+			});
 		}
 	}
 
@@ -2079,7 +2134,7 @@ export function ChatPanel() {
 										: t("chat.placeholder")
 							: t("chat.placeholder")
 					}
-					rows={1}
+					rows={3}
 					disabled={voiceMode !== "off" && !pipelineActiveRef.current}
 					className="chat-input"
 				/>
