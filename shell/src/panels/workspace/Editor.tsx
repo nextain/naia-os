@@ -586,7 +586,19 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				<button
 					type="button"
 					className="workspace-editor__view-btn workspace-editor__print-btn"
-					onClick={() => window.print()}
+					onClick={() => {
+						if (isMd && viewMode !== "preview") {
+							const prev = viewMode;
+							setViewMode("preview");
+							// Wait for React to render preview, then print, then restore
+							requestAnimationFrame(() => {
+								window.print();
+								setViewMode(prev);
+							});
+						} else {
+							window.print();
+						}
+					}}
 					title="인쇄"
 				>
 					🖨
