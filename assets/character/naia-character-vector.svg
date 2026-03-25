@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">
+  <defs>
+    <!-- Body gradient: translucent liquid carbon feel -->
+    <radialGradient id="bodyGrad" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#E0F7FA" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="#B2EBF2" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#80DEEA" stop-opacity="0.7"/>
+    </radialGradient>
+
+    <!-- Ear gradient -->
+    <radialGradient id="earGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E0F7FA" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#80DEEA" stop-opacity="0.6"/>
+    </radialGradient>
+
+    <!-- Inner glow for circuit lines -->
+    <filter id="glowCyan" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Halo glow -->
+    <filter id="haloGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Subtle body highlight -->
+    <radialGradient id="bodyHighlight" cx="35%" cy="30%" r="40%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Head gradient -->
+    <radialGradient id="headGrad" cx="45%" cy="35%" r="55%">
+      <stop offset="0%" stop-color="#E8F8F9" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#C4EEF2" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#90D8E0" stop-opacity="0.75"/>
+    </radialGradient>
+
+    <!-- Limb gradient -->
+    <radialGradient id="limbGrad" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#D4F1F4" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#88CDD4" stop-opacity="0.65"/>
+    </radialGradient>
+  </defs>
+
+  <!-- === HALO TRIANGLE === -->
+  <g filter="url(#haloGlow)">
+    <polygon points="200,62 178,100 222,100"
+      fill="none" stroke="#06B6D4" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Vertex nodes -->
+    <circle cx="200" cy="62" r="3" fill="#06B6D4"/>
+    <circle cx="178" cy="100" r="3" fill="#06B6D4"/>
+    <circle cx="222" cy="100" r="3" fill="#06B6D4"/>
+  </g>
+
+  <!-- === EARS === -->
+  <!-- Left ear -->
+  <path d="M145,185 L125,115 L175,160 Z" fill="url(#earGrad)" stroke="#A0D8DE" stroke-width="1.5"/>
+  <!-- Left ear inner -->
+  <path d="M148,175 L135,130 L168,162 Z" fill="#B8E8EE" fill-opacity="0.5"/>
+
+  <!-- Right ear -->
+  <path d="M255,185 L275,115 L225,160 Z" fill="url(#earGrad)" stroke="#A0D8DE" stroke-width="1.5"/>
+  <!-- Right ear inner -->
+  <path d="M252,175 L265,130 L232,162 Z" fill="#B8E8EE" fill-opacity="0.5"/>
+
+  <!-- === HEAD === -->
+  <ellipse cx="200" cy="210" rx="75" ry="70" fill="url(#headGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+  <!-- Head highlight -->
+  <ellipse cx="185" cy="195" rx="40" ry="35" fill="url(#bodyHighlight)"/>
+
+  <!-- === EYES === -->
+  <!-- Left eye -->
+  <ellipse cx="175" cy="210" rx="14" ry="16" fill="#1A1A2E"/>
+  <!-- Left eye shine -->
+  <ellipse cx="170" cy="204" rx="5" ry="6" fill="#FFFFFF" fill-opacity="0.7"/>
+  <circle cx="180" cy="216" r="2.5" fill="#FFFFFF" fill-opacity="0.4"/>
+
+  <!-- Right eye -->
+  <ellipse cx="225" cy="210" rx="14" ry="16" fill="#1A1A2E"/>
+  <!-- Right eye shine -->
+  <ellipse cx="220" cy="204" rx="5" ry="6" fill="#FFFFFF" fill-opacity="0.7"/>
+  <circle cx="230" cy="216" r="2.5" fill="#FFFFFF" fill-opacity="0.4"/>
+
+  <!-- === MOUTH (w shape) === -->
+  <path d="M190,235 Q195,242 200,237 Q205,242 210,235"
+    fill="none" stroke="#6B8A8E" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- === BODY (torso) === -->
+  <path d="M160,270 Q155,265 155,290 L150,380 Q150,410 175,415 L225,415 Q250,410 250,380 L245,290 Q245,265 240,270 Z"
+    fill="url(#bodyGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+  <!-- Body highlight -->
+  <path d="M170,280 Q165,275 165,300 L162,360 Q162,375 180,378 L210,378 Q220,375 218,360 L215,300 Q215,275 210,280 Z"
+    fill="url(#bodyHighlight)"/>
+
+  <!-- === CHEST EMBLEM === -->
+  <g filter="url(#glowCyan)">
+    <!-- Triangle emblem -->
+    <polygon points="200,310 188,330 212,330"
+      fill="none" stroke="#06B6D4" stroke-width="1.8" stroke-linejoin="round" stroke-opacity="0.8"/>
+    <!-- Vertex dots -->
+    <circle cx="200" cy="310" r="2" fill="#06B6D4" fill-opacity="0.8"/>
+    <circle cx="188" cy="330" r="2" fill="#06B6D4" fill-opacity="0.8"/>
+    <circle cx="212" cy="330" r="2" fill="#06B6D4" fill-opacity="0.8"/>
+  </g>
+
+  <!-- === CIRCUIT LINES (subtle internal pattern) === -->
+  <g filter="url(#glowCyan)" opacity="0.3">
+    <line x1="185" y1="345" x2="200" y2="360" stroke="#06B6D4" stroke-width="0.8"/>
+    <line x1="200" y1="360" x2="215" y2="350" stroke="#06B6D4" stroke-width="0.8"/>
+    <line x1="195" y1="375" x2="205" y2="370" stroke="#06B6D4" stroke-width="0.8"/>
+    <circle cx="200" cy="360" r="1.5" fill="#06B6D4"/>
+    <circle cx="185" cy="345" r="1" fill="#06B6D4"/>
+    <circle cx="215" cy="350" r="1" fill="#06B6D4"/>
+  </g>
+
+  <!-- === ARMS === -->
+  <!-- Left arm -->
+  <path d="M155,290 Q130,300 120,340 Q115,360 125,365 Q135,370 140,355 Q148,325 155,315"
+    fill="url(#limbGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+
+  <!-- Right arm -->
+  <path d="M245,290 Q270,300 280,340 Q285,360 275,365 Q265,370 260,355 Q252,325 245,315"
+    fill="url(#limbGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+
+  <!-- === LEGS === -->
+  <!-- Left leg -->
+  <path d="M175,410 Q170,415 168,445 Q165,475 170,490 Q175,500 185,498 Q195,495 193,480 Q190,455 188,430 Q186,415 182,410"
+    fill="url(#limbGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+
+  <!-- Right leg -->
+  <path d="M218,410 Q214,415 212,445 Q210,475 215,490 Q220,500 230,498 Q240,495 237,480 Q234,455 232,430 Q230,415 225,410"
+    fill="url(#limbGrad)" stroke="#A0D8DE" stroke-width="1.2"/>
+</svg>

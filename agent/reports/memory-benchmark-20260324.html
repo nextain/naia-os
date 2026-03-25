@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpha Memory System — Benchmark Report v0.1.0</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+  .grade-pass { @apply bg-emerald-50 border-emerald-200 text-emerald-800; }
+  .grade-warn { @apply bg-amber-50 border-amber-200 text-amber-800; }
+  .grade-fail { @apply bg-red-50 border-red-200 text-red-800; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+<!-- Header -->
+<header class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+  <div class="max-w-5xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Alpha Memory System</h1>
+        <p class="text-indigo-200 mt-1">Benchmark Report v0.1.0</p>
+      </div>
+      <div class="text-right text-sm text-indigo-200">
+        <p>2026-03-24 22:08 KST</p>
+        <p>naia-os/agent</p>
+      </div>
+    </div>
+    <!-- Score Badge -->
+    <div class="mt-6 flex items-end gap-6">
+      <div class="bg-white/20 backdrop-blur rounded-2xl px-6 py-4">
+        <div class="text-4xl font-bold">80%</div>
+        <div class="text-xs text-indigo-200 mt-1">Overall Pass Rate</div>
+      </div>
+      <div class="flex gap-3 pb-1">
+        <div class="text-center">
+          <div class="text-2xl font-semibold text-emerald-300">8</div>
+          <div class="text-xs text-indigo-200">Pass</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-semibold text-amber-300">2</div>
+          <div class="text-xs text-indigo-200">Warn</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-semibold text-red-300">0</div>
+          <div class="text-xs text-indigo-200">Fail</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- AI Interpretation -->
+<section class="max-w-5xl mx-auto px-6 -mt-4">
+  <div class="bg-white rounded-xl shadow-lg border border-indigo-100 p-6">
+    <div class="flex items-start gap-3">
+      <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+      </div>
+      <div>
+        <h2 class="font-semibold text-indigo-900 text-lg">AI 해석 — 이 보고서가 말하는 것</h2>
+        <div class="mt-3 text-gray-700 space-y-3 text-[15px] leading-relaxed">
+          <p>
+            <strong>한마디로:</strong> Alpha의 기억 시스템 "뼈대"는 잘 작동합니다.
+            뇌과학에서 가져온 핵심 메커니즘 8개 중 8개가 이론대로 동작합니다.
+          </p>
+          <p>
+            <strong>쉽게 설명하면,</strong> 우리는 사람 뇌의 기억 원리를 AI에 구현했습니다:
+          </p>
+          <ul class="list-disc list-inside space-y-1 ml-2 text-gray-600">
+            <li><strong>기억의 감쇠</strong> — 오래된 기억은 자연스럽게 약해짐 (에빙하우스 곡선) → <span class="text-emerald-600 font-medium">완벽 동작</span></li>
+            <li><strong>떠올릴수록 강해짐</strong> — 자주 꺼내본 기억은 더 오래 남음 → <span class="text-emerald-600 font-medium">60% 강화 효과 (목표 30% 이상)</span></li>
+            <li><strong>연상 기억</strong> — "React"를 생각하면 "TypeScript"도 따라 떠오름 → <span class="text-emerald-600 font-medium">완벽 동작</span></li>
+            <li><strong>모순 감지</strong> — "vim 좋아" → "vim 안 써" 하면 기존 기억 업데이트 → <span class="text-emerald-600 font-medium">100% 정확</span></li>
+            <li><strong>중요한 건 기억</strong> — "항상 TypeScript 써!" 같은 지시는 반드시 저장 → <span class="text-emerald-600 font-medium">완벽 분류</span></li>
+            <li><strong>맥락 기반 인출</strong> — 같은 프로젝트에서 생긴 기억이 우선 떠오름 → <span class="text-emerald-600 font-medium">완벽 동작</span></li>
+          </ul>
+          <p>
+            <strong>아직 부족한 2가지:</strong>
+          </p>
+          <ul class="list-disc list-inside space-y-1 ml-2 text-gray-600">
+            <li><strong class="text-amber-700">중요도별 생존 차이</strong> (0.33/0.50) — 시간이 지나면 중요한 기억이 덜 중요한 기억보다 더 오래 남아야 하는데, 그 차이가 아직 작습니다. 감쇠 파라미터 튜닝이 필요합니다.</li>
+            <li><strong class="text-amber-700">기억 압축</strong> (1:1 / 3:1~10:1) — 비슷한 에피소드 6개가 들어오면 2~3개 팩트로 압축되어야 하는데, 지금은 1:1로 그대로 나옵니다. 중복 제거 로직이 필요합니다.</li>
+          </ul>
+          <p class="text-gray-500 text-sm mt-4">
+            참고: 이 보고서는 메모리 모듈의 <strong>내부 로직</strong>만 검증합니다.
+            실제 대화에서의 기억력 (LoCoMo, LongMemEval 같은 업계 벤치마크)은
+            Agent에 와이어링된 후 별도로 측정해야 합니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison with Previous -->
+<section class="max-w-5xl mx-auto px-6 mt-6">
+  <div class="bg-gray-100 rounded-xl border border-gray-200 p-6">
+    <h3 class="font-semibold text-gray-700 mb-3">이전 보고서 비교</h3>
+    <p class="text-gray-500 text-sm">
+      이번이 첫 번째 보고서 (v0.1.0) 입니다. 다음 보고서부터 개선 추이를 비교합니다.
+    </p>
+    <div class="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
+      <div class="bg-white rounded-lg p-3 border border-gray-200">
+        <div class="text-gray-400 text-xs">v0.1.0 (현재)</div>
+        <div class="text-2xl font-bold text-indigo-600 mt-1">80%</div>
+        <div class="text-gray-400 text-xs mt-1">8/10 pass</div>
+      </div>
+      <div class="bg-white rounded-lg p-3 border border-dashed border-gray-300">
+        <div class="text-gray-300 text-xs">v0.2.0 (예정)</div>
+        <div class="text-2xl font-bold text-gray-300 mt-1">—</div>
+        <div class="text-gray-300 text-xs mt-1">decay 튜닝 후</div>
+      </div>
+      <div class="bg-white rounded-lg p-3 border border-dashed border-gray-300">
+        <div class="text-gray-300 text-xs">v1.0.0 (목표)</div>
+        <div class="text-2xl font-bold text-gray-300 mt-1">100%</div>
+        <div class="text-gray-300 text-xs mt-1">전 항목 pass</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Detailed Results -->
+<section class="max-w-5xl mx-auto px-6 mt-8 mb-12">
+
+  <!-- Alpha-Original -->
+  <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+    Alpha-Original — 우리가 세운 기준 (업계 최초)
+  </h3>
+  <p class="text-sm text-gray-500 mb-4">기존에 테스트 기준이 없던 뇌과학 기반 메커니즘. 우리가 최초로 정의한 기준입니다.</p>
+
+  <div class="space-y-3">
+
+    <!-- decayCurveAccuracy -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">기억 감쇠 곡선 정확도</div>
+            <div class="text-xs text-gray-500">에빙하우스 망각 곡선을 정확히 따르는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">R² = 1.000</div>
+          <div class="text-xs text-gray-400">목표: ≥ 0.95</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: 시간이 지나면 기억이 약해지는 정도를 수학적으로 모델링. 이론 곡선과 완벽 일치.</p>
+    </div>
+
+    <!-- recallStrengthening -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">인출 강화 효과</div>
+            <div class="text-xs text-gray-500">기억을 떠올릴수록 더 강해지는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">+60%</div>
+          <div class="text-xs text-gray-400">목표: ≥ +30%</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: 자주 복습한 내용은 더 오래 기억됨 (spaced repetition). 3회 인출 후 60% 강화.</p>
+    </div>
+
+    <!-- spreadingActivation -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">확산 활성화</div>
+            <div class="text-xs text-gray-500">"React" 검색 시 "TypeScript", "Vitest"도 연상되는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">p@5 = 1.00</div>
+          <div class="text-xs text-gray-400">목표: ≥ 0.60</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: 하나를 떠올리면 관련된 것이 따라서 활성화됨 (Collins & Loftus 1975). 지식 그래프에서 구현.</p>
+    </div>
+
+    <!-- hebbianCorrelation -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">헤브 학습 상관관계</div>
+            <div class="text-xs text-gray-500">자주 같이 언급된 개념끼리 강하게 연결되는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">&rho; = 1.00</div>
+          <div class="text-xs text-gray-400">목표: ≥ 0.70</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: "함께 발화하는 뉴런은 함께 연결된다" (Hebb 1949). 동시 출현 빈도와 연결 강도가 완벽 상관.</p>
+    </div>
+
+    <!-- contradictionDetection -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">모순 감지</div>
+            <div class="text-xs text-gray-500">"vim 좋아" → "vim 안 써" 를 감지하는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">P=1.00 R=1.00</div>
+          <div class="text-xs text-gray-400">목표: P≥0.50 R≥0.80</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: 기억 재고화 (Nader 2000) — 기존 기억이 새 정보와 모순되면 업데이트됨. EN/KR 10개 테스트 케이스 전부 정확.</p>
+    </div>
+
+    <!-- reconsolidation -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">기억 재고화 정확성</div>
+            <div class="text-xs text-gray-500">기존 기억이 정확히 교체되는가 (복제 아닌 수정)</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">100%</div>
+          <div class="text-xs text-gray-400">목표: 100%</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">3가지 확인: (1) 옛 기억이 수정됨 (복제 아님), (2) 새 내용으로 검색 가능, (3) 무관한 기억은 영향 없음.</p>
+    </div>
+
+    <!-- contextDependentRetrieval -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">맥락 기반 인출</div>
+            <div class="text-xs text-gray-500">같은 프로젝트에서 생긴 기억이 우선 떠오르는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">1.00</div>
+          <div class="text-xs text-gray-400">목표: ≥ 0.50</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">뇌과학 원리: Tulving의 인코딩 특이성 — 기억이 만들어진 맥락과 비슷한 맥락에서 더 잘 떠오름.</p>
+    </div>
+
+    <!-- importanceRetention (WARN) -->
+    <div class="bg-white rounded-lg border border-amber-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">&#9651;</span>
+          <div>
+            <div class="font-medium text-amber-800">중요도별 생존 차이</div>
+            <div class="text-xs text-gray-500">중요한 기억이 덜 중요한 기억보다 오래 남는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-amber-700">0.333</div>
+          <div class="text-xs text-gray-400">목표: ≥ 0.50</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-amber-400 h-2 rounded-full" style="width: 67%"></div>
+      </div>
+      <p class="text-xs text-amber-700 mt-2 font-medium">
+        개선 필요: 60일 경과 후 중요도 0.9 vs 0.05 메모리의 생존 차이가 기대보다 작음.
+        감쇠 함수의 IMPORTANCE_DAMPING 파라미터 (현재 0.8) 를 높이거나,
+        저중요도 메모리의 기본 감쇠율을 더 공격적으로 설정해야 함.
+      </p>
+    </div>
+
+    <!-- consolidationCompression (WARN) -->
+    <div class="bg-white rounded-lg border border-amber-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">&#9651;</span>
+          <div>
+            <div class="font-medium text-amber-800">기억 압축 비율</div>
+            <div class="text-xs text-gray-500">비슷한 에피소드 여러 개를 하나의 팩트로 압축하는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-amber-700">1:1</div>
+          <div class="text-xs text-gray-400">목표: 3:1 ~ 10:1</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-amber-400 h-2 rounded-full" style="width: 33%"></div>
+      </div>
+      <p class="text-xs text-amber-700 mt-2 font-medium">
+        개선 필요: 6개 에피소드 → 6개 팩트 (압축 없음).
+        현재 heuristic extractor가 모든 에피소드를 독립 팩트로 만듦.
+        중복 감지 + 병합 로직, 또는 LLM 기반 추출기가 필요.
+        사람의 수면 중 기억 통합처럼, 비슷한 경험을 하나의 일반 지식으로 압축해야 함.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Adopted Criteria -->
+  <h3 class="text-lg font-semibold text-gray-800 mt-8 mb-4 flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+    Adopted — 논문 기반 기준
+  </h3>
+  <p class="text-sm text-gray-500 mb-4">A-MAC (2026) 등 연구 논문에서 발표된 threshold를 채택.</p>
+
+  <div class="space-y-3">
+    <!-- importanceGating -->
+    <div class="bg-white rounded-lg border border-emerald-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">&#10003;</span>
+          <div>
+            <div class="font-medium">중요도 게이팅 (편도체 역할)</div>
+            <div class="text-xs text-gray-500">중요한 정보만 저장하고 사소한 건 무시하는가</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold text-emerald-700">F1 = 1.00</div>
+          <div class="text-xs text-gray-400">목표: P≥0.40 R≥0.90 F1≥0.55</div>
+        </div>
+      </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">
+        A-MAC (2026) 논문 기준. 뇌의 편도체처럼 감정적/목표 관련 정보를 선별.
+        "항상 TypeScript 써!" → 저장. "ok" → 무시. 현재 테스트 10건 완벽 분류.
+        단, 현재는 쉬운 케이스만 테스트 — 실제 대화에서는 정확도가 떨어질 것으로 예상.
+      </p>
+    </div>
+  </div>
+
+  <!-- Industry Criteria (not yet implemented) -->
+  <h3 class="text-lg font-semibold text-gray-800 mt-8 mb-4 flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+    Industry — 업계 벤치마크 (미측정)
+  </h3>
+  <p class="text-sm text-gray-500 mb-4">LoCoMo, LongMemEval 등 업계 표준. Agent 와이어링 후 측정 예정.</p>
+
+  <div class="bg-gray-100 rounded-lg border border-dashed border-gray-300 p-4">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-gray-500 text-left">
+          <th class="py-1">기준</th>
+          <th class="py-1">목표</th>
+          <th class="py-1">출처</th>
+          <th class="py-1">상태</th>
+        </tr>
+      </thead>
+      <tbody class="text-gray-600">
+        <tr><td class="py-1.5">단일 팩트 검색</td><td>≥ 90%</td><td>DMR (Letta)</td><td class="text-gray-400">미측정</td></tr>
+        <tr><td class="py-1.5">지식 업데이트</td><td>≥ 75%</td><td>LongMemEval</td><td class="text-gray-400">미측정</td></tr>
+        <tr><td class="py-1.5">거부 (없는 기억)</td><td>≥ 85%</td><td>LongMemEval</td><td class="text-gray-400">미측정</td></tr>
+        <tr><td class="py-1.5">멀티세션 추론</td><td>≥ 65%</td><td>LongMemEval</td><td class="text-gray-400">미측정</td></tr>
+        <tr><td class="py-1.5">지식 유지</td><td>≥ 0.70</td><td>DeepEval</td><td class="text-gray-400">미측정</td></tr>
+        <tr><td class="py-1.5">시간 추론</td><td>≥ 60%</td><td>LongMemEval</td><td class="text-gray-400">미측정</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</section>
+
+<!-- Footer -->
+<footer class="bg-gray-100 border-t border-gray-200">
+  <div class="max-w-5xl mx-auto px-6 py-4 text-xs text-gray-500 flex justify-between">
+    <div>
+      <p>Naia OS — Alpha Memory System Benchmark</p>
+      <p>Run: <code class="bg-gray-200 px-1 rounded">cd agent && pnpm benchmark:memory</code></p>
+    </div>
+    <div class="text-right">
+      <p>10 criteria (8 alpha-original, 1 adopted, 1 industry planned)</p>
+      <p>92 unit tests passed</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

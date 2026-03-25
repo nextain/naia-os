@@ -198,6 +198,17 @@ fi
 
 
 # ============================================================
+# PAM: Disable fingerprint auth for lock screen (#138)
+# ============================================================
+# Bazzite base ships authselect "local with-fingerprint" which puts
+# pam_fprintd.so before pam_unix.so in system-auth. On machines without
+# a fingerprint reader, pam_fprintd blocks/times out and KDE's lock
+# screen (kscreensaver → system-auth) rejects the correct password.
+# SDDM uses password-auth (no fprintd) so "Switch User" works fine.
+# Fix: reset authselect to "local" without fingerprint.
+authselect select local --force 2>/dev/null || true
+
+# ============================================================
 # Wi-Fi: Disable iwlwifi power save (Intel bug workaround)
 # ============================================================
 mkdir -p /usr/lib/modprobe.d
