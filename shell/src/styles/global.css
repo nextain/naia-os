@@ -6216,3 +6216,51 @@ body.resizing-row {
 	color: var(--text-3, #666);
 	font-size: 14px;
 }
+
+/* ── Print button ──────────────────────────────────────── */
+
+.workspace-editor__print-btn {
+	margin-left: auto;
+}
+
+/* ── Print styles ──────────────────────────────────────── */
+
+@media print {
+	/* Hide everything except the editor content */
+	body > *:not(#root) { display: none !important; }
+	.chat-panel,
+	.sidebar,
+	.naia-panel,
+	.workspace-panel__sidebar,
+	.workspace-panel__tabs,
+	.workspace-editor__header,
+	.quick-open-overlay { display: none !important; }
+
+	.workspace-editor {
+		position: absolute !important;
+		inset: 0 !important;
+		background: white !important;
+		color: black !important;
+	}
+
+	.workspace-editor__preview,
+	.workspace-editor__image-viewer,
+	.workspace-editor__pdf-viewer,
+	.workspace-editor__csv-viewer,
+	.workspace-editor__log-viewer {
+		background: white !important;
+		color: black !important;
+		overflow: visible !important;
+	}
+
+	.workspace-editor__preview th,
+	.workspace-editor__csv-th {
+		background: #eee !important;
+		color: black !important;
+	}
+
+	.workspace-editor__preview td,
+	.workspace-editor__csv-td {
+		color: black !important;
+	}
+}

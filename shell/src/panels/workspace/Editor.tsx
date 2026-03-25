@@ -583,6 +583,14 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						미리보기
 					</button>
 				)}
+				<button
+					type="button"
+					className="workspace-editor__view-btn workspace-editor__print-btn"
+					onClick={() => window.print()}
+					title="인쇄"
+				>
+					🖨
+				</button>
 			</div>
 
 			{/* Viewer / Editor area */}
