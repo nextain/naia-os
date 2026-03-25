@@ -22,6 +22,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mermaid from "mermaid";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Logger } from "../../lib/logger";
 import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
@@ -100,7 +101,7 @@ mermaid.initialize({
 	// Force pure SVG <text> elements for all labels.
 	htmlLabels: false,
 	flowchart: { htmlLabels: false },
-	sequence: { useHtmlLabels: false },
+	sequence: { useHtmlLabels: false } as Record<string, unknown>,
 });
 
 let mermaidIdCounter = 0;
@@ -788,7 +789,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				</div>
 			) : viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
-					<Markdown components={{ code: CodeBlock }}>{content}</Markdown>
+					<Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>{content}</Markdown>
 				</div>
 			) : viewMode === "split" ? (
 				<div className="workspace-editor__body--split">
@@ -797,7 +798,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						className="workspace-editor__codemirror workspace-editor__codemirror--half"
 					/>
 					<div className="workspace-editor__preview workspace-editor__preview--half">
-						<Markdown components={{ code: CodeBlock }}>{content}</Markdown>
+						<Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>{content}</Markdown>
 					</div>
 				</div>
 			) : (

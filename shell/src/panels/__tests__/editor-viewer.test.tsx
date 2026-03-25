@@ -105,14 +105,17 @@ afterEach(() => {
 
 describe("Editor — file type helpers (via render behaviour)", () => {
 	it("renders image viewer for .png", async () => {
-		mockInvoke.mockResolvedValue("");
+		mockInvoke.mockImplementation((cmd: string) => {
+			if (cmd === "workspace_read_file_bytes") return Promise.resolve([137, 80, 78, 71]);
+			return Promise.resolve("");
+		});
 		render(<Editor filePath="/dev/project/screenshot.png" />);
 		// Image viewer shows <img>, not CodeMirror
 		await waitFor(() => {
 			expect(screen.getByRole("img")).toBeInTheDocument();
 		});
 		const img = screen.getByRole("img");
-		expect(img).toHaveAttribute("src", "asset:///dev/project/screenshot.png");
+		expect(img.getAttribute("src")).toMatch(/^blob:/);
 	});
 
 	it("renders image viewer for .jpg", async () => {
@@ -128,11 +131,14 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 	});
 
 	it("renders image viewer for .svg (not text editor)", async () => {
-		// invoke is NOT called for image files — no mockInvoke setup needed
+		mockInvoke.mockImplementation((cmd: string) => {
+			if (cmd === "workspace_read_file_bytes") return Promise.resolve([60, 115, 118, 103]);
+			return Promise.resolve("");
+		});
 		render(<Editor filePath="/assets/icon.svg" />);
 		await waitFor(() => expect(screen.getByRole("img")).toBeInTheDocument());
 		const img = screen.getByRole("img");
-		expect(img).toHaveAttribute("src", "asset:///assets/icon.svg");
+		expect(img.getAttribute("src")).toMatch(/^blob:/);
 		// Confirm viewMode is "image": no markdown edit buttons rendered
 		expect(screen.queryByText("편집")).not.toBeInTheDocument();
 		expect(screen.queryByText("미리보기")).not.toBeInTheDocument();

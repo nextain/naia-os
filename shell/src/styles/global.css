@@ -5907,6 +5907,30 @@ body.resizing-row {
 	overflow-x: auto;
 }
 
+.workspace-editor__preview table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 12px 0;
+	font-size: 13px;
+}
+
+.workspace-editor__preview th {
+	background: var(--surface-2, #2a2a2a);
+	padding: 6px 10px;
+	text-align: left;
+	border-bottom: 2px solid var(--border, #444);
+	white-space: nowrap;
+}
+
+.workspace-editor__preview td {
+	padding: 5px 10px;
+	border-bottom: 1px solid var(--border, #333);
+}
+
+.workspace-editor__preview tr:hover {
+	background: rgba(255, 255, 255, 0.03);
+}
+
 /* ── Image viewer ──────────────────────────────────────── */
 
 .workspace-editor__image-viewer {
