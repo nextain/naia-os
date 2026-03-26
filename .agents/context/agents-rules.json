@@ -39,6 +39,10 @@
       "compaction_identifier_loss": {
         "trap": "When context compresses, AI rewrites identifiers from memory — issue numbers get wrong, UUIDs get truncated, file paths get guessed.",
         "counter": "Preserve all opaque identifiers exactly as found in files/tools: issue numbers, UUIDs, file paths, API keys, hostnames, URLs, port numbers. If unsure, read the source file rather than recalling from memory."
+      },
+      "pii_in_public_repo": {
+        "trap": "AI uses real user names, addresses, family info, company names in test data, examples, or documentation committed to public repos.",
+        "counter": "This is a PUBLIC open-source repo. NEVER use real personal information (maintainer names, addresses, family, company names) in any committed file. Always use fictional personas (e.g., 김하늘, fictional company). If real data is needed, it belongs in private repos only (docs-business, etc.)."
       }
     }
   },

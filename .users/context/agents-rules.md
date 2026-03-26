@@ -39,6 +39,7 @@ Known AI tendencies that violate the four principles:
 | **Success bias reporting** | AI reports uncertain states as "complete" or "working". E.g., marking work done when E2E was not actually run. | If not verified, it is not complete. Report honestly: "E2E blocked by X, implementation done but unverified." |
 | **Front-back inconsistency** | Sequential generation causes earlier code/comments to contradict later code in the same file. | Iterative review catches this. Re-read the full file after writing, check for internal consistency. |
 | **Compaction identifier loss** | When context compresses, AI rewrites identifiers from memory — issue numbers get wrong, UUIDs get truncated, file paths get guessed. | Preserve all opaque identifiers exactly as found in files/tools: issue numbers, UUIDs, file paths, API keys, hostnames, URLs, port numbers. If unsure, read the source file rather than recalling. |
+| **PII in public repo** | AI uses real user names, addresses, family info, company names in test data, examples, or documentation committed to public repos. | This is a PUBLIC open-source repo. NEVER use real personal information (maintainer names, addresses, family, company names) in any committed file. Always use fictional personas (e.g., 김하늘). If real data is needed, it belongs in private repos only (docs-business, etc.). |
 
 ---
 
