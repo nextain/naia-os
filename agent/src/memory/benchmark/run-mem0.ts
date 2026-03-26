@@ -92,7 +92,11 @@ async function main() {
 			}
 
 			// Search with threshold filtering
-			const SIMILARITY_THRESHOLD = 0.3;
+			// Calibrated on separate data (not benchmark queries):
+			// Related: 0.59-0.79 (avg 0.67), Unrelated: 0.53-0.65 (avg 0.56)
+			// Gap is narrow — threshold alone cannot fully solve abstention.
+			// 0.6 is the best compromise: catches most unrelated, keeps most related.
+			const SIMILARITY_THRESHOLD = 0.6;
 			let searchResults: any[] = [];
 			try {
 				const raw = await m.search(query, { userId: "bench-user", limit: 5 });
