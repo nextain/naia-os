@@ -1,0 +1,130 @@
+description: Naia OS hardware requirements and GPU tier definitions
+
+design_principle: |
+  Naia OS is a local-first AI. User data never leaves the device.
+  All AI processing that touches user content (conversation, memory, embeddings,
+  fact extraction, contradiction detection) MUST run locally.
+  Cloud is only for non-AI tasks (updates, model downloads, license checks).
+
+  GPU is not optional — it is a product requirement.
+  Users without local GPU should use cloud-based AI services instead.
+
+privacy_rule: |
+  Any LLM/embedding task that sees user text → local only.
+  No exceptions. This is Naia's core identity.
+
+hardware_tiers:
+  full:
+    name: "풀스펙"
+    vram: "128GB"
+    reference_hw: "Radeon AI MAX+ 395 (128GB unified memory)"
+    capabilities:
+      - "omni 모델 (MiniCPM-o, 음성+비전+텍스트)"
+      - "대형 대화 모델 (70B Q4, ~40GB)"
+      - "기억 의식적 사고 (32B, ~20GB)"
+      - "기억 자율신경계 (임베딩 + 4B, ~3.5GB)"
+      - "전부 동시 상주, 클라우드 호출 0"
+    total_estimate: "~103GB, 여유 ~25GB"
+
+  standard:
+    name: "기본"
+    vram: "48GB"
+    reference_hw: "RTX 4090×2 (24GB×2) 또는 A40 (48GB) 또는 동급"
+    capabilities:
+      - "omni 모델 + 기억 자율신경계 + 기억 의식적 사고"
+      - "대부분의 기능이 로컬에서 동작"
+    constraints:
+      - "대형 모델(70B) 동시 상주는 불가"
+
+  minimum:
+    name: "마지노선"
+    vram: "32GB"
+    reference_hw: "RTX 5090 (32GB) 또는 동급"
+    capabilities:
+      - "omni 모델 (최적화/양자화 필수) + 기억 자율신경계"
+    constraints:
+      - "기억 의식적 사고는 omni idle 시에만 또는 모델 교대 로드"
+      - "omni 최적화 성공 여부에 의존"
+
+  text_only:
+    name: "텍스트 전용 (omni 없이)"
+    vram: "16GB~24GB"
+    reference_hw: "RTX 4060 Ti 16GB / RTX 4070 Ti Super 16GB / RTX 3090 24GB"
+    capabilities:
+      - "텍스트 전용 대화 모델 (8B Q4, ~6GB)"
+      - "기억 자율신경계 (임베딩 0.5GB + 4B 3GB)"
+      - "STT/TTS 별도 경량 모델 (Whisper, Piper)"
+    constraints:
+      - "omni 불가"
+      - "16GB: KV cache 포함 ~12.5GB, 여유 ~3.5GB (빡빡)"
+      - "24GB: 여유 ~11GB (편안)"
+      - "기억 의식적 사고는 모델 교대 로드"
+    note: "16GB는 최소 동작, 24GB 권장"
+
+  not_supported:
+    name: "지원 대상 아님"
+    vram: "<16GB 또는 GPU 없음"
+    recommendation: "클라우드 AI 서비스 사용 권장"
+
+memory_system_gpu_allocation:
+  description: |
+    기억 작업을 자율신경계(무의식)와 의식적 사고로 분리.
+    자율신경계는 상시 로드, 의식적 사고는 필요시 실행.
+
+  autonomic:
+    name: "자율신경계 (상시, 매 턴)"
+    tasks:
+      - "임베딩 생성 (nomic-embed-text, ~0.5GB)"
+      - "노이즈 필터링 (4B 모델, ~3GB)"
+      - "팩트 추출 (4B 모델, 재사용)"
+      - "기억 감쇠 계산 (CPU, decay.ts)"
+      - "지식그래프 엣지 관리 (CPU, knowledge-graph.ts)"
+      - "통합 스케줄링 (CPU)"
+    vram_total: "~3.5GB"
+    model_tier: "Flash급 (작고 빠름)"
+
+  conscious:
+    name: "의식적 사고 (필요시, 비동기)"
+    tasks:
+      - "모순 감지 (두 문장 관계 추론)"
+      - "기억 압축 (에피소드 → 팩트 요약)"
+      - "인출 판단 (지금 이 기억을 꺼낼지)"
+    vram: "8B~32B 모델, 필요시 로드"
+    model_tier: "대형 (느리고 정확)"
+    fallback: "omni idle 시 같은 모델 활용 가능"
+
+  cpu_only:
+    name: "LLM 불필요 (CPU, 상시)"
+    tasks:
+      - "에빙하우스 감쇠 계산 (decay.ts)"
+      - "중요도 점수 (importance.ts, 키워드 기반)"
+      - "지식그래프 가중치 감쇠 (knowledge-graph.ts)"
+      - "통합 타이머/스케줄링"
+    note: "기존 구현이 이 역할. mem0 위 레이어로 유지."
+
+stt_tts_pipeline:
+  description: |
+    omni 모델 없이도 음성 대화가 가능하도록 STT/TTS를 분리.
+    24GB 최소 티어에서 음성 대화를 지원하기 위한 구조.
+  stt_options:
+    - "Whisper (로컬, ~1.5GB for large-v3)"
+    - "faster-whisper (최적화, 더 적은 VRAM)"
+  tts_options:
+    - "Piper (CPU, 매우 경량)"
+    - "edge-tts (클라우드, 무료, 개인정보 미접촉)"
+    - "MiniCPM-o TTS (omni 모델 사용 시)"
+
+vllm_integration:
+  description: |
+    vllm으로 여러 모델을 하나의 서빙 인스턴스에서 관리.
+    Gateway(any-llm)가 작업별로 다른 모델 엔드포인트에 라우팅.
+  routing_example:
+    chat: "vllm (대화 모델)"
+    memory_extract: "vllm (4B 팩트 추출)"
+    memory_contradiction: "vllm (대형 모델, 모순 감지)"
+    memory_embed: "vllm (임베딩 모델)"
+
+differentiation_vs_competitors:
+  airi: "단일 LLM, 작업별 모델 분리 없음"
+  mem0: "단일 LLM 설정"
+  naia: "Gateway 멀티 프로바이더 라우팅 + 자율신경계/의식적 사고 분리"
