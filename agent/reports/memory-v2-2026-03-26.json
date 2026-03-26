@@ -1,0 +1,612 @@
+{
+  "timestamp": "2026-03-26T23:28:12.165Z",
+  "version": "v2",
+  "label": "Benchmark v2 — LLM response layer (mem0 + Gemini)",
+  "model": "gemini-2.5-flash",
+  "embedding": "gemini-embedding-001",
+  "runs_per_test": 3,
+  "pass_threshold": 2,
+  "total": 24,
+  "passed": 6,
+  "passRate": 25,
+  "byCategory": {
+    "recall": {
+      "pass": 2,
+      "total": 9
+    },
+    "abstention": {
+      "pass": 3,
+      "total": 9
+    },
+    "semantic": {
+      "pass": 0,
+      "total": 3
+    },
+    "contradiction": {
+      "pass": 1,
+      "total": 2
+    },
+    "synthesis": {
+      "pass": 0,
+      "total": 1
+    }
+  },
+  "details": [
+    {
+      "id": "R01",
+      "query": "내 이름이 뭐야?",
+      "expected": "김하늘",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "사용자님의 이름은 김하늘님입니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "사용자님의 이름은 김하늘입니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "사용자님의 이름은 김하늘님입니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "R02",
+      "query": "나 뭐하는 사람이야?",
+      "expected": "대표, 개발자",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "음, 제가 기억하는 바로는 동생분이 디자이너로 일하고 계시다고 말씀해주셨어요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "저는 당신이 어떤 직업을 가지고 있는지 기억하지 못합니다. 하지만 당신의 이름은 김하늘님이고, 동생분은 디자이너로 일하고 있다는 것을 알고 있습니다.",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "기억에 따르면, 주",
+          "pass": false,
+          "reason": "FAIL"
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R03",
+      "query": "내 에디터 뭐야?",
+      "expected": "Cursor (Neovim에서 변경됨)",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "에디터는 Cursor를 사용하시는군요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "사용하시는 에디터는 Cursor입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "Editor는 Cursor로 변경되었습니다.",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R04",
+      "query": "나 어디 살아?",
+      "expected": "판교 (성수동에서 이사)",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "이번 달에 판교로 이사하신다고 말씀해주셨어요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "이번 달에 판교로 이사하신다고 말씀해주셨어요. 현재 어디 사시는지는 기억에 없습니다.",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "어디 사시는지는 말씀하신 적 없는 것 같습니다. 다만, 이번 달에 판교로 이사하신다고 말씀해주셨",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R05",
+      "query": "내가 좋아하는 커피가 뭐야?",
+      "expected": "아메리카노",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "아메리카노만 마신다고 말씀하셨어요.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "아메리카노만 마신다고 말씀하셨어요. 우유 들어간 건 싫어한다고 하셨고요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "아메리카노만 마신다고 말씀하셨어요. 우유 들어간 건 싫어하신다고도 했고요.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R06",
+      "query": "내 동생 이름이 뭐야?",
+      "expected": "김바다",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "동생 이름은 김바다입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "동생 이름은 김바다입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적이 있습니다. 동생 이름은 김바다입니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R07",
+      "query": "내 OS가 뭐야?",
+      "expected": "Fedora",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "Fedora를 사용하신다고 말씀하셨습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "음, 당신의 OS는 Fedora라고 말씀하셨습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "당신은 Fedora를 사용한다고 말씀하셨습니다. 불변 OS를 선호하신다고도 하셨습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "R08",
+      "query": "내 취미가 뭐야?",
+      "expected": "러닝",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "주말에는 주로 러닝을 하",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "음, 기억하는 바로는 주말에는 주로 러닝을 하시고 한강에서 달리는 걸 좋아하세요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "주말에는 주로 러닝을 하시고, 한강 달리기 좋아하신다고 말씀하셨어요.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "R09",
+      "query": "나 Git 어떻게 써?",
+      "expected": "CLI",
+      "category": "recall",
+      "runs": [
+        {
+          "response": "기억으로는 Git은 CLI만 사용하시고, GUI 클라이언트는 안 쓰신다고 하셨습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "기억으로는 Git을 CLI로만 사용한다고 하셨습니다. GUI 클라이언트는 사용하지 않는다고 하셨습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "Git은 CLI만 써. GUI 클라이언트는 안 쓴다고 했어.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A01",
+      "query": "내가 Docker 관련해서 뭐라고 했었지?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "말씀하신 적 없는 것 같습니다. Docker 관련 내용은 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "Docker에 대해서는 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "Docker에 대해서는 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A02",
+      "query": "내가 좋아하는 게임이 뭐야?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "죄송합니다. 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A03",
+      "query": "나 고양이 키운다고 했지?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "A04",
+      "query": "내가 Nuxt.js 쓴다고 했었나?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "아니요, 말씀하신 적 없는 것 같습니다. Next.js를 주로 쓰신다고 하셨어요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "음, 아니요. Nuxt.js를 쓴다고 말씀하신 적은 없고, 주로 Next.js 프레임워크를 쓴다고 말씀하셨어요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "아니요, 말씀하신 적 없는 것 같습니다. 주로 Next.js 프레임워크를 쓰신다고 하셨습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A05",
+      "query": "나 수영 한다고 했었나?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "음... 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "음... 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A06",
+      "query": "내 차가 뭐야?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "A07",
+      "query": "내가 일본어 할 줄 안다고 했었나?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "아니요, 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "A08",
+      "query": "내가 AWS 쓴다고 했나?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "A09",
+      "query": "나 피아노 친다고 했지?",
+      "expected": "NONE",
+      "category": "abstention",
+      "runs": [
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "S01",
+      "query": "내 개발 환경 어떻게 되지?",
+      "expected": "TypeScript, Neovim, Next.js, FastAPI 중 2개 이상",
+      "category": "semantic",
+      "runs": [
+        {
+          "response": "음, 기억나는 걸 말씀드릴게요:\n\n*   **OS:** Fedora를 사용하고 계세요.\n*   **주 개발 언어:** TypeScript로 주로 개발하세요.\n*   **주 프레임워",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "음, 기억하는 대로 말씀드릴게요.\n\n운영체제는 **Fedora",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "음, 기억나는 걸 말씀드리자면, OS는 **Fedora**를 쓰고 계시고, 주로 **TypeScript**로 개발하시며 **Next.js** 프레임워크를 사용하신다고 하셨어요.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "S02",
+      "query": "나 음식 취향이 어때?",
+      "expected": "아메리카노, 매운 음식 못 먹음",
+      "category": "semantic",
+      "runs": [
+        {
+          "response": "기억으로는 순한 맛 위주로 드시고, 매운 음식은 잘 못 드세요. 그리고 우유 들어간 음식은 싫어하시는 편입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "기억으로는 순한 맛 위주로 드시고, 매운 음식은 잘 못 드시는 편인 것 같아요. 우유 들어간 음식도 싫어하시는군요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "음식 취향은 순한 맛 위주로 드시고, 매운 음식은 잘 못 드신다고 하셨어요. 그리고 우유 들어간 건 싫어하신다고 기억하고 있습니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "S03",
+      "query": "주말에 뭐 하지?",
+      "expected": "러닝, 한강",
+      "category": "semantic",
+      "runs": [
+        {
+          "response": "주말에는 주로 러닝을 해요.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "주말에는 주로 러닝을 합니다.",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "주말에는 주로 러닝을 합니다.",
+          "pass": false,
+          "reason": "FAIL"
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "C01",
+      "query": "내가 쓰는 에디터 뭐야?",
+      "expected": "Cursor",
+      "category": "contradiction",
+      "runs": [
+        {
+          "response": "사용하시는 에디터는 Cursor입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "사용하시는 에디터는 Cursor입니다.",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "사용하시는 에디터는 Cursor입니다.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    },
+    {
+      "id": "C02",
+      "query": "나 어디 살아?",
+      "expected": "판교",
+      "category": "contradiction",
+      "runs": [
+        {
+          "response": "이번 달에 판교로 이사한다고 말씀해 주셨습니다. 현재 어디 사시는지는 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS"
+        },
+        {
+          "response": "음... 기억에 없습니다. 다만,",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "기억으로는 이번 달에 판교",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "M01",
+      "query": "새 프로젝트 하나 세팅해줘",
+      "expected": "TypeScript, Next.js 등 기술 스택 반영",
+      "category": "synthesis",
+      "runs": [
+        {
+          "response": "새 프로젝트를 세팅해",
+          "pass": false,
+          "reason": ""
+        },
+        {
+          "response": "어떤 종류의 프로젝트를 세팅",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "response": "새 프로젝트를 세팅하려면 어떤 프레임워크를 사용하실지 알려주세요.",
+          "pass": false,
+          "reason": ""
+        }
+      ],
+      "finalPass": false
+    }
+  ]
+}
