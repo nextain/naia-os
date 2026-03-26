@@ -23,7 +23,7 @@
 | direct_recall (직접 인출) | 3/9 | 5/9 | **9/9** | +6 |
 | semantic_search (시맨틱 검색) | 1/9 | 2/9 | **5/9** | +4 |
 | proactive_recall (프로액티브) | 0/5 | 2/5 | **4/5** | +4 |
-| abstention (환각 방지) | **9/9** | 8/9 | **0/9** | -9 ⚠️ |
+| abstention (환각 방지) | 9/9 ※ | 8/9 | **0/9** | -9 ⚠️ |
 | irrelevant_isolation (무관 격리) | **3/3** | 3/3 | **3/3** | 0 |
 | multi_fact_synthesis (멀티팩트) | 0/3 | 0/3 | **1/3** | +1 |
 | entity_disambiguation (엔티티 구분) | 3/4 | 3/4 | **2/4** | -1 |
@@ -61,6 +61,17 @@
 - **적대적 리뷰**: 최초 threshold 0.7은 벤치마크 데이터를 보고 맞춘 것이라 data leakage로 거절됨
 
 **부작용**: abstention 9/9 → 0/9 (벡터 검색이 항상 결과 반환, score gap 0.14로 분리 불가).
+
+---
+
+## 해석 주의
+
+**baseline abstention 9/9, irrelevant_isolation 3/3은 우연 통과.**
+검색 자체가 안 되는 시스템은 환각도 안 함 — 능력이 아닌 불능에 의한 결과.
+진짜 abstention 능력은 "찾을 수 있는데 안 찾아야 할 때 안 찾는 것"이며,
+이는 direct_recall이 충분히 동작하는 mem0 단계에서만 유의미하게 측정됨.
+
+※ 표에서 baseline abstention 9/9에 ※ 표시 = 검색 불능에 의한 우연 통과
 
 ---
 
