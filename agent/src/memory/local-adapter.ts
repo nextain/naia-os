@@ -64,15 +64,25 @@ function tokenize(text: string): string[] {
 		.filter((t) => t.length > 1);
 }
 
-/** Score relevance of a document to a query using keyword overlap (BM25-lite) */
+/**
+ * Score relevance of a document to a query.
+ * Uses substring matching as fallback for Korean particles (e.g., "TypeScript로")
+ * and partial matches that exact tokenization misses.
+ */
 function keywordScore(query: string, document: string): number {
 	const queryTokens = tokenize(query);
+	const docLower = document.toLowerCase();
 	const docTokens = new Set(tokenize(document));
 	if (queryTokens.length === 0) return 0;
 
 	let hits = 0;
 	for (const qt of queryTokens) {
-		if (docTokens.has(qt)) hits++;
+		if (docTokens.has(qt)) {
+			hits++;
+		} else if (docLower.includes(qt)) {
+			// Substring match — handles Korean particles (TypeScript로, Cursor로)
+			hits += 0.8;
+		}
 	}
 	return hits / queryTokens.length;
 }

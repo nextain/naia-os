@@ -1,29 +1,29 @@
 {
-  "timestamp": "2026-03-26T16:23:47.837Z",
+  "timestamp": "2026-03-26T17:31:34.515Z",
   "label": "baseline (LocalAdapter, keyword matching)",
   "total": 55,
-  "passed": 26,
-  "passRate": 47,
+  "passed": 32,
+  "passRate": 58,
   "byCapability": {
     "direct_recall": {
-      "pass": 3,
+      "pass": 5,
       "total": 9,
-      "rate": "3/9"
+      "rate": "5/9"
     },
     "semantic_search": {
-      "pass": 1,
+      "pass": 2,
       "total": 9,
-      "rate": "1/9"
+      "rate": "2/9"
     },
     "proactive_recall": {
-      "pass": 0,
+      "pass": 2,
       "total": 5,
-      "rate": "0/5"
+      "rate": "2/5"
     },
     "abstention": {
-      "pass": 9,
+      "pass": 8,
       "total": 9,
-      "rate": "9/9"
+      "rate": "8/9"
     },
     "irrelevant_isolation": {
       "pass": 3,
@@ -41,9 +41,9 @@
       "rate": "3/4"
     },
     "contradiction_direct": {
-      "pass": 1,
+      "pass": 2,
       "total": 3,
-      "rate": "1/3"
+      "rate": "2/3"
     },
     "contradiction_indirect": {
       "pass": 1,
@@ -61,9 +61,9 @@
       "rate": "1/2"
     },
     "noise_resilience": {
-      "pass": 2,
+      "pass": 3,
       "total": 3,
-      "rate": "2/3"
+      "rate": "3/3"
     }
   },
   "details": [
@@ -96,13 +96,16 @@
       "capability": "direct_recall",
       "query": "내 에디터 뭐야?",
       "response_keywords": [
-        ""
+        "에디터는",
+        "neovim",
+        "쓰고",
+        "있어"
       ],
       "expected": [
         "Neovim"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [Neovim]"
+      "pass": true,
+      "detail": "found: [Neovim] / expected: [Neovim]"
     },
     {
       "capability": "direct_recall",
@@ -180,19 +183,35 @@
       "capability": "direct_recall",
       "query": "나 Git 어떻게 써?",
       "response_keywords": [
-        ""
+        "git은",
+        "cli만",
+        "써.",
+        "gui",
+        "클라이언트는",
+        "안",
+        "쓰거든"
       ],
       "expected": [
         "CLI"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [CLI]"
+      "pass": true,
+      "detail": "found: [CLI] / expected: [CLI]"
     },
     {
       "capability": "semantic_search",
       "query": "내 개발 환경 어떻게 되지?",
       "response_keywords": [
-        ""
+        "나는",
+        "김하늘이야.",
+        "스타트업",
+        "대표고",
+        "풀스택",
+        "개발자야",
+        "요즘은",
+        "주로",
+        "typescript로",
+        "개발하고",
+        "있어"
       ],
       "expected": [
         "TypeScript",
@@ -201,13 +220,18 @@
         "FastAPI"
       ],
       "pass": false,
-      "detail": "found 0/4 (min: 2): []"
+      "detail": "found 1/4 (min: 2): [TypeScript]"
     },
     {
       "capability": "semantic_search",
       "query": "내 기술 스택 알려줘",
       "response_keywords": [
-        ""
+        "나는",
+        "김하늘이야.",
+        "스타트업",
+        "대표고",
+        "풀스택",
+        "개발자야"
       ],
       "expected": [
         "TypeScript",
@@ -290,14 +314,20 @@
       "capability": "semantic_search",
       "query": "주말에 뭐 하지?",
       "response_keywords": [
-        ""
+        "주말에는",
+        "주로",
+        "러닝을",
+        "해.",
+        "한강",
+        "달리기",
+        "좋아해"
       ],
       "expected": [
         "러닝",
         "한강"
       ],
-      "pass": false,
-      "detail": "found 0/2 (min: 2): []"
+      "pass": true,
+      "detail": "found 2/2 (min: 2): [러닝, 한강]"
     },
     {
       "capability": "semantic_search",
@@ -329,25 +359,32 @@
       "capability": "proactive_recall",
       "query": "에디터 설정 좀 도와줘",
       "response_keywords": [
-        ""
+        "에디터는",
+        "neovim",
+        "쓰고",
+        "있어"
       ],
       "expected": [
         "Neovim"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [Neovim]"
+      "pass": true,
+      "detail": "found: [Neovim] / expected: [Neovim]"
     },
     {
       "capability": "proactive_recall",
       "query": "새 API 서버 만들어볼까",
       "response_keywords": [
-        ""
+        "프레임워크는",
+        "next.js랑",
+        "fastapi를",
+        "주로",
+        "써"
       ],
       "expected": [
         "FastAPI"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [FastAPI]"
+      "pass": true,
+      "detail": "found: [FastAPI] / expected: [FastAPI]"
     },
     {
       "capability": "proactive_recall",
@@ -461,13 +498,17 @@
       "capability": "abstention",
       "query": "내가 Nuxt.js 쓴다고 했었나?",
       "response_keywords": [
-        ""
+        "프레임워크는",
+        "next.js랑",
+        "fastapi를",
+        "주로",
+        "써"
       ],
       "expected": [
         "없|모르|말씀하신 적|기억에|언급하신"
       ],
-      "pass": true,
-      "detail": "episodes: 0, facts: 0 (0/0 = pass for abstention)"
+      "pass": false,
+      "detail": "episodes: 1, facts: 0 (0/0 = pass for abstention)"
     },
     {
       "capability": "abstention",
@@ -548,7 +589,17 @@
       "capability": "multi_fact_synthesis",
       "query": "내 개발 머신 세팅 가이드 만들어줘",
       "response_keywords": [
-        ""
+        "나는",
+        "김하늘이야.",
+        "스타트업",
+        "대표고",
+        "풀스택",
+        "개발자야",
+        "요즘은",
+        "주로",
+        "typescript로",
+        "개발하고",
+        "있어"
       ],
       "expected": [
         "Neovim",
@@ -643,6 +694,10 @@
       "capability": "contradiction_direct",
       "query": "내가 쓰는 에디터 뭐야?",
       "response_keywords": [
+        "에디터는",
+        "neovim",
+        "쓰고",
+        "있어",
         "아",
         "참,",
         "에디터",
@@ -672,18 +727,34 @@
       "capability": "contradiction_direct",
       "query": "나 Git 뭘로 써?",
       "response_keywords": [
-        ""
+        "git은",
+        "cli만",
+        "써.",
+        "gui",
+        "클라이언트는",
+        "안",
+        "쓰거든",
+        "git은",
+        "이제",
+        "gitkraken",
+        "쓰기로",
+        "했어"
       ],
       "expected": [
         "GitKraken"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [GitKraken]"
+      "pass": true,
+      "detail": "found: [GitKraken] / expected: [GitKraken]"
     },
     {
       "capability": "contradiction_indirect",
       "query": "내가 요즘 관심 있는 거 뭐야?",
       "response_keywords": [
+        "요즘은",
+        "주로",
+        "typescript로",
+        "개발하고",
+        "있어",
         "요즘",
         "python이",
         "다시",
@@ -705,6 +776,15 @@
       "capability": "contradiction_indirect",
       "query": "에디터 관련해서 요즘 어때?",
       "response_keywords": [
+        "에디터는",
+        "neovim",
+        "쓰고",
+        "있어",
+        "요즘은",
+        "주로",
+        "typescript로",
+        "개발하고",
+        "있어",
         "요즘",
         "python이",
         "다시",
@@ -715,10 +795,7 @@
         "하나",
         "해보려고",
         "아",
-        "참,",
-        "에디터",
-        "cursor로",
-        "바꿨어"
+        "참,"
       ],
       "expected": [
         "VS Code",
@@ -777,6 +854,10 @@
       "capability": "temporal_history",
       "query": "내가 에디터 뭐 쓰다가 바꿨지?",
       "response_keywords": [
+        "에디터는",
+        "neovim",
+        "쓰고",
+        "있어",
         "아",
         "참,",
         "에디터",
@@ -788,7 +869,7 @@
         "Cursor"
       ],
       "pass": true,
-      "detail": "found: [Cursor] / expected: [Neovim, Cursor]"
+      "detail": "found: [Neovim, Cursor] / expected: [Neovim, Cursor]"
     },
     {
       "capability": "temporal_history",
@@ -806,14 +887,31 @@
       "capability": "noise_resilience",
       "query": "내 모니터 뭐야?",
       "response_keywords": [
-        ""
+        "아",
+        "오늘",
+        "진짜",
+        "피곤하다.",
+        "점심에",
+        "순대국",
+        "먹었는데",
+        "괜찮더라.",
+        "아",
+        "맞다,",
+        "모니터를",
+        "울트라와이드로",
+        "바꿨어.",
+        "34인치.",
+        "근데",
+        "배송이",
+        "좀",
+        "늦었어."
       ],
       "expected": [
         "울트라와이드",
         "34인치"
       ],
-      "pass": false,
-      "detail": "found: [] / expected: [울트라와이드, 34인치]"
+      "pass": true,
+      "detail": "found: [울트라와이드, 34인치] / expected: [울트라와이드, 34인치]"
     },
     {
       "capability": "noise_resilience",
@@ -822,6 +920,11 @@
         "에디터는",
         "neovim",
         "쓰고",
+        "있어",
+        "요즘은",
+        "주로",
+        "typescript로",
+        "개발하고",
         "있어",
         "동생",
         "이름은",
@@ -833,12 +936,7 @@
         "fedora",
         "쓰고",
         "있어.",
-        "불변",
-        "os가",
-        "좋더라",
-        "ㅋㅋ",
-        "어제",
-        "유튜브에서"
+        "불변"
       ],
       "expected": [
         "금요일",
