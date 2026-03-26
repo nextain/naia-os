@@ -30,9 +30,18 @@ import { buildProvider } from "./providers/factory.js";
 import type { ChatMessage, StreamChunk } from "./providers/types.js";
 import { actionInstall as panelActionInstall } from "./skills/built-in/panel.js";
 import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
+import { MemorySystem } from "./memory/index.js";
+import { LocalAdapter } from "./memory/local-adapter.js";
 import { synthesize as ttsSynthesize } from "./tts/index.js";
 
 const activeStreams = new Map<string, AbortController>();
+
+// ─── Memory System (singleton) ───────────────────────────────────────────────
+const MEMORY_STORE_PATH = join(homedir(), ".naia", "memory", "alpha-memory.json");
+mkdirSync(join(homedir(), ".naia", "memory"), { recursive: true });
+const memoryAdapter = new LocalAdapter(MEMORY_STORE_PATH);
+const memorySystem = new MemorySystem({ adapter: memoryAdapter });
+memorySystem.startConsolidation();
 
 const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/;
 const MAX_TOOL_ITERATIONS = 10;
@@ -389,7 +398,37 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		// access to both GATEWAY_TOOLS and agent built-in skills via getAllTools().
 
 		// Build system prompt with tool/gateway status context
-		const basePrompt = systemPrompt ?? ALPHA_SYSTEM_PROMPT;
+		let basePrompt = systemPrompt ?? ALPHA_SYSTEM_PROMPT;
+
+		// ─── Memory: Session Recall ──────────────────────────────────
+		// Inject relevant memories into system prompt before LLM call.
+		// Uses the first user message to find related memories.
+		const firstUserMsg = rawMessages.find((m) => m.role === "user");
+		if (firstUserMsg) {
+			try {
+				const memoryContext = await memorySystem.sessionRecall(
+					firstUserMsg.content,
+					{ topK: 5 },
+				);
+				if (memoryContext) {
+					basePrompt += `\n\n${memoryContext}`;
+				}
+			} catch {
+				// Memory recall failure is non-critical — continue without it
+			}
+		}
+
+		// ─── Memory: Encode user messages ────────────────────────────
+		// Store user messages in memory for future sessions.
+		// Runs in background (non-blocking).
+		for (const msg of rawMessages) {
+			if (msg.role === "user") {
+				memorySystem.encode(
+					{ content: msg.content, role: "user" },
+					{ project: "naia-os" },
+				).catch(() => {}); // Fire-and-forget, non-critical
+			}
+		}
 
 		// tools and effectiveSystemPrompt are computed inside the tool loop
 		// so they reflect the latest gatewayConnected state after reconnection.
@@ -918,6 +957,16 @@ function main(): void {
 					requestId: request.requestId,
 					message: err instanceof Error ? err.message : String(err),
 				});
+			});
+			return;
+		}
+
+		if (request.type === "skill_list") {
+			const tools = skillRegistry.toToolDefinitions(false);
+			writeLine({
+				type: "skill_list_response",
+				requestId: request.requestId,
+				tools,
 			});
 			return;
 		}
