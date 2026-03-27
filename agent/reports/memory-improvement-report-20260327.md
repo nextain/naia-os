@@ -2,99 +2,116 @@
 
 > 날짜: 2026-03-27
 > Epic: #145 (Alpha Memory v2 — 체감 성능 중심 재설계)
-> 벤치마크: query-templates.json 55개 테스트, 12개 능력
-> LLM: Gemini 2.5 Flash (임베딩: gemini-embedding-001, 3072d)
-> 1회 실행 시간: ~3분 (Gemini API 호출 포함)
+> 응답 모델: gemini-2.5-flash
+> 채점: gemini-2.5-pro + Claude CLI 이중 독립 채점
+> 임베딩: gemini-embedding-001 (3072d)
+> 벤치마크: 50개 테스트, 5카테고리 × 10개, 3회 실행 2/3 통과
+> 총 실행 시간: ~37분 (인코딩 207초 + 테스트 2186초)
 
 ---
 
-## 능력 정의
+## 요약
 
-| 능력 | 측정하는 것 | 예시 | 현재 측정 방식의 한계 |
-|------|-----------|------|---------------------|
-| **direct_recall** | 저장한 사실을 정확한 키워드로 물었을 때 꺼내는가 | "내 에디터 뭐야?" → Neovim | 가장 기본적. 한계 적음. |
-| **semantic_search** | 다른 표현으로 물었을 때 의미적으로 연결하는가 | "내 기술 스택?" → TypeScript, Neovim | 임베딩 모델 품질에 의존 |
-| **proactive_recall** | 묻지 않았는데 관련 기억을 자연스럽게 적용하는가 | "에디터 설정 도와줘" → Neovim 기반 제안 | 검색 레이어만 측정, LLM 응답 미측정 |
-| **abstention** | 말한 적 없는 것에 대해 "모른다"고 하는가 | "Docker 뭐라고 했지?" → 없음 | **⚠️ 검색 결과 0건=통과로 판정 → 못 찾는 시스템이 만점** |
-| **irrelevant_isolation** | 무관한 질문에 기억을 불필요하게 꺼내지 않는가 | "날씨 어때?" → 개인정보 미노출 | abstention과 같은 문제 |
-| **multi_fact_synthesis** | 여러 기억을 조합해서 답하는가 | "프로젝트 세팅해줘" → TS+Next+탭+다크 | 검색 레이어만 측정, LLM 조합 능력 미측정 |
-| **entity_disambiguation** | 타인 정보와 내 정보를 혼동하지 않는가 | "동료는 Vim, 내 에디터는?" → Neovim | 벡터 검색에서 유사 엔티티 혼동 가능 |
-| **contradiction_direct** | "X로 바꿨어" 같은 명시적 변경을 반영하는가 | "Cursor로 바꿨어" → Neovim에서 업데이트 | mem0 내장 UPDATE로 잘 동작 |
-| **contradiction_indirect** | 부정어 없이 간접적 변화를 감지하는가 | "Python이 재밌더라" → 관심 변화 인지 | 가장 어려운 능력, LLM 추론 필요 |
-| **unchanged_persistence** | 변경하지 않은 사실이 그대로 유지되는가 | 에디터 바꿨지만 인덴트는 그대로 | 업데이트가 다른 팩트를 건드리지 않는지 |
-| **temporal_history** | 변경 이력을 아는가 | "에디터 뭐 쓰다가 바꿨지?" → Neovim→Cursor | mem0 history DB에 의존 |
-| **noise_resilience** | 잡담 속에 묻힌 사실을 추출하는가 | "...아 맞다 모니터 바꿨어..." → 울트라와이드 | mem0 LLM 팩트 추출 능력 |
+| 구성 | pro judge | Claude judge |
+|------|:---------:|:------------:|
+| **no-memory baseline** (LLM만, 기억 없음) | - | **39%** |
+| **with memory** (mem0 + gemini) | **64%** (32/50) | **66%** (33/50) |
+| **기억 시스템 기여** | - | **+27pp** |
 
 ---
 
-## 벤치마크 지표 문제점
+## 카테고리별 상세
 
-### 문제 1: abstention을 검색 레이어에서 측정
+### 각 카테고리가 측정하는 것
 
-**현재**: 검색 결과 0건 = abstention 통과
-**문제**: 못 찾는 시스템이 만점 (baseline 9/9은 검색 불능에 의한 우연 통과)
-**올바른 방식**: "있는 것"과 "없는 것"을 섞어서 질문하고, 각각에 대해 정확히 답하는지 측정. "없다"도 정답 중 하나.
-**영향**: baseline 47% → 실질적으로 더 낮음. abstention/irrelevant 12점은 허수.
+| 카테고리 | 측정 내용 | 예시 |
+|---------|----------|------|
+| **recall** | 저장된 사실을 다양한 표현으로 물었을 때 정확히 답하는가 | "내 이름?" "어디 살아?" "커피 뭐 마셔?" |
+| **abstention** | 말한 적 없는 것에 대해 "모른다"고 올바르게 답하는가 | "Docker 뭐라 했지?" "고양이 키운다고 했지?" |
+| **semantic** | 간접적 상위 개념으로 물었을 때 관련 기억을 종합하는가 | "업무 스타일?" "음료 취향?" "개발 환경?" |
+| **contradiction** | 변경된 사실을 정확히 반영하고, 변경 안 한 건 유지하는가 | "에디터 바꿨는데 뭐야?" "매운 거 잘 먹는다고 했지?" |
+| **synthesis** | 여러 기억을 조합해서 종합적으로 답하는가 | "거주지+사업+취미 알려줘" "기술 스택 전체?" |
 
-### 문제 2: LLM 응답이 아닌 검색 결과만 측정
+### 결과
 
-**현재**: 검색된 내용에 기대 키워드가 포함되어 있는지만 확인
-**문제**: proactive_recall, multi_fact_synthesis 등은 LLM이 검색 결과를 **어떻게 사용하는가**가 핵심인데, 검색 결과 유무만 봄
-**영향**: 검색은 되지만 LLM이 자연스럽게 활용하는지는 미측정
+| 카테고리 | pro judge | Claude judge | 평가 |
+|---------|:---------:|:------------:|------|
+| **recall** | 7/10 | 7/10 | 안정적. 두 judge 일치. |
+| **abstention** | 3/10 | 6/10 | 약점. judge 간 차이 큼 (판정 기준 불일치). |
+| **semantic** | 4/10 | 6/10 | 중간. 간접 표현 매칭 불안정. |
+| **contradiction** | **9/10** | **9/10** | **최강.** mem0 UPDATE 메커니즘 효과. 두 judge 일치. |
+| **synthesis** | 9/10 | 5/10 | judge 간 차이 매우 큼. 주관적 판정 영역. |
 
-### 문제 3: 비결정성 미처리
+### Judge 간 차이 분석
 
-**현재**: 1회 실행 결과만 기록
-**올바른 방식**: 3회 실행, 2/3 통과를 기준 (scenarios.md에 정의했지만 runner에서 미구현)
+| 패턴 | 건수 | 의미 |
+|------|:----:|------|
+| 둘 다 PASS | 대부분 | 합의 — 신뢰 가능 |
+| pro=PASS, Claude=FAIL | synthesis에서 다수 | Claude가 synthesis를 더 엄격하게 판정 |
+| pro=FAIL, Claude=PASS | abstention/semantic에서 다수 | pro가 abstention/semantic을 더 엄격하게 판정 |
+| 둘 다 FAIL | 확실한 실패 | 신뢰 가능 |
 
-### 결론
-
-**현재 벤치마크는 "검색 엔진 성능"을 측정하지, "기억하는 AI 체감 품질"을 측정하지 않습니다.**
-진짜 체감 품질을 측정하려면 LLM 응답 레이어 테스트가 필요하고, 이는 #151 Round 2에서 다룰 과제.
-
----
-
-## 능력별 상세 결과
-
-| 능력 | baseline | 서브스트링 | mem0 (0.6) | 변화 | 비고 |
-|------|:--------:|:---------:|:----------:|:----:|------|
-| direct_recall | 3/9 | 5/9 | **9/9** | +6 | mem0 벡터 검색의 최대 강점 |
-| semantic_search | 1/9 | 2/9 | **5/9** | +4 | 한국어 간접 표현 일부 실패 |
-| proactive_recall | 0/5 | 2/5 | **4/5** | +4 | 검색은 되지만 LLM 활용 미측정 |
-| abstention | 9/9 ※ | 8/9 | **0/9** | -9 | ※ baseline은 검색 불능에 의한 우연 통과 |
-| irrelevant_isolation | 3/3 ※ | 3/3 | **3/3** | 0 | ※ 같은 문제 |
-| multi_fact_synthesis | 0/3 | 0/3 | **1/3** | +1 | LLM 조합은 프롬프트 설계 영역 |
-| entity_disambiguation | 3/4 | 3/4 | **2/4** | -1 | 벡터 검색이 유사 엔티티 혼동 |
-| contradiction_direct | 1/3 | 2/3 | **3/3** | +2 | mem0 UPDATE 메커니즘 효과 |
-| contradiction_indirect | 1/2 | 1/2 | **1/2** | 0 | LLM 추론 필요, 검색으로 불가 |
-| unchanged_persistence | 2/3 | 2/3 | **2/3** | 0 | |
-| temporal_history | 1/2 | 1/2 | **1/2** | 0 | |
-| noise_resilience | 2/3 | 3/3 | **3/3** | +1 | mem0 LLM 팩트 추출 효과 |
+**둘 다 일치하는 카테고리** (recall, contradiction)가 가장 신뢰할 수 있는 점수.
 
 ---
 
-## 개선 작업 상세
+## 테스트 규모별 점수 비교
 
-### 작업 1: 서브스트링 매칭 (+11pp)
+| 테스트 수 | 채점 방식 | 점수 | 비고 |
+|:---------:|----------|:----:|------|
+| 23 | self-judge | 87% | 과대 — self-judge + 소규모 |
+| 23 | 이중 (pro/Claude) | 78% / 87% | pro가 약간 엄격 |
+| **50** | **이중 (pro/Claude)** | **64% / 66%** | **실제 성능** |
 
-**파일**: `agent/src/memory/local-adapter.ts` — `keywordScore()` 함수
+**23개 87% → 50개 66%: 21pp 하락.** 소규모 테스트의 과대평가 확인.
 
-**변경 내용**: 정확한 토큰 매칭만 하던 것에 서브스트링 매칭(0.8 가중치) 추가.
-한국어 조사가 영어 단어에 붙는 문제(`TypeScript로`, `Cursor로` → 단일 토큰)를 해결.
+---
 
-**검증**: 101 유닛/통합 테스트 전부 통과. 기존 테스트 깨짐 없음.
+## 기억 시스템 기여도 분석
 
-### 작업 2: mem0 벡터 검색 (+4pp, calibrated)
+### no-memory baseline (39%)
 
-**파일**: `agent/src/memory/benchmark/run-mem0.ts`, `agent/src/memory/mem0-adapter.ts`
+기억 없이 LLM만으로 같은 질문:
+- recall 0/9 — 개인 정보를 모르니 당연
+- abstention 9/9 — "지어내지 마세요" 프롬프트만으로 만점
+- semantic 0/3, contradiction 0/2 — 기억 없으면 불가
 
-**변경 내용**: mem0ai/oss SDK를 Gemini embedding + LLM으로 설정.
+**abstention은 기억 시스템과 무관.** 프롬프트 지시만으로 달성.
 
-**Threshold calibration**:
-- 벤치마크 데이터와 **별도로** 5개 사실 + 10개 쿼리로 calibration
-- Related avg score: 0.67, Unrelated avg score: 0.56, Gap: 0.11
-- Threshold 0.6 선택
-- **적대적 리뷰**: threshold 0.7은 data leakage로 거절됨
+### 기억 시스템이 기여하는 것
+
+| 능력 | no-memory | with memory | 기여 |
+|------|:---------:|:-----------:|:----:|
+| recall | 0% | **70%** | **+70%** |
+| contradiction | 0% | **90%** | **+90%** |
+| semantic | 0% | **40-60%** | **+40-60%** |
+| synthesis | 0% | **50-90%** | **+50-90%** |
+| abstention | 100% | **30-60%** | **-40~-70%** ⚠️ |
+
+**기억이 있으면 abstention이 오히려 떨어짐** — 벡터 검색이 관련 없는 기억도 함께 반환해서 LLM이 혼동.
+
+---
+
+## 개선 작업 히스토리
+
+| 작업 | 변경 내용 | 효과 | 검증 |
+|------|----------|------|------|
+| 서브스트링 매칭 | `keywordScore()`에 substring fallback 추가 | v1: 47→58% (+11pp) | 101 tests passed |
+| mem0 벡터 검색 | mem0ai/oss + Gemini 임베딩 | v1: 58→62% (+4pp) | calibrated threshold |
+| Agent 와이어링 | `handleChatRequest`에 encode/recall 연결 | 앱에서 기억 동작 | 버그 3개 수정 |
+| 벤치마크 v2 | LLM 응답 레이어 측정 | 실체감 점수 | 이중 채점 |
+| 테스트 확장 | 23→50개 (LLM 생성) | 과대평가 보정 | 5×10 균형 |
+
+### 적대적 리뷰에서 발견/수정한 것
+
+| 발견 | 조치 |
+|------|------|
+| threshold 0.7 = data leakage | 별도 calibration 데이터로 0.6 결정 |
+| self-judge 편향 의심 | Claude CLI 독립 채점 추가 → 차이 ~4pp 확인 |
+| gemini-2.5-pro 0% 판정 | max_tokens 500→8192 수정 (thinking 토큰 소비) |
+| 23개 테스트 87% 과대 | 50개로 확장 → 66% (실제 성능) |
+| abstention = 프롬프트 효과 | no-memory baseline에서 9/9 확인 |
+| baseline abstention 9/9 허수 | 검색 불능 = 환각 불능 ≠ 환각 방지 능력 |
 
 ---
 
@@ -102,29 +119,59 @@
 
 | 발견 | 영향 |
 |------|------|
-| `text-embedding-004` deprecated | `gemini-embedding-001` (3072d) 사용 |
-| `gemini-2.0-flash` deprecated | `gemini-2.5-flash` 사용 |
-| mem0 OSS search score gap ~0.14 | threshold 단독으로 abstention 해결 불가 |
-| 한국어 조사 + 영어 → 토크나이저 실패 | 서브스트링 매칭으로 해결 |
-| mem0 `add()` 내부에서 LLM 호출 | 팩트 자동 추출, 원문과 다른 형태로 저장됨 |
-| baseline abstention 9/9은 허수 | 검색 불능 = 환각 불능 ≠ 환각 방지 능력 |
-| 벤치마크가 검색 레이어만 측정 | LLM 응답 품질(진짜 체감)은 미측정 |
+| gemini-2.5-pro thinking 토큰 ~460개 소비 | max_tokens를 충분히 (8192+) 줘야 응답 나옴 |
+| mem0 ollama 클라이언트 ensureModelExists 404 | 순수 로컬 mem0 실행 blocked, 공유 DB로 우회 |
+| Gemini 임베딩 related/unrelated score gap ~0.14 | threshold 단독 abstention 해결 불가 |
+| qwen3-embedding 4.7GB ollama 모델 존재 | 순수 로컬 임베딩 가능 (mem0 호환 문제만 해결하면) |
+| chat 모델 ≠ 임베딩 모델 | 기억 시스템에 임베딩 모델 별도 필수 (0.3~4.7GB) |
+
+---
+
+## 미해결 과제
+
+### 1. Abstention 약점 (3-6/10)
+
+벡터 검색이 관련 없는 기억도 반환 → LLM이 이를 바탕으로 답변 → 없는 정보를 지어낸 것처럼 보임.
+해결: 검색 결과의 relevance를 LLM이 한 번 더 판단하는 레이어, 또는 re-ranking.
+
+### 2. Semantic 불안정 (4-6/10)
+
+검색은 되지만 (score 0.7+), LLM이 검색 결과를 종합해서 자연스럽게 답하는 능력이 불안정.
+표현에 따라 되기도 하고 안 되기도 함.
+
+### 3. Synthesis judge 불일치 (pro 9/10 vs Claude 5/10)
+
+"여러 사실을 조합해서 답하라"의 판정 기준이 주관적.
+pro는 관대, Claude는 엄격. 판정 프롬프트 표준화 필요.
+
+### 4. 순수 로컬 실행
+
+mem0 ollama 호환 문제 미해결. qwen3:8b + qwen3-embedding 조합으로 순수 로컬 실행이 목표이나, mem0 내부 API 호환성 문제.
+
+### 5. qwen3:8b 50개 테스트 비교
+
+현재 gemini만 50개 테스트 완료. qwen3:8b (MiniCPM 급 모델)로 같은 테스트를 돌려야 로컬 모델의 실제 성능을 알 수 있음.
 
 ---
 
 ## 다음 단계
 
-1. **벤치마크 개선**: LLM 응답 레이어 측정 추가 (검색 결과 유무가 아닌, AI 최종 답변의 정확도)
-2. **abstention 재설계**: "있는 것/없는 것" 혼합 질문, 정답표 대비 정확도
-3. **Round 2**: 개선된 벤치마크로 재측정
-4. **#152 (출시 판정)**: Round 2 후 판정
+1. **#152 (출시 판정)** — 현재 64-66%로 출시 가능한지 판단
+2. **abstention 개선** — re-ranking 또는 relevance 판단 레이어
+3. **qwen3:8b 50개 테스트** — 로컬 모델 비교 (시간 소요 ~2시간)
+4. **mem0 ollama 호환** — 순수 로컬 실행
 
 ---
 
 ## 데이터 소스
 
-- `agent/reports/memory-baseline-2026-03-26.json` — baseline 결과
-- `agent/reports/memory-mem0-2026-03-26.json` — mem0 결과
-- `agent/src/memory/benchmark/query-templates.json` — 55개 테스트 정의
-- `agent/src/memory/benchmark/fact-bank.json` — 15개 사실 (가상 인물 김하늘)
-- GitHub Issue #145 코멘트 — 단계별 비교표
+| 파일 | 내용 |
+|------|------|
+| `agent/reports/memory-v2-multi-2026-03-27.json` | 50개 테스트 이중 채점 결과 |
+| `agent/reports/memory-no-memory-baseline-2026-03-27.json` | no-memory baseline |
+| `agent/reports/memory-baseline-2026-03-26.json` | v1 키워드 매칭 baseline |
+| `agent/src/memory/benchmark/test-cases-v3.json` | 50개 테스트 케이스 |
+| `agent/src/memory/benchmark/fact-bank.json` | 15개 사실 (가상 인물 김하늘) |
+| `agent/src/memory/benchmark/run-v2-multi.ts` | 벤치마크 runner (이중 채점) |
+| `agent/src/memory/benchmark/run-v2-no-memory.ts` | no-memory baseline runner |
+| GitHub Issue #145 코멘트 | 단계별 결과 기록 |
