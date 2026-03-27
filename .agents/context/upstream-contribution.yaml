@@ -193,6 +193,9 @@ implementation_principles:
   - "Read upstream code first — never assume patterns"
   - "No guessing: if behavior is unclear, read the actual implementation"
   - "Minimal footprint: change as little as possible in upstream code"
+  - "Follow proven patterns: check how OTHER models/features in the same project are implemented. Use the same pattern they use. Never adopt a new/experimental pattern that has 0 real users in the project"
+  - "Dependency completeness: every import in code must have a matching entry in requirements. Manual installs must be recorded immediately"
+  - "Fresh install verification: git clone → install → run must work in one shot. This is a PR readiness criterion, not optional"
 
 # --- PR readiness criteria ---
 pr_readiness:
@@ -202,6 +205,9 @@ pr_readiness:
   - "AI attribution included (Assisted-by: trailer)"
   - "upstream_issue_ref recorded in progress file"
   - ".agents/ files excluded from PR diff"
+  - "Pattern compliance: implementation uses the SAME pattern as other models/features in the project (not a new/experimental one)"
+  - "Fresh install works: git clone → pip install → run → API responds (verified, not assumed)"
+  - "All runtime dependencies in requirements (no manual-install-only deps)"
 
 # --- Anti-patterns (case history) ---
 anti_patterns:
@@ -239,3 +245,18 @@ anti_patterns:
     case: "vllm-omni #85"
     consequence: "Comment revised 7+ times due to wrong technical claims, attribution errors, wrong tone"
     rule: "Always show Korean draft to Luke first. Verify: who did what (AI vs human), which code path results came from, tone matches human-to-human conversation"
+
+  - pattern: "Choose unproven pattern over proven one"
+    case: "vllm-omni #85 / MiniCPM-o"
+    consequence: "Used pipeline.yaml + StageConfigFactory (0 other users) instead of stage_configs/*.yaml (all other models use it). Caused $30+ RunPod waste, 2 days of debugging, upstream rebase broke everything"
+    rule: "Count how many existing implementations use each pattern. If the new pattern has 0 users, use the proven one. Never be the first adopter in a contribution"
+
+  - pattern: "Code review without fresh install test"
+    case: "vllm-omni #85 / MiniCPM-o"
+    consequence: "6-pass adversarial review passed but server wouldn't start — missing deps, wrong flags, incompatible pattern"
+    rule: "After code review, verify fresh install works: git clone → pip install → server start → API responds. This is part of review, not a separate step"
+
+  - pattern: "Manual install not recorded"
+    case: "vllm-omni #85 / MiniCPM-o"
+    consequence: "minicpmo-utils installed manually on RunPod but not in requirements. New pod setup failed"
+    rule: "Every pip install on remote must immediately go into requirements. Docstring 'Requires: pip install X' is not enough"
