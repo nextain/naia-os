@@ -1,0 +1,153 @@
+description: Naia OS model selection strategy and roadmap
+
+overview: |
+  Model decisions for Naia OS local-first AI system.
+  All models that touch user data MUST run locally (privacy rule).
+  MiniCPM 4.5-omni is the reference omni model; Qwen3-8B is its LLM backbone.
+
+# ── Reference omni model ─────────────────────────────────────
+
+omni_model:
+  name: "MiniCPM 4.5-omni (OpenBMB)"
+  target_tier: "48GB+"
+  backbone_llm: "Qwen3-8B (hidden=4096, layers=36, heads=32, KV=8)"
+  components:
+    thinker:
+      model: "Qwen3 (Qwen3ForCausalLM)"
+      params: "~8B"
+      role: "Multimodal LLM backbone — text generation, reasoning"
+    vision:
+      model: "SigLIP2 (SiglipVisionTransformer)"
+      specs: "hidden=1152, 27 layers, patch=14, 980px"
+      role: "Image understanding → 64 resampled tokens"
+    audio_input:
+      model: "Whisper-medium"
+      specs: "d_model=1024, MLP projection to 4096"
+      role: "Speech-to-text input"
+    talker:
+      model: "Llama-based AR (MiniCPMTTS)"
+      specs: "hidden=768, 20 layers, 12 heads, s3tokenizer 6562 codecs"
+      role: "Audio codec token generation, conditioned by Thinker hidden_states"
+    code2wav:
+      model: "CosyVoice2 (flow-matching DiT) + HiFi-GAN (HiFT)"
+      role: "Codec tokens → mel → 16kHz waveform"
+  note: |
+    Thinker hidden_states are projected (4096→768) to condition Talker.
+    Fine-tuning Thinker may affect Talker output — use LoRA to minimize distribution shift.
+
+# ── Text-only LLM (low-tier fallback) ───────────────────────
+
+text_only_llm:
+  name: "Qwen3-8B (abliterated)"
+  target_tier: "8GB~24GB (text-only, no omni)"
+  purpose: "Same backbone as MiniCPM Thinker, for low-VRAM devices"
+  quantization: "Q4_K_M (~5GB VRAM)"
+  cpu_inference:
+    hardware: "i9-13900K, DDR5 128GB, no dGPU"
+    measured_performance:
+      prefill: "45~50 tok/s"
+      generate: "8.3~8.7 tok/s"
+      note: "Usable for short interactions. 500 tokens ~60s."
+  abliteration:
+    why: |
+      Qwen3 is trained by Alibaba. Chinese political censorship is baked in
+      (Tiananmen, Taiwan, Xi Jinping topics). Abliteration removes refusal
+      direction vectors from residual stream without fine-tuning.
+    candidates:
+      mlabonne:
+        id: "mlabonne/Qwen3-8B-abliterated"
+        method: "Standard abliteration (refusal direction removal)"
+        weights: "safetensors (fine-tunable)"
+        pros: "Cleanest abliteration, no extra tuning — best base for our own fine-tuning"
+        gguf: "bartowski/mlabonne_Qwen3-8B-abliterated-GGUF"
+      josiefied:
+        id: "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
+        method: "Abliteration + instruction tuning"
+        weights: "safetensors (fine-tunable)"
+        pros: "Best out-of-box quality (205 likes), instruction tuning preserves coherence"
+        cons: "Pre-applied instruction tuning may conflict with our fine-tuning"
+        gguf: "mradermacher/Josiefied-Qwen3-8B-abliterated-v1-GGUF"
+    selection: |
+      Pending comparison test. Key criteria:
+      1. Censorship removal effectiveness
+      2. Generation quality (reasoning, coding, Korean)
+      3. Fine-tunability (clean base preferred)
+    status: "comparison test pending (2026-03-27)"
+
+# ── Embedding model ──────────────────────────────────────────
+
+embedding:
+  current:
+    name: "gte-Qwen2 (Alibaba)"
+    reason: "No Qwen3 embedding model exists yet. gte-Qwen2 is current best in Qwen family."
+    variants:
+      - "gte-Qwen2-1.5B (~3GB) — standard"
+      - "gte-Qwen2-7B (~14GB) — higher quality"
+    note: "Qwen3 embedding (ollama) also being evaluated for memory benchmarks"
+  future:
+    plan: |
+      1. Wait for gte-Qwen3 (likely within months, following Qwen1→gte-Qwen1, Qwen2→gte-Qwen2 pattern)
+      2. If not released: build our own via contrastive fine-tuning on Qwen3-8B
+         - Method: GritLM-style (generation + embedding in single model)
+         - Estimated effort: 1-2 weeks (data prep + training + eval)
+         - Training data: KorSTS, KorNLI, Korean retrieval datasets
+         - Precedent: GritLM, E5-Mistral, NV-Embed all succeeded with causal LM → embedding
+      3. Goal: single Qwen3-8B model for both generation AND embedding
+         - Saves VRAM (critical for 8GB tier)
+         - Consistent representation space
+    status: "using gte-Qwen2 as baseline, Qwen3 embedding evaluation in progress (2026-03-27)"
+
+# ── Fine-tuning roadmap ──────────────────────────────────────
+
+fine_tuning:
+  goals:
+    - "Chinese censorship removal (abliteration or fine-tuning)"
+    - "Korean language enhancement"
+    - "Memory system optimization (extraction, recall, contradiction detection)"
+    - "Embedding capability (GritLM-style, generation + embedding in one model)"
+  approach: |
+    LoRA/QLoRA preferred — preserves base model distribution,
+    critical for MiniCPM omni pipeline where Thinker→Talker projection must stay aligned.
+  targets:
+    standalone_qwen3:
+      model: "Qwen3-8B abliterated"
+      purpose: "Text-only tier (8GB~24GB)"
+      fine_tune: ["censorship", "korean", "memory", "embedding"]
+    minicpm_thinker:
+      model: "MiniCPM 4.5-omni Thinker (Qwen3 inside)"
+      purpose: "Omni tier (48GB)"
+      fine_tune: ["censorship", "korean", "memory", "embedding"]
+      risk: "Thinker fine-tuning may break Talker conditioning (4096→768 projection)"
+      mitigation: "LoRA with small rank; validate audio output after each tuning step"
+    minicpm_audio:
+      model: "MiniCPM 4.5-omni Whisper + Talker"
+      purpose: "Audio reference customization"
+      fine_tune: ["Korean voice", "audio quality"]
+  customer_fine_tuning: |
+    Naia OS users may fine-tune models themselves.
+    Model selection should favor models with accessible safetensors weights.
+    mlabonne/Qwen3-8B-abliterated preferred as clean base.
+
+# ── Two-track deployment ─────────────────────────────────────
+
+deployment:
+  track_48gb:
+    model: "MiniCPM 4.5-omni (fine-tuned)"
+    features: "omni (voice+vision+text) + generation + memory (embedding)"
+    embedding: "Thinker hidden_states or dedicated model alongside"
+    serving: "vllm-omni"
+  track_8gb:
+    model: "Qwen3-8B abliterated (fine-tuned)"
+    features: "text generation + memory (embedding via hidden_states or separate small model)"
+    constraints: "No omni, STT/TTS via separate lightweight models (Whisper, Piper)"
+    serving: "ollama or llama.cpp"
+  shared: |
+    Same Qwen3 backbone → fine-tuning results transferable between tiers.
+    Abliteration + Korean + memory tuning apply to both tracks.
+
+# ── Vocab difference note ────────────────────────────────────
+
+vocab_note: |
+  Qwen3-8B (public): vocab_size=151936
+  MiniCPM 4.5-omni Thinker: vocab_size=151748 (188 tokens pruned)
+  Architecture otherwise identical. Weight transfer requires vocab alignment.
