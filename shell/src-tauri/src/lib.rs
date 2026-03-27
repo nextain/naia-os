@@ -1578,15 +1578,39 @@ fn reset_openclaw_data() -> Result<String, String> {
     Ok(serde_json::json!({ "removed": removed }).to_string())
 }
 
-/// Read Discord bot token from OpenClaw config (~/.openclaw/openclaw.json).
+/// Read Discord bot token.
+/// Priority: Shell local config (naia-discord.json) → OpenClaw config (openclaw.json).
+/// This separates the primary path from OpenClaw dependency (#154).
 #[tauri::command]
 fn read_discord_bot_token() -> Result<String, String> {
     let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = [
+
+    // 1. Shell local config (primary — no OpenClaw dependency)
+    let shell_candidates = [
+        format!("{}/.local/share/com.naia.shell/naia-discord.json", home),
+        format!("{}/.var/app/io.nextain.naia/config/com.naia.shell/naia-discord.json", home),
+    ];
+    for path in &shell_candidates {
+        if let Ok(bytes) = std::fs::read(path) {
+            if let Ok(config) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                if let Some(token) = config
+                    .get("botToken")
+                    .and_then(|t| t.as_str())
+                {
+                    if !token.is_empty() {
+                        return Ok(token.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. OpenClaw config (fallback — backward compatibility)
+    let openclaw_candidates = [
         format!("{}/.openclaw/openclaw.json", home),
         format!("{}/.naia/openclaw/openclaw.json", home),
     ];
-    for path in &candidates {
+    for path in &openclaw_candidates {
         if let Ok(bytes) = std::fs::read(path) {
             if let Ok(config) = serde_json::from_slice::<serde_json::Value>(&bytes) {
                 if let Some(token) = config
@@ -1602,7 +1626,40 @@ fn read_discord_bot_token() -> Result<String, String> {
             }
         }
     }
-    Err("Discord bot token not found in OpenClaw config".to_string())
+
+    Err("Discord bot token not found".to_string())
+}
+
+/// Write Discord bot token to Shell local config.
+/// Called after login sync to persist token independently of OpenClaw.
+#[tauri::command]
+fn write_discord_bot_token(token: String) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let config_dir = format!("{}/.local/share/com.naia.shell", home);
+    let config_path = format!("{}/naia-discord.json", config_dir);
+
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create dir {}: {}", config_dir, e))?;
+
+    // Read-merge-write to preserve existing fields
+    let mut content: serde_json::Value = if std::path::Path::new(&config_path).exists() {
+        let raw = std::fs::read_to_string(&config_path).unwrap_or_else(|_| "{}".to_string());
+        serde_json::from_str(&raw).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    if !content.is_object() {
+        content = serde_json::json!({});
+    }
+    content.as_object_mut()
+        .expect("content is always a JSON object")
+        .insert("botToken".to_string(), serde_json::Value::String(token));
+    let pretty = serde_json::to_string_pretty(&content)
+        .map_err(|e| format!("JSON serialize: {}", e))?;
+    std::fs::write(&config_path, pretty.as_bytes())
+        .map_err(|e| format!("Failed to write {}: {}", config_path, e))?;
+
+    Ok(())
 }
 
 /// Proxy Discord REST API calls through Rust to bypass CORS.
@@ -2233,6 +2290,7 @@ pub fn run() {
             generate_oauth_state,
             read_local_binary,
             read_discord_bot_token,
+            write_discord_bot_token,
             discord_api,
             sync_openclaw_config,
             fetch_linked_channels,
