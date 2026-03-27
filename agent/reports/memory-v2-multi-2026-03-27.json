@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-27T06:29:12.575Z",
+  "timestamp": "2026-03-27T09:02:00.287Z",
   "version": "v2-multi",
   "models": [
     {
@@ -10,10 +10,10 @@
       "claudeTotal": 33,
       "total": 50,
       "encodeTime": 0,
-      "testTime": 2186428,
+      "testTime": 2368915,
       "byCategoryGemini": {
         "recall": {
-          "pass": 7,
+          "pass": 9,
           "total": 10
         },
         "abstention": {
@@ -21,37 +21,37 @@
           "total": 10
         },
         "contradiction": {
-          "pass": 9,
+          "pass": 8,
           "total": 10
         },
         "synthesis": {
-          "pass": 9,
+          "pass": 7,
           "total": 10
         },
         "semantic": {
-          "pass": 4,
+          "pass": 5,
           "total": 10
         }
       },
       "byCategoryClaude": {
         "recall": {
-          "pass": 7,
-          "total": 10
-        },
-        "abstention": {
-          "pass": 6,
-          "total": 10
-        },
-        "contradiction": {
           "pass": 9,
           "total": 10
         },
+        "abstention": {
+          "pass": 3,
+          "total": 10
+        },
+        "contradiction": {
+          "pass": 8,
+          "total": 10
+        },
         "synthesis": {
-          "pass": 5,
+          "pass": 6,
           "total": 10
         },
         "semantic": {
-          "pass": 6,
+          "pass": 7,
           "total": 10
         }
       },
@@ -91,16 +91,16 @@
         {
           "id": "R05",
           "category": "recall",
-          "geminiPassCount": 0,
-          "claudePassCount": 0,
-          "geminiPass": false,
-          "claudePass": false
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R06",
           "category": "recall",
-          "geminiPassCount": 2,
-          "claudePassCount": 2,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
           "geminiPass": true,
           "claudePass": true
         },
@@ -115,18 +115,18 @@
         {
           "id": "R08",
           "category": "recall",
-          "geminiPassCount": 2,
-          "claudePassCount": 2,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
           "geminiPass": true,
           "claudePass": true
         },
         {
           "id": "R09",
           "category": "recall",
-          "geminiPassCount": 1,
-          "claudePassCount": 1,
-          "geminiPass": false,
-          "claudePass": false
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R10",
@@ -156,7 +156,7 @@
           "id": "A03",
           "category": "abstention",
           "geminiPassCount": 1,
-          "claudePassCount": 3,
+          "claudePassCount": 2,
           "geminiPass": false,
           "claudePass": true
         },
@@ -164,7 +164,7 @@
           "id": "A04",
           "category": "abstention",
           "geminiPassCount": 0,
-          "claudePassCount": 1,
+          "claudePassCount": 0,
           "geminiPass": false,
           "claudePass": false
         },
@@ -180,30 +180,30 @@
           "id": "A06",
           "category": "abstention",
           "geminiPassCount": 0,
-          "claudePassCount": 2,
+          "claudePassCount": 0,
           "geminiPass": false,
-          "claudePass": true
+          "claudePass": false
         },
         {
           "id": "A07",
           "category": "abstention",
-          "geminiPassCount": 3,
-          "claudePassCount": 3,
-          "geminiPass": true,
-          "claudePass": true
+          "geminiPassCount": 0,
+          "claudePassCount": 0,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "A08",
           "category": "abstention",
-          "geminiPassCount": 0,
-          "claudePassCount": 3,
-          "geminiPass": false,
-          "claudePass": true
+          "geminiPassCount": 2,
+          "claudePassCount": 1,
+          "geminiPass": true,
+          "claudePass": false
         },
         {
           "id": "A09",
           "category": "abstention",
-          "geminiPassCount": 2,
+          "geminiPassCount": 3,
           "claudePassCount": 3,
           "geminiPass": true,
           "claudePass": true
@@ -219,18 +219,18 @@
         {
           "id": "C01",
           "category": "contradiction",
-          "geminiPassCount": 2,
-          "claudePassCount": 2,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
           "geminiPass": true,
           "claudePass": true
         },
         {
           "id": "C02",
           "category": "contradiction",
-          "geminiPassCount": 3,
-          "claudePassCount": 3,
-          "geminiPass": true,
-          "claudePass": true
+          "geminiPassCount": 0,
+          "claudePassCount": 0,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "C03",
@@ -251,26 +251,26 @@
         {
           "id": "C05",
           "category": "contradiction",
-          "geminiPassCount": 3,
-          "claudePassCount": 3,
-          "geminiPass": true,
-          "claudePass": true
+          "geminiPassCount": 1,
+          "claudePassCount": 1,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "C06",
           "category": "contradiction",
           "geminiPassCount": 3,
-          "claudePassCount": 3,
+          "claudePassCount": 2,
           "geminiPass": true,
           "claudePass": true
         },
         {
           "id": "C07",
           "category": "contradiction",
-          "geminiPassCount": 0,
-          "claudePassCount": 0,
-          "geminiPass": false,
-          "claudePass": false
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "C08",
@@ -283,8 +283,8 @@
         {
           "id": "C09",
           "category": "contradiction",
-          "geminiPassCount": 2,
-          "claudePassCount": 2,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
           "geminiPass": true,
           "claudePass": true
         },
@@ -300,25 +300,25 @@
           "id": "S01",
           "category": "synthesis",
           "geminiPassCount": 3,
-          "claudePassCount": 0,
+          "claudePassCount": 3,
           "geminiPass": true,
-          "claudePass": false
+          "claudePass": true
         },
         {
           "id": "S02",
           "category": "synthesis",
-          "geminiPassCount": 2,
-          "claudePassCount": 0,
-          "geminiPass": true,
-          "claudePass": false
+          "geminiPassCount": 1,
+          "claudePassCount": 2,
+          "geminiPass": false,
+          "claudePass": true
         },
         {
           "id": "S03",
           "category": "synthesis",
-          "geminiPassCount": 2,
-          "claudePassCount": 1,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
           "geminiPass": true,
-          "claudePass": false
+          "claudePass": true
         },
         {
           "id": "S04",
@@ -340,7 +340,7 @@
           "id": "S06",
           "category": "synthesis",
           "geminiPassCount": 3,
-          "claudePassCount": 1,
+          "claudePassCount": 0,
           "geminiPass": true,
           "claudePass": false
         },
@@ -356,17 +356,17 @@
           "id": "S08",
           "category": "synthesis",
           "geminiPassCount": 2,
-          "claudePassCount": 2,
+          "claudePassCount": 1,
           "geminiPass": true,
-          "claudePass": true
+          "claudePass": false
         },
         {
           "id": "S09",
           "category": "synthesis",
-          "geminiPassCount": 3,
-          "claudePassCount": 3,
-          "geminiPass": true,
-          "claudePass": true
+          "geminiPassCount": 0,
+          "claudePassCount": 0,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "S10",
@@ -387,7 +387,7 @@
         {
           "id": "S02",
           "category": "semantic",
-          "geminiPassCount": 1,
+          "geminiPassCount": 0,
           "claudePassCount": 0,
           "geminiPass": false,
           "claudePass": false
@@ -411,21 +411,13 @@
         {
           "id": "S05",
           "category": "semantic",
-          "geminiPassCount": 3,
-          "claudePassCount": 0,
-          "geminiPass": true,
-          "claudePass": false
-        },
-        {
-          "id": "S06",
-          "category": "semantic",
           "geminiPassCount": 0,
           "claudePassCount": 0,
           "geminiPass": false,
           "claudePass": false
         },
         {
-          "id": "S07",
+          "id": "S06",
           "category": "semantic",
           "geminiPassCount": 3,
           "claudePassCount": 3,
@@ -433,11 +425,19 @@
           "claudePass": true
         },
         {
+          "id": "S07",
+          "category": "semantic",
+          "geminiPassCount": 0,
+          "claudePassCount": 3,
+          "geminiPass": false,
+          "claudePass": true
+        },
+        {
           "id": "S08",
           "category": "semantic",
-          "geminiPassCount": 1,
-          "claudePassCount": 2,
-          "geminiPass": false,
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
           "claudePass": true
         },
         {
@@ -451,9 +451,9 @@
         {
           "id": "S10",
           "category": "semantic",
-          "geminiPassCount": 1,
+          "geminiPassCount": 3,
           "claudePassCount": 3,
-          "geminiPass": false,
+          "geminiPass": true,
           "claudePass": true
         }
       ]

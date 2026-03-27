@@ -237,17 +237,34 @@ async function runForModel(config: ModelConfig) {
 	for (const tc of TEST_CASES) {
 		let geminiPC = 0, claudePC = 0;
 		for (let run = 0; run < RUNS; run++) {
-			let memories: string[] = [];
+			let memories: Array<{ text: string; score: number }> = [];
 			try {
 				const raw = await m.search(tc.query, { userId: "v2m", limit: 5 });
-				memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
+				const items = raw?.results ?? raw ?? [];
+				memories = items.map((r: any) => ({
+					text: r.memory ?? r.text ?? "",
+					score: r.score ?? 0,
+				}));
 			} catch {}
 
-			const memCtx = memories.length > 0
-				? `<recalled_memories>\n${memories.map((m2) => `- ${m2}`).join("\n")}\n</recalled_memories>`
-				: "(관련 기억 없음)";
+			// Relevance filtering: 0.55 이상 사용
+			// 0.65는 synthesis에 필요한 기억까지 걸러버림 → 0.55로 완화
+			const relevant = memories.filter((m2) => m2.score >= 0.55);
 
-			const sysPrompt = `당신은 사용자의 개인 AI입니다. 기억:\n${memCtx}\n기억에 있는 것만 답하세요. 없으면 "기억에 없습니다"라고 하세요. 지어내지 마세요.`;
+			const memCtx = relevant.length > 0
+				? `<recalled_memories>\n아래는 이전 대화에서 기억된 내용입니다.\n${relevant.map((m2) => `- ${m2.text}`).join("\n")}\n</recalled_memories>`
+				: "(이 사용자에 대해 기억된 내용이 없습니다)";
+
+			const sysPrompt = `당신은 사용자의 개인 AI 동반자 "나이아"입니다.
+
+${memCtx}
+
+응답 규칙:
+1. 위 기억에 있는 내용이 질문과 직접 관련될 때만 활용하세요.
+2. 기억에 없는 내용을 절대 지어내지 마세요.
+3. 질문한 내용이 기억에 없으면 솔직히 "말씀하신 적 없는 것 같습니다" 또는 "기억에 없습니다"라고 답하세요.
+4. 기억이 있더라도 질문과 관련 없는 기억은 언급하지 마세요.
+5. 자연스럽고 친근하게 답하세요.`;
 			const response = await askLLM(config, sysPrompt, tc.query);
 			const { geminiPass: gp, claudePass: cp } = await judgeLLM(config, tc.query, response, tc.expected_answer);
 			if (gp) geminiPC++;
