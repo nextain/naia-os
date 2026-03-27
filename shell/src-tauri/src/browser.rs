@@ -239,7 +239,7 @@ fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
         let bin_name = if app_id.contains("chromium") || app_id.contains("Chromium") {
             "chromium"
         } else {
-            "google-chrome"
+            "chrome"  // com.google.Chrome Flatpak uses "chrome" binary, not "google-chrome"
         };
         let command_flag = format!("--command={bin_name}");
         // Pass DISPLAY/GDK_BACKEND via --env for flatpak run (process .env()
