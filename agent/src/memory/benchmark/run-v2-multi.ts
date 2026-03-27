@@ -70,35 +70,10 @@ function getModelConfigs(apiKey?: string): ModelConfig[] {
 	return configs;
 }
 
-const TEST_CASES: TestCase[] = [
-	// recall (9)
-	{ id: "R01", query: "내 이름이 뭐야?", expected_answer: "김하늘", category: "recall" },
-	{ id: "R02", query: "나 뭐하는 사람이야?", expected_answer: "대표, 개발자", category: "recall" },
-	{ id: "R03", query: "내 에디터 뭐야?", expected_answer: "Cursor (변경됨)", category: "recall" },
-	{ id: "R04", query: "나 어디 살아?", expected_answer: "판교 (이사함)", category: "recall" },
-	{ id: "R05", query: "내가 좋아하는 커피가 뭐야?", expected_answer: "아메리카노", category: "recall" },
-	{ id: "R06", query: "내 동생 이름이 뭐야?", expected_answer: "김바다", category: "recall" },
-	{ id: "R07", query: "내 OS가 뭐야?", expected_answer: "Fedora", category: "recall" },
-	{ id: "R08", query: "내 취미가 뭐야?", expected_answer: "러닝", category: "recall" },
-	{ id: "R09", query: "나 Git 어떻게 써?", expected_answer: "CLI", category: "recall" },
-	// abstention (9)
-	{ id: "A01", query: "내가 Docker 관련해서 뭐라고 했었지?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A02", query: "내가 좋아하는 게임이 뭐야?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A03", query: "나 고양이 키운다고 했지?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A04", query: "내가 Nuxt.js 쓴다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A05", query: "나 수영 한다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A06", query: "내 차가 뭐야?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A07", query: "내가 일본어 할 줄 안다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A08", query: "내가 AWS 쓴다고 했나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A09", query: "나 피아노 친다고 했지?", expected_answer: "NONE", category: "abstention" },
-	// semantic (3)
-	{ id: "S01", query: "내 개발 환경 어떻게 되지?", expected_answer: "TypeScript, Neovim/Cursor, Next.js, FastAPI 중 2개 이상", category: "semantic" },
-	{ id: "S02", query: "나 음식 취향이 어때?", expected_answer: "아메리카노, 매운 음식 못 먹음", category: "semantic" },
-	{ id: "S03", query: "주말에 뭐 하지?", expected_answer: "러닝, 한강", category: "semantic" },
-	// contradiction (2)
-	{ id: "C01", query: "내가 쓰는 에디터 뭐야?", expected_answer: "Cursor", category: "contradiction" },
-	{ id: "C02", query: "나 어디 살아?", expected_answer: "판교", category: "contradiction" },
-];
+// Load test cases from JSON file (50 tests, 5 categories × 10)
+const TEST_CASES: TestCase[] = JSON.parse(
+	readFileSync(join(import.meta.dirname, "test-cases-v3.json"), "utf-8"),
+);
 
 async function askLLM(config: ModelConfig, systemPrompt: string, userMessage: string): Promise<string> {
 	if (config.llm.provider === "ollama") {
