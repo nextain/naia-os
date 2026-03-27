@@ -1,21 +1,21 @@
 {
-  "timestamp": "2026-03-27T03:44:02.902Z",
+  "timestamp": "2026-03-27T04:16:59.902Z",
   "version": "v2-multi",
   "models": [
     {
       "model": "gemini-2.5-flash",
-      "passRate": 26,
-      "totalPass": 6,
+      "passRate": 83,
+      "totalPass": 19,
       "total": 23,
       "encodeTime": 0,
-      "testTime": 873268,
+      "testTime": 429348,
       "byCategory": {
         "recall": {
-          "pass": 0,
+          "pass": 8,
           "total": 9
         },
         "abstention": {
-          "pass": 6,
+          "pass": 9,
           "total": 9
         },
         "semantic": {
@@ -23,7 +23,7 @@
           "total": 3
         },
         "contradiction": {
-          "pass": 0,
+          "pass": 2,
           "total": 2
         }
       },
@@ -31,8 +31,8 @@
         {
           "id": "R01",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R02",
@@ -43,44 +43,44 @@
         {
           "id": "R03",
           "category": "recall",
-          "passCount": 1,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R04",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R05",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R06",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R07",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R08",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "R09",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "A01",
@@ -103,13 +103,13 @@
         {
           "id": "A04",
           "category": "abstention",
-          "passCount": 1,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "A05",
           "category": "abstention",
-          "passCount": 2,
+          "passCount": 3,
           "finalPass": true
         },
         {
@@ -121,8 +121,8 @@
         {
           "id": "A07",
           "category": "abstention",
-          "passCount": 1,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "A08",
@@ -133,8 +133,8 @@
         {
           "id": "A09",
           "category": "abstention",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "S01",
@@ -151,20 +151,20 @@
         {
           "id": "S03",
           "category": "semantic",
-          "passCount": 0,
+          "passCount": 1,
           "finalPass": false
         },
         {
           "id": "C01",
           "category": "contradiction",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         },
         {
           "id": "C02",
           "category": "contradiction",
-          "passCount": 0,
-          "finalPass": false
+          "passCount": 3,
+          "finalPass": true
         }
       ]
     }

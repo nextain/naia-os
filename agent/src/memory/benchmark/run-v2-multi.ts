@@ -187,18 +187,9 @@ function judgeClaude(question: string, response: string, expected: string): bool
 	}
 }
 
-/** Dual judge — both must agree for PASS (strict), or either passes (lenient) */
+/** Claude CLI only judge — no self-judge bias */
 async function judgeLLM(_config: ModelConfig, question: string, response: string, expected: string): Promise<boolean> {
-	const geminiPass = await judgeGeminiPro(question, response, expected);
-	const claudePass = judgeClaude(question, response, expected);
-
-	// Log disagreements for analysis
-	if (geminiPass !== claudePass) {
-		console.log(`    ⚖️ Judge disagreement: gemini=${geminiPass ? "PASS" : "FAIL"} claude=${claudePass ? "PASS" : "FAIL"}`);
-	}
-
-	// Use strict mode: both must agree
-	return geminiPass && claudePass;
+	return judgeClaude(question, response, expected);
 }
 
 /** Shared mem0 instance — encode once with Gemini, test with different LLMs */
