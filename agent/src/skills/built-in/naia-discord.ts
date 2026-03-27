@@ -442,6 +442,9 @@ export function createNaiaDiscordSkill(): SkillDefinition {
 			}
 
 			if (action === "send") {
+				// TODO(#155): Migrate send to Shell relay (POST /relay/reply) instead of Gateway.
+				// Currently uses Gateway send method. After discord-relay.ts is verified E2E,
+				// route through Shell writeLine protocol or direct Cloud Run relay HTTP call.
 				if (!Array.isArray(methods) || !methods.includes("send")) {
 					return {
 						success: false,

@@ -1,101 +1,106 @@
-# E2E Discord 통합 아키텍처
+<!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 
-## 개요
+# Discord 통합 아키텍처
 
-Gateway ↔ Agent ↔ Shell 간 Discord 통합 전체 아키텍처입니다.
+> SoT: `.agents/context/channels-discord.yaml`
+
+## 핵심 원칙
+
+**Naia는 로컬 AI 프로젝트. 클라우드는 중계만.**
+
+- LLM 처리: 로컬 (Shell Agent — 페르소나, 메모리, 도구 포함)
+- 메시지 저장: 로컬 (Discord 서버가 메시지를 자체 보관)
+- Cloud Run 봇: 순수 릴레이 (수신, 전달, 회신 중계)
+- Cloud Run은 LLM 호출, 메시지 저장, 어떤 처리도 하면 안 됨
+
+참조: `philosophy.yaml` → `privacy_first` ("Local execution by default — cloud is opt-in")
+
+## 메시지 파이프라인
+
+### PC 온라인
+
+```
+Discord 유저 DM → Cloud Run 봇 (릴레이) → Shell (polling/push)
+Shell → Agent → LLM (풀 컨텍스트: 페르소나, 메모리, 도구, 대화 히스토리)
+Shell → Cloud Run 릴레이 → Discord reply
+```
+
+**Cloud Run은 절대 LLM을 호출하지 않음. Shell이 모든 처리를 담당.**
+
+### PC 오프라인
+
+```
+Discord 유저 DM → Cloud Run 봇 수신, Shell 없음
+응답 없음. 메시지는 Discord 서버에 남아있음.
+PC 켜지면 → Shell이 Discord 히스토리 확인 → 미처리 메시지 처리
+```
+
+**PC 꺼져있으면 응답 없음. 이것이 설계 의도.**
+
+## Cloud Run 봇 (순수 릴레이)
+
+- **서비스**: `naia-discord-bot` (asia-northeast3)
+- **역할**: 수신, 전달, 회신. 그 외 아무것도 하지 않음.
+- **금지**: LLM 호출, 메시지 저장, 콘텐츠 처리, 응답 결정
+- **필수**: Discord WebSocket 유지, 메시지 전달, Shell 응답 수신, 토큰 만료 시 알림 이메일
+
+### 핵심 파일 (naia.nextain.io)
+- `src/lib/discord-bot.ts` — 봇 로직
+- `scripts/start-discord-bot.ts` — 진입점 + 헬스 서버
+- `Dockerfile.discord-bot` — Cloud Run 컨테이너
 
 ## 컴포넌트
 
-### Gateway (OpenClaw)
-- Discord 봇 연결 관리
-- RPC 메서드: `channels.status`, `channels.discord.readMessages`, `send`
-- 설정 파일: `~/.openclaw/credentials/discord-allowFrom.json`, `openclaw.json`
-- **소스 수정 불가**
+### Shell (Tauri 2 + React)
+- **역할**: LLM 처리 허브
+- Cloud Run에서 새 Discord 메시지 가져오기
+- Agent + LLM으로 풀 컨텍스트 처리
+- 응답을 Cloud Run으로 전송
+- ChannelsTab에서 대화 표시
 
 ### Agent
-- `skill_naia_discord` 스킬로 Gateway와 통신
-- 액션: `send`, `status`, `history`
-- **채팅 라우팅**: `routeViaGateway` 플래그로 Gateway 경유 채팅 지원
-  - `true` → `chat.send` RPC → Gateway Agent → LLM (통합 세션)
-  - `false` → 기존 직접 LLM 호출 (fallback)
-  - 설정: `chatRouting = "auto" | "gateway" | "direct"` (기본값: `"auto"`)
-- 이벤트 핸들러: Gateway 이벤트를 Shell로 전달
-  - `exec.approval.requested` → Shell 승인 모달
-  - `logs.entry` → Shell 로그 패널
-  - `channel.message` / `channels.message` → Shell Discord 메시지 표시
-  - `agent.delta` → Gateway 채팅 스트리밍 텍스트/도구 사용
-  - `agent.run.finished` / `chat.finished` → 사용량 + 완료
+- `skill_naia_discord` 스킬 (send/status/history)
+- Gateway 이벤트를 Shell로 전달 (`channel.message` / `channels.message` → `discord_message`)
 
-### Shell (Tauri 2 + React)
-- ChatPanel: Discord 메시지를 `[Discord: <sender>]` 프리픽스로 표시
-- SettingsTab / OnboardingWizard: OpenClaw 설정 동기화 트리거
-- ChannelsTab: 연결 상태 표시
-- OAuth deep link: `discord_auth_complete` 이벤트 처리
+### OpenClaw Gateway
+- **역할**: 로컬 도구 실행 전용 — Discord 메시지 라우팅 아님
+- **Discord 플러그인**: 비활성화 (DISABLED)
+- `openclaw.json`의 봇 토큰은 Shell REST API 접근용일 뿐
 
-## OAuth Deep Link 흐름
+## 토큰 관리
 
-```
-Shell "Discord 봇 연결" 클릭
-  → 브라우저: naia.nextain.io 통합 페이지
-  → Discord OAuth 완료
-  → Deep link: naia://auth/discord?user_id=<id>&channel_id=<id>
-  → Rust: deep link 파싱 → discord_auth_complete 이벤트
-  → Shell: persistDiscordDefaults() → config → agent env
-```
-
-### Deep Link 페이로드
-- `discordUserId`: Discord 사용자 ID (숫자)
-- `discordChannelId`: 채널 ID (선택)
-- `discordTarget`: 사전 포맷된 타깃 (선택)
-
-## OpenClaw 부트스트랩 파일 ↔ Shell 페르소나
-
-| 파일 | 내용 |
+| 항목 | 위치 |
 |------|------|
-| `SOUL.md` | 완성된 시스템 프롬프트 (페르소나 + emotion tag + 컨텍스트) |
-| `IDENTITY.md` | 에이전트 이름 |
-| `USER.md` | 사용자 이름 |
-| `openclaw.json` | Provider/model 설정 |
-| `auth-profiles.json` | API 인증 정보 |
+| 봇 토큰 (런타임) | Cloud Run 환경변수 `DISCORD_BOT_TOKEN` |
+| 봇 토큰 (Shell REST API) | `openclaw.json → channels.discord.token` |
+| 봇 토큰 (백업) | `my-envs/naia.nextain.io.env` |
+| OpenClaw Discord 플러그인 | 비활성화 — 사용하지 않음 |
+| 단일 연결 규칙 | 토큰당 WebSocket 1개. Cloud Run이 점유. |
 
-## 채팅 라우팅
+## 로그인 / 채널 분리
 
-### 개요
-Shell 채팅 메시지를 Gateway 경유로 전송하여 Discord와 통합 세션을 사용할 수 있습니다.
+**로그인**: `naia://auth?key=gw-xxx&user_id=xxx&state=xxx` — Discord 필드 없음, 프로바이더 무관.
 
-### 모드
-| 모드 | 동작 |
-|------|------|
-| `auto` (기본) | Gateway 연결 시 Gateway 경유, 미연결 시 직접 LLM |
-| `gateway` | 항상 Gateway 경유 (미연결 시 실패) |
-| `direct` | 항상 직접 LLM (기존 동작) |
+**채널 연동** (`naia_auth_complete` 이후):
+1. Shell이 `syncLinkedChannels()` 호출
+2. BFF `GET /api/gateway/linked-channels` 호출
+3. `{ channels: [{ type: "discord", userId: "..." }] }` 반환
+4. Shell이 `discordDefaultUserId` 저장, DM 채널 열기, 채널 ID 저장
 
-### 흐름
-```
-Gateway 경유: Shell → Agent → Gateway chat.send RPC → Gateway Agent → LLM
-직접 LLM:     Shell → Agent → 직접 LLM API (Gateway 우회)
-```
+## 알려진 이슈
 
-### 핵심 파일
-- `agent/src/gateway/gateway-chat.ts` — Gateway 채팅 라우팅
-- `agent/src/index.ts` — 라우팅 분기 (`routeViaGateway` 플래그)
-- `shell/src/lib/config.ts` — `chatRouting` 설정
-- `shell/src/lib/chat-service.ts` — request에 `routeViaGateway` 포함
+- `ChatPanel.tsx:985` — `discord_message`를 무시 (`break`). LLM 파이프라인 연결 필요. #155 참조
+- `discord-bot.ts`에 `callLLM()` 있음 — 릴레이 전용 원칙 위반. 제거 필요. #155 참조
+- Shell → Cloud Run 응답 API 미구현. #155 참조
+- Shell의 OpenClaw 의존성 (`read_discord_bot_token`). #154 참조
 
-## Shell 대화 동기화
+## 관련 이슈
 
-### 현재
-- 수동 폴링: `skill_naia_discord action=history`
-- 실시간: Gateway `channel.message` 이벤트 수신 (연결 시)
-- 표시: `[Discord: <sender>] <message>` 형태로 ChatPanel에 표시
+- **#144** — 봇 토큰 만료 (해결: 새 토큰 + Cloud Run 배포)
+- **#154** — Discord OpenClaw 의존성 제거
+- **#155** — Shell 주도 Discord 응답 파이프라인 구현
 
-### 향후
-- 오프라인 → 온라인 메시지 동기화 (`chat.inject`)
-- DM 외 Discord 스레드/채널 지원
-- Gateway 세션 히스토리 브라우징
+---
 
-## 알려진 제한
-
-- Gateway `chat.send` RPC 가용성은 OpenClaw 버전에 따름
-- Batch fallback (agent → agent.wait → transcript) 시 스트리밍 손실
-- SOUL.md의 emotion tag가 모든 Gateway LLM provider에서 지원되지 않을 수 있음
+*English mirror: [.users/context/channels-discord.md](../channels-discord.md)*
+*AI context: [.agents/context/channels-discord.yaml](../../../.agents/context/channels-discord.yaml)*
