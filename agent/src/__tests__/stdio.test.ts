@@ -106,6 +106,78 @@ describe("parseRequest", () => {
 			expect(result?.message).toBe("위험해 보여요");
 		}
 	});
+
+	it("parses skill_list request", () => {
+		const input = JSON.stringify({
+			type: "skill_list",
+			requestId: "sl-1",
+		});
+		const result = parseRequest(input);
+		expect(result).not.toBeNull();
+		expect(result?.type).toBe("skill_list");
+		if (result?.type === "skill_list") {
+			expect(result.requestId).toBe("sl-1");
+		}
+	});
+});
+
+describe("skill_list handler", () => {
+	let writeSpy: ReturnType<typeof vi.spyOn>;
+	let outputs: unknown[];
+
+	beforeEach(() => {
+		outputs = [];
+		vi.clearAllMocks();
+		writeSpy = vi
+			.spyOn(process.stdout, "write")
+			.mockImplementation((data: string | Uint8Array) => {
+				if (typeof data === "string") {
+					for (const line of data.trim().split("\n")) {
+						outputs.push(JSON.parse(line));
+					}
+				}
+				return true;
+			});
+	});
+
+	afterEach(() => {
+		writeSpy.mockRestore();
+	});
+
+	it("returns skill_list_response with registered skills", async () => {
+		const { skillRegistry } = await import("../gateway/tool-bridge.js");
+
+		// Simulate the handler logic (same as index.ts skill_list handler)
+		const tools = skillRegistry.toToolDefinitions(false);
+		process.stdout.write(
+			`${JSON.stringify({ type: "skill_list_response", requestId: "sl-test", tools })}\n`,
+		);
+
+		const response = outputs.find(
+			(o: any) => o.type === "skill_list_response",
+		) as any;
+		expect(response).toBeDefined();
+		expect(response.requestId).toBe("sl-test");
+		expect(response.tools).toBeInstanceOf(Array);
+		expect(response.tools.length).toBeGreaterThan(0);
+
+		// Verify built-in skills are included
+		const names = response.tools.map((t: any) => t.name);
+		expect(names).toContain("skill_time");
+		expect(names).toContain("skill_memo");
+		expect(names).toContain("skill_weather");
+
+		// Verify each tool has required fields
+		for (const tool of response.tools) {
+			expect(tool.name).toEqual(expect.any(String));
+			expect(tool.description).toEqual(expect.any(String));
+			expect(tool.parameters).toEqual(expect.any(Object));
+		}
+
+		// Verify gateway-dependent skills are excluded (hasGateway=false)
+		expect(names).not.toContain("skill_agents");
+		expect(names).not.toContain("skill_naia_discord");
+	});
 });
 
 describe("handleChatRequest TTS integration", () => {

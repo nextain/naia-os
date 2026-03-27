@@ -118,6 +118,17 @@ export interface PanelToolResult {
 	success: boolean;
 }
 
+// ─── Skill List Protocol ────────────────────────────────────────────────────
+
+/**
+ * Shell → Agent: request the list of registered skill tool definitions.
+ * Used by Omni voice mode to pass built-in skills to the voice session.
+ */
+export interface SkillListRequest {
+	type: "skill_list";
+	requestId: string;
+}
+
 export type AgentRequest =
 	| ChatRequest
 	| CancelRequest
@@ -127,7 +138,8 @@ export type AgentRequest =
 	| PanelSkillsRequest
 	| PanelSkillsClearRequest
 	| PanelInstallRequest
-	| PanelToolResult;
+	| PanelToolResult
+	| SkillListRequest;
 
 export function parseRequest(line: string): AgentRequest | null {
 	try {
@@ -142,7 +154,8 @@ export function parseRequest(line: string): AgentRequest | null {
 			obj.type === "panel_skills" ||
 			obj.type === "panel_skills_clear" ||
 			obj.type === "panel_tool_result" ||
-			obj.type === "panel_install"
+			obj.type === "panel_install" ||
+			obj.type === "skill_list"
 		) {
 			return obj as AgentRequest;
 		}

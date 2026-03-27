@@ -96,6 +96,16 @@ mirror_pairs:
     users_ko: .users/context/ko/brand.md
     description: Brand identity — Naia/Nextain origin, character design, color system, reference assets
 
+  - agents: .agents/context/model-strategy.yaml
+    users: .users/context/model-strategy.md
+    users_ko: .users/context/ko/model-strategy.md
+    description: Model selection strategy — MiniCPM 4.5-omni, Qwen3-8B abliteration, embedding, fine-tuning roadmap, two-track deployment
+
+  - agents: .agents/context/hardware-tiers.yaml
+    users: .users/context/hardware-tiers.md
+    users_ko: .users/context/ko/hardware-tiers.md
+    description: Hardware requirements — GPU tiers (128/48/32/16GB), VRAM allocation, memory system GPU split
+
   - agents: .agents/context/harness.yaml
     users: .users/context/harness.md
     users_ko: .users/context/ko/harness.md
@@ -238,4 +248,6 @@ on_demand_loading:
     - .agents/workflows/development-cycle.yaml (when coding — ALWAYS read before building)
     - .agents/context/multi-project-workspace.yaml (when working in a multi-project workspace)
     - .agents/context/harness.yaml (when working on hooks, progress files, or harness engineering)
+    - .agents/context/model-strategy.yaml (when working on model selection, fine-tuning, embedding, or hardware tier planning)
+    - .agents/context/hardware-tiers.yaml (when working on GPU requirements, VRAM allocation, or memory system resource planning)
     - .agents/workflows/* (when executing specific workflows)
