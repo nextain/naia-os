@@ -131,7 +131,7 @@ async function askLLM(config: ModelConfig, systemPrompt: string, userMessage: st
 				{ role: "system", content: systemPrompt },
 				{ role: "user", content: userMessage },
 			],
-			max_tokens: 200,
+			max_tokens: 500,
 		}),
 	});
 	const data = await res.json() as any;
