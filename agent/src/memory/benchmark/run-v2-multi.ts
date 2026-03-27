@@ -11,6 +11,7 @@
  *   - qwen3:8b (local, Ollama) — MiniCPM 4.5 LLM급 성능 기준
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -43,14 +44,28 @@ function getModelConfigs(apiKey?: string): ModelConfig[] {
 		});
 	}
 
-	// Ollama — qwen3:8b as proxy for MiniCPM 4.5 LLM-level performance
-	// Uses nomic-embed-text for embeddings (qwen3:8b is chat-only, not an embedder)
-	configs.push({
-		name: "qwen3:8b (ollama)",
-		llm: { provider: "ollama", config: { model: "qwen3:8b" } },
-		embedder: { provider: "ollama", config: { model: "nomic-embed-text" } },
-		dimension: 768,
-	});
+	// Ollama qwen3:8b — mem0 인코딩은 Gemini(LLM+임베딩), LLM 응답+판정만 ollama
+	// mem0 ollama 클라이언트 호환성 문제로 인코딩에 Gemini 사용
+	// 이 구성은 "같은 기억 DB에서, 다른 LLM이 얼마나 잘 활용하는가"를 비교
+	if (apiKey) {
+		configs.push({
+			name: "qwen3:8b (ollama, 응답만)",
+			llm: { provider: "ollama", config: { model: "qwen3:8b" } },
+			// mem0 인코딩용 (LLM+임베딩 모두 Gemini) — ollama LLM 호환 문제 우회
+			embedder: { provider: "openai", config: { apiKey, baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", model: "gemini-embedding-001" } },
+			dimension: 3072,
+			// mem0 add()에서 팩트 추출 시 Gemini LLM 사용 (ollama 404 우회)
+		} as any);
+	}
+
+	// 순수 로컬 (API 키 불필요) — mem0 ollama 호환성 문제로 현재 blocked
+	// TODO: mem0 ollama 클라이언트 버전 호환성 해결 후 활성화
+	// configs.push({
+	//   name: "qwen3:8b + qwen3-embedding (full local)",
+	//   llm: { provider: "ollama", config: { model: "qwen3:8b" } },
+	//   embedder: { provider: "ollama", config: { model: "qwen3-embedding" } },
+	//   dimension: 4096,
+	// });
 
 	return configs;
 }
@@ -123,10 +138,23 @@ async function askLLM(config: ModelConfig, systemPrompt: string, userMessage: st
 	return data.choices?.[0]?.message?.content ?? "";
 }
 
-async function judgeLLM(config: ModelConfig, question: string, response: string, expected: string): Promise<boolean> {
-	const isAbstention = expected === "NONE";
+/** Fixed judge model — always the same, independent of the response model.
+ *  Prevents self-judge bias. Uses a STRONGER model than any test subject.
+ *  gemini-2.5-pro > gemini-2.5-flash > qwen3:8b */
+const JUDGE_CONFIG: ModelConfig = {
+	name: "judge (gemini-2.5-pro)",
+	llm: { provider: "openai", config: {
+		apiKey: process.env.GEMINI_API_KEY ?? "",
+		baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+		model: "gemini-2.5-pro",
+	}},
+	embedder: { provider: "openai", config: {} }, // unused for judging
+	dimension: 0, // unused
+};
 
-	const prompt = isAbstention
+function buildJudgePrompt(question: string, response: string, expected: string): string {
+	const isAbstention = expected === "NONE";
+	return isAbstention
 		? `질문: "${question}"
 AI 응답: "${response}"
 AI가 "모른다/말한 적 없다/기억에 없다"고 올바르게 답했으면 PASS, 없는 정보를 지어냈으면 FAIL.
@@ -136,9 +164,82 @@ AI 응답: "${response}"
 기대 정답: "${expected}"
 AI 응답이 기대 정답과 의미적으로 일치하면 PASS. 표현이 달라도 같은 뜻이면 PASS.
 한 단어로만: PASS 또는 FAIL`;
+}
 
-	const verdict = await askLLM(config, "You are a strict judge. Answer only PASS or FAIL.", prompt);
+/** Judge with Gemini 2.5 Pro (API) */
+async function judgeGeminiPro(question: string, response: string, expected: string): Promise<boolean> {
+	const prompt = buildJudgePrompt(question, response, expected);
+	const verdict = await askLLM(JUDGE_CONFIG, "You are a strict judge. Answer only PASS or FAIL.", prompt);
 	return verdict.trim().toUpperCase().includes("PASS");
+}
+
+/** Judge with Claude CLI (headless, strongest available) */
+function judgeClaude(question: string, response: string, expected: string): boolean {
+	const prompt = buildJudgePrompt(question, response, expected);
+	try {
+		const verdict = execSync(
+			`echo ${JSON.stringify(prompt)} | claude --print --model sonnet`,
+			{ encoding: "utf-8", timeout: 30000 },
+		).trim();
+		return verdict.toUpperCase().includes("PASS");
+	} catch {
+		return false;
+	}
+}
+
+/** Dual judge — both must agree for PASS (strict), or either passes (lenient) */
+async function judgeLLM(_config: ModelConfig, question: string, response: string, expected: string): Promise<boolean> {
+	const geminiPass = await judgeGeminiPro(question, response, expected);
+	const claudePass = judgeClaude(question, response, expected);
+
+	// Log disagreements for analysis
+	if (geminiPass !== claudePass) {
+		console.log(`    ⚖️ Judge disagreement: gemini=${geminiPass ? "PASS" : "FAIL"} claude=${claudePass ? "PASS" : "FAIL"}`);
+	}
+
+	// Use strict mode: both must agree
+	return geminiPass && claudePass;
+}
+
+/** Shared mem0 instance — encode once with Gemini, test with different LLMs */
+let sharedMem0: any = null;
+let sharedMem0Encoded = false;
+
+async function ensureSharedMem0(apiKey: string) {
+	if (sharedMem0) return sharedMem0;
+
+	const { Memory } = await import("mem0ai/oss");
+	const dbPath = `/tmp/mem0-v2m-shared-${Date.now()}`;
+
+	// Always use Gemini for encoding (ollama mem0 client has compatibility issues)
+	sharedMem0 = new Memory({
+		embedder: { provider: "openai", config: { apiKey, baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", model: "gemini-embedding-001" } },
+		vectorStore: { provider: "memory", config: { collectionName: "v2m-shared", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
+		llm: { provider: "openai", config: { apiKey, baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", model: "gemini-2.5-flash" } },
+		historyDbPath: `${dbPath}-hist.db`,
+	});
+
+	if (!sharedMem0Encoded) {
+		const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
+		console.log("Encoding facts (Gemini, shared across all models)...");
+		for (const fact of factBank.facts) {
+			try {
+				await sharedMem0.add([{ role: "user", content: fact.statement }], { userId: "v2m" });
+				console.log(`  ✅ ${fact.id}`);
+			} catch (err: any) {
+				console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 40)}`);
+			}
+		}
+		for (const u of factBank.updates || []) {
+			try {
+				await sharedMem0.add([{ role: "user", content: u.statement }], { userId: "v2m" });
+			} catch {}
+		}
+		sharedMem0Encoded = true;
+		console.log("  Encoding done.\n");
+	}
+
+	return sharedMem0;
 }
 
 async function runForModel(config: ModelConfig) {
@@ -146,33 +247,11 @@ async function runForModel(config: ModelConfig) {
 	console.log(`MODEL: ${config.name}`);
 	console.log(`${"=".repeat(60)}\n`);
 
-	const { Memory } = await import("mem0ai/oss");
-	const dbPath = `/tmp/mem0-v2m-${randomUUID()}`;
+	const apiKey = config.embedder.config.apiKey || config.llm.config.apiKey || process.env.GEMINI_API_KEY!;
+	const m = await ensureSharedMem0(apiKey);
 
-	const m = new Memory({
-		embedder: config.embedder,
-		vectorStore: { provider: "memory", config: { collectionName: `v2m-${randomUUID().slice(0,8)}`, dimension: config.dimension, dbPath: `${dbPath}-vec.db` } },
-		llm: config.llm,
-		historyDbPath: `${dbPath}-hist.db`,
-	});
-
-	// Encode facts
 	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
 	const startEncode = Date.now();
-
-	console.log("Encoding facts...");
-	for (const fact of factBank.facts) {
-		try {
-			await m.add([{ role: "user", content: fact.statement }], { userId: "v2m" });
-		} catch (err: any) {
-			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 40)}`);
-		}
-	}
-	for (const u of factBank.updates || []) {
-		try {
-			await m.add([{ role: "user", content: u.statement }], { userId: "v2m" });
-		} catch {}
-	}
 	const encodeTime = Date.now() - startEncode;
 	console.log(`  Encoding: ${(encodeTime / 1000).toFixed(1)}s\n`);
 
