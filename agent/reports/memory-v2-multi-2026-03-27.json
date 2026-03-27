@@ -1,15 +1,35 @@
 {
-  "timestamp": "2026-03-27T04:16:59.902Z",
+  "timestamp": "2026-03-27T04:59:28.182Z",
   "version": "v2-multi",
   "models": [
     {
       "model": "gemini-2.5-flash",
-      "passRate": 83,
-      "totalPass": 19,
+      "geminiRate": 78,
+      "claudeRate": 87,
+      "geminiTotal": 18,
+      "claudeTotal": 20,
       "total": 23,
       "encodeTime": 0,
-      "testTime": 429348,
-      "byCategory": {
+      "testTime": 931574,
+      "byCategoryGemini": {
+        "recall": {
+          "pass": 7,
+          "total": 9
+        },
+        "abstention": {
+          "pass": 8,
+          "total": 9
+        },
+        "semantic": {
+          "pass": 1,
+          "total": 3
+        },
+        "contradiction": {
+          "pass": 2,
+          "total": 2
+        }
+      },
+      "byCategoryClaude": {
         "recall": {
           "pass": 8,
           "total": 9
@@ -19,7 +39,7 @@
           "total": 9
         },
         "semantic": {
-          "pass": 0,
+          "pass": 1,
           "total": 3
         },
         "contradiction": {
@@ -31,140 +51,186 @@
         {
           "id": "R01",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 2,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R02",
           "category": "recall",
-          "passCount": 0,
-          "finalPass": false
+          "geminiPassCount": 0,
+          "claudePassCount": 1,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "R03",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 0,
+          "claudePassCount": 3,
+          "geminiPass": false,
+          "claudePass": true
         },
         {
           "id": "R04",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R05",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R06",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R07",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R08",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "R09",
           "category": "recall",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 2,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A01",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A02",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A03",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A04",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 1,
+          "claudePassCount": 3,
+          "geminiPass": false,
+          "claudePass": true
         },
         {
           "id": "A05",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A06",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A07",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A08",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "A09",
           "category": "abstention",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "S01",
           "category": "semantic",
-          "passCount": 0,
-          "finalPass": false
+          "geminiPassCount": 3,
+          "claudePassCount": 0,
+          "geminiPass": true,
+          "claudePass": false
         },
         {
           "id": "S02",
           "category": "semantic",
-          "passCount": 0,
-          "finalPass": false
+          "geminiPassCount": 0,
+          "claudePassCount": 1,
+          "geminiPass": false,
+          "claudePass": false
         },
         {
           "id": "S03",
           "category": "semantic",
-          "passCount": 1,
-          "finalPass": false
+          "geminiPassCount": 0,
+          "claudePassCount": 2,
+          "geminiPass": false,
+          "claudePass": true
         },
         {
           "id": "C01",
           "category": "contradiction",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         },
         {
           "id": "C02",
           "category": "contradiction",
-          "passCount": 3,
-          "finalPass": true
+          "geminiPassCount": 3,
+          "claudePassCount": 3,
+          "geminiPass": true,
+          "claudePass": true
         }
       ]
     }

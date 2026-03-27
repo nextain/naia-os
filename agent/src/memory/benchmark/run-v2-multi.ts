@@ -131,7 +131,7 @@ async function askLLM(config: ModelConfig, systemPrompt: string, userMessage: st
 				{ role: "system", content: systemPrompt },
 				{ role: "user", content: userMessage },
 			],
-			max_tokens: 500,
+			max_tokens: 8192,
 		}),
 	});
 	const data = await res.json() as any;
@@ -187,9 +187,14 @@ function judgeClaude(question: string, response: string, expected: string): bool
 	}
 }
 
-/** Claude CLI only judge — no self-judge bias */
-async function judgeLLM(_config: ModelConfig, question: string, response: string, expected: string): Promise<boolean> {
-	return judgeClaude(question, response, expected);
+/** Dual judge — gemini-2.5-pro + Claude CLI, 각각 독립 점수 기록 */
+async function judgeLLM(_config: ModelConfig, question: string, response: string, expected: string): Promise<{ geminiPass: boolean; claudePass: boolean }> {
+	const geminiPass = await judgeGeminiPro(question, response, expected);
+	const claudePass = judgeClaude(question, response, expected);
+	if (geminiPass !== claudePass) {
+		console.log(`    ⚖️ disagreement: pro=${geminiPass ? "P" : "F"} claude=${claudePass ? "P" : "F"}`);
+	}
+	return { geminiPass, claudePass };
 }
 
 /** Shared mem0 instance — encode once with Gemini, test with different LLMs */
@@ -246,12 +251,16 @@ async function runForModel(config: ModelConfig) {
 	const encodeTime = Date.now() - startEncode;
 	console.log(`  Encoding: ${(encodeTime / 1000).toFixed(1)}s\n`);
 
-	// Run tests
+	// Run tests — track both judges independently
 	const startTest = Date.now();
-	const results: Array<{ id: string; category: string; passCount: number; finalPass: boolean }> = [];
+	const results: Array<{
+		id: string; category: string;
+		geminiPassCount: number; claudePassCount: number;
+		geminiPass: boolean; claudePass: boolean;
+	}> = [];
 
 	for (const tc of TEST_CASES) {
-		let passCount = 0;
+		let geminiPC = 0, claudePC = 0;
 		for (let run = 0; run < RUNS; run++) {
 			let memories: string[] = [];
 			try {
@@ -265,37 +274,50 @@ async function runForModel(config: ModelConfig) {
 
 			const sysPrompt = `당신은 사용자의 개인 AI입니다. 기억:\n${memCtx}\n기억에 있는 것만 답하세요. 없으면 "기억에 없습니다"라고 하세요. 지어내지 마세요.`;
 			const response = await askLLM(config, sysPrompt, tc.query);
-			const pass = await judgeLLM(config, tc.query, response, tc.expected_answer);
-			if (pass) passCount++;
+			const { geminiPass: gp, claudePass: cp } = await judgeLLM(config, tc.query, response, tc.expected_answer);
+			if (gp) geminiPC++;
+			if (cp) claudePC++;
 		}
 
-		const finalPass = passCount >= PASS_THRESHOLD;
-		results.push({ id: tc.id, category: tc.category, passCount, finalPass });
+		const gFinal = geminiPC >= PASS_THRESHOLD;
+		const cFinal = claudePC >= PASS_THRESHOLD;
+		results.push({ id: tc.id, category: tc.category, geminiPassCount: geminiPC, claudePassCount: claudePC, geminiPass: gFinal, claudePass: cFinal });
 
-		const icon = finalPass ? "✅" : "❌";
-		console.log(`  ${icon} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})`);
+		const gIcon = gFinal ? "✅" : "❌";
+		const cIcon = cFinal ? "✅" : "❌";
+		console.log(`  pro:${gIcon} claude:${cIcon} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (pro:${geminiPC}/${RUNS} claude:${claudePC}/${RUNS})`);
 	}
 
 	const testTime = Date.now() - startTest;
-	const totalPass = results.filter((r) => r.finalPass).length;
-	const passRate = Math.round((totalPass / results.length) * 100);
 
-	const byCategory: Record<string, { pass: number; total: number }> = {};
+	// Separate scores for each judge
+	const geminiTotal = results.filter((r) => r.geminiPass).length;
+	const claudeTotal = results.filter((r) => r.claudePass).length;
+	const geminiRate = Math.round((geminiTotal / results.length) * 100);
+	const claudeRate = Math.round((claudeTotal / results.length) * 100);
+
+	const byCategoryGemini: Record<string, { pass: number; total: number }> = {};
+	const byCategoryClaude: Record<string, { pass: number; total: number }> = {};
 	for (const r of results) {
-		if (!byCategory[r.category]) byCategory[r.category] = { pass: 0, total: 0 };
-		byCategory[r.category].total++;
-		if (r.finalPass) byCategory[r.category].pass++;
+		if (!byCategoryGemini[r.category]) byCategoryGemini[r.category] = { pass: 0, total: 0 };
+		if (!byCategoryClaude[r.category]) byCategoryClaude[r.category] = { pass: 0, total: 0 };
+		byCategoryGemini[r.category].total++;
+		byCategoryClaude[r.category].total++;
+		if (r.geminiPass) byCategoryGemini[r.category].pass++;
+		if (r.claudePass) byCategoryClaude[r.category].pass++;
 	}
 
-	console.log(`\n  Total: ${totalPass}/${results.length} (${passRate}%)`);
-	console.log(`  Encode time: ${(encodeTime / 1000).toFixed(1)}s`);
-	console.log(`  Test time: ${(testTime / 1000).toFixed(1)}s (${RUNS} runs × ${results.length} tests)`);
-	console.log(`  Per query avg: ${(testTime / results.length / RUNS / 1000).toFixed(2)}s`);
-	for (const [cat, v] of Object.entries(byCategory)) {
-		console.log(`  ${cat}: ${v.pass}/${v.total}`);
+	console.log(`\n  gemini-2.5-pro judge: ${geminiTotal}/${results.length} (${geminiRate}%)`);
+	console.log(`  Claude judge:         ${claudeTotal}/${results.length} (${claudeRate}%)`);
+	console.log(`  Test time: ${(testTime / 1000).toFixed(1)}s`);
+	console.log("\n  By category (pro / claude):");
+	for (const cat of Object.keys(byCategoryGemini)) {
+		const g = byCategoryGemini[cat];
+		const c = byCategoryClaude[cat];
+		console.log(`    ${cat}: ${g.pass}/${g.total} / ${c.pass}/${c.total}`);
 	}
 
-	return { model: config.name, passRate, totalPass, total: results.length, encodeTime, testTime, byCategory, results };
+	return { model: config.name, geminiRate, claudeRate, geminiTotal, claudeTotal, total: results.length, encodeTime, testTime, byCategoryGemini, byCategoryClaude, results };
 }
 
 async function main() {
@@ -323,14 +345,19 @@ async function main() {
 	console.log("COMPARISON");
 	console.log(`${"=".repeat(60)}\n`);
 
-	console.log("| Model | Score | Encode | Test | recall | abstention | semantic | contradiction |");
-	console.log("|-------|:-----:|:------:|:----:|:------:|:----------:|:--------:|:-------------:|");
+	console.log("| Model | Pro Judge | Claude Judge | Test Time |");
+	console.log("|-------|:---------:|:------------:|:---------:|");
 	for (const r of allResults) {
-		const rc = r.byCategory.recall ?? { pass: 0, total: 0 };
-		const ab = r.byCategory.abstention ?? { pass: 0, total: 0 };
-		const se = r.byCategory.semantic ?? { pass: 0, total: 0 };
-		const co = r.byCategory.contradiction ?? { pass: 0, total: 0 };
-		console.log(`| ${r.model} | **${r.passRate}%** | ${(r.encodeTime/1000).toFixed(0)}s | ${(r.testTime/1000).toFixed(0)}s | ${rc.pass}/${rc.total} | ${ab.pass}/${ab.total} | ${se.pass}/${se.total} | ${co.pass}/${co.total} |`);
+		console.log(`| ${r.model} | **${r.geminiRate}%** (${r.geminiTotal}/${r.total}) | **${r.claudeRate}%** (${r.claudeTotal}/${r.total}) | ${(r.testTime/1000).toFixed(0)}s |`);
+	}
+	console.log("\nBy category (pro / claude):");
+	for (const r of allResults) {
+		console.log(`  ${r.model}:`);
+		for (const cat of Object.keys(r.byCategoryGemini)) {
+			const g = r.byCategoryGemini[cat];
+			const c = r.byCategoryClaude[cat];
+			console.log(`    ${cat}: ${g.pass}/${g.total} / ${c.pass}/${c.total}`);
+		}
 	}
 
 	// Save
