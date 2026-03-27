@@ -36,7 +36,8 @@ jobs:
             cmake \
             pkg-config \
             libasound2-dev \
-            curl
+            curl \
+            libfuse2
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
