@@ -62,6 +62,7 @@ import type { ProviderId } from "../lib/types";
 import { type UpdateInfo, checkForUpdate } from "../lib/updater";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
+import { usePanelStore } from "../stores/panel";
 
 const LLM_PROVIDERS = listLlmProviders();
 
@@ -714,6 +715,8 @@ export function SettingsTab() {
 	const existing = loadConfig();
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
 	const setAvatarBackgroundImage = useAvatarStore((s) => s.setBackgroundImage);
+	const pushModal = usePanelStore((s) => s.pushModal);
+	const popModal = usePanelStore((s) => s.popModal);
 	const [savedVrmModel, setSavedVrmModel] = useState(
 		normalizeLocalPath(existing?.vrmModel ?? DEFAULT_AVATAR_MODEL),
 	);
@@ -854,6 +857,22 @@ export function SettingsTab() {
 		unknown
 	> | null>(null);
 	const labSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	// Hide Chrome X11 embed while STT model modal is open
+	useEffect(() => {
+		if (sttModelModalOpen) {
+			pushModal();
+			return () => popModal();
+		}
+	}, [sttModelModalOpen, pushModal, popModal]);
+
+	// Hide Chrome X11 embed while sync dialog is open
+	useEffect(() => {
+		if (syncDialogOpen) {
+			pushModal();
+			return () => popModal();
+		}
+	}, [syncDialogOpen, pushModal, popModal]);
 
 	// Load STT model catalog on mount
 	useEffect(() => {

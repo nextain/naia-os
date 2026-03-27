@@ -27,6 +27,7 @@ import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { saveSecretKey } from "../lib/secure-store";
 import type { ProviderId } from "../lib/types";
 import { useAvatarStore } from "../stores/avatar";
+import { usePanelStore } from "../stores/panel";
 import { VrmPreview } from "./VrmPreview";
 
 type Step =
@@ -139,6 +140,8 @@ export function OnboardingWizard({
 	onComplete: () => void;
 }) {
 	const setAvatarModelPath = useAvatarStore((s) => s.setModelPath);
+	const pushModal = usePanelStore((s) => s.pushModal);
+	const popModal = usePanelStore((s) => s.popModal);
 	const [step, setStep] = useState<Step>("provider");
 	const [agentName, setAgentName] = useState("");
 	const [userName, setUserName] = useState("");
@@ -170,6 +173,12 @@ export function OnboardingWizard({
 	);
 	const [vllmConnected, setVllmConnected] = useState(false);
 	const [selectedVllmModel, setSelectedVllmModel] = useState("");
+
+	// Hide Chrome X11 embed while onboarding modal is visible
+	useEffect(() => {
+		pushModal();
+		return () => popModal();
+	}, [pushModal, popModal]);
 
 	// Listen for deep-link Lab auth callback
 	useEffect(() => {

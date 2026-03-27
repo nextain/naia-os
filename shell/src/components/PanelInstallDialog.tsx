@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sendPanelInstall } from "../lib/chat-service";
 import { loadInstalledPanels } from "../lib/panel-loader";
 import { Logger } from "../lib/logger";
+import { usePanelStore } from "../stores/panel";
 
 interface PanelInstallDialogProps {
 	onClose: () => void;
@@ -23,6 +24,14 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 	const [loading, setLoading] = useState(false);
 	const [result, setResult] = useState<InstallResult | null>(null);
 	const successRef = useRef(false);
+	const pushModal = usePanelStore((s) => s.pushModal);
+	const popModal = usePanelStore((s) => s.popModal);
+
+	// Hide Chrome X11 embed while dialog is open
+	useEffect(() => {
+		pushModal();
+		return () => popModal();
+	}, [pushModal, popModal]);
 
 	// Listen for panel_install_result and panel_control reload from agent
 	useEffect(() => {

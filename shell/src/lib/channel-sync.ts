@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { loadConfig, saveConfig } from "./config";
 import { openDmChannel } from "./discord-api";
 import { getLocale } from "./i18n";
@@ -7,6 +9,8 @@ import { buildSystemPrompt } from "./persona";
 
 const LINKED_CHANNELS_API =
 	"https://naia.nextain.io/api/gateway/linked-channels";
+const DISCORD_BOT_TOKEN_API =
+	"https://naia.nextain.io/api/discord/bot-token";
 
 interface LinkedChannel {
 	type: string;
@@ -15,6 +19,36 @@ interface LinkedChannel {
 
 interface LinkedChannelsResponse {
 	channels: LinkedChannel[];
+}
+
+/**
+ * Fetch the Discord bot token from naia.nextain.io and save it to naia-discord.json.
+ * Called after Lab auth succeeds. Fails silently if the endpoint is unavailable.
+ */
+async function fetchAndRestoreDiscordBotToken(naiaKey: string): Promise<void> {
+	try {
+		const res = await fetch(DISCORD_BOT_TOKEN_API, {
+			headers: { Authorization: `Bearer ${naiaKey}` },
+		});
+		if (!res.ok) {
+			if (res.status !== 404) {
+				Logger.warn("channel-sync", "discord bot-token API error", {
+					status: res.status,
+				});
+			}
+			return;
+		}
+		const data = (await res.json()) as { token?: string };
+		if (!data?.token) return;
+
+		await invoke("write_discord_bot_token", { token: data.token });
+		Logger.info("channel-sync", "Discord bot token restored");
+		await emit("discord_auth_complete", {});
+	} catch (err) {
+		Logger.warn("channel-sync", "fetchAndRestoreDiscordBotToken failed", {
+			error: String(err),
+		});
+	}
 }
 
 /**
@@ -63,6 +97,9 @@ export async function syncLinkedChannels(): Promise<void> {
 		Logger.info("channel-sync", "No lab credentials, skipping channel sync");
 		return;
 	}
+
+	// Always attempt to restore Discord bot token on Lab login
+	await fetchAndRestoreDiscordBotToken(config.naiaKey);
 
 	const channels = await fetchLinkedChannels(config.naiaKey, config.naiaUserId);
 	if (channels.length === 0) {

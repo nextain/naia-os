@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { t } from "../lib/i18n";
 import type { PendingApproval } from "../stores/chat";
+import { usePanelStore } from "../stores/panel";
 
 interface Props {
 	pending: PendingApproval;
@@ -10,6 +12,14 @@ export function PermissionModal({ pending, onDecision }: Props) {
 	const tierLabel =
 		pending.tier >= 2 ? t("permission.tier2") : t("permission.tier1");
 	const tierClass = pending.tier >= 2 ? "tier-2" : "tier-1";
+	const pushModal = usePanelStore((s) => s.pushModal);
+	const popModal = usePanelStore((s) => s.popModal);
+
+	// Hide Chrome X11 embed while permission modal is visible
+	useEffect(() => {
+		pushModal();
+		return () => popModal();
+	}, [pushModal, popModal]);
 
 	return (
 		<div className="permission-overlay">

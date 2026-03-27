@@ -407,6 +407,15 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		return () => window.removeEventListener("keydown", handler);
 	}, []);
 
+	// Hide Chrome X11 embed while Quick Open overlay is visible
+	useEffect(() => {
+		if (quickOpenVisible) {
+			const { pushModal, popModal } = usePanelStore.getState();
+			pushModal();
+			return () => popModal();
+		}
+	}, [quickOpenVisible]);
+
 	// ── Panel API (WorkspacePanelApi) ─────────────────────────────────────
 	// Register a live API so other panels (e.g. Issue Desk) can call
 	// openFile / focusSession without importing internal component modules.

@@ -15,6 +15,13 @@ interface PanelState {
 	 */
 	panelListVersion: number;
 	bumpPanelListVersion: () => void;
+	/**
+	 * Number of currently open HTML modals.
+	 * When > 0, the Chrome X11 embed is hidden to prevent it from rendering on top.
+	 */
+	modalCount: number;
+	pushModal: () => void;
+	popModal: () => void;
 }
 
 export const usePanelStore = create<PanelState>((set, get) => ({
@@ -33,4 +40,19 @@ export const usePanelStore = create<PanelState>((set, get) => ({
 	panelListVersion: 0,
 	bumpPanelListVersion: () =>
 		set((s) => ({ panelListVersion: s.panelListVersion + 1 })),
+	modalCount: 0,
+	pushModal: () => {
+		const { modalCount } = get();
+		if (modalCount === 0) {
+			invoke("browser_embed_hide").catch(() => {});
+		}
+		set((s) => ({ modalCount: s.modalCount + 1 }));
+	},
+	popModal: () => {
+		const next = Math.max(0, get().modalCount - 1);
+		set({ modalCount: next });
+		if (next === 0 && get().activePanel === "browser") {
+			invoke("browser_embed_show").catch(() => {});
+		}
+	},
 }));
