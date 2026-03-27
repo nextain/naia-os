@@ -114,6 +114,8 @@ export interface AppConfig {
 	panelVisible?: boolean;
 	panelSize?: number;
 	discordSessionMigrated?: boolean;
+	discordRelayUrl?: string;
+	lastProcessedDiscordMessageId?: string;
 	ollamaHost?: string;
 	vllmHost?: string;
 	/** vLLM endpoint for STT/ASR (e.g. Qwen3-ASR). */

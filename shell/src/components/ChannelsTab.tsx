@@ -8,6 +8,7 @@ import {
 	isDiscordApiAvailable,
 	openDmChannel,
 } from "../lib/discord-api";
+import { onDiscordMessages } from "../lib/discord-relay";
 import { discoverAndPersistDiscordDmChannel } from "../lib/gateway-sessions";
 import { t } from "../lib/i18n";
 import { Logger } from "../lib/logger";
@@ -114,12 +115,25 @@ export function ChannelsTab(_props: ChannelsTabProps) {
 		fetchHistory();
 	}, [channelId, fetchHistory]);
 
-	// Poll for new messages
+	// Subscribe to discord-relay messages (primary) + fallback poll
 	useEffect(() => {
 		if (!channelId) return;
 
+		// Primary: subscribe to relay for real-time updates
+		const unsubscribe = onDiscordMessages((msgs) => {
+			if (msgs.length > 0) {
+				setMessages((prev) => {
+					const existingIds = new Set(prev.map((m) => m.id));
+					const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
+					return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+				});
+			}
+		});
+
+		// Fallback: slower poll to catch anything missed
 		pollRef.current = setInterval(fetchHistory, POLL_INTERVAL_MS);
 		return () => {
+			unsubscribe();
 			if (pollRef.current) {
 				clearInterval(pollRef.current);
 				pollRef.current = null;

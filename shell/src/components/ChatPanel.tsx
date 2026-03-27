@@ -15,6 +15,7 @@ import { activeBridge, getBridgeForPanel } from "../lib/active-bridge";
 import {
 	cancelChat,
 	directToolCall,
+	fetchAgentSkills,
 	requestTts,
 	sendChatMessage,
 	sendPanelToolResult,
@@ -38,6 +39,7 @@ import {
 	patchGatewaySession,
 	resetGatewaySession,
 } from "../lib/gateway-sessions";
+import { startDiscordRelay, stopDiscordRelay } from "../lib/discord-relay";
 import { getLocale, t } from "../lib/i18n";
 import {
 	getDefaultLlmModel,
@@ -494,6 +496,17 @@ export function ChatPanel() {
 
 		// Start periodic reverse sync: OpenClaw memory → Shell facts
 		startMemorySync();
+
+		// Start Discord relay polling (if Discord is linked)
+		startDiscordRelay().catch((err) => {
+			Logger.warn("ChatPanel", "Failed to start Discord relay", {
+				error: String(err),
+			});
+		});
+
+		return () => {
+			stopDiscordRelay();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -1610,11 +1623,39 @@ export function ChatPanel() {
 			const panelTools = activePanelId
 				? panelRegistry.get(activePanelId)?.tools ?? []
 				: [];
-			const voiceTools = panelTools.map((tool) => ({
+			const panelToolDefs = panelTools.map((tool) => ({
 				name: tool.name,
 				description: tool.description,
-				parameters: tool.parameters,
+				parameters: tool.parameters ?? { type: "object" as const, properties: {} },
 			}));
+
+			// Fetch built-in + custom skills from Agent registry
+			const disabledSkills = new Set(
+				sanitizeDisabledSkills(config.disabledSkills) ?? [],
+			);
+			let agentSkills: {
+				name: string;
+				description: string;
+				parameters: Record<string, unknown>;
+			}[] = [];
+			try {
+				const allSkills = await fetchAgentSkills();
+				// Filter: remove disabled, skip skill_panel (panel management, not useful in voice)
+				agentSkills = allSkills.filter(
+					(s) => !disabledSkills.has(s.name) && s.name !== "skill_panel",
+				);
+			} catch (err) {
+				Logger.warn("ChatPanel", "Failed to fetch agent skills for voice", {
+					error: String(err),
+				});
+			}
+
+			// Merge panel tools + agent skills (panel tools take priority on name collision)
+			const panelNames = new Set(panelToolDefs.map((t) => t.name));
+			const voiceTools = [
+				...panelToolDefs,
+				...agentSkills.filter((s) => !panelNames.has(s.name)),
+			];
 
 			// Append tool usage instructions to system prompt so the model
 			// knows to call the tools instead of saying they're unavailable.

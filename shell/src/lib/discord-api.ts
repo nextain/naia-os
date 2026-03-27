@@ -76,11 +76,12 @@ export async function sendDiscordMessage(
 export async function fetchDiscordMessages(
 	channelId: string,
 	limit = 50,
+	after?: string,
 ): Promise<DiscordMessage[]> {
 	try {
-		const messages = await discordApi<DiscordMessage[]>(
-			`/channels/${channelId}/messages?limit=${limit}`,
-		);
+		let url = `/channels/${channelId}/messages?limit=${limit}`;
+		if (after) url += `&after=${after}`;
+		const messages = await discordApi<DiscordMessage[]>(url);
 		// Discord returns newest first — reverse for chronological order
 		return messages.reverse();
 	} catch (err) {

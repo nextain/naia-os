@@ -284,6 +284,70 @@ export async function directToolCall(opts: {
 	return promise;
 }
 
+/** Fetch all registered skill tool definitions from the Agent.
+ *  Used by Omni voice mode to include built-in skills in the voice session. */
+export async function fetchAgentSkills(): Promise<
+	{ name: string; description: string; parameters: Record<string, unknown> }[]
+> {
+	const requestId = `skill-list-${Date.now()}`;
+
+	let resolvePromise!: (
+		value: {
+			name: string;
+			description: string;
+			parameters: Record<string, unknown>;
+		}[],
+	) => void;
+	let rejectPromise!: (reason: unknown) => void;
+
+	const promise = new Promise<
+		{ name: string; description: string; parameters: Record<string, unknown> }[]
+	>((resolve, reject) => {
+		resolvePromise = resolve;
+		rejectPromise = reject;
+	});
+
+	const unlisten = await listen<string>("agent_response", (event) => {
+		try {
+			const raw =
+				typeof event.payload === "string"
+					? event.payload
+					: JSON.stringify(event.payload);
+			const chunk = JSON.parse(raw) as AgentResponseChunk;
+			if (!("requestId" in chunk) || chunk.requestId !== requestId) return;
+
+			if (chunk.type === "skill_list_response") {
+				clearTimeout(timeoutId);
+				unlisten();
+				resolvePromise(chunk.tools);
+			} else if (chunk.type === "error") {
+				clearTimeout(timeoutId);
+				unlisten();
+				rejectPromise(new Error(chunk.message));
+			}
+		} catch {
+			// Ignore malformed events
+		}
+	});
+
+	const timeoutId = setTimeout(() => {
+		unlisten();
+		rejectPromise(new Error("Skill list request timeout"));
+	}, 10_000);
+
+	try {
+		await invoke("send_to_agent_command", {
+			message: JSON.stringify({ type: "skill_list", requestId }),
+		});
+	} catch (err) {
+		clearTimeout(timeoutId);
+		unlisten();
+		rejectPromise(err);
+	}
+
+	return promise;
+}
+
 /** Send panel skill descriptors to the agent (on panel activate) */
 export async function sendPanelSkills(
 	panelId: string,

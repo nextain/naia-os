@@ -170,6 +170,12 @@ export type AgentResponseChunk =
 			output: string;
 			error?: string;
 	  }
+	| {
+			/** Agent → Shell: response to skill_list request with all registered skill tool definitions. */
+			type: "skill_list_response";
+			requestId: string;
+			tools: { name: string; description: string; parameters: Record<string, unknown> }[];
+	  }
 	| { type: "finish"; requestId: string }
 	| { type: "error"; requestId: string; message: string };
 
