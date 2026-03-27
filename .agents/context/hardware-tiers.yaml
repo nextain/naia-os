@@ -71,10 +71,21 @@ memory_system_gpu_allocation:
     기억 작업을 자율신경계(무의식)와 의식적 사고로 분리.
     자율신경계는 상시 로드, 의식적 사고는 필요시 실행.
 
+  embedding_model_required: |
+    기억 시스템에 임베딩 모델은 필수. chat/omni 모델(qwen3, MiniCPM-o 등)은 임베딩 불가.
+    별도 임베딩 모델(nomic-embed-text 274MB 등)을 항상 함께 로드해야 함.
+    이건 선택이 아닌 기본 인프라.
+
+    omni 모델이 음성+비전+텍스트를 처리하더라도, 기억 저장/검색에는 임베딩 필수.
+    omni = 실시간 이해+응답 (휘발성), 임베딩 = 기억 벡터화+시맨틱 검색 (영구).
+
+    모든 하드웨어 티어에서 임베딩 모델 (~0.3GB)은 기본 포함.
+    Naia 첫 실행 시 자동 설치 대상.
+
   autonomic:
     name: "자율신경계 (상시, 매 턴)"
     tasks:
-      - "임베딩 생성 (nomic-embed-text, ~0.5GB)"
+      - "임베딩 생성 (nomic-embed-text, ~0.3GB) — 필수, chat 모델과 별도"
       - "노이즈 필터링 (4B 모델, ~3GB)"
       - "팩트 추출 (4B 모델, 재사용)"
       - "기억 감쇠 계산 (CPU, decay.ts)"

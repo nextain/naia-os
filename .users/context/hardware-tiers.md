@@ -48,12 +48,22 @@ GPU is not optional — it is a product requirement.
 - <16GB VRAM or no GPU
 - Recommended: use cloud AI services instead
 
+## Embedding Model — Required Infrastructure
+
+**Embedding model is mandatory for the memory system.** Chat/omni models (qwen3, MiniCPM-o, etc.) cannot do embeddings.
+A separate embedding model (nomic-embed-text ~0.3GB, etc.) must always be loaded alongside.
+
+- Even if an omni model handles voice+vision+text, memory storage/retrieval requires embeddings
+- Omni = real-time understanding+response (volatile), Embedding = memory vectorization+semantic search (persistent)
+- All hardware tiers include embedding model (~0.3GB) as baseline
+- Auto-installed on first Naia launch
+
 ## Memory System GPU Allocation
 
 ### Autonomic (always-on, per turn)
-- Embedding generation (~0.5GB)
+- Embedding generation (nomic-embed-text ~0.3GB) — required, separate from chat model
 - Noise filtering + fact extraction (4B model, ~3GB)
-- Total: **~3.5GB**
+- Total: **~3.3GB**
 
 ### Conscious Thought (on-demand, async)
 - Contradiction detection, memory compression, retrieval decisions
