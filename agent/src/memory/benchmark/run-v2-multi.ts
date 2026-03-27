@@ -247,12 +247,10 @@ async function runForModel(config: ModelConfig) {
 				}));
 			} catch {}
 
-			// Relevance filtering: 0.55 이상 사용
-			// 0.65는 synthesis에 필요한 기억까지 걸러버림 → 0.55로 완화
-			const relevant = memories.filter((m2) => m2.score >= 0.55);
-
-			const memCtx = relevant.length > 0
-				? `<recalled_memories>\n아래는 이전 대화에서 기억된 내용입니다.\n${relevant.map((m2) => `- ${m2.text}`).join("\n")}\n</recalled_memories>`
+			// No score threshold — feed all search results to LLM
+			// Let the improved prompt handle relevance judgment instead of hard cutoff
+			const memCtx = memories.length > 0
+				? `<recalled_memories>\n아래는 이전 대화에서 기억된 내용입니다. 질문과 관련된 것만 활용하세요.\n${memories.map((m2) => `- ${m2.text} (관련도: ${(m2.score * 100).toFixed(0)}%)`).join("\n")}\n</recalled_memories>`
 				: "(이 사용자에 대해 기억된 내용이 없습니다)";
 
 			const sysPrompt = `당신은 사용자의 개인 AI 동반자 "나이아"입니다.
