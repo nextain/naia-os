@@ -1,10 +1,18 @@
 {
+	"build": {
+		"beforeBuildCommand": ""
+	},
 	"bundle": {
-		"targets": ["nsis"],
+		"targets": ["nsis", "msi"],
+		"resources": {
+			"resources/node.exe": "node.exe"
+		},
 		"windows": {
 			"certificateThumbprint": null,
 			"digestAlgorithm": "sha256",
-			"timestampUrl": ""
+			"nsis": {
+				"installMode": "currentUser"
+			}
 		}
 	}
 }
