@@ -29,6 +29,9 @@ build-dir/
 # Progress files (session-local, not committed)
 .agents/progress/*.json
 
+# Cross-review event logs (session-local)
+.agents/reviews/*.jsonl
+
 # Temporary / local-only
 errors/
 iso-download/

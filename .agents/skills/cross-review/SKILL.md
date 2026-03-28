@@ -1,0 +1,309 @@
+---
+name: cross-review
+description: Multi-agent cross-review — spawn independent reviewers, collect structured reports, vote on findings, selectively debate contested items, and iterate until convergence. Implements the Cross-Review Framework (Issue #165).
+disable-model-invocation: false
+argument-hint: "<profile-name> <review-target-description>"
+---
+
+# Cross-Review
+
+Multi-agent mutual verification. Reviewers independently analyze the same target,
+then cross-check each other's findings through voting and selective debate.
+
+## Step 1: Parse Arguments
+
+Parse the user's invocation: `/cross-review <profile> <target>`
+
+- **profile**: Name of a profile file in `.agents/profiles/` (default: `code-review`)
+- **target**: Description of what to review (file paths, analysis document, PR description, etc.)
+
+If no arguments: ask the user for profile and target.
+
+## Step 2: Load Profile
+
+1. Read `.agents/profiles/{profile}.yaml`
+2. If the profile has `metadata.extends`: read the parent profile, deep-merge (child overrides parent).
+   For MVP: if extends `_base`, read `.agents/profiles/_base.yaml` and merge manually.
+3. Validate:
+   - `spec.reviewers.count >= 2`
+   - `spec.reviewers.specs` has exactly `count` entries (if present)
+   - Each reviewer spec has `id`, `expertise`, `prompt_ref`, `strategy`
+   - `spec.consensus.clean_rounds >= 1`
+   - `spec.limits.max_rounds >= 1`
+
+If validation fails, report errors and stop.
+
+## Step 3: Initialize Review
+
+1. Generate review_id: `cr-{YYYYMMDD}-{HHmm}` (e.g., `cr-20260328-1430`)
+2. Create event log file: `.agents/reviews/{review_id}.jsonl`
+3. Log event:
+   ```json
+   {"type":"REVIEW_STARTED","review_id":"{id}","profile":"{name}","target":"{description}","timestamp":"{ISO}"}
+   ```
+4. Display to user:
+   ```
+   ## Cross-Review Initialized
+
+   **Review ID**: {review_id}
+   **Profile**: {profile_name}
+   **Target**: {target_description}
+   **Reviewers**: {count} ({id1}: {expertise1}, {id2}: {expertise2}, ...)
+   **Consensus**: {strategy}, {clean_rounds} clean rounds needed
+   **Max rounds**: {max_rounds}
+
+   Starting Round 1...
+   ```
+
+## Step 4: Round Loop
+
+For each round (1 to `spec.limits.max_rounds`):
+
+### Phase 1 — Independent Review (PARALLEL)
+
+For each reviewer in `spec.reviewers.specs`:
+
+1. Read the reviewer's system prompt: `.agents/prompts/{prompt_ref}`
+2. Construct the full reviewer prompt:
+
+   ```
+   {system_prompt content from the .md file}
+
+   ## Your Review Target
+
+   {target description from the user}
+
+   ## Evidence Requirements
+
+   - You MUST read at least {min_files_read} source files using the Read tool
+   - You MUST read actual source code, not rely on summaries
+   - Review strategy: {strategy from reviewer spec}
+
+   ## Report Format (MUST follow exactly)
+
+   ## Review Pass {round} — Reviewer {id} ({expertise})
+
+   **Scope**: {describe what you reviewed}
+
+   **Files read**:
+   - `{file}:{start}-{end}` — {why you read this file}
+
+   **Checked**:
+   - [x] {what you checked} — {result with evidence}
+
+   {if round >= 2 and previous_findings exist:}
+   **Cross-check of previous findings**:
+   - Finding {id}: {AGREE|DISAGREE} — {evidence from your own reading}
+
+   **Findings**: {count}
+   - [{CRITICAL|HIGH|MEDIUM|LOW}] {description} — `{file}:{line}` {evidence}
+
+   **Quality signals** (SLOP detector only):
+   - Claim-to-Read ratio: {value}
+   - Specificity score: {value}
+   - Verifiability score: {value}
+
+   **Verdict**: {CLEAN | FOUND_ISSUES | REQUESTER_CONTEXT_DRIFT}
+   ```
+
+3. Spawn the reviewer using the **Agent** tool:
+   - Use `model:` set to `spec.model_policy.judgment` from the profile (default: `"sonnet"`)
+   - Each reviewer is a SEPARATE Agent call with independent context
+   - **Spawn ALL reviewers in a SINGLE message** (parallel execution)
+   - Each Agent call includes the constructed prompt above
+   - If the Agent tool is unavailable, fall back to sequential inline review
+     (ask the main agent to role-play each reviewer one at a time)
+
+4. Log events for each reviewer:
+   ```json
+   {"type":"REVIEWER_SPAWNED","review_id":"{id}","reviewer_id":"{reviewer_id}","expertise":"{expertise}","model":"{spec.model_policy.judgment}","timestamp":"{ISO}"}
+   ```
+
+5. Collect all reviewer reports when agents complete.
+
+### Phase 2 — Voting
+
+For each collected report:
+
+1. **Parse the report** — extract structured data:
+   - Verdict: search for line starting with `**Verdict**:` — extract CLEAN/FOUND_ISSUES/DRIFT
+   - Findings: search for lines matching `- [{severity}] {description} — \`{file}:{line}\``
+   - Files read: search for lines under `**Files read**:` matching `` `{file}:{start}-{end}` ``
+   - Finding count: from `**Findings**: {N}` — cross-validate with actual count
+
+   If parsing fails for a report, log `PARSE_WARNING` and treat as CLEAN with 0 findings.
+
+2. **Quality signal check** (Tier 1, for each reviewer):
+   - Count files referenced in findings vs files listed in "Files read"
+   - If claim-to-read ratio > 3.0: log health warning for this reviewer
+   - Track dismissed-finding count per reviewer for health monitoring
+
+3. Log events:
+   ```json
+   {"type":"REPORT_SUBMITTED","review_id":"{id}","round":{n},"reviewer_id":"{rid}","verdict":"{v}","findings_count":{n},"files_read":[...],"timestamp":"{ISO}"}
+   ```
+
+4. **Match findings** across reviewers:
+   - Collect all findings from all reports
+   - For each pair of findings from different reviewers:
+     - If they reference the same file AND have overlapping line ranges (>= 1 shared line): MATCH
+     - For multi-file findings: match if ANY common file has line overlap
+   - Sort all potential matches by overlap score DESCENDING (greedy best-first)
+   - Assign matches 1-to-1 per reviewer pair (no finding matches twice with same reviewer)
+   - For findings without file:line references: match findings that describe the same issue
+     based on semantic judgment (do they reference the same concept, same code area, same concern?)
+   - Remaining unmatched findings are "solo"
+
+5. **Classify** each matched group (R = number of reviewers who submitted reports this round,
+   NOT the configured count — accounts for timeouts):
+   - ALL R reviewers agree → **CONFIRMED**
+   - R >= 3 AND only 1 reviewer, no match → **AUTO-DISMISSED** (no strike)
+   - R = 2 AND only 1 reviewer → **CONTESTED** (auto-dismiss skipped for R=2)
+   - Any other distribution → **CONTESTED**
+
+6. Log finding events:
+   ```json
+   {"type":"FINDING_CONFIRMED","review_id":"{id}","round":{n},"finding_id":"{fid}","supporters":[...]}
+   {"type":"FINDING_DISMISSED","review_id":"{id}","round":{n},"finding_id":"{fid}","reason":"auto-dismiss (solo, R>=3)"}
+   {"type":"FINDING_CONTESTED","review_id":"{id}","round":{n},"finding_id":"{fid}","supporters":[...],"challengers":[...]}
+   ```
+
+### Phase 3 — Selective Debate (only if CONTESTED findings exist)
+
+For each CONTESTED finding:
+
+1. Spawn a cross-examination agent (using Agent tool, model: `spec.model_policy.arbitration` from profile, default: opus):
+   - Provide the contested finding + all reviewers' positions on it
+   - Ask: "Examine this finding. Read the cited source code. Is the finding valid?
+     What specific code path/input triggers the issue? Provide concrete evidence."
+   - Max sub-rounds: `spec.consensus.max_debate_rounds` from profile (default: 3)
+
+2. After examination, take a final vote among the original reviewers:
+   - Simple majority: `ceil(R/2)` votes to confirm
+   - For even R, a tie (R/2 each) → CONFIRMED (bias toward surfacing findings)
+   - For R=2: `ceil(2/2) = 1`, so the finding raiser's vote confirms alone.
+     This is by design — for R=2, formal dismissal (Section 3.2 of framework doc) is the override.
+
+3. Log votes:
+   ```json
+   {"type":"VOTE_CAST","review_id":"{id}","round":{n},"voter_id":"{vid}","finding_id":"{fid}","vote":"confirm|dismiss","evidence":"{text}"}
+   ```
+
+### Round Result
+
+1. Count total CONFIRMED findings (from Phase 2 + Phase 3)
+
+2. If **0 confirmed findings**:
+   - `clean_count += 1`
+   - If `clean_count >= spec.consensus.clean_rounds`:
+     → **REVIEW COMPLETE** — go to Step 5
+   - Else:
+     → Display "Round {n}: CLEAN ({clean_count}/{clean_rounds}). Running confirmation round..."
+     → Continue to next round
+
+3. If **confirmed findings > 0**:
+   - `clean_count = 0`
+   - Display the consolidated report (see Step 5 format) with all confirmed findings
+   - **STOP and wait for user response**
+   - User addresses findings, then says to continue
+   - → Continue to next round
+
+4. If `round >= spec.limits.max_rounds`:
+   → **REVIEW COMPLETE** (max rounds reached) — go to Step 5
+
+5. Log:
+   ```json
+   {"type":"ROUND_COMPLETED","review_id":"{id}","round":{n},"confirmed":{n},"dismissed":{n},"contested":{n},"clean_count":{n}}
+   ```
+
+### Health Monitoring (lightweight, per round)
+
+After each round, check per-reviewer health:
+- Count how many of this reviewer's findings were AUTO-DISMISSED in this review (across all rounds)
+- If > 2 findings dismissed: display warning:
+  ```
+  ⚠ Reviewer {id} has {n} dismissed findings. Review quality may be degraded.
+  ```
+- This is advisory only in MVP. Formal dismissal protocol is Phase 2.
+
+## Step 5: Report
+
+Produce the final consolidated report:
+
+```markdown
+## Cross-Review Complete
+
+**Review ID**: {review_id}
+**Profile**: {profile_name}
+**Rounds**: {total_rounds}
+**Result**: {CLEAN | FOUND_ISSUES | MAX_ROUNDS_REACHED}
+
+### Reviewer Summary
+
+| Reviewer | Expertise | Verdict | Findings | Confirmed | Dismissed | Files Read |
+|----------|-----------|---------|----------|-----------|-----------|------------|
+| {id} | {expertise} | {verdict} | {n} | {n} | {n} | {n} |
+
+### Confirmed Findings (requires action)
+
+| # | Severity | Description | File:Line | Confirmed By |
+|---|----------|-------------|-----------|-------------|
+| 1 | {sev} | {desc} | `{file}:{line}` | {reviewer_ids} |
+
+### Dismissed Findings (informational)
+
+| # | Description | Reviewer | Reason |
+|---|-------------|----------|--------|
+| 1 | {desc} | {id} | Auto-dismissed (solo) |
+
+### Health Summary
+
+| Reviewer | Dismissed Count | Status |
+|----------|----------------|--------|
+| {id} | {n} | OK / ⚠ Warning |
+
+**Event log**: `.agents/reviews/{review_id}.jsonl`
+```
+
+Log final event:
+```json
+{"type":"REVIEW_COMPLETED","review_id":"{id}","rounds_total":{n},"final_status":"{status}","timestamp":"{ISO}"}
+```
+
+## Step 6: Cleanup
+
+- If the review found issues, suggest next steps:
+  ```
+  ### Next Steps
+  1. Address the {n} confirmed findings above
+  2. Run `/cross-review {profile} {target}` again to verify fixes
+  ```
+- If CLEAN:
+  ```
+  ### Result
+  All reviewers agree: no issues found. Review converged in {n} rounds.
+  ```
+
+---
+
+## Exceptions
+
+The following are NOT problems:
+
+1. **Parser fallback** — If a reviewer's report doesn't follow the exact format, extract what you can and log a warning. Do not fail the entire review.
+2. **Reviewer timeout** — If an Agent call takes too long, skip that reviewer for this round and note it in the report. Continue with available reviewers (minimum 2 required).
+3. **All findings dismissed** — This is a valid outcome (CLEAN round). Dismissed findings are low-confidence solo findings that no other reviewer corroborated.
+4. **R=2 Phase 3 auto-confirm** — With 2 reviewers, contested findings are confirmed by the raiser's vote. This is by design. The formal dismissal protocol (Phase 2+) provides the override.
+
+## Related Files
+
+| File | Purpose |
+|------|---------|
+| `.agents/plans/cross-review-framework.md` | High-level design (converged) |
+| `.agents/plans/cross-review-implementation-design.md` | Implementation design (converged) |
+| `.agents/profiles/_base.yaml` | Base profile (defaults for all profiles) |
+| `.agents/profiles/code-review.yaml` | Code review profile (MVP) |
+| `.agents/prompts/correctness.md` | Correctness reviewer system prompt |
+| `.agents/prompts/security-expert.md` | Security reviewer system prompt |
+| `.agents/prompts/slop-detector.md` | SLOP detector system prompt |
+| `.agents/reviews/` | Event logs (gitignored) |

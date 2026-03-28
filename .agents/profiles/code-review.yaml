@@ -1,0 +1,31 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: code-review
+  description: "Code quality and correctness review"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: correctness
+        expertise: "Logic and correctness"
+        prompt_ref: correctness.md
+        strategy: "Line-by-line logic analysis — trace data flow, check branches, verify edge cases"
+      - id: security
+        expertise: "Security and safety"
+        prompt_ref: security-expert.md
+        strategy: "Pattern-based security scan — OWASP patterns, auth flow, input validation, secrets"
+      - id: slop-detector
+        expertise: "SLOP and quality detection"
+        prompt_ref: slop-detector.md
+        strategy: "Claim verification — check every file:line citation, compute quality signals"
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 2
+
+  evidence_requirements:
+    min_files_read: 5
+    must_read_source: true

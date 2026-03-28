@@ -1,0 +1,77 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: _base
+  description: "Base profile — inherited by all profiles"
+
+spec:
+  reviewers:
+    count: 3
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 2
+    max_debate_rounds: 3
+    # Phase 3+: "no_vote_change" compares CONFIRMED set across rounds.
+    # Round 1 always non-converged. "ks_stability" requires R>=5 (Phase 3+).
+    convergence: "all_agree"          # MVP: only "all_agree" supported
+
+  limits:
+    max_rounds: 10
+    round_timeout_seconds: 300
+    review_timeout_seconds: 1800
+
+  # Phase 2+: Formal dismissal protocol (MVP uses inline auto-dismiss only)
+  dismissal:
+    finding_dismissal: "unanimous_except_target"
+    participant_dismissal: "unanimous_except_target"
+    strikes_before_dismissal: 2
+    quorum:
+      flag: 1
+      dismiss: "all_except_target"
+      # Invariant: flag_quorum + dismiss_quorum >= total_reviewers
+    replacement_policy: "spawn_fresh"
+
+  # Phase 2+: Health check protocol (MVP uses dismissal-count warning only)
+  health_check:
+    strategy: "majority_except_target"
+    triggers_refresh: true
+
+  quality_signals:
+    # NOTE: These thresholds are engineering defaults, NOT empirically derived.
+    # Calibrate per-project through initial runs.
+    claim_to_read_ratio: 3.0
+    min_specificity: 0.3
+    min_verifiability: 0.7
+    min_novelty: 0.5
+
+  evidence_requirements:
+    min_files_read: 3
+    must_read_source: true
+
+  model_policy:
+    # NOTE: All reviewers in MVP use judgment tier. Model cascading is Phase 4.
+    generation: "haiku"
+    judgment: "sonnet"
+    arbitration: "opus"
+
+  diversity:
+    model_heterogeneity: "recommended"
+    # LIMITATION: "required" is enforced at INPUT level only (different prompts).
+    # Output-level strategy diversity is not measured.
+    strategy_diversity: "required"
+
+  cost:
+    # NOTE: Budget fields are ADVISORY-ONLY in MVP.
+    # Token counting requires API-level instrumentation not available in prompt-only orchestration.
+    max_total_tokens: 500000
+    per_round_tokens: 250000       # Must be > R × per_reviewer + Phase 2/3 overhead
+    per_reviewer_tokens: 50000     # Phase 1 only
+    # Enforcement priority (when implemented in Phase 4):
+    #   1. per_reviewer_tokens exceeded → reviewer completes current response, then stops
+    #   2. per_round_tokens exceeded → skip Phase 3 debate, proceed to round result
+    #   3. max_total_tokens exceeded → complete current round, skip remaining rounds,
+    #      report partial results with BUDGET_EXCEEDED flag
+
+  logging:
+    event_log_path: ".agents/reviews/{review_id}.jsonl"
