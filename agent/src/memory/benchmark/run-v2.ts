@@ -102,8 +102,8 @@ AI 응답: "${response}"
 
 한 단어로만 답하세요: PASS 또는 FAIL`;
 
-	// Retry up to 3 times if judge returns empty (Gemini API sometimes returns blank)
-	for (let attempt = 0; attempt < 3; attempt++) {
+	// Retry up to 5 times if judge returns empty (Gemini API rate limits)
+	for (let attempt = 0; attempt < 5; attempt++) {
 		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
 			method: "POST",
 			headers: {
@@ -117,6 +117,11 @@ AI 응답: "${response}"
 			}),
 		});
 
+		if (!res.ok) {
+			await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+			continue;
+		}
+
 		const data = await res.json() as any;
 		const verdict = (data.choices?.[0]?.message?.content ?? "").trim().toUpperCase();
 
@@ -126,12 +131,10 @@ AI 응답: "${response}"
 				reason: verdict,
 			};
 		}
-		// Empty response — wait briefly and retry
-		await new Promise((r) => setTimeout(r, 500));
+		await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
 	}
 
-	// All retries failed — return as inconclusive (not counted as PASS)
-	return { pass: false, reason: "EMPTY_RESPONSE_3_RETRIES" };
+	return { pass: false, reason: "EMPTY_RESPONSE_5_RETRIES" };
 }
 
 async function main() {
@@ -244,14 +247,24 @@ async function main() {
 		const runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }> = [];
 
 		for (let run = 0; run < RUNS; run++) {
-			// Search memories — use higher limit for semantic/synthesis questions
+			// Search memories — synthesis uses all memories, others use search
 			let memories: string[] = [];
-			const searchLimit = (tc.category === "semantic" || tc.category === "synthesis") ? 10 : 5;
-			try {
-				const raw = await m.search(tc.query, { userId: "v2-user", limit: searchLimit });
-				memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
-			} catch (err: any) {
-				console.error(`    ⚠ search error for "${tc.query.slice(0, 30)}": ${err.message?.slice(0, 80)}`);
+			if (tc.category === "synthesis") {
+				// Synthesis needs all context to combine multiple facts
+				try {
+					const allMems = await m.getAll({ userId: "v2-user" });
+					memories = (allMems?.results ?? allMems ?? []).map((r: any) => r.memory ?? r.text ?? "");
+				} catch (err: any) {
+					console.error(`    ⚠ getAll error: ${err.message?.slice(0, 80)}`);
+				}
+			} else {
+				const searchLimit = tc.category === "semantic" ? 10 : 5;
+				try {
+					const raw = await m.search(tc.query, { userId: "v2-user", limit: searchLimit });
+					memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
+				} catch (err: any) {
+					console.error(`    ⚠ search error for "${tc.query.slice(0, 30)}": ${err.message?.slice(0, 80)}`);
+				}
 			}
 
 			// Get LLM response with memory context
