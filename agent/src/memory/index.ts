@@ -435,8 +435,9 @@ export class MemorySystem {
 		this.consolidationTimer = setInterval(async () => {
 			try {
 				await this.consolidateNow();
-			} catch {
+			} catch (err) {
 				// Non-critical — log and continue
+				console.error("[MemorySystem] consolidation error:", err);
 			}
 		}, this.consolidationIntervalMs);
 	}
@@ -481,10 +482,9 @@ export class MemorySystem {
 				const extracted = await this.factExtractor(readyEpisodes);
 
 				// 3. For each extracted fact, check contradictions and upsert
-				const existingFacts = await this.adapter.semantic.getAll();
-
 				for (const ef of extracted) {
-					// Check if this contradicts existing facts
+					// Re-fetch existing facts each iteration to avoid stale cache
+					const existingFacts = await this.adapter.semantic.getAll();
 					const contradictions = findContradictions(existingFacts, ef.content);
 
 					if (contradictions.length > 0) {

@@ -44,24 +44,35 @@ async function askWithMemory(
 
 ${memoryContext}`;
 
-	const res = await fetch(`${GEMINI_BASE}chat/completions`, {
-		method: "POST",
-		headers: {
-			"Authorization": `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model: "gemini-2.5-flash",
-			messages: [
-				{ role: "system", content: systemPrompt },
-				{ role: "user", content: question },
-			],
-			max_tokens: 200,
-		}),
-	});
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: "gemini-2.5-flash",
+				messages: [
+					{ role: "system", content: systemPrompt },
+					{ role: "user", content: question },
+				],
+				max_tokens: 200,
+			}),
+		});
 
-	const data = await res.json() as any;
-	return data.choices?.[0]?.message?.content ?? "";
+		if (!res.ok) {
+			console.error(`    ⚠ askWithMemory HTTP ${res.status} (attempt ${attempt + 1})`);
+			await new Promise((r) => setTimeout(r, 1000));
+			continue;
+		}
+
+		const data = await res.json() as any;
+		const content = data.choices?.[0]?.message?.content ?? "";
+		if (content.length > 0) return content;
+		await new Promise((r) => setTimeout(r, 500));
+	}
+	return "";
 }
 
 /** LLM-as-judge: 응답이 정답과 일치하는지 판정 */

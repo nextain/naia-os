@@ -127,7 +127,7 @@ export function checkContradiction(
 		return {
 			action: "update",
 			updatedContent: newInfo,
-			reason: `Contradiction detected: negation pattern with ${Math.round(overlapRatio * 100)}% topic overlap on entities [${sharedEntities.join(", ")}]`,
+			reason: `Contradiction detected: negation pattern with ${Math.round(overlapRatio * 100)}% topic overlap${sharedEntities.length > 0 ? ` on entities [${sharedEntities.join(", ")}]` : " (content overlap)"}`,
 		};
 	}
 
@@ -135,7 +135,7 @@ export function checkContradiction(
 		return {
 			action: "update",
 			updatedContent: newInfo,
-			reason: `State change detected: preference/state fact with negation on entities [${sharedEntities.join(", ")}]`,
+			reason: `State change detected: preference/state fact with negation${sharedEntities.length > 0 ? ` on entities [${sharedEntities.join(", ")}]` : " (content overlap)"}`,
 		};
 	}
 
