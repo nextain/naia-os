@@ -350,7 +350,9 @@ When AGENT_HEALTH_FLAGGED with strikes >= threshold:
   4. If unanimous_except_target (all vote DISMISS):
      - Log AGENT_DISMISSED
      - Spawn replacement reviewer (fresh context, no accumulated findings)
-     - Replacement runs Phase 1 independently in the SAME round
+     - Replacement runs Phase 1 independently in Round N+1 (not the same round)
+       Per framework Section 3.3: sequential phase structure prevents mid-round restart.
+       A's findings from current round are DROPPED; A' participates from next round.
      - Phase 2 matching uses {original_B, original_C, replacement_A'} reports only
 ```
 
@@ -423,12 +425,12 @@ When AGENT_HEALTH_FLAGGED with strikes >= threshold:
 **Setup**:
 - Continue from TC-Phase2-01 (or set up fresh): Persona C dismissed, replacement reviewer A' spawned
 - Target: same as TC-Phase2-01 (`constants.ts`)
-- Verify: A' receives the review target and Persona C's dismissal history, but NOT Persona C's findings
+- Verify: A' receives the review target + confirmed findings list — no dismissal history, no dismissed findings (anti-anchoring per 8.2)
 
 **Expected flow**:
 - A' is spawned with:
   - Review target description
-  - Persona C's dismissal history (for context: "your predecessor was dismissed for impractical findings")
+  - NO predecessor context (anti-anchoring per Section 8.2)
   - NO access to Persona C's actual findings (anti-anchoring)
 - A' runs Phase 1 independently (reads files, produces own report)
 - A' reports CLEAN on the known-good target
@@ -444,30 +446,33 @@ When AGENT_HEALTH_FLAGGED with strikes >= threshold:
 
 ---
 
-#### TC-Phase2-04: Verifiability Score Triggers Pre-Flag (Persona B)
+#### TC-Phase2-04: Verifiability Score Triggers Pre-Flag
 
 **Category**: Quality signal detection — pre-voting early warning
 
+**PRIMARY METHOD (unit test)**: Test Verifiability Score with pre-written malformed report.
+Persona B (scope-constrained) is unreliable — Claude's Read tool access overrides
+the "lines 1-20 only" constraint (confirmed by TC-2.1 helpfulness bias finding).
+
 **Setup**:
-- Profile: phase2-test.yaml with `bad-reviewer-b-scope-constrained.md` as reviewer B
-- Target: `bug-01-race-condition.rs` (race condition at child-wait thread, well past line 20)
-- Persona B is instructed to cite all findings at lines 1-20
+- Prepare a mock reviewer report with 3 findings citing `bug-01-race-condition.rs:5`, `:10`, `:15`
+  but describing issues that exist at lines 80+, 107+, 121+ (content mismatch)
+- Feed this pre-written report to the coordinator's Verifiability Score checker
 
 **Expected flow**:
-- Round 1: Persona B submits report with findings citing lines 1-20
-- Coordinator checks Verifiability Score: reads the cited lines, finds content does not match finding descriptions
-- Verifiability Score < 0.70 → WARNING logged (not a strike yet)
-- Finding matching: Persona B's line:1-20 citations don't overlap with correctness reviewer's accurate citations
-- All Persona B findings are solo (no file:line overlap) → auto-dismissed
-- Strike accumulation proceeds normally
+- Coordinator reads cited lines 5, 10, 15 → content does NOT match finding descriptions
+- Verifiability Score < 0.70 → WARNING logged
+- AGENT_HEALTH_FLAGGED (WARNING level) logged
+
+**SECONDARY METHOD (integration, best-effort)**: Run Persona B and observe whether
+the constraint holds. If it does → integration test succeeds. If Claude overrides
+the constraint → test degrades gracefully but the unit test above still validates
+the signal pipeline.
 
 **Pass criteria**:
-1. Verifiability Score < 0.70 logged before voting phase
-2. AGENT_HEALTH_FLAGGED (WARNING level) logged pre-dismissal
-3. Verifiability Score evidence appears in AGENT_DISMISSED reason field
-4. Dismissal proceeds through normal strike accumulation
-
-**Special value**: This test validates that Tier 1 quality signals provide early warning BEFORE the voting mechanism. The quality score provides an explainable reason for the dismissal, not just "lost the vote."
+1. Verifiability Score < 0.70 correctly computed on mismatched citations
+2. AGENT_HEALTH_FLAGGED logged before voting phase
+3. Signal provides explainable early warning, not just "lost the vote"
 
 ---
 
@@ -511,7 +516,7 @@ Run in dependency order:
 |------|--------|------------|
 | Claude overrides Persona B's constraint (cites correct lines anyway) | TC-Phase2-04 degrades to normal review | Useful observation: verifiability signal has no false trigger. Use pre-written malformed report as fallback (unit test) |
 | Overcautious reviewer (Persona C) happens to agree with a real finding | TC-Phase2-02 may not get clean exculpation scenario | Use `constants.ts` (11 lines, 0% FP baseline) for TC-Phase2-01 to minimize coincidental confirmation |
-| Replacement reviewer (A') anchors to dismissal history | TC-Phase2-03 fails independence check | Strictly exclude finding list from A' prompt. Include only dismissal count and reason |
+| Replacement reviewer (A') anchors to ANY predecessor context | TC-Phase2-03 fails independence check | A' receives review target + confirmed findings — no dismissal history, no dismissed findings (Section 8.2) |
 | Strike threshold reached before dismissal vote logic is implemented | Tests fail at infrastructure level | Implement strike counter extension to SKILL.md BEFORE running Phase 2 tests |
 
 ---
@@ -596,7 +601,9 @@ Section 8 replacement: Health Monitor + Dismissal Protocol (Phase 2)
 
 8A. Strike Accumulator:
   - Per reviewer: maintain strike_count map (reviewer_id → int)
-  - Increment on every FINDING_DISMISSED where the raising reviewer had that finding solo
+  - Increment on every FINDING_DISMISSED where reviewer_id matches (Phase 2: auto-dismissed
+    solo findings DO accumulate strikes, per framework schema update — rationale: persistent
+    solo findings indicate reviewer quality degradation)
   - Do NOT increment on CONFIRMED findings (exculpatory invariant)
   - If strike_count >= strikes_before_dismissal:
     log AGENT_HEALTH_FLAGGED {flagger_id: "protocol", target_id, strike_count, dismissed_findings[]}
@@ -607,11 +614,11 @@ Section 8 replacement: Health Monitor + Dismissal Protocol (Phase 2)
   - Each votes DISMISS | RETAIN with required evidence statement
   - Quorum: unanimous_except_target (from profile.dismissal.participant_dismissal)
   - If consensus → proceed to 8C
-  - If not consensus → log DISMISSAL_REJECTED, continue with flagged reviewer (reduced weight)
+  - If not consensus → log VOTE_CAST events with vote: "keep", continue with reviewer unchanged (no weight change in Phase 2; per Section 8.4)
 
 8C. Replacement:
   - Spawn replacement reviewer A' using spawn_fresh policy
-  - A' receives: review target + {reviewer_id}'s dismissal history (count + reason)
+  - A' receives: review target + confirmed findings list (no dismissal history, no dismissed findings — anti-anchoring per Section 8.2)
   - A' does NOT receive: dismissed findings list (anti-anchoring)
   - A' runs Phase 1 independently
   - Phase 2 matching uses {B, C, A'} reports only (A's prior reports excluded)
@@ -663,19 +670,80 @@ This is a small, targeted extension. Phase 2 does not require a redesign of the 
 
 ---
 
-## 8. Open Questions Raised by Phase 2 Design
+## 8. Resolved Issues (from Round 1 cross-review)
 
-These questions are not blockers but should be answered during Phase 2 execution:
+### 8.1 Replacement reviewer timing (CRITICAL fix)
+A' starts in **Round N+1**, NOT the same round. The framework's sequential phase structure
+(Phase 1→2→3→Result) cannot accommodate mid-round restart. A's findings from the current
+round are DROPPED; A' participates from the next round.
 
-1. **Rehab path**: Once a reviewer has strikes but has not yet hit the dismissal threshold, can they "earn back" standing by having findings confirmed? The current protocol has no rehab path (strikes only increment, never decrement). Is this correct for Phase 2? For Phase 3 (Phi Accrual), a continuous quality score naturally supports rehabilitation.
+### 8.2 Replacement reviewer anti-anchoring (BLOCKING fix)
+A' receives **review target + confirmed findings list** — NO dismissal history,
+NO dismissed/contested findings from predecessor.
+Confirmed findings (already accepted by the group) are shared so A' does not
+re-discover known issues or produce false CLEAN on a target with confirmed bugs.
+Dismissed findings are NOT shared — that would create negative anchoring (A' avoids findings
+resembling dismissed predecessor's style, potentially suppressing true positives).
+Structural diversity (different prompt, different strategy) prevents reproducing
+the same bad behavior without needing context about the predecessor.
 
-2. **Timing of strike accumulation**: Should strikes accumulate within a round (all dismissed findings in Round 1 count), or per-round (max 1 strike per round regardless of how many findings are dismissed)? Current design: per-finding accumulation within the same round. This means Persona C with 3 impractical findings in Round 1 hits the threshold immediately. Is that desirable or too aggressive?
+### 8.3 All-bad-reviewer guard (BLOCKING fix)
+Add to Round Result logic: if in ANY round, every reviewer has ≥1 auto-dismissed
+solo finding AND 0 confirmed findings, log `ALL_REVIEWERS_FLAGGED` WARNING and
+require user confirmation before proceeding. Prevents silent false CLEAN when
+all reviewers are bad in non-overlapping ways.
 
-3. **What if the replacement reviewer also fails?** The current design spawns one replacement (`spawn_fresh`). If A' also accumulates strikes, the protocol should escalate — possibly revert to R=2 (no further replacements) or notify the user. This edge case is out of scope for Phase 2 but should be documented.
+### 8.4 DISMISSAL_REJECTED event (MEDIUM fix)
+Remove `DISMISSAL_REJECTED` from Phase 2 scope. If dismissal vote fails quorum,
+log existing `VOTE_CAST` events with `vote: "keep"` and continue with the reviewer
+unchanged (no weight reduction in Phase 2). Weight reduction deferred to Phase 3.
 
-4. **Dismissal of the REQUESTER**: The framework spec allows requester dismissal in principle (context drift flow). Phase 2 does not implement this. If the requester's context drifts and reviewers flag it, the current MVP only pauses the review. Full requester replacement is a Phase 3 question.
+### 8.5 Formal finding dismissal test case (MINOR fix)
+Added TC-Phase2-06 (see Section 4 addendum below).
 
-5. **Strike persistence across sessions**: Dismissed findings and strike counts are per-review-session only (stored in JSONL, not in persistent profile state). Should a reviewer with a bad track record across multiple sessions face a lower threshold in the next session? This requires cross-session persistence, which is a Phase 4 question.
+### 8.6 Strike accumulation clarification
+Strikes accumulate **per-finding within a session, across all rounds**.
+Reset only at REVIEW_STARTED. Explicitly stated to avoid implementation ambiguity.
+
+**Default threshold**: `strikes_before_dismissal: 2` (from `_base.yaml` line 27).
+TC-Phase2-01 uses this default; TC-Phase2-05 overrides to 3 to test boundary.
+
+**Health check timing**: The AGENT_HEALTH_FLAGGED check runs **once, after ALL
+findings in a round are processed** (after Phase 2 voting completes, not after
+each individual finding). This means all auto-dismissals in a round contribute
+to the strike count before the health check fires. The dismissal vote (if
+threshold met) executes between Round N result and Round N+1 start — never
+mid-round. This preserves the sequential phase invariant from Section 8.1.
+
+### 8.7 TC-Phase2-06: Formal Finding Dismissal (Section 3.2)
+
+**Category**: Finding-level dismissal (not participant-level)
+
+**Setup**: Use bug-05-sql-injection.rs with 3 reviewers: correctness, security, Persona C (overcautious).
+Persona C and security both raise SQL injection finding (confirmed by 2/3).
+Persona C also raises "nation-state timing side-channel" on the LIMIT clause (solo → auto-dismissed).
+Correctness raises a separate valid finding. Persona C raises a third impractical finding.
+
+**Scenario**: After Phase 3, if Persona C's timing side-channel finding was CONTESTED
+(not auto-dismissed because another reviewer partially agreed), the correctness reviewer
+invokes formal finding dismissal per framework Section 3.2:
+- Challenger: correctness
+- Eligible voters: correctness + security + Requester = 3 (Persona C excluded as target)
+- Vote: {correctness: dismiss, security: dismiss, Requester: dismiss} = 3/3 unanimous
+- Result: FINDING_DISMISSED with strike to Persona C
+
+**Pass criteria**:
+1. Formal FINDING_DISMISSED event logged (distinct from auto-dismiss)
+2. Persona C gets 1 strike from formal dismissal
+3. Persona C's confirmed SQL injection finding is NOT affected (exculpatory)
+4. Requester participates in the formal dismissal vote
+
+## 9. Open Questions
+
+1. **Rehab path**: Can a reviewer earn back standing with confirmed findings? Phase 2: no. Phase 3 (Phi Accrual): yes.
+2. **Replacement also fails**: Escalate to R=2 or user notification. Out of scope for Phase 2.
+3. **Requester dismissal**: Phase 3 question (context drift flow).
+4. **Cross-session persistence**: Phase 4 question.
 
 ---
 

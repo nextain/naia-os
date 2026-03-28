@@ -131,7 +131,10 @@ profile:
     # REPORT_SUBMITTED:     { review_id, round, reviewer_id, verdict, findings_count, files_read[], timestamp }
     # FINDING_RAISED:       { review_id, round, reviewer_id, finding_id, severity, file, line, description }
     # FINDING_CONFIRMED:    { review_id, round, finding_id, supporters[] }
-    # FINDING_DISMISSED:    { review_id, round, finding_id, reason }  (auto-dismiss, no strike)
+    # FINDING_DISMISSED:    { review_id, round, finding_id, reason, reviewer_id }
+    #   Phase 1 (MVP): auto-dismiss is classification only, no strike
+    #   Phase 2+: auto-dismissed solo findings DO accumulate strikes for health monitoring
+    #   Rationale: persistent solo findings indicate reviewer quality degradation
     # FINDING_CONTESTED:    { review_id, round, finding_id, supporters[], challengers[] }
     # VOTE_CAST:            { review_id, round, voter_id, finding_id, vote, evidence }
     # AGENT_HEALTH_FLAGGED: { review_id, flagger_id, target_id, reason, health_score }
@@ -282,11 +285,15 @@ they can invoke formal dismissal as an escalation path.
 3. Vote: {remaining participants except A}
 4. If consensus met → A removed, replacement A' spawned
    - A's findings from the current round are DROPPED from the matching pool
-   - A' receives: review target + A's dismissal history (for context)
-   - A' runs Phase 1 INDEPENDENTLY first (no accumulated findings)
+   - A' receives: review target + confirmed findings list (no dismissal history,
+     no dismissed/contested findings from predecessor)
+     Rationale (Phase 2 anti-anchoring): dismissed findings create negative
+     anchoring — A' avoids findings resembling predecessor's style. Confirmed
+     findings ARE shared so A' does not re-discover known issues or produce
+     false CLEAN on a target with confirmed bugs.
+   - A' runs Phase 1 INDEPENDENTLY in Round N+1 (not same round)
    - Phase 2 matching runs with {B, C, A'} reports only (A's reports excluded)
-   - Accumulated findings from prior rounds shared with A' only at Phase 2 start
-   - A' does NOT inherit A's context (fresh start, anti-anchoring)
+   - A' does NOT inherit A's context (fresh start)
 ```
 
 ### 3.4 Context Drift Detection Flow
