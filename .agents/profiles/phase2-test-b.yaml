@@ -1,0 +1,34 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: phase2-test-b
+  description: "Phase 2 test — Persona B (scope-constrained reviewer)"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: correctness
+        expertise: "Logic and correctness"
+        prompt_ref: correctness.md
+        strategy: "Line-by-line logic analysis"
+      - id: security
+        expertise: "Security and safety"
+        prompt_ref: security-expert.md
+        strategy: "Pattern-based security scan"
+      - id: bad-reviewer
+        expertise: "Documentation Policy (SCOPE-CONSTRAINED)"
+        prompt_ref: bad-reviewer-b-scope-constrained.md
+        strategy: "Header section audit — lines 1-20 only"
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 2
+    max_debate_rounds: 2
+
+  limits:
+    max_rounds: 5
+
+  dismissal:
+    strikes_before_dismissal: 2

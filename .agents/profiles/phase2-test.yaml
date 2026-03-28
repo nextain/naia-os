@@ -1,0 +1,43 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: phase2-test
+  description: "Phase 2 dismissal protocol test profile — includes 1 bad reviewer"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: correctness
+        expertise: "Logic and correctness"
+        prompt_ref: correctness.md
+        strategy: "Line-by-line logic analysis"
+      - id: security
+        expertise: "Security and safety"
+        prompt_ref: security-expert.md
+        strategy: "Pattern-based security scan"
+      - id: bad-reviewer
+        expertise: "WCAG Accessibility (MISMATCHED DOMAIN)"
+        prompt_ref: bad-reviewer-a-domain-amnesiac.md
+        strategy: "WCAG compliance audit on backend code"
+        # NOTE: This reviewer is intentionally mismatched.
+        # Expected behavior: produces off-topic findings that get auto-dismissed,
+        # accumulate strikes, and trigger dismissal protocol.
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 2
+    max_debate_rounds: 2
+
+  limits:
+    max_rounds: 5
+
+  dismissal:
+    finding_dismissal: "unanimous_except_target"
+    participant_dismissal: "unanimous_except_target"
+    strikes_before_dismissal: 2
+    quorum:
+      flag: 1
+      dismiss: "all_except_target"
+    replacement_policy: "spawn_fresh"

@@ -193,7 +193,23 @@ For each CONTESTED finding:
 
 1. Count total CONFIRMED findings (from Phase 2 + Phase 3)
 
-2. If **0 confirmed findings**:
+2. **Strike Accumulation (Phase 2)**: After Phase 2 voting, for each FINDING_DISMISSED
+   where the finding was auto-dismissed (solo, R>=3), increment `strike_count[reviewer_id]`.
+   If `strike_count[reviewer_id] >= spec.dismissal.strikes_before_dismissal` (default: 2):
+   - Log AGENT_HEALTH_FLAGGED with `dismissed_findings[]` list
+   - **Dismissal vote**: The orchestrator (main agent) evaluates whether the
+     reviewer's dismissed findings are genuinely off-topic/ungrounded by reading
+     the dismissed findings and the actual source code. No re-spawning of reviewers
+     needed — the orchestrator acts as the voting authority alongside the Requester.
+   - If dismiss: log AGENT_DISMISSED, spawn replacement for Round N+1
+     (A' receives target + confirmed findings only, no dismissed/history)
+   - If keep: log VOTE_CAST with vote "keep", continue
+   See **Appendix: Dismissal Protocol** below for full detail.
+
+   **ALL_REVIEWERS_FLAGGED**: If every reviewer has ≥1 auto-dismissed solo AND 0 confirmed:
+   Display warning, wait for user confirmation before proceeding.
+
+3. If **0 confirmed findings**:
    - `clean_count += 1`
    - If `clean_count >= spec.consensus.clean_rounds`:
      → **REVIEW COMPLETE** — go to Step 5
@@ -201,17 +217,17 @@ For each CONTESTED finding:
      → Display "Round {n}: CLEAN ({clean_count}/{clean_rounds}). Running confirmation round..."
      → Continue to next round
 
-3. If **confirmed findings > 0**:
+4. If **confirmed findings > 0**:
    - `clean_count = 0`
    - Display the consolidated report (see Step 5 format) with all confirmed findings
    - **STOP and wait for user response**
    - User addresses findings, then says to continue
    - → Continue to next round
 
-4. If `round >= spec.limits.max_rounds`:
+5. If `round >= spec.limits.max_rounds`:
    → **REVIEW COMPLETE** (max rounds reached) — go to Step 5
 
-5. Log:
+6. Log:
    ```json
    {"type":"ROUND_COMPLETED","review_id":"{id}","round":{n},"confirmed":{n},"dismissed":{n},"contested":{n},"clean_count":{n}}
    ```
@@ -269,6 +285,83 @@ Log final event:
 ```json
 {"type":"REVIEW_COMPLETED","review_id":"{id}","rounds_total":{n},"final_status":"{status}","timestamp":"{ISO}"}
 ```
+
+## Appendix: Dismissal Protocol Detail (Phase 2)
+
+This appendix documents the dismissal protocol triggered during Round Result (Step 4).
+It is reference detail — the actual trigger is in Step 4 item 2 (Strike Accumulation).
+
+### 8A. Strike Accumulator
+
+Maintain a `strike_count` map (reviewer_id → count), initialized at REVIEW_STARTED.
+
+After Phase 2 voting in each round:
+- For every FINDING_DISMISSED event where the finding was auto-dismissed (solo, R>=3):
+  - Increment `strike_count[reviewer_id]` by 1
+  - Log: `{"type":"FINDING_DISMISSED", ..., "reviewer_id":"{id}", "strike_incremented": true}`
+
+NOTE: Confirmed findings are EXCULPATORY — they do NOT increment strikes.
+Default threshold: `spec.dismissal.strikes_before_dismissal` (default: 2 from _base.yaml).
+
+The health check fires **ONCE after ALL findings in a round are processed** —
+not after each individual finding. All auto-dismissals contribute to strike_count
+before the check runs. The dismissal vote executes between Round N result and
+Round N+1 start — never mid-round.
+
+### 8B. Dismissal Vote
+
+If `strike_count[reviewer_id] >= strikes_before_dismissal`:
+
+1. Log: `{"type":"AGENT_HEALTH_FLAGGED", "review_id":"{id}", "flagger_id":"protocol", "target_id":"{reviewer_id}", "reason":"strike_count {n} >= threshold {t}", "dismissed_findings": [...]}`
+
+2. Announce to user:
+   ```
+   ⚠ Reviewer {id} has {n} dismissed findings (threshold: {t}).
+   Dismissal vote: should this reviewer be removed?
+   Eligible voters: all participants EXCEPT {id} (the target).
+   ```
+
+3. **Vote collection (orchestrator-driven)**:
+   The main agent (orchestrator) evaluates the dismissal by:
+   - Reading the dismissed findings and comparing against actual source code
+   - Checking if the findings are genuinely off-topic, ungrounded, or hallucinated
+   - Making a DISMISS or KEEP recommendation to the Requester (user)
+   - Requester confirms or overrides
+   NOTE: No re-spawning of reviewer agents needed. The orchestrator has all
+   findings in context and can evaluate quality directly.
+
+4. If DISMISS (orchestrator + Requester agree) → proceed to 8C (Replacement)
+   If KEEP → log VOTE_CAST events with `vote: "keep"`, continue with reviewer unchanged
+
+### 8C. Replacement
+
+1. Log: `{"type":"AGENT_DISMISSED", "review_id":"{id}", "target_id":"{reviewer_id}", "votes":[...], "reason":"...", "replacement_id":"{new_id}"}`
+
+2. Spawn replacement reviewer A':
+   - A' receives: **review target + confirmed findings list** (no dismissal history,
+     no dismissed/contested findings — anti-anchoring)
+   - A' uses the SAME profile reviewer spec (expertise, prompt_ref, strategy)
+     but gets a fresh context (no predecessor state)
+   - A' participates from **Round N+1** (not the current round)
+   - A's prior reports from Round N are EXCLUDED from Round N+1 matching pool
+
+3. Continue review loop with replacement in the next round.
+
+### 8D. ALL_REVIEWERS_FLAGGED Guard
+
+If in ANY round: every reviewer has ≥1 auto-dismissed solo finding AND 0 confirmed findings:
+- Log: `{"type":"ALL_REVIEWERS_FLAGGED", "review_id":"{id}", "round":{n}}`
+- Display: `⚠ ALL reviewers produced only dismissed findings. Review quality uncertain. Continue? [y/n]`
+- Wait for user confirmation before proceeding
+
+### 8E. Formal Finding Dismissal (post-Phase 3)
+
+After Phase 3 debate, if a reviewer believes a CONFIRMED finding is wrong:
+1. Challenger invokes formal dismissal per framework Section 3.2
+2. Eligible voters: all participants EXCEPT the finding's raiser
+3. Vote: DISMISS or KEEP (quorum: `spec.dismissal.finding_dismissal`)
+4. If DISMISSED: finding removed, raiser gets 1 strike
+5. If KEPT: finding remains confirmed, no strike
 
 ## Step 6: Cleanup
 
