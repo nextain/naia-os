@@ -86,25 +86,36 @@ AI 응답: "${response}"
 
 한 단어로만 답하세요: PASS 또는 FAIL`;
 
-	const res = await fetch(`${GEMINI_BASE}chat/completions`, {
-		method: "POST",
-		headers: {
-			"Authorization": `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model: "gemini-2.5-flash",
-			messages: [{ role: "user", content: prompt }],
-			max_tokens: 10,
-		}),
-	});
+	// Retry up to 3 times if judge returns empty (Gemini API sometimes returns blank)
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: "gemini-2.5-flash",
+				messages: [{ role: "user", content: prompt }],
+				max_tokens: 10,
+			}),
+		});
 
-	const data = await res.json() as any;
-	const verdict = (data.choices?.[0]?.message?.content ?? "").trim().toUpperCase();
-	return {
-		pass: verdict.includes("PASS"),
-		reason: verdict,
-	};
+		const data = await res.json() as any;
+		const verdict = (data.choices?.[0]?.message?.content ?? "").trim().toUpperCase();
+
+		if (verdict.length > 0) {
+			return {
+				pass: verdict === "PASS" || verdict.startsWith("PASS"),
+				reason: verdict,
+			};
+		}
+		// Empty response — wait briefly and retry
+		await new Promise((r) => setTimeout(r, 500));
+	}
+
+	// All retries failed — return as inconclusive (not counted as PASS)
+	return { pass: false, reason: "EMPTY_RESPONSE_3_RETRIES" };
 }
 
 async function main() {
@@ -139,7 +150,7 @@ async function main() {
 		{ id: "A08", query: "내가 AWS 쓴다고 했나?", expected_answer: "NONE", category: "abstention" },
 		{ id: "A09", query: "나 피아노 친다고 했지?", expected_answer: "NONE", category: "abstention" },
 		// === 시맨틱 검색 ===
-		{ id: "S01", query: "내 개발 환경 어떻게 되지?", expected_answer: "TypeScript, Neovim, Next.js, FastAPI 중 2개 이상", category: "semantic" },
+		{ id: "S01", query: "내 개발 환경 어떻게 되지?", expected_answer: "TypeScript, Cursor, Next.js, FastAPI 중 2개 이상", category: "semantic" },
 		{ id: "S02", query: "나 음식 취향이 어때?", expected_answer: "아메리카노, 매운 음식 못 먹음", category: "semantic" },
 		{ id: "S03", query: "주말에 뭐 하지?", expected_answer: "러닝, 한강", category: "semantic" },
 		// === 모순 감지 (Session 3에서 변경 후) ===
@@ -161,14 +172,20 @@ async function main() {
 		historyDbPath: `${dbPath}-hist.db`,
 	});
 
+	let encodedCount = 0;
+	let encodeErrors = 0;
 	for (const fact of factBank.facts) {
 		try {
-			await m.add([{ role: "user", content: fact.statement }], { userId: "v2-user" });
-			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}...`);
+			const result = await m.add([{ role: "user", content: fact.statement }], { userId: "v2-user" });
+			const memCount = result?.results?.length ?? 0;
+			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}... (${memCount} memories created)`);
+			encodedCount++;
 		} catch (err: any) {
-			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
+			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 80)}`);
+			encodeErrors++;
 		}
 	}
+	console.log(`  → Encoded: ${encodedCount}/${factBank.facts.length}, errors: ${encodeErrors}`);
 
 	// Apply updates for contradiction tests
 	const updates = factBank.updates || [];
@@ -176,7 +193,23 @@ async function main() {
 		try {
 			await m.add([{ role: "user", content: u.statement }], { userId: "v2-user" });
 			console.log(`  🔄 ${u.id}: ${u.statement.slice(0, 40)}...`);
-		} catch {}
+		} catch (err: any) {
+			console.log(`  ❌ update ${u.id}: ${err.message?.slice(0, 80)}`);
+		}
+	}
+
+	// Verify: dump all stored memories
+	console.log("\n=== Phase 1.5: Verifying stored memories ===\n");
+	try {
+		const allMems = await m.getAll({ userId: "v2-user" });
+		const memList = allMems?.results ?? allMems ?? [];
+		console.log(`  Total memories stored: ${memList.length}`);
+		for (const mem of memList.slice(0, 30)) {
+			console.log(`    - ${(mem.memory ?? mem.text ?? "").slice(0, 80)}`);
+		}
+		if (memList.length > 30) console.log(`    ... and ${memList.length - 30} more`);
+	} catch (err: any) {
+		console.log(`  ⚠ getAll failed: ${err.message?.slice(0, 80)}`);
 	}
 
 	// Run tests
@@ -187,12 +220,12 @@ async function main() {
 		query: string;
 		expected: string;
 		category: string;
-		runs: Array<{ response: string; pass: boolean; reason: string }>;
+		runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }>;
 		finalPass: boolean;
 	}> = [];
 
 	for (const tc of testCases) {
-		const runs: Array<{ response: string; pass: boolean; reason: string }> = [];
+		const runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }> = [];
 
 		for (let run = 0; run < RUNS; run++) {
 			// Search memories
@@ -200,7 +233,9 @@ async function main() {
 			try {
 				const raw = await m.search(tc.query, { userId: "v2-user", limit: 5 });
 				memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
-			} catch {}
+			} catch (err: any) {
+				console.error(`    ⚠ search error for "${tc.query.slice(0, 30)}": ${err.message?.slice(0, 80)}`);
+			}
 
 			// Get LLM response with memory context
 			const response = await askWithMemory(apiKey, memories, tc.query);
@@ -208,7 +243,10 @@ async function main() {
 			// Judge
 			const verdict = await judge(apiKey, tc.query, response, tc.expected_answer);
 
-			runs.push({ response: response.slice(0, 100), pass: verdict.pass, reason: verdict.reason });
+			runs.push({ memories, response: response.slice(0, 200), pass: verdict.pass, reason: verdict.reason });
+			if (run === 0) {
+				console.log(`    🔍 search returned ${memories.length} memories: ${memories.map(m => m.slice(0, 50)).join(" | ") || "(empty)"}`);
+			}
 		}
 
 		const passCount = runs.filter((r) => r.pass).length;

@@ -10,11 +10,14 @@
  * Based on: Ebbinghaus (1885), YourMemory implementation, FOREVER (2025)
  */
 
-/** Base decay rate per day (λ). Higher = faster forgetting. */
-const BASE_DECAY = 0.16;
+/** Base decay rate per day (λ). Higher = faster forgetting.
+ * 0.08: high-importance (0.7+) memories survive 60+ days without recall.
+ * Previous value 0.16 was too aggressive — user's name forgotten in 2 months. */
+export const BASE_DECAY = 0.08;
 
-/** How much importance slows decay (0–1). At 0.8, max-importance decays at 20% of base rate. */
-const IMPORTANCE_DAMPING = 0.8;
+/** How much importance slows decay (0–1). At 0.85, max-importance decays at 23.5% of base rate.
+ * Higher damping = important memories decay much slower than trivial ones. */
+export const IMPORTANCE_DAMPING = 0.85;
 
 /** Strength boost per recall event. Each recall adds this fraction to the multiplier. */
 const RECALL_BOOST = 0.2;

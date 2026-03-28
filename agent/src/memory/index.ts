@@ -52,14 +52,23 @@ export interface MemorySystemOptions {
 
 /**
  * Default heuristic fact extractor — no LLM needed.
- * Extracts "facts" by finding sentences with decision/preference keywords.
+ * Extracts "facts" by finding sentences with decision/preference keywords,
+ * then merges facts that share entities (consolidation compression).
  */
 async function heuristicFactExtractor(episodes: Episode[]): Promise<ExtractedFact[]> {
-	const facts: ExtractedFact[] = [];
+	const rawFacts: ExtractedFact[] = [];
 	const FACT_PATTERNS = [
 		/(?:decided|decision|chose|prefer|always|never|must|use|switched)/i,
 		/(?:결정|선택|항상|절대|반드시|사용|바꿨|변경)/,
 	];
+
+	const STOP_WORDS = new Set([
+		"The", "This", "That", "What", "When", "How", "But", "And", "For",
+		"We", "They", "You", "He", "She", "Its", "Our", "My", "Your",
+		"Never", "Always", "Also", "Just", "Only", "Not", "All", "Any",
+		"Team", "Some", "Each", "Every", "Most", "Many", "Much",
+		"New", "Old", "First", "Last", "Next", "Other",
+	]);
 
 	for (const ep of episodes) {
 		const hasFactPattern = FACT_PATTERNS.some((p) => p.test(ep.content));
@@ -71,22 +80,177 @@ async function heuristicFactExtractor(episodes: Episode[]): Promise<ExtractedFac
 		const capWords = ep.content.match(/\b[A-Z][a-zA-Z]+(?:\.[a-zA-Z]+)?\b/g);
 		if (capWords) {
 			for (const w of capWords) {
-				if (!["The", "This", "That", "What", "When", "How", "But", "And", "For"].includes(w)) {
+				if (!STOP_WORDS.has(w)) {
 					entities.push(w);
 				}
 			}
 		}
 
-		facts.push({
+		const uniqueEntities = [...new Set(entities)];
+		rawFacts.push({
 			content: ep.content.slice(0, 300),
-			entities: [...new Set(entities)],
+			entities: uniqueEntities,
 			topics: ep.encodingContext.project ? [ep.encodingContext.project] : [],
 			importance: ep.importance.utility,
 			sourceEpisodeIds: [ep.id],
 		});
 	}
 
-	return facts;
+	// Merge related facts (entity overlap + content similarity + temporal proximity)
+	return mergeRelatedFacts(rawFacts, episodes);
+}
+
+/** Tokenize content for similarity comparison */
+function contentTokens(text: string): Set<string> {
+	const COMMON_WORDS = new Set([
+		"the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+		"have", "has", "had", "do", "does", "did", "will", "would", "could",
+		"should", "may", "might", "shall", "can", "to", "of", "in", "for",
+		"on", "with", "at", "by", "from", "as", "into", "about", "like",
+		"we", "they", "it", "our", "its", "all", "no", "not", "but", "or",
+		"if", "so", "up", "out", "just", "use", "over", "going", "forward",
+	]);
+	return new Set(
+		text.toLowerCase()
+			.replace(/[^\p{L}\p{N}\s]/gu, " ")
+			.split(/\s+/)
+			.filter((t) => t.length > 2 && !COMMON_WORDS.has(t)),
+	);
+}
+
+/** Jaccard similarity between two token sets */
+function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+	let intersection = 0;
+	for (const t of a) {
+		if (b.has(t)) intersection++;
+	}
+	const union = a.size + b.size - intersection;
+	return union === 0 ? 0 : intersection / union;
+}
+
+/** Time window for temporal grouping: episodes within 30 minutes are likely one conversation */
+const TEMPORAL_GROUP_WINDOW_MS = 30 * 60 * 1000;
+
+/**
+ * Merge extracted facts that share entities, have similar content, or
+ * originate from temporally close episodes in the same project.
+ * Uses union-find to group related facts, then combines each group into one.
+ */
+function mergeRelatedFacts(facts: ExtractedFact[], sourceEpisodes?: Episode[]): ExtractedFact[] {
+	if (facts.length <= 1) return facts;
+
+	// Union-find parent array
+	const parent = facts.map((_, i) => i);
+	function find(i: number): number {
+		while (parent[i] !== i) {
+			parent[i] = parent[parent[i]];
+			i = parent[i];
+		}
+		return i;
+	}
+	function union(a: number, b: number): void {
+		const ra = find(a);
+		const rb = find(b);
+		if (ra !== rb) parent[ra] = rb;
+	}
+
+	// 1. Union facts that share an entity
+	const entityIndex = new Map<string, number[]>();
+	for (let i = 0; i < facts.length; i++) {
+		for (const e of facts[i].entities) {
+			const key = e.toLowerCase();
+			const list = entityIndex.get(key) ?? [];
+			list.push(i);
+			entityIndex.set(key, list);
+		}
+	}
+	for (const indices of entityIndex.values()) {
+		for (let i = 1; i < indices.length; i++) {
+			union(indices[0], indices[i]);
+		}
+	}
+
+	// 2. Union facts with content similarity (Jaccard ≥ 0.15)
+	const tokenSets = facts.map((f) => contentTokens(f.content));
+	for (let i = 0; i < facts.length; i++) {
+		for (let j = i + 1; j < facts.length; j++) {
+			if (find(i) === find(j)) continue;
+			if (jaccardSimilarity(tokenSets[i], tokenSets[j]) >= 0.15) {
+				union(i, j);
+			}
+		}
+	}
+
+	// 3. Temporal grouping: facts from episodes in the same project within a time window
+	if (sourceEpisodes) {
+		// Build source episode ID → episode map
+		const epMap = new Map<string, Episode>();
+		for (const ep of sourceEpisodes) {
+			epMap.set(ep.id, ep);
+		}
+
+		for (let i = 0; i < facts.length; i++) {
+			for (let j = i + 1; j < facts.length; j++) {
+				if (find(i) === find(j)) continue;
+
+				// Get representative episodes for each fact
+				const epI = facts[i].sourceEpisodeIds.map((id) => epMap.get(id)).filter(Boolean) as Episode[];
+				const epJ = facts[j].sourceEpisodeIds.map((id) => epMap.get(id)).filter(Boolean) as Episode[];
+				if (epI.length === 0 || epJ.length === 0) continue;
+
+				// Check if same project and within time window
+				const sameProject = epI.some((a) =>
+					epJ.some((b) =>
+						a.encodingContext.project &&
+						a.encodingContext.project === b.encodingContext.project &&
+						Math.abs(a.timestamp - b.timestamp) < TEMPORAL_GROUP_WINDOW_MS,
+					),
+				);
+				if (sameProject) {
+					// Cap group size to prevent over-merging (max 3 facts per group)
+					// Use fresh find() for both sides to avoid stale roots after path compression
+					const rootI = find(i);
+					const rootJ = find(j);
+					let groupSizeI = 0;
+					let groupSizeJ = 0;
+					for (let k = 0; k < facts.length; k++) {
+						const rk = find(k);
+						if (rk === rootI) groupSizeI++;
+						if (rk === rootJ) groupSizeJ++;
+					}
+					if (groupSizeI + groupSizeJ <= 3) {
+						union(i, j);
+					}
+				}
+			}
+		}
+	}
+
+	// Group by root
+	const groups = new Map<number, number[]>();
+	for (let i = 0; i < facts.length; i++) {
+		const root = find(i);
+		const g = groups.get(root) ?? [];
+		g.push(i);
+		groups.set(root, g);
+	}
+
+	// Merge each group into one fact (cap merged content at 600 chars)
+	const MAX_MERGED_CONTENT = 600;
+	const merged: ExtractedFact[] = [];
+	for (const indices of groups.values()) {
+		const group = indices.map((i) => facts[i]);
+		const joinedContent = group.map((f) => f.content).join(" | ");
+		merged.push({
+			content: joinedContent.slice(0, MAX_MERGED_CONTENT),
+			entities: [...new Set(group.flatMap((f) => f.entities))],
+			topics: [...new Set(group.flatMap((f) => f.topics))],
+			importance: Math.max(...group.map((f) => f.importance)),
+			sourceEpisodeIds: group.flatMap((f) => f.sourceEpisodeIds),
+		});
+	}
+
+	return merged;
 }
 
 export class MemorySystem {
@@ -162,17 +326,17 @@ export class MemorySystem {
 		const allFacts = await this.adapter.semantic.getAll();
 		const contradictions = findContradictions(allFacts, newInfo);
 
-		for (const { fact, result } of contradictions) {
-			if (result.action === "update" && result.updatedContent) {
-				// Reconsolidate: update the fact with new information
-				await this.adapter.semantic.upsert({
-					...fact,
-					content: result.updatedContent,
-					updatedAt: now,
-					importance: Math.max(fact.importance, 0.7), // Contradictions are important
-				});
-			}
-			// flag_contradiction: for now, just let it be (future: notify user)
+		// Update only the first contradicted fact to avoid creating semantic duplicates
+		const firstUpdate = contradictions.find(
+			({ result }) => result.action === "update" && result.updatedContent,
+		);
+		if (firstUpdate) {
+			await this.adapter.semantic.upsert({
+				...firstUpdate.fact,
+				content: firstUpdate.result.updatedContent!,
+				updatedAt: now,
+				importance: Math.max(firstUpdate.fact.importance, 0.7),
+			});
 		}
 	}
 
@@ -324,18 +488,17 @@ export class MemorySystem {
 					const contradictions = findContradictions(existingFacts, ef.content);
 
 					if (contradictions.length > 0) {
-						// Update the first contradicted fact (reconsolidate)
-						for (const { fact, result } of contradictions) {
-							if (result.action === "update") {
-								await this.adapter.semantic.upsert({
-									...fact,
-									content: ef.content,
-									updatedAt: now,
-									importance: Math.max(fact.importance, ef.importance),
-									sourceEpisodes: [...new Set([...fact.sourceEpisodes, ...ef.sourceEpisodeIds])],
-								});
-								factsUpdated++;
-							}
+						// Update only the first contradicted fact to avoid duplicates
+						const firstUpdate = contradictions.find(({ result }) => result.action === "update");
+						if (firstUpdate) {
+							await this.adapter.semantic.upsert({
+								...firstUpdate.fact,
+								content: ef.content,
+								updatedAt: now,
+								importance: Math.max(firstUpdate.fact.importance, ef.importance),
+								sourceEpisodes: [...new Set([...firstUpdate.fact.sourceEpisodes, ...ef.sourceEpisodeIds])],
+							});
+							factsUpdated++;
 						}
 					} else {
 						// New fact — create

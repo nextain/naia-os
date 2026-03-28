@@ -75,8 +75,35 @@ export function checkContradiction(
 	const sharedEntities = existingFact.entities.filter((e) =>
 		newLower.includes(e.toLowerCase()),
 	);
-	if (sharedEntities.length === 0) {
-		return { action: "keep", reason: "No shared entities — unrelated" };
+
+	// Also check for significant content keyword overlap (catches cases where
+	// the new info doesn't mention the old entity, e.g., "에디터 Cursor로 바꿨어"
+	// without repeating "Neovim")
+	// Uses substring matching to handle Korean particles (는, 을, 로, etc.)
+	// Min token length 3 to avoid false positives like "use" in "because"
+	const existingContentTokens = tokenizeSimple(existingLower);
+	const newContentTokens = tokenizeSimple(newLower);
+	let contentOverlapCount = 0;
+	for (const nt of newContentTokens) {
+		if (nt.length < 3) continue; // Skip very short tokens to prevent false positive substrings
+		const hasMatch = existingContentTokens.some((et) => {
+			if (et.length < 3) return false;
+			// Exact match
+			if (et === nt) return true;
+			// Substring match only if the shorter token is at least 3 chars
+			// and at least 60% of the longer token (avoids "port" in "important")
+			const shorter = et.length < nt.length ? et : nt;
+			const longer = et.length < nt.length ? nt : et;
+			return longer.includes(shorter) && shorter.length / longer.length >= 0.6;
+		});
+		if (hasMatch) contentOverlapCount++;
+	}
+	// Require at least 2 overlapping tokens, or 1 if tokens are few
+	const minOverlap = Math.max(1, Math.min(2, Math.floor(newContentTokens.length * 0.15)));
+	const hasContentOverlap = contentOverlapCount >= minOverlap && newContentTokens.length > 0;
+
+	if (sharedEntities.length === 0 && !hasContentOverlap) {
+		return { action: "keep", reason: "No shared entities or content overlap — unrelated" };
 	}
 
 	// 2. Check for negation patterns in new info that reference the existing fact
@@ -112,12 +139,9 @@ export function checkContradiction(
 		};
 	}
 
-	if (overlapRatio > 0.5 && hasNegation) {
-		return {
-			action: "flag_contradiction",
-			reason: `Possible contradiction: high overlap (${Math.round(overlapRatio * 100)}%) with negation — needs verification`,
-		};
-	}
+	// Note: "flag_contradiction" for high overlap without state verb is subsumed by
+	// the overlapRatio > 0.3 check above. If future logic changes the threshold,
+	// re-evaluate whether a separate flag_contradiction branch is needed.
 
 	return { action: "keep", reason: "No contradiction detected" };
 }

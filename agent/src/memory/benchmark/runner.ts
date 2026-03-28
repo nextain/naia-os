@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalAdapter } from "../local-adapter.js";
 import { MemorySystem } from "../index.js";
-import { calculateStrength } from "../decay.js";
-import { scoreImportance } from "../importance.js";
+import { calculateStrength, BASE_DECAY, IMPORTANCE_DAMPING } from "../decay.js";
+import { scoreImportance, STORAGE_GATE_THRESHOLD } from "../importance.js";
 import { KnowledgeGraph, emptyKGState } from "../knowledge-graph.js";
 import { checkContradiction, findContradictions } from "../reconsolidation.js";
 import type { Episode, Fact, ImportanceScore } from "../types.js";
@@ -98,7 +98,7 @@ async function benchDecayCurve(): Promise<BenchmarkResult> {
 	);
 
 	// Theoretical: importance × e^(-λ_eff × days)
-	const lambdaEff = 0.16 * (1 - importance * 0.8);
+	const lambdaEff = BASE_DECAY * (1 - importance * IMPORTANCE_DAMPING);
 	const theoretical = timePoints.map((t) => {
 		const days = t / DAY;
 		return Math.max(0.01, importance * Math.exp(-lambdaEff * days));
@@ -434,7 +434,7 @@ async function benchImportanceGating(): Promise<BenchmarkResult> {
 
 	for (const { content, role, expected } of cases) {
 		const score = scoreImportance({ content, role });
-		const stored = score.utility >= 0.15; // STORAGE_GATE_THRESHOLD
+		const stored = score.utility >= STORAGE_GATE_THRESHOLD;
 
 		if (expected && stored) truePositives++;
 		else if (expected && !stored) falseNegatives++;

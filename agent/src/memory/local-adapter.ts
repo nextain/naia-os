@@ -465,7 +465,7 @@ export class LocalAdapter implements MemoryAdapter {
 		// 3. Knowledge graph edge decay
 		result.associationsUpdated += this.kg.decayEdges(0.95, 0.01);
 
-		// 3. Mark unconsolidated episodes older than 1 hour as ready for extraction
+		// 4. Mark unconsolidated episodes older than 1 hour as ready for extraction
 		// (actual fact extraction requires LLM — done by MemorySystem, not adapter)
 		const unconsolidated = this.store.episodes.filter(
 			(ep) => !ep.consolidated && now - ep.timestamp > 60 * 60 * 1000,
