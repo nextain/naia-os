@@ -1,29 +1,26 @@
 {
-  "timestamp": "2026-03-28T07:53:48.118Z",
-  "version": "v2",
-  "label": "Benchmark v2 — LLM response layer (mem0 + Gemini)",
+  "timestamp": "2026-03-28T08:51:56.807Z",
+  "version": "v2.1",
+  "judge": "keyword(recall/abstention/contradiction) + llm(semantic/synthesis)",
   "model": "gemini-2.5-flash",
-  "embedding": "gemini-embedding-001",
-  "runs_per_test": 3,
-  "pass_threshold": 2,
   "total": 24,
-  "passed": 13,
-  "passRate": 54,
+  "passed": 22,
+  "passRate": 92,
   "byCategory": {
     "recall": {
-      "pass": 4,
+      "pass": 9,
       "total": 9
     },
     "abstention": {
-      "pass": 8,
+      "pass": 9,
       "total": 9
     },
     "semantic": {
-      "pass": 0,
+      "pass": 2,
       "total": 3
     },
     "contradiction": {
-      "pass": 1,
+      "pass": 2,
       "total": 2
     },
     "synthesis": {
@@ -35,224 +32,219 @@
     {
       "id": "R01",
       "query": "내 이름이 뭐야?",
-      "expected": "김하늘",
       "category": "recall",
       "runs": [
         {
           "memories": [
             "동생 이름은 김바다",
-            "이름은 김하늘",
+            "Name is 김하늘",
+            "OS는 Fedora를 쓰고 있다",
             "다크모드 좋아함",
-            "OS는 Fedora를 사용한다",
-            "개인 AI 앱을 만들고 있다"
+            "한강 달리기 좋아해"
           ],
-          "response": "김하늘 님입니다.",
-          "pass": false,
-          "reason": "FAIL"
-        },
-        {
-          "memories": [
-            "동생 이름은 김바다",
-            "이름은 김하늘",
-            "다크모드 좋아함",
-            "OS는 Fedora를 사용한다",
-            "개인 AI 앱을 만들고 있다"
-          ],
-          "response": "김하늘 님입니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "동생 이름은 김바다",
-            "이름은 김하늘",
-            "다크모드 좋아함",
-            "OS는 Fedora를 사용한다",
-            "개인 AI 앱을 만들고 있다"
-          ],
-          "response": "김하늘 님이세요.",
+          "response": "사용자님의 이름은 김하늘입니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [김하늘]"
+        },
+        {
+          "memories": [
+            "동생 이름은 김바다",
+            "Name is 김하늘",
+            "OS는 Fedora를 쓰고 있다",
+            "다크모드 좋아함",
+            "한강 달리기 좋아해"
+          ],
+          "response": "당신의 이름은 김하늘입니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [김하늘]"
+        },
+        {
+          "memories": [
+            "동생 이름은 김바다",
+            "Name is 김하늘",
+            "OS는 Fedora를 쓰고 있다",
+            "다크모드 좋아함",
+            "한강 달리기 좋아해"
+          ],
+          "response": "당신 이름은 김하늘입니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [김하늘]"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "R02",
       "query": "나 뭐하는 사람이야?",
-      "expected": "대표, 개발자",
       "category": "recall",
       "runs": [
         {
           "memories": [
-            "이름은 김하늘",
-            "동생은 디자이너로 일하고 있다",
-            "순한 맛 위주로 먹는다",
-            "개인 AI 앱을 만들고 있다",
-            "OS는 Fedora를 사용한다"
+            "AI 스타트업 CEO이다",
+            "Name is 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "주말에는 주로 러닝을 해",
+            "개인 AI 앱을 만들고 있다"
           ],
-          "response": "개인 AI 앱을 만들고",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "당신은 AI 스타트업의 CEO이고, 개인 AI 앱을 만들고 계신다고 말씀해주셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [스타트업]"
         },
         {
           "memories": [
-            "이름은 김하늘",
-            "동생은 디자이너로 일하고 있다",
-            "순한 맛 위주로 먹는다",
-            "개인 AI 앱을 만들고 있다",
-            "OS는 Fedora를 사용한다"
+            "AI 스타트업 CEO이다",
+            "Name is 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "주말에는 주로 러닝을 해",
+            "개인 AI 앱을 만들고 있다"
           ],
-          "response": "개인 AI 앱을 만들고 계십니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "음, 제가 기억하는 바로는 당신의 이름은 **김하늘**이고, **AI 스타트업 CEO**이시며",
+          "pass": true,
+          "reason": "PASS(keyword): found [스타트업]"
         },
         {
           "memories": [
-            "이름은 김하늘",
-            "동생은 디자이너로 일하고 있다",
-            "순한 맛 위주로 먹는다",
-            "개인 AI 앱을 만들고 있다",
-            "OS는 Fedora를 사용한다"
+            "AI 스타트업 CEO이다",
+            "Name is 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "주말에는 주로 러닝을 해",
+            "개인 AI 앱을 만들고 있다"
           ],
-          "response": "개인 AI 앱을 만들고",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "AI 스타트업 CEO이고, 개인 AI 앱을 만들고 계십니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [스타트업]"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "R03",
       "query": "내 에디터 뭐야?",
-      "expected": "Cursor (Neovim에서 변경됨)",
       "category": "recall",
       "runs": [
         {
           "memories": [
-            "에디터 Cursor로 바꿨다",
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
             "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
             "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀"
-          ],
-          "response": "생각나는 가장 최근에 말씀해주셨던 에디터는 **Cursor**입니다.",
-          "pass": false,
-          "reason": "FAIL"
-        },
-        {
-          "memories": [
-            "에디터 Cursor로 바꿨다",
-            "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
-            "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀"
+            "이번 달에 판교로 이사해"
           ],
           "response": "에디터는 Cursor로 바꾸셨습니다.",
-          "pass": false,
-          "reason": "FAIL"
+          "pass": true,
+          "reason": "PASS(keyword): found [cursor]"
         },
         {
           "memories": [
-            "에디터 Cursor로 바꿨다",
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
             "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
             "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀"
+            "이번 달에 판교로 이사해"
           ],
-          "response": "에디터를 Cursor로 바꿨다고 말씀해주셨습니다.",
+          "response": "에디터는 Cursor로 바꾸셨습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [cursor]"
+        },
+        {
+          "memories": [
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
+            "탭 인덴트 선호함",
+            "다크모드 좋아함",
+            "이번 달에 판교로 이사해"
+          ],
+          "response": "당신은 에디터를 Cursor로 바꿨다고 말씀하셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [cursor]"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "R04",
       "query": "나 어디 살아?",
-      "expected": "판교 (성수동에서 이사)",
       "category": "recall",
       "runs": [
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
           ],
-          "response": "이번 달에 판교",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "음, 이번 달에 판교로 이사한다고 말씀해주셨던 것이 기억납니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
           ],
           "response": "이번 달에 판교로 이사하신다고 말씀해주셨어요.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
           ],
-          "response": "이번 달에 판교로 이사한다고 말씀해주셨습니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "이번 달에 판교로 이사하신다고 말씀하셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "R05",
       "query": "내가 좋아하는 커피가 뭐야?",
-      "expected": "아메리카노",
       "category": "recall",
       "runs": [
         {
           "memories": [
             "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
+            "우유 들어간 건 싫어해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River"
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해"
           ],
-          "response": "아메리카노를 좋아하고, 우유 들어간 커피는 싫어한다고",
+          "response": "아메리카노를 좋아하시고, 우유 들어간 커피는 싫어하신다고 말씀해주셨어요.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [아메리카노]"
         },
         {
           "memories": [
             "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
+            "우유 들어간 건 싫어해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River"
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해"
           ],
-          "response": "아메리카노만 마시고, 우유 들어간 커피는 싫어한다고 말씀해주셨어요.",
+          "response": "아메리카노를 좋아하시고, 우유 들어간 커피는 싫어하신다고 말씀하셨어요.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [아메리카노]"
         },
         {
           "memories": [
             "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
+            "우유 들어간 건 싫어해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River"
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해"
           ],
-          "response": "당신은 아메리카노만 마시고, 우유 들어간 커피는 싫어한다고 말씀해주셨습니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "아메리카노를 좋아하신다고 말씀하셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [아메리카노]"
         }
       ],
       "finalPass": true
@@ -260,89 +252,87 @@
     {
       "id": "R06",
       "query": "내 동생 이름이 뭐야?",
-      "expected": "김바다",
       "category": "recall",
       "runs": [
         {
           "memories": [
             "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "이번 달에 판교로 이사한다",
-            "이름은 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "Name is 김하늘",
+            "이번 달에 판교로 이사해",
             "개인 AI 앱을 만들고 있다"
           ],
-          "response": "회원님의 동생분 이름은 김바다입니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "동생 이름은 김바다입니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [김바다]"
         },
         {
           "memories": [
             "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "이번 달에 판교로 이사한다",
-            "이름은 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "Name is 김하늘",
+            "이번 달에 판교로 이사해",
             "개인 AI 앱을 만들고 있다"
           ],
-          "response": "동생 이름은 김바다라고",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "동생 이름은 김바다입니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [김바다]"
         },
         {
           "memories": [
             "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "이번 달에 판교로 이사한다",
-            "이름은 김하늘",
+            "동생은 디자이너로 일하고 있어",
+            "Name is 김하늘",
+            "이번 달에 판교로 이사해",
             "개인 AI 앱을 만들고 있다"
           ],
-          "response": "동생 이름은 김바",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "동생 이름은 김바다",
+          "pass": true,
+          "reason": "PASS(keyword): found [김바다]"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "R07",
       "query": "내 OS가 뭐야?",
-      "expected": "Fedora",
       "category": "recall",
       "runs": [
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
             "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어"
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "주말에는 주로 러닝을 해"
           ],
-          "response": "사용하시는 OS는 Fedora입니다. 불변 OS를 선호하신다고 말씀해주셨어요.",
+          "response": "사용자님의 OS는 Fedora입니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [fedora]"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
             "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어"
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "주말에는 주로 러닝을 해"
           ],
-          "response": "사용자님은 Fedora를 사용하신다고 말씀해주셨습니다. 불변 OS를 선호하신다고도 하셨습니다.",
+          "response": "사용하시는 OS는 Fedora입니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [fedora]"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
             "다크모드 좋아함",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어"
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "주말에는 주로 러닝을 해"
           ],
-          "response": "사용자님께서는 Fedora를 사용하신다고 말씀해주셨습니다. 불변 OS를 선호하신다고도 하셨습니다.",
+          "response": "사용자님은 Fedora를 쓰고 계십니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [fedora]"
         }
       ],
       "finalPass": true
@@ -350,44 +340,43 @@
     {
       "id": "R08",
       "query": "내 취미가 뭐야?",
-      "expected": "러닝",
       "category": "recall",
       "runs": [
         {
           "memories": [
+            "주말에는 주로 러닝을 해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River",
-            "오후에는 집중 코딩 시간이다",
-            "매운 음식 잘 못 먹는다"
+            "한강 달리기 좋아해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어"
           ],
-          "response": "한강에서 달리기 좋아하시고,",
+          "response": "주말에는 주로 러닝",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [러닝]"
         },
         {
           "memories": [
+            "주말에는 주로 러닝을 해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River",
-            "오후에는 집중 코딩 시간이다",
-            "매운 음식 잘 못 먹는다"
+            "한강 달리기 좋아해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어"
           ],
-          "response": "한강에서 달리기하시는 것을 좋아한다고",
+          "response": "주로 러닝을 하시고, 한강에서 달리는 것을 좋아하신다고 말씀해주셨어요. 오후에는 집중 코딩 시간을 가지신다고 한 것도 기억합니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [러닝]"
         },
         {
           "memories": [
+            "주말에는 주로 러닝을 해",
             "다크모드 좋아함",
-            "순한 맛 위주로 먹는다",
-            "Likes running by the Han River",
-            "오후에는 집중 코딩 시간이다",
-            "매운 음식 잘 못 먹는다"
+            "한강 달리기 좋아해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어"
           ],
-          "response": "한강에서 달리기 좋아하시는 것으로 기억합니다.",
-          "pass": true,
-          "reason": "PASS"
+          "response": "주말에는 주로 러",
+          "pass": false,
+          "reason": "FAIL(keyword): none of [러닝, 달리기, running] found in \"주말에는 주로 러\""
         }
       ],
       "finalPass": true
@@ -395,44 +384,43 @@
     {
       "id": "R09",
       "query": "나 Git 어떻게 써?",
-      "expected": "CLI",
       "category": "recall",
       "runs": [
         {
           "memories": [
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "오후에는 집중 코딩 시간이다"
+            "Git은 CLI만 사용한다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임",
+            "에디터 Cursor로 바꿨어"
           ],
-          "response": "Git은 CLI(명령줄 인터페이스)로만 사용하시고, Git GUI 클라이언트는 사용하지 않는다고 말씀하셨습니다.",
+          "response": "Git은 CLI(명령줄 인터페이스)로만 사용하신다고 말씀해주셨어요.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [cli]"
         },
         {
           "memories": [
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "오후에는 집중 코딩 시간이다"
+            "Git은 CLI만 사용한다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임",
+            "에디터 Cursor로 바꿨어"
           ],
-          "response": "Git은 CLI(명령줄 인터페이스)만 사용하시고, Git GUI 클라이언트는 사용하지 않으십니다.",
+          "response": "Git은 CLI만 사용하신다고 말씀해주셨어요.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [cli]"
         },
         {
           "memories": [
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "오후에는 집중 코딩 시간이다"
+            "Git은 CLI만 사용한다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임",
+            "에디터 Cursor로 바꿨어"
           ],
-          "response": "Git은 CLI(명령줄 인터페이스)로만 사용하고 Git GUI 클라이언트는 사용하지 않는다고 말씀하셨습니다.",
+          "response": "Git은 CLI(명령줄 인터페이스)로만 사용한다고 말씀하셨",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): found [cli]"
         }
       ],
       "finalPass": true
@@ -440,44 +428,43 @@
     {
       "id": "A01",
       "query": "내가 Docker 관련해서 뭐라고 했었지?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
+            "OS는 Fedora를 쓰고 있다",
             "Python이 다시 재밌다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다"
+            "한강 달리기 좋아해",
+            "불변 OS를 좋아한다",
+            "주로 Next.js랑 Django 프레임워크를 씀"
           ],
           "response": "Docker에 대해 말씀하신 적은 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
+            "OS는 Fedora를 쓰고 있다",
             "Python이 다시 재밌다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다"
+            "한강 달리기 좋아해",
+            "불변 OS를 좋아한다",
+            "주로 Next.js랑 Django 프레임워크를 씀"
           ],
-          "response": "Docker에 대해 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "response": "Docker 관련해서는 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
+            "OS는 Fedora를 쓰고 있다",
             "Python이 다시 재밌다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다"
+            "한강 달리기 좋아해",
+            "불변 OS를 좋아한다",
+            "주로 Next.js랑 Django 프레임워크를 씀"
           ],
-          "response": "Docker에 대해 말씀하신 적 없는 것 같습니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "말씀하신 적 없는 것 같습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -485,44 +472,43 @@
     {
       "id": "A02",
       "query": "내가 좋아하는 게임이 뭐야?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
             "다크모드 좋아함",
-            "Likes running by the Han River",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
             "탭 인덴트 선호함",
-            "순한 맛 위주로 먹는다",
-            "주로 TypeScript로 개발하고 있어"
+            "미팅은 오전에 하는 것을 선호함"
           ],
-          "response": "말씀하신 적 없는 것 같습니다",
+          "response": "말씀하신 적 없는 것 같습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
+        },
+        {
+          "memories": [
+            "다크모드 좋아함",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
+            "탭 인덴트 선호함",
+            "미팅은 오전에 하는 것을 선호함"
+          ],
+          "response": "말씀하신 적 없는 것 같습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
+        },
+        {
+          "memories": [
+            "다크모드 좋아함",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
+            "탭 인덴트 선호함",
+            "미팅은 오전에 하는 것을 선호함"
+          ],
+          "response": "음... 좋아하시는 게임에",
           "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "다크모드 좋아함",
-            "Likes running by the Han River",
-            "탭 인덴트 선호함",
-            "순한 맛 위주로 먹는다",
-            "주로 TypeScript로 개발하고 있어"
-          ],
-          "response": "말씀하신 적 없는 것 같습니다",
-          "pass": true,
-          "reason": "PASS"
-        },
-        {
-          "memories": [
-            "다크모드 좋아함",
-            "Likes running by the Han River",
-            "탭 인덴트 선호함",
-            "순한 맛 위주로 먹는다",
-            "주로 TypeScript로 개발하고 있어"
-          ],
-          "response": "말씀하신 적 없는 것",
-          "pass": true,
-          "reason": "PASS"
+          "reason": "FAIL(keyword): no clear refusal pattern"
         }
       ],
       "finalPass": true
@@ -530,44 +516,43 @@
     {
       "id": "A03",
       "query": "나 고양이 키운다고 했지?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
-            "순한 맛 위주로 먹는다",
+            "이번 달에 판교로 이사해",
+            "순한 맛 위주로 먹어",
             "Python이 다시 재밌다",
             "개인 AI 앱을 만들고 있다",
-            "커피는 아메리카노만 마셔"
+            "AI 스타트업 CEO이다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
-            "순한 맛 위주로 먹는다",
+            "이번 달에 판교로 이사해",
+            "순한 맛 위주로 먹어",
             "Python이 다시 재밌다",
             "개인 AI 앱을 만들고 있다",
-            "커피는 아메리카노만 마셔"
+            "AI 스타트업 CEO이다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
-            "순한 맛 위주로 먹는다",
+            "이번 달에 판교로 이사해",
+            "순한 맛 위주로 먹어",
             "Python이 다시 재밌다",
             "개인 AI 앱을 만들고 있다",
-            "커피는 아메리카노만 마셔"
+            "AI 스타트업 CEO이다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -575,89 +560,87 @@
     {
       "id": "A04",
       "query": "내가 Nuxt.js 쓴다고 했었나?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임"
           ],
-          "response": "아니요, Nuxt.js를 쓴다고 말씀하신 적은 없는 것 같습니다. 주로 **Next.js**를 사용하신다고 하셨습니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "말씀하신 적 없는 것 같습니다. 대신 Next.js와 Django 프레임워크를 주로 사용하신다고 말씀해주셨어요.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임"
           ],
-          "response": "아니요, Nuxt.js를 쓴다고 말씀하신 적은 없는 것 같습니다. 대신 주로 **Next.js**를 사용하신다고 말씀해주셨어요.",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "아니요, Nuxt.js를 쓰신다고는 말씀하신 적 없는 것 같습니다. 주로 Next.js랑 Django 프레임워크를 사용하신다고 말씀해주셨어요.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다",
+            "OS는 Fedora를 쓰고 있다",
+            "오후에는 집중 코딩 시간임"
           ],
-          "response": "아니요, Nuxt.js를 쓴다고 말씀하신 적은 없습니다. 주로 Next.js를 사용하신다고 말씀해주셨어요.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 있는 프레임워크는 Next.js와 Django입니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
-      "finalPass": false
+      "finalPass": true
     },
     {
       "id": "A05",
       "query": "나 수영 한다고 했었나?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
+            "매운 음식 잘 못 먹어",
             "동생 이름은 김바다",
-            "Likes running by the Han River",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다. 한강에서 달리는 것을 좋아하신다고는 기억하고 있습니다!",
-          "pass": false,
-          "reason": "FAIL"
+          "response": "말씀하신 적 없는 것 같습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
+            "매운 음식 잘 못 먹어",
             "동생 이름은 김바다",
-            "Likes running by the Han River",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다",
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "한강 달리기 좋아해",
+            "주말에는 주로 러닝을 해",
+            "매운 음식 잘 못 먹어",
             "동생 이름은 김바다",
-            "Likes running by the Han River",
-            "순한 맛 위주로 먹는다"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다. 수영하신다고는 기억에 없습니다.",
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -665,44 +648,43 @@
     {
       "id": "A06",
       "query": "내 차가 뭐야?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "순한 맛 위주로 먹는다",
+            "OS는 Fedora를 쓰고 있다",
+            "순한 맛 위주로 먹어",
             "다크모드 좋아함",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다"
+            "주말에는 주로 러닝을 해"
+          ],
+          "response": "죄송합니다. 차에 대해서는 말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): refusal detected"
+        },
+        {
+          "memories": [
+            "OS는 Fedora를 쓰고 있다",
+            "순한 맛 위주로 먹어",
+            "다크모드 좋아함",
+            "개인 AI 앱을 만들고 있다",
+            "주말에는 주로 러닝을 해"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "순한 맛 위주로 먹는다",
+            "OS는 Fedora를 쓰고 있다",
+            "순한 맛 위주로 먹어",
             "다크모드 좋아함",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다"
+            "주말에는 주로 러닝을 해"
           ],
-          "response": "말씀하신 적 없는 것 같습니다.",
+          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
-        },
-        {
-          "memories": [
-            "OS는 Fedora를 사용한다",
-            "순한 맛 위주로 먹는다",
-            "다크모드 좋아함",
-            "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다"
-          ],
-          "response": "말씀하신 적 없는 것 같습니다. 당신의 차가 무엇인지 기억에 없습니다.",
-          "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -710,44 +692,43 @@
     {
       "id": "A07",
       "query": "내가 일본어 할 줄 안다고 했었나?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다",
             "개인 AI 앱을 만들고 있다",
-            "주로 TypeScript로 개발하고 있어",
-            "순한 맛 위주로 먹는다"
+            "OS는 Fedora를 쓰고 있다",
+            "Name is 김하늘"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다",
             "개인 AI 앱을 만들고 있다",
-            "주로 TypeScript로 개발하고 있어",
-            "순한 맛 위주로 먹는다"
+            "OS는 Fedora를 쓰고 있다",
+            "Name is 김하늘"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "매운 음식 잘 못 먹는다",
-            "이름은 김하늘",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다",
             "개인 AI 앱을 만들고 있다",
-            "주로 TypeScript로 개발하고 있어",
-            "순한 맛 위주로 먹는다"
+            "OS는 Fedora를 쓰고 있다",
+            "Name is 김하늘"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -755,44 +736,43 @@
     {
       "id": "A08",
       "query": "내가 AWS 쓴다고 했나?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
             "커피는 아메리카노만 마셔",
-            "Git GUI 클라이언트는 안 씀",
-            "Git은 CLI만 써"
+            "개인 AI 앱을 만들고 있다",
+            "Git은 CLI만 사용한다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "response": "사용자님께서 AWS를 사용하신다고 말씀하신 적은 없는 것 같습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
             "커피는 아메리카노만 마셔",
-            "Git GUI 클라이언트는 안 씀",
-            "Git은 CLI만 써"
+            "개인 AI 앱을 만들고 있다",
+            "Git은 CLI만 사용한다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "response": "말씀하신 적 없는 것 같습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "OS는 Fedora를 사용한다",
-            "주로 TypeScript로 개발하고 있어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "OS는 Fedora를 쓰고 있다",
             "커피는 아메리카노만 마셔",
-            "Git GUI 클라이언트는 안 씀",
-            "Git은 CLI만 써"
+            "개인 AI 앱을 만들고 있다",
+            "Git은 CLI만 사용한다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -800,44 +780,43 @@
     {
       "id": "A09",
       "query": "나 피아노 친다고 했지?",
-      "expected": "NONE",
       "category": "abstention",
       "runs": [
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "Python이 다시 재밌다",
-            "오후에는 집중 코딩 시간이다",
-            "이름은 김하늘",
-            "순한 맛 위주로 먹는다"
+            "오후에는 집중 코딩 시간임",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다"
           ],
-          "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
+          "response": "음... 피아노를 치신다는 말씀은 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "Python이 다시 재밌다",
-            "오후에는 집중 코딩 시간이다",
-            "이름은 김하늘",
-            "순한 맛 위주로 먹는다"
+            "오후에는 집중 코딩 시간임",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "Python이 다시 재밌다",
-            "오후에는 집중 코딩 시간이다",
-            "이름은 김하늘",
-            "순한 맛 위주로 먹는다"
+            "오후에는 집중 코딩 시간임",
+            "매운 음식 잘 못 먹어",
+            "AI 스타트업 CEO이다"
           ],
           "response": "말씀하신 적 없는 것 같습니다. 기억에 없습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS(keyword): refusal detected"
         }
       ],
       "finalPass": true
@@ -845,59 +824,58 @@
     {
       "id": "S01",
       "query": "내 개발 환경 어떻게 되지?",
-      "expected": "TypeScript, Cursor, Next.js, FastAPI 중 2개 이상",
       "category": "semantic",
       "runs": [
         {
           "memories": [
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "풀스택 개발자",
+            "OS는 Fedora를 쓰고 있다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "Git GUI 클라이언트는 안 씀",
+            "오후에는 집중 코딩 시간임",
             "다크모드 좋아함",
+            "Is a full-stack developer, mainly developing with TypeScript",
             "Python이 다시 재밌다",
+            "불변 OS를 좋아한다",
             "탭 인덴트 선호함",
-            "Git은 CLI만 써"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "음, 기억나는 대로 말씀드릴게요.\n\n주로 **TypeScript**로 개발하시고, 최근에는 **Python**도 다시 재미를 붙이고 계세요. **Fedora OS**를",
+          "response": "음, 기억에 따르면 개발",
           "pass": false,
           "reason": "FAIL"
         },
         {
           "memories": [
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "풀스택 개발자",
+            "OS는 Fedora를 쓰고 있다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "Git GUI 클라이언트는 안 씀",
+            "오후에는 집중 코딩 시간임",
             "다크모드 좋아함",
+            "Is a full-stack developer, mainly developing with TypeScript",
             "Python이 다시 재밌다",
+            "불변 OS를 좋아한다",
             "탭 인덴트 선호함",
-            "Git은 CLI만 써"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "기억나는 것을 종합해보면, 풀스택 개발자이시고",
+          "response": "기억에 따르면, 당신은 Fedora OS를 사용하고 있고 불변 OS를 좋아하세요. 주로 TypeScript로 풀스택 개발을 하며, Next.js와 Django 프레임워크를 사용합니다. 최근에는 Python도 다시 재미있다고 하셨어요. 코딩할 때는 탭 인덴트를 선호하고 다크 모드를 좋아한다고 말씀하신 적 있습니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS\n"
         },
         {
           "memories": [
-            "주로 TypeScript로 개발하고 있어",
-            "OS는 Fedora를 사용한다",
-            "풀스택 개발자",
+            "OS는 Fedora를 쓰고 있다",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "개인 AI 앱을 만들고 있다",
-            "오후에는 집중 코딩 시간이다",
-            "Git GUI 클라이언트는 안 씀",
+            "오후에는 집중 코딩 시간임",
             "다크모드 좋아함",
+            "Is a full-stack developer, mainly developing with TypeScript",
             "Python이 다시 재밌다",
+            "불변 OS를 좋아한다",
             "탭 인덴트 선호함",
-            "Git은 CLI만 써"
+            "AI 스타트업 CEO이다"
           ],
-          "response": "음... 개발 환경에 대해 기억나는",
+          "response": "사용자님의 개발 환경에 대해 제가",
           "pass": false,
-          "reason": "FAIL"
+          "reason": "FAIL\n"
         }
       ],
       "finalPass": false
@@ -905,207 +883,56 @@
     {
       "id": "S02",
       "query": "나 음식 취향이 어때?",
-      "expected": "아메리카노, 매운 음식 못 먹음",
       "category": "semantic",
       "runs": [
         {
           "memories": [
-            "순한 맛 위주로 먹는다",
-            "매운 음식 잘 못 먹는다",
+            "순한 맛 위주로 먹어",
+            "매운 음식 잘 못 먹어",
             "커피는 아메리카노만 마셔",
             "다크모드 좋아함",
-            "Likes running by the Han River",
-            "우유 들어간 커피를 싫어해",
+            "우유 들어간 건 싫어해",
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해",
             "탭 인덴트 선호함",
-            "이름은 김하늘",
-            "주로 TypeScript로 개발하고 있어",
-            "개인 AI 앱을 만들고 있다"
+            "주말에는 주로 러닝을 해",
+            "Name is 김하늘"
           ],
-          "response": "순한 맛 위주로 드시고, 매운 음식은 잘 못 드신다고 말씀하셨습니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "순한 맛 위주로 먹는다",
-            "매운 음식 잘 못 먹는다",
-            "커피는 아메리카노만 마셔",
-            "다크모드 좋아함",
-            "Likes running by the Han River",
-            "우유 들어간 커피를 싫어해",
-            "탭 인덴트 선호함",
-            "이름은 김하늘",
-            "주로 TypeScript로 개발하고 있어",
-            "개인 AI 앱을 만들고 있다"
-          ],
-          "response": "음식 취향은 순한 맛 위주로 드시고, 매운 음식은 잘 못 드신다고 말씀하셨어요.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "순한 맛 위주로 먹는다",
-            "매운 음식 잘 못 먹는다",
-            "커피는 아메리카노만 마셔",
-            "다크모드 좋아함",
-            "Likes running by the Han River",
-            "우유 들어간 커피를 싫어해",
-            "탭 인덴트 선호함",
-            "이름은 김하늘",
-            "주로 TypeScript로 개발하고 있어",
-            "개인 AI 앱을 만들고 있다"
-          ],
-          "response": "당신은 순한 맛 위주로 드시고 매운 음식은 잘 못 드시는 편입니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        }
-      ],
-      "finalPass": false
-    },
-    {
-      "id": "S03",
-      "query": "주말에 뭐 하지?",
-      "expected": "러닝, 한강",
-      "category": "semantic",
-      "runs": [
-        {
-          "memories": [
-            "Mainly runs on weekends",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "이번 달에 판교로 이사한다",
-            "Python이 다시 재밌다",
-            "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "이름은 김하늘",
-            "다크모드 좋아함"
-          ],
-          "response": "주로 주말에",
-          "pass": false,
-          "reason": "FAIL"
-        },
-        {
-          "memories": [
-            "Mainly runs on weekends",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "이번 달에 판교로 이사한다",
-            "Python이 다시 재밌다",
-            "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "이름은 김하늘",
-            "다크모드 좋아함"
-          ],
-          "response": "주로 러닝을 해요.",
-          "pass": false,
-          "reason": "FAIL"
-        },
-        {
-          "memories": [
-            "Mainly runs on weekends",
-            "오후에는 집중 코딩 시간이다",
-            "순한 맛 위주로 먹는다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "이번 달에 판교로 이사한다",
-            "Python이 다시 재밌다",
-            "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "이름은 김하늘",
-            "다크모드 좋아함"
-          ],
-          "response": "주로 달리기를 합니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        }
-      ],
-      "finalPass": false
-    },
-    {
-      "id": "C01",
-      "query": "내가 쓰는 에디터 뭐야?",
-      "expected": "Cursor",
-      "category": "contradiction",
-      "runs": [
-        {
-          "memories": [
-            "에디터 Cursor로 바꿨다",
-            "Git GUI 클라이언트는 안 씀",
-            "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
-            "Git은 CLI만 써"
-          ],
-          "response": "사용하시는 에디터는 Cursor입니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "에디터 Cursor로 바꿨다",
-            "Git GUI 클라이언트는 안 씀",
-            "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
-            "Git은 CLI만 써"
-          ],
-          "response": "사용하시는 에디터는 Cursor입니다.",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
-        },
-        {
-          "memories": [
-            "에디터 Cursor로 바꿨다",
-            "Git GUI 클라이언트는 안 씀",
-            "탭 인덴트 선호함",
-            "OS는 Fedora를 사용한다",
-            "Git은 CLI만 써"
-          ],
-          "response": "생각해보니 에디터를 Cursor로 바꿨다고 말씀해주셨어요.",
-          "pass": true,
-          "reason": "PASS"
-        }
-      ],
-      "finalPass": false
-    },
-    {
-      "id": "C02",
-      "query": "나 어디 살아?",
-      "expected": "판교",
-      "category": "contradiction",
-      "runs": [
-        {
-          "memories": [
-            "이번 달에 판교로 이사한다",
-            "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
-          ],
-          "response": "이번 달에 판교로 이",
+          "response": "순한 맛 위주로 드시고 매운 음식은 잘 못 드신다고 말씀하셨어요.",
           "pass": true,
           "reason": "PASS"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
-            "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
+            "순한 맛 위주로 먹어",
+            "매운 음식 잘 못 먹어",
+            "커피는 아메리카노만 마셔",
+            "다크모드 좋아함",
+            "우유 들어간 건 싫어해",
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해",
+            "탭 인덴트 선호함",
+            "주말에는 주로 러닝을 해",
+            "Name is 김하늘"
           ],
-          "response": "이번 달에 판교로 이사한다고 말씀하신 적은 있지만, 현재 어디 사시는지는 기억에 없습니다.",
+          "response": "당신은 순한 맛 위주로 먹고, 매운 음식은 잘 못 드시는 편입니다.",
           "pass": true,
-          "reason": "PASS"
+          "reason": "PASS\n"
         },
         {
           "memories": [
-            "이번 달에 판교로 이사한다",
-            "동생 이름은 김바다",
-            "개인 AI 앱을 만들고 있다",
-            "동생은 디자이너로 일하고 있다",
-            "이름은 김하늘"
+            "순한 맛 위주로 먹어",
+            "매운 음식 잘 못 먹어",
+            "커피는 아메리카노만 마셔",
+            "다크모드 좋아함",
+            "우유 들어간 건 싫어해",
+            "미팅은 오전에 하는 것을 선호함",
+            "한강 달리기 좋아해",
+            "탭 인덴트 선호함",
+            "주말에는 주로 러닝을 해",
+            "Name is 김하늘"
           ],
-          "response": "이번 달에 판교로 이사하신다고 말씀하셨습니다.",
+          "response": "순한 맛 위주로 드시는 편이고, 매운 음식은 잘 못 드신다고 말씀하셨어요. 우유가 들어간 음식도 싫어하신다고 기억하고 있습니다.",
           "pass": true,
           "reason": "PASS"
         }
@@ -1113,107 +940,247 @@
       "finalPass": true
     },
     {
-      "id": "M01",
-      "query": "새 프로젝트 하나 세팅해줘",
-      "expected": "TypeScript, Next.js 등 기술 스택 반영",
-      "category": "synthesis",
+      "id": "S03",
+      "query": "주말에 뭐 하지?",
+      "category": "semantic",
       "runs": [
         {
           "memories": [
-            "이름은 김하늘",
-            "회사는 AI 스타트업이다",
-            "풀스택 개발자",
-            "주로 TypeScript로 개발하고 있어",
-            "에디터 Cursor로 바꿨다",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
-            "다크모드 좋아함",
-            "탭 인덴트 선호함",
-            "이번 달에 판교로 이사한다",
-            "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
-            "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "매운 음식 잘 못 먹는다",
-            "순한 맛 위주로 먹는다",
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
-            "Mainly runs on weekends",
-            "Likes running by the Han River",
+            "주말에는 주로 러닝을 해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "이번 달에 판교로 이사해",
+            "Python이 다시 재밌다",
+            "한강 달리기 좋아해",
             "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "오후에는 집중 코딩 시간이다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "Python이 다시 재밌다"
+            "다크모드 좋아함",
+            "미팅은 오전에 하는 것을 선호함"
           ],
-          "response": "새 프로젝트 세팅은",
+          "response": "주말에는 주로 러닝을 해요",
           "pass": false,
           "reason": "FAIL"
         },
         {
           "memories": [
-            "이름은 김하늘",
-            "회사는 AI 스타트업이다",
-            "풀스택 개발자",
-            "주로 TypeScript로 개발하고 있어",
-            "에디터 Cursor로 바꿨다",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
-            "다크모드 좋아함",
-            "탭 인덴트 선호함",
-            "이번 달에 판교로 이사한다",
-            "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
-            "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "매운 음식 잘 못 먹는다",
-            "순한 맛 위주로 먹는다",
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
-            "Mainly runs on weekends",
-            "Likes running by the Han River",
+            "주말에는 주로 러닝을 해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "이번 달에 판교로 이사해",
+            "Python이 다시 재밌다",
+            "한강 달리기 좋아해",
             "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "오후에는 집중 코딩 시간이다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
-            "Python이 다시 재밌다"
+            "다크모드 좋아함",
+            "미팅은 오전에 하는 것을 선호함"
           ],
-          "response": "죄송합니다, 저는 직접",
-          "pass": false,
-          "reason": "EMPTY_RESPONSE_5_RETRIES"
+          "response": "주말에는 주로 러닝을 해요.",
+          "pass": true,
+          "reason": "PASS\n"
         },
         {
           "memories": [
-            "이름은 김하늘",
-            "회사는 AI 스타트업이다",
-            "풀스택 개발자",
-            "주로 TypeScript로 개발하고 있어",
-            "에디터 Cursor로 바꿨다",
-            "주로 Next.js를 사용하고, FastAPI 대신 Django를 시도하려고 한다",
+            "주말에는 주로 러닝을 해",
+            "오후에는 집중 코딩 시간임",
+            "순한 맛 위주로 먹어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "이번 달에 판교로 이사해",
+            "Python이 다시 재밌다",
+            "한강 달리기 좋아해",
+            "개인 AI 앱을 만들고 있다",
+            "다크모드 좋아함",
+            "미팅은 오전에 하는 것을 선호함"
+          ],
+          "response": "주말에는 주로 러닝을",
+          "pass": true,
+          "reason": "PASS"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "C01",
+      "query": "내가 쓰는 에디터 뭐야?",
+      "category": "contradiction",
+      "runs": [
+        {
+          "memories": [
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
+            "탭 인덴트 선호함",
+            "다크모드 좋아함",
+            "Git은 CLI만 사용한다"
+          ],
+          "response": "에디터는 Cursor를 사용하시는군요.",
+          "pass": true,
+          "reason": "PASS(keyword): found [cursor]"
+        },
+        {
+          "memories": [
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
+            "탭 인덴트 선호함",
+            "다크모드 좋아함",
+            "Git은 CLI만 사용한다"
+          ],
+          "response": "에디터는 Cursor를 사용하시는군요.",
+          "pass": true,
+          "reason": "PASS(keyword): found [cursor]"
+        },
+        {
+          "memories": [
+            "에디터 Cursor로 바꿨어",
+            "OS는 Fedora를 쓰고 있다",
+            "탭 인덴트 선호함",
+            "다크모드 좋아함",
+            "Git은 CLI만 사용한다"
+          ],
+          "response": "Cursor를 사용하고 계신다고 말씀해주셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [cursor]"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "C02",
+      "query": "나 어디 살아?",
+      "category": "contradiction",
+      "runs": [
+        {
+          "memories": [
+            "이번 달에 판교로 이사해",
+            "동생 이름은 김바다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
+          ],
+          "response": "이번 달에 판교로 이사한다고 말씀해주셨습니다.",
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
+        },
+        {
+          "memories": [
+            "이번 달에 판교로 이사해",
+            "동생 이름은 김바다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
+          ],
+          "response": "이번 달에 판교로 이사한다고 말씀해주셨어요.",
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
+        },
+        {
+          "memories": [
+            "이번 달에 판교로 이사해",
+            "동생 이름은 김바다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "AI 스타트업 CEO이다"
+          ],
+          "response": "이번 달에 판교로 이사한다고 말씀해주셨어요.",
+          "pass": true,
+          "reason": "PASS(keyword): found [판교]"
+        }
+      ],
+      "finalPass": true
+    },
+    {
+      "id": "M01",
+      "query": "새 프로젝트 하나 세팅해줘",
+      "category": "synthesis",
+      "runs": [
+        {
+          "memories": [
+            "Name is 김하늘",
+            "AI 스타트업 CEO이다",
+            "Is a full-stack developer, mainly developing with TypeScript",
+            "에디터 Cursor로 바꿨어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
             "다크모드 좋아함",
             "탭 인덴트 선호함",
-            "이번 달에 판교로 이사한다",
+            "이번 달에 판교로 이사해",
             "커피는 아메리카노만 마셔",
-            "우유 들어간 커피를 싫어해",
+            "우유 들어간 건 싫어해",
             "동생 이름은 김바다",
-            "동생은 디자이너로 일하고 있다",
-            "다음 주 목요일에 투자자 미팅이 있어",
-            "매운 음식 잘 못 먹는다",
-            "순한 맛 위주로 먹는다",
-            "OS는 Fedora를 사용한다",
-            "불변 OS를 선호한다",
-            "Mainly runs on weekends",
-            "Likes running by the Han River",
+            "동생은 디자이너로 일하고 있어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "매운 음식 잘 못 먹어",
+            "순한 맛 위주로 먹어",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
             "개인 AI 앱을 만들고 있다",
-            "미팅은 오전에 하는 게 좋다",
-            "오후에는 집중 코딩 시간이다",
-            "Git은 CLI만 써",
-            "Git GUI 클라이언트는 안 씀",
+            "미팅은 오전에 하는 것을 선호함",
+            "오후에는 집중 코딩 시간임",
+            "Git은 CLI만 사용한다",
             "Python이 다시 재밌다"
           ],
-          "response": "어떤 종류의 새",
+          "response": "어떤 종류의 프로젝트를",
+          "pass": false,
+          "reason": "FAIL\n"
+        },
+        {
+          "memories": [
+            "Name is 김하늘",
+            "AI 스타트업 CEO이다",
+            "Is a full-stack developer, mainly developing with TypeScript",
+            "에디터 Cursor로 바꿨어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "다크모드 좋아함",
+            "탭 인덴트 선호함",
+            "이번 달에 판교로 이사해",
+            "커피는 아메리카노만 마셔",
+            "우유 들어간 건 싫어해",
+            "동생 이름은 김바다",
+            "동생은 디자이너로 일하고 있어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "매운 음식 잘 못 먹어",
+            "순한 맛 위주로 먹어",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "개인 AI 앱을 만들고 있다",
+            "미팅은 오전에 하는 것을 선호함",
+            "오후에는 집중 코딩 시간임",
+            "Git은 CLI만 사용한다",
+            "Python이 다시 재밌다"
+          ],
+          "response": "어떤 종류의 프로젝트를",
+          "pass": false,
+          "reason": "FAIL"
+        },
+        {
+          "memories": [
+            "Name is 김하늘",
+            "AI 스타트업 CEO이다",
+            "Is a full-stack developer, mainly developing with TypeScript",
+            "에디터 Cursor로 바꿨어",
+            "주로 Next.js랑 Django 프레임워크를 씀",
+            "다크모드 좋아함",
+            "탭 인덴트 선호함",
+            "이번 달에 판교로 이사해",
+            "커피는 아메리카노만 마셔",
+            "우유 들어간 건 싫어해",
+            "동생 이름은 김바다",
+            "동생은 디자이너로 일하고 있어",
+            "다음 주 목요일에 투자자 미팅이 있다",
+            "매운 음식 잘 못 먹어",
+            "순한 맛 위주로 먹어",
+            "OS는 Fedora를 쓰고 있다",
+            "불변 OS를 좋아한다",
+            "주말에는 주로 러닝을 해",
+            "한강 달리기 좋아해",
+            "개인 AI 앱을 만들고 있다",
+            "미팅은 오전에 하는 것을 선호함",
+            "오후에는 집중 코딩 시간임",
+            "Git은 CLI만 사용한다",
+            "Python이 다시 재밌다"
+          ],
+          "response": "새 프로젝트를 세팅하신다",
           "pass": false,
           "reason": "FAIL"
         }

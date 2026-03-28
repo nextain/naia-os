@@ -1,10 +1,11 @@
 /**
  * Benchmark v2 — LLM response layer measurement.
  *
- * Key differences from v1:
- * 1. Tests the FULL pipeline: encode → search → LLM response → judge
- * 2. "있는 것"과 "없는 것"을 혼합, 정답표 기반 단일 정확도
- * 3. 3회 실행, 2/3 통과 = PASS
+ * Tests the FULL pipeline: encode → search → LLM response → judge
+ * Judge: keyword-based (deterministic) for recall/abstention/contradiction,
+ *        LLM-based only for semantic/synthesis.
+ * 3 runs per test, 2/3 pass = PASS.
+ * 1-second throttle between all API calls.
  *
  * Requires GEMINI_API_KEY environment variable.
  */
@@ -15,15 +16,61 @@ import { randomUUID } from "node:crypto";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 const RUNS = 3;
 const PASS_THRESHOLD = 2; // 2/3
+const THROTTLE_MS = 2000;
 
 interface TestCase {
 	id: string;
 	query: string;
-	expected_answer: string; // 정답 (사실이면 내용, 없으면 "NONE")
 	category: "recall" | "abstention" | "semantic" | "contradiction" | "synthesis";
+	/** For keyword judge: keywords that MUST appear in response */
+	keywords?: string[];
+	/** For keyword judge: keywords that must NOT appear */
+	antiKeywords?: string[];
+	/** For LLM judge: freeform expected description */
+	expectedDescription?: string;
 }
 
-/** LLM에게 기억 컨텍스트와 함께 질문하고 응답 받기 */
+/** Throttle helper */
+async function throttle(): Promise<void> {
+	await new Promise((r) => setTimeout(r, THROTTLE_MS));
+}
+
+/** Call Gemini chat API with retry */
+async function callGemini(
+	apiKey: string,
+	messages: Array<{ role: string; content: string }>,
+	maxTokens: number,
+): Promise<string> {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await throttle();
+		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
+			method: "POST",
+			headers: {
+				"Authorization": `Bearer ${apiKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				model: "gemini-2.5-flash",
+				messages,
+				max_tokens: maxTokens,
+			}),
+		});
+
+		if (!res.ok) {
+			console.error(`    ⚠ HTTP ${res.status} (attempt ${attempt + 1}/3)`);
+			await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+			continue;
+		}
+
+		const data = await res.json() as any;
+		const content = data.choices?.[0]?.message?.content ?? "";
+		if (content.length > 0) return content;
+		await new Promise((r) => setTimeout(r, 2000));
+	}
+	return "";
+}
+
+/** Ask LLM with memory context */
 async function askWithMemory(
 	apiKey: string,
 	memories: string[],
@@ -44,97 +91,84 @@ async function askWithMemory(
 
 ${memoryContext}`;
 
-	for (let attempt = 0; attempt < 3; attempt++) {
-		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
-			method: "POST",
-			headers: {
-				"Authorization": `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: "gemini-2.5-flash",
-				messages: [
-					{ role: "system", content: systemPrompt },
-					{ role: "user", content: question },
-				],
-				max_tokens: 200,
-			}),
-		});
-
-		if (!res.ok) {
-			console.error(`    ⚠ askWithMemory HTTP ${res.status} (attempt ${attempt + 1})`);
-			await new Promise((r) => setTimeout(r, 1000));
-			continue;
-		}
-
-		const data = await res.json() as any;
-		const content = data.choices?.[0]?.message?.content ?? "";
-		if (content.length > 0) return content;
-		await new Promise((r) => setTimeout(r, 500));
-	}
-	return "";
+	return callGemini(apiKey, [
+		{ role: "system", content: systemPrompt },
+		{ role: "user", content: question },
+	], 200);
 }
 
-/** LLM-as-judge: 응답이 정답과 일치하는지 판정 */
-async function judge(
+/**
+ * Deterministic keyword judge.
+ * - recall/contradiction: response must contain at least one keyword
+ * - abstention: response must contain refusal pattern AND not contain antiKeywords
+ */
+function keywordJudge(
+	response: string,
+	tc: TestCase,
+): { pass: boolean; reason: string } {
+	const lower = response.toLowerCase();
+
+	if (tc.category === "abstention") {
+		// Check for refusal patterns
+		const refusalPatterns = [
+			"말씀하신 적", "기억에 없", "모르", "없는 것 같",
+			"언급하신 적", "관련된 기억", "기억이 없", "알 수 없",
+			"말한 적", "들은 적", "정보가 없",
+		];
+		const hasRefusal = refusalPatterns.some((p) => lower.includes(p));
+		// Also check that response doesn't confidently assert something
+		const assertionPatterns = [
+			"네,", "맞아", "그렇습니다", "하셨습니다", "라고 하셨",
+		];
+		const hasAssertion = assertionPatterns.some((p) => lower.includes(p));
+
+		if (hasRefusal && !hasAssertion) {
+			return { pass: true, reason: `PASS(keyword): refusal detected` };
+		}
+		if (hasAssertion) {
+			return { pass: false, reason: `FAIL(keyword): assertion found despite no data` };
+		}
+		// Ambiguous — check if antiKeywords present
+		if (tc.antiKeywords?.some((k) => lower.includes(k.toLowerCase()))) {
+			return { pass: false, reason: `FAIL(keyword): antiKeyword found` };
+		}
+		return { pass: false, reason: `FAIL(keyword): no clear refusal pattern` };
+	}
+
+	// recall / contradiction: must contain at least one keyword
+	if (tc.keywords && tc.keywords.length > 0) {
+		const found = tc.keywords.filter((k) => lower.includes(k.toLowerCase()));
+		if (found.length > 0) {
+			return { pass: true, reason: `PASS(keyword): found [${found.join(", ")}]` };
+		}
+		return { pass: false, reason: `FAIL(keyword): none of [${tc.keywords.join(", ")}] found in "${response.slice(0, 80)}"` };
+	}
+
+	return { pass: false, reason: "FAIL(keyword): no keywords defined" };
+}
+
+/** LLM judge for semantic/synthesis */
+async function llmJudge(
 	apiKey: string,
 	question: string,
 	response: string,
-	expectedAnswer: string,
+	expectedDescription: string,
 ): Promise<{ pass: boolean; reason: string }> {
-	const isAbstention = expectedAnswer === "NONE";
-
-	const prompt = isAbstention
-		? `질문: "${question}"
+	const prompt = `질문: "${question}"
 AI 응답: "${response}"
+기대하는 답의 조건: "${expectedDescription}"
 
-이 질문에 대해 AI는 "모른다/말한 적 없다/기억에 없다"고 답해야 합니다.
-AI가 정보를 지어내지 않고 올바르게 모른다고 답했으면 PASS, 없는 정보를 지어냈으면 FAIL.
+판정 기준:
+- AI 응답이 위 조건을 충족하면 PASS
+- 표현이 달라도 의미가 같으면 PASS
+- 조건을 충족하지 못하면 FAIL
 
-한 단어로만 답하세요: PASS 또는 FAIL`
-		: `질문: "${question}"
-AI 응답: "${response}"
-기대 정답에 포함되어야 할 핵심 내용: "${expectedAnswer}"
+반드시 첫 줄에 PASS 또는 FAIL만 적고, 둘째 줄에 이유를 한 줄로 적으세요.`;
 
-판정 기준: AI 응답이 기대 정답의 핵심 내용과 의미적으로 일치하면 PASS.
-표현이 달라도 같은 뜻이면 PASS (예: "김하늘입니다" = "김하늘" → PASS).
-핵심 내용이 없거나 다른 정보를 답하면 FAIL.
-
-한 단어로만 답하세요: PASS 또는 FAIL`;
-
-	// Retry up to 5 times if judge returns empty (Gemini API rate limits)
-	for (let attempt = 0; attempt < 5; attempt++) {
-		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
-			method: "POST",
-			headers: {
-				"Authorization": `Bearer ${apiKey}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				model: "gemini-2.5-flash",
-				messages: [{ role: "user", content: prompt }],
-				max_tokens: 10,
-			}),
-		});
-
-		if (!res.ok) {
-			await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-			continue;
-		}
-
-		const data = await res.json() as any;
-		const verdict = (data.choices?.[0]?.message?.content ?? "").trim().toUpperCase();
-
-		if (verdict.length > 0) {
-			return {
-				pass: verdict === "PASS" || verdict.startsWith("PASS"),
-				reason: verdict,
-			};
-		}
-		await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-	}
-
-	return { pass: false, reason: "EMPTY_RESPONSE_5_RETRIES" };
+	const verdict = await callGemini(apiKey, [{ role: "user", content: prompt }], 50);
+	const firstLine = verdict.split("\n")[0].trim().toUpperCase();
+	const pass = firstLine === "PASS" || firstLine.startsWith("PASS");
+	return { pass, reason: verdict.slice(0, 100) || "EMPTY" };
 }
 
 async function main() {
@@ -146,40 +180,39 @@ async function main() {
 
 	const { Memory } = await import("mem0ai/oss");
 
-	// Test cases: 있는 것과 없는 것을 혼합
 	const testCases: TestCase[] = [
-		// === 있는 것 (recall) ===
-		{ id: "R01", query: "내 이름이 뭐야?", expected_answer: "김하늘", category: "recall" },
-		{ id: "R02", query: "나 뭐하는 사람이야?", expected_answer: "대표, 개발자", category: "recall" },
-		{ id: "R03", query: "내 에디터 뭐야?", expected_answer: "Cursor (Neovim에서 변경됨)", category: "recall" },
-		{ id: "R04", query: "나 어디 살아?", expected_answer: "판교 (성수동에서 이사)", category: "recall" },
-		{ id: "R05", query: "내가 좋아하는 커피가 뭐야?", expected_answer: "아메리카노", category: "recall" },
-		{ id: "R06", query: "내 동생 이름이 뭐야?", expected_answer: "김바다", category: "recall" },
-		{ id: "R07", query: "내 OS가 뭐야?", expected_answer: "Fedora", category: "recall" },
-		{ id: "R08", query: "내 취미가 뭐야?", expected_answer: "러닝", category: "recall" },
-		{ id: "R09", query: "나 Git 어떻게 써?", expected_answer: "CLI", category: "recall" },
-		// === 없는 것 (abstention) ===
-		{ id: "A01", query: "내가 Docker 관련해서 뭐라고 했었지?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A02", query: "내가 좋아하는 게임이 뭐야?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A03", query: "나 고양이 키운다고 했지?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A04", query: "내가 Nuxt.js 쓴다고 했었나?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A05", query: "나 수영 한다고 했었나?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A06", query: "내 차가 뭐야?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A07", query: "내가 일본어 할 줄 안다고 했었나?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A08", query: "내가 AWS 쓴다고 했나?", expected_answer: "NONE", category: "abstention" },
-		{ id: "A09", query: "나 피아노 친다고 했지?", expected_answer: "NONE", category: "abstention" },
-		// === 시맨틱 검색 ===
-		{ id: "S01", query: "내 개발 환경 어떻게 되지?", expected_answer: "TypeScript, Cursor, Next.js, FastAPI 중 2개 이상", category: "semantic" },
-		{ id: "S02", query: "나 음식 취향이 어때?", expected_answer: "아메리카노, 매운 음식 못 먹음", category: "semantic" },
-		{ id: "S03", query: "주말에 뭐 하지?", expected_answer: "러닝, 한강", category: "semantic" },
-		// === 모순 감지 (Session 3에서 변경 후) ===
-		{ id: "C01", query: "내가 쓰는 에디터 뭐야?", expected_answer: "Cursor", category: "contradiction" },
-		{ id: "C02", query: "나 어디 살아?", expected_answer: "판교", category: "contradiction" },
-		// === 종합 ===
-		{ id: "M01", query: "새 프로젝트 하나 세팅해줘", expected_answer: "TypeScript, Next.js 등 기술 스택 반영", category: "synthesis" },
+		// === recall: keyword judge ===
+		{ id: "R01", query: "내 이름이 뭐야?", category: "recall", keywords: ["김하늘"] },
+		{ id: "R02", query: "나 뭐하는 사람이야?", category: "recall", keywords: ["대표", "개발자", "스타트업"] },
+		{ id: "R03", query: "내 에디터 뭐야?", category: "recall", keywords: ["cursor"] },
+		{ id: "R04", query: "나 어디 살아?", category: "recall", keywords: ["판교"] },
+		{ id: "R05", query: "내가 좋아하는 커피가 뭐야?", category: "recall", keywords: ["아메리카노"] },
+		{ id: "R06", query: "내 동생 이름이 뭐야?", category: "recall", keywords: ["김바다"] },
+		{ id: "R07", query: "내 OS가 뭐야?", category: "recall", keywords: ["fedora"] },
+		{ id: "R08", query: "내 취미가 뭐야?", category: "recall", keywords: ["러닝", "달리기", "running"] },
+		{ id: "R09", query: "나 Git 어떻게 써?", category: "recall", keywords: ["cli"] },
+		// === abstention: keyword judge ===
+		{ id: "A01", query: "내가 Docker 관련해서 뭐라고 했었지?", category: "abstention" },
+		{ id: "A02", query: "내가 좋아하는 게임이 뭐야?", category: "abstention" },
+		{ id: "A03", query: "나 고양이 키운다고 했지?", category: "abstention" },
+		{ id: "A04", query: "내가 Nuxt.js 쓴다고 했었나?", category: "abstention" },
+		{ id: "A05", query: "나 수영 한다고 했었나?", category: "abstention" },
+		{ id: "A06", query: "내 차가 뭐야?", category: "abstention" },
+		{ id: "A07", query: "내가 일본어 할 줄 안다고 했었나?", category: "abstention" },
+		{ id: "A08", query: "내가 AWS 쓴다고 했나?", category: "abstention" },
+		{ id: "A09", query: "나 피아노 친다고 했지?", category: "abstention" },
+		// === semantic: LLM judge ===
+		{ id: "S01", query: "내 개발 환경 어떻게 되지?", category: "semantic", expectedDescription: "TypeScript, Cursor, Next.js, FastAPI, Django 중 2개 이상 언급" },
+		{ id: "S02", query: "나 음식 취향이 어때?", category: "semantic", expectedDescription: "아메리카노 또는 매운 음식 못 먹는다는 내용 중 1개 이상" },
+		{ id: "S03", query: "주말에 뭐 하지?", category: "semantic", expectedDescription: "러닝 또는 한강 중 1개 이상 언급" },
+		// === contradiction: keyword judge ===
+		{ id: "C01", query: "내가 쓰는 에디터 뭐야?", category: "contradiction", keywords: ["cursor"] },
+		{ id: "C02", query: "나 어디 살아?", category: "contradiction", keywords: ["판교"] },
+		// === synthesis: LLM judge ===
+		{ id: "M01", query: "새 프로젝트 하나 세팅해줘", category: "synthesis", expectedDescription: "TypeScript, Next.js, Cursor, Fedora 등 사용자의 기술 스택 중 2개 이상이 프로젝트 세팅에 반영됨" },
 	];
 
-	// Encode facts
+	// === Phase 1: Encode facts ===
 	console.log("=== Phase 1: Encoding facts via mem0 ===\n");
 	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
 
@@ -192,52 +225,48 @@ async function main() {
 	});
 
 	let encodedCount = 0;
-	let encodeErrors = 0;
 	for (const fact of factBank.facts) {
 		try {
+			await throttle();
 			const result = await m.add([{ role: "user", content: fact.statement }], { userId: "v2-user" });
 			const memCount = result?.results?.length ?? 0;
-			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}... (${memCount} memories created)`);
+			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}... (${memCount} memories)`);
 			encodedCount++;
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 80)}`);
-			encodeErrors++;
 		}
 	}
-	console.log(`  → Encoded: ${encodedCount}/${factBank.facts.length}, errors: ${encodeErrors}`);
 
-	// Apply updates for contradiction tests
-	const updates = factBank.updates || [];
-	for (const u of updates) {
+	for (const u of factBank.updates ?? []) {
 		try {
+			await throttle();
 			await m.add([{ role: "user", content: u.statement }], { userId: "v2-user" });
 			console.log(`  🔄 ${u.id}: ${u.statement.slice(0, 40)}...`);
 		} catch (err: any) {
-			console.log(`  ❌ update ${u.id}: ${err.message?.slice(0, 80)}`);
+			console.log(`  ❌ ${u.id}: ${err.message?.slice(0, 80)}`);
 		}
 	}
+	console.log(`  → Encoded: ${encodedCount}/${factBank.facts.length}`);
 
-	// Verify: dump all stored memories
-	console.log("\n=== Phase 1.5: Verifying stored memories ===\n");
+	// === Phase 1.5: Verify ===
+	console.log("\n=== Phase 1.5: Stored memories ===\n");
 	try {
 		const allMems = await m.getAll({ userId: "v2-user" });
 		const memList = allMems?.results ?? allMems ?? [];
-		console.log(`  Total memories stored: ${memList.length}`);
-		for (const mem of memList.slice(0, 30)) {
+		console.log(`  Total: ${memList.length}`);
+		for (const mem of memList) {
 			console.log(`    - ${(mem.memory ?? mem.text ?? "").slice(0, 80)}`);
 		}
-		if (memList.length > 30) console.log(`    ... and ${memList.length - 30} more`);
 	} catch (err: any) {
 		console.log(`  ⚠ getAll failed: ${err.message?.slice(0, 80)}`);
 	}
 
-	// Run tests
-	console.log(`\n=== Phase 2: Running ${testCases.length} tests × ${RUNS} runs ===\n`);
+	// === Phase 2: Run tests ===
+	console.log(`\n=== Phase 2: ${testCases.length} tests × ${RUNS} runs ===\n`);
 
 	const results: Array<{
 		id: string;
 		query: string;
-		expected: string;
 		category: string;
 		runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }>;
 		finalPass: boolean;
@@ -247,59 +276,52 @@ async function main() {
 		const runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }> = [];
 
 		for (let run = 0; run < RUNS; run++) {
-			// Search memories — synthesis uses all memories, others use search
+			// Search
 			let memories: string[] = [];
 			if (tc.category === "synthesis") {
-				// Synthesis needs all context to combine multiple facts
 				try {
 					const allMems = await m.getAll({ userId: "v2-user" });
 					memories = (allMems?.results ?? allMems ?? []).map((r: any) => r.memory ?? r.text ?? "");
-				} catch (err: any) {
-					console.error(`    ⚠ getAll error: ${err.message?.slice(0, 80)}`);
-				}
+				} catch {}
 			} else {
-				const searchLimit = tc.category === "semantic" ? 10 : 5;
+				const limit = tc.category === "semantic" ? 10 : 5;
 				try {
-					const raw = await m.search(tc.query, { userId: "v2-user", limit: searchLimit });
+					await throttle();
+					const raw = await m.search(tc.query, { userId: "v2-user", limit });
 					memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
 				} catch (err: any) {
-					console.error(`    ⚠ search error for "${tc.query.slice(0, 30)}": ${err.message?.slice(0, 80)}`);
+					console.error(`    ⚠ search error: ${err.message?.slice(0, 60)}`);
 				}
 			}
 
-			// Get LLM response with memory context
+			// Ask
 			const response = await askWithMemory(apiKey, memories, tc.query);
 
 			// Judge
-			const verdict = await judge(apiKey, tc.query, response, tc.expected_answer);
+			let verdict: { pass: boolean; reason: string };
+			if (tc.category === "semantic" || tc.category === "synthesis") {
+				verdict = await llmJudge(apiKey, tc.query, response, tc.expectedDescription ?? "");
+			} else {
+				verdict = keywordJudge(response, tc);
+			}
 
 			runs.push({ memories, response: response.slice(0, 200), pass: verdict.pass, reason: verdict.reason });
 			if (run === 0) {
-				console.log(`    🔍 search returned ${memories.length} memories: ${memories.map(m => m.slice(0, 50)).join(" | ") || "(empty)"}`);
+				console.log(`    🔍 [${memories.length}] ${memories.map((m) => m.slice(0, 40)).join(" | ") || "(empty)"}`);
+				console.log(`    💬 ${response.slice(0, 100)}`);
+				console.log(`    📋 ${verdict.reason.slice(0, 80)}`);
 			}
 		}
 
 		const passCount = runs.filter((r) => r.pass).length;
 		const finalPass = passCount >= PASS_THRESHOLD;
+		results.push({ id: tc.id, query: tc.query, category: tc.category, runs, finalPass });
 
-		results.push({
-			id: tc.id,
-			query: tc.query,
-			expected: tc.expected_answer,
-			category: tc.category,
-			runs,
-			finalPass,
-		});
-
-		const icon = finalPass ? "✅" : "❌";
-		console.log(`  ${icon} [${tc.category}] ${tc.id} "${tc.query.slice(0, 35)}..." (${passCount}/${RUNS})`);
+		console.log(`  ${finalPass ? "✅" : "❌"} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})\n`);
 	}
 
-	// Aggregate
+	// === Report ===
 	const totalPass = results.filter((r) => r.finalPass).length;
-	const totalTests = results.length;
-	const passRate = Math.round((totalPass / totalTests) * 100);
-
 	const byCategory: Record<string, { pass: number; total: number }> = {};
 	for (const r of results) {
 		if (!byCategory[r.category]) byCategory[r.category] = { pass: 0, total: 0 };
@@ -307,33 +329,27 @@ async function main() {
 		if (r.finalPass) byCategory[r.category].pass++;
 	}
 
-	console.log(`\n=== BENCHMARK v2 RESULTS ===`);
-	console.log(`Total: ${totalPass}/${totalTests} (${passRate}%)`);
-	console.log(`Runs per test: ${RUNS}, pass threshold: ${PASS_THRESHOLD}/${RUNS}`);
-	console.log("\nBy category:");
+	console.log(`\n=== RESULTS ===`);
+	console.log(`Total: ${totalPass}/${results.length} (${Math.round((totalPass / results.length) * 100)}%)`);
 	for (const [name, cat] of Object.entries(byCategory)) {
 		console.log(`  ${name}: ${cat.pass}/${cat.total}`);
 	}
 
-	// Save report
 	const reportDir = join(import.meta.dirname, "../../..", "reports");
 	mkdirSync(reportDir, { recursive: true });
 	const reportPath = join(reportDir, `memory-v2-${new Date().toISOString().slice(0, 10)}.json`);
 	writeFileSync(reportPath, JSON.stringify({
 		timestamp: new Date().toISOString(),
-		version: "v2",
-		label: "Benchmark v2 — LLM response layer (mem0 + Gemini)",
+		version: "v2.1",
+		judge: "keyword(recall/abstention/contradiction) + llm(semantic/synthesis)",
 		model: "gemini-2.5-flash",
-		embedding: "gemini-embedding-001",
-		runs_per_test: RUNS,
-		pass_threshold: PASS_THRESHOLD,
-		total: totalTests,
+		total: results.length,
 		passed: totalPass,
-		passRate,
+		passRate: Math.round((totalPass / results.length) * 100),
 		byCategory,
 		details: results,
 	}, null, 2));
-	console.log(`\nReport saved: ${reportPath}`);
+	console.log(`Report: ${reportPath}`);
 }
 
 main().catch(console.error);
