@@ -34,8 +34,13 @@ async function askWithMemory(
 		: "(관련 기억 없음)";
 
 	const systemPrompt = `당신은 사용자의 개인 AI 동반자입니다. 이전 대화에서 기억한 내용이 아래에 있습니다.
-기억에 있는 내용만 답하세요. 기억에 없는 것을 물어보면 솔직히 "말씀하신 적 없는 것 같습니다" 또는 "기억에 없습니다"라고 답하세요.
-절대로 기억에 없는 내용을 지어내지 마세요.
+
+## 규칙
+1. 기억 중에서 사용자 질문과 **직접 관련된 것만** 사용하세요.
+2. 기억에 있더라도 질문과 무관한 내용은 답에 포함하지 마세요.
+3. 질문에 대한 답이 기억에 없으면 "말씀하신 적 없는 것 같습니다" 또는 "기억에 없습니다"라고 답하세요.
+4. 기억에 없는 내용을 절대 지어내지 마세요.
+5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.
 
 ${memoryContext}`;
 
@@ -228,10 +233,11 @@ async function main() {
 		const runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }> = [];
 
 		for (let run = 0; run < RUNS; run++) {
-			// Search memories
+			// Search memories — use higher limit for semantic/synthesis questions
 			let memories: string[] = [];
+			const searchLimit = (tc.category === "semantic" || tc.category === "synthesis") ? 10 : 5;
 			try {
-				const raw = await m.search(tc.query, { userId: "v2-user", limit: 5 });
+				const raw = await m.search(tc.query, { userId: "v2-user", limit: searchLimit });
 				memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
 			} catch (err: any) {
 				console.error(`    ⚠ search error for "${tc.query.slice(0, 30)}": ${err.message?.slice(0, 80)}`);
