@@ -106,14 +106,14 @@ async function askWithMemory(apiKey: string, memories: string[], question: strin
 
 ## 규칙
 1. 기억 중에서 사용자 질문과 **관련된 것**을 활용하세요.
-2. 사용자가 도움을 요청하면, 기억에 있는 사용자의 선호와 환경을 **자연스럽게 반영**하세요.
+2. 사용자가 도움을 요청하면(코드 작성, 설정, 세팅 등), **되묻지 말고** 기억에 있는 사용자의 선호와 환경을 **즉시 반영하여 실행**하세요. 예: 사용자가 TypeScript를 쓴다고 했으면 TypeScript로 코드를 작성하세요. 에디터가 Neovim이면 Neovim 설정을 제안하세요.
 3. 사용자가 자신에 대한 사실을 물어보는데 기억에 없으면 "기억에 없습니다"라고 답하세요.
 4. 기억에 없는 **사실**을 절대 지어내지 마세요.
 5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.
 
 ${memCtx}` },
 		{ role: "user", content: question },
-	], 300);
+	], 500);
 }
 
 async function askWithoutMemory(apiKey: string, question: string): Promise<string> {
@@ -405,7 +405,7 @@ async function main() {
 			let noMemResult: TestResult["noMemory"] | undefined;
 			if (p.noMemResp !== undefined) {
 				// For no-memory, use keyword fallback (no extra API call)
-				noMemResult = { response: p.noMemResp.slice(0, 200), pass: false, reason: "keyword" };
+				noMemResult = { response: p.noMemResp.slice(0, 400), pass: false, reason: "keyword" };
 				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
 				noMemResult.pass = kw.pass;
 				noMemResult.reason = kw.reason;
@@ -413,7 +413,7 @@ async function main() {
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
@@ -442,12 +442,12 @@ async function main() {
 			let noMemResult: TestResult["noMemory"] | undefined;
 			if (p.noMemResp !== undefined) {
 				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason };
 			}
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
@@ -494,12 +494,12 @@ async function main() {
 			let noMemResult: TestResult["noMemory"] | undefined;
 			if (p.noMemResp !== undefined) {
 				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason };
 			}
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
@@ -512,11 +512,11 @@ async function main() {
 			let noMemResult: TestResult["noMemory"] | undefined;
 			if (p.noMemResp !== undefined) {
 				const kwN = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kwN.pass, reason: kwN.reason };
+				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kwN.pass, reason: kwN.reason };
 			}
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason, memories: p.memories },
+				withMemory: { response: p.withMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 		}
