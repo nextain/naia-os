@@ -22,16 +22,22 @@ If no arguments: ask the user for profile and target.
 ## Step 2: Load Profile
 
 1. Read `.agents/profiles/{profile}.yaml`
+   - If the file does not exist: report `Profile not found: .agents/profiles/{profile}.yaml` and **stop**.
+   - If the file is not valid YAML: report `Profile parse error: {error details}` and **stop**.
 2. If the profile has `metadata.extends`: read the parent profile, deep-merge (child overrides parent).
    For MVP: if extends `_base`, read `.agents/profiles/_base.yaml` and merge manually.
-3. Validate:
+   - If the parent profile does not exist: report `Parent profile not found: {parent}` and **stop**.
+3. For each reviewer spec with `prompt_ref`: verify `.agents/prompts/{prompt_ref}` exists.
+   - If a prompt file is missing: report `Prompt not found: .agents/prompts/{prompt_ref}` and **stop**.
+4. Validate:
    - `spec.reviewers.count >= 2`
    - `spec.reviewers.specs` has exactly `count` entries (if present)
    - Each reviewer spec has `id`, `expertise`, `prompt_ref`, `strategy`
    - `spec.consensus.clean_rounds >= 1`
    - `spec.limits.max_rounds >= 1`
 
-If validation fails, report errors and stop.
+If validation fails, report specific errors (which field, expected vs actual) and **stop**.
+Do not proceed to Step 3 with a partially loaded or invalid profile.
 
 ## Step 3: Initialize Review
 
@@ -194,7 +200,8 @@ For each CONTESTED finding:
 1. Count total CONFIRMED findings (from Phase 2 + Phase 3)
 
 2. **Strike Accumulation (Phase 2)**: After Phase 2 voting, for each FINDING_DISMISSED
-   where the finding was auto-dismissed (solo, R>=3), increment `strike_count[reviewer_id]`.
+   where the finding was auto-dismissed (solo, R>=3), check domain relevance (see Appendix 8A)
+   and increment `strike_count[reviewer_id]` only for domain-inconsistent findings.
    If `strike_count[reviewer_id] >= spec.dismissal.strikes_before_dismissal` (default: 2):
    - Log AGENT_HEALTH_FLAGGED with `dismissed_findings[]` list
    - **Dismissal vote**: The orchestrator (main agent) evaluates whether the
@@ -297,16 +304,26 @@ Maintain a `strike_count` map (reviewer_id → count), initialized at REVIEW_STA
 
 After Phase 2 voting in each round:
 - For every FINDING_DISMISSED event where the finding was auto-dismissed (solo, R>=3):
-  - Increment `strike_count[reviewer_id]` by 1
-  - Log: `{"type":"FINDING_DISMISSED", ..., "reviewer_id":"{id}", "strike_incremented": true}`
+  - **Domain relevance check**: Before incrementing, evaluate whether the finding is
+    within the reviewer's assigned domain (per `expertise` and `strategy` in profile).
+    A security reviewer's solo security finding is domain-consistent even if no other
+    reviewer corroborates it (other reviewers may lack security expertise).
+    - If the finding is **domain-consistent**: do NOT increment strike. Log with
+      `"strike_incremented": false, "reason": "domain-consistent solo finding"`.
+    - If the finding is **domain-inconsistent** (e.g., accessibility finding from a
+      security reviewer, or nation-state threat on a known-good config): increment
+      `strike_count[reviewer_id]` by 1. Log with `"strike_incremented": true`.
+  - A finding is domain-inconsistent when it references concerns outside the reviewer's
+    `expertise` field, OR when it applies a threat model significantly beyond the
+    profile's intended scope (e.g., nation-state threats in a standard code review).
 
 NOTE: Confirmed findings are EXCULPATORY — they do NOT increment strikes.
 Default threshold: `spec.dismissal.strikes_before_dismissal` (default: 2 from _base.yaml).
 
 The health check fires **ONCE after ALL findings in a round are processed** —
-not after each individual finding. All auto-dismissals contribute to strike_count
-before the check runs. The dismissal vote executes between Round N result and
-Round N+1 start — never mid-round.
+not after each individual finding. Only domain-inconsistent auto-dismissals contribute
+to strike_count before the check runs. The dismissal vote executes between Round N
+result and Round N+1 start — never mid-round.
 
 ### 8B. Dismissal Vote
 

@@ -1,0 +1,19 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: missing-prompt
+  description: "Profile with nonexistent prompt_ref for TC-5.3"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 2
+    specs:
+      - id: correctness
+        expertise: "Logic and correctness"
+        prompt_ref: correctness.md
+        strategy: "Line-by-line logic analysis"
+      - id: ghost
+        expertise: "Ghost reviewer"
+        prompt_ref: this-does-not-exist.md
+        strategy: "Missing prompt test"
