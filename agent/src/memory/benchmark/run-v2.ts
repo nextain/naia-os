@@ -255,7 +255,7 @@ async function main() {
 		const memList = allMems?.results ?? allMems ?? [];
 		console.log(`  Total: ${memList.length}`);
 		for (const mem of memList) {
-			console.log(`    - ${(mem.memory ?? mem.text ?? "").slice(0, 80)}`);
+			console.log(`    - ${(mem.memory ?? (mem as any).text ?? "").slice(0, 80)}`);
 		}
 	} catch (err: any) {
 		console.log(`  ⚠ getAll failed: ${err.message?.slice(0, 80)}`);

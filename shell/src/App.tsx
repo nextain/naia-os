@@ -30,7 +30,7 @@ import { panelRegistry } from "./lib/panel-registry";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
 import "./panels/browser/index"; // register browser panel
 import "./panels/workspace/index"; // register workspace panel
-import "./panels/sample-note/index"; // register sample note panel (installable, deletable)
+// sample-note panel removed — will be replaced by a proper memo app later
 import { usePanelStore } from "./stores/panel";
 
 const NAIA_WIDTH_DEFAULT = 320;

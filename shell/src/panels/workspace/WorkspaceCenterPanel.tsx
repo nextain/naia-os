@@ -568,7 +568,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				// Normalize trailing slash so "/path/" and "/path" map to the same openDirsRef key.
 				const dir = String(args.dir ?? "").replace(/\/+$/, "");
 				if (!dir) return "Error: dir is required";
-				if (!dir.startsWith("/")) return "Error: dir must be an absolute path";
+				if (!dir.startsWith("/") && !/^[a-zA-Z]:[/\\]/.test(dir)) return "Error: dir must be an absolute path";
 				// openDirsRef tracks both committed AND in-flight dirs. Add BEFORE the
 				// await so concurrent calls for the same dir are blocked immediately —
 				// before any state update and before React renders. Only delete on
@@ -590,7 +590,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				try {
 					const result = await invoke<{ pty_id: string; pid: number }>(
 						"pty_create",
-						{ dir, command: "bash", rows: 24, cols: 80 },
+						{ dir, command: navigator.userAgent.includes("Windows") ? "powershell" : "bash", rows: 24, cols: 80 },
 					);
 					// React 18 batching: setTerminals + setActiveTab committed in one render
 					// — no intermediate frame where activeTab === pty_id but terminals is
@@ -758,7 +758,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 								}}
 							>
 								<span className="workspace-panel__tab-label">
-									{t.dir.split("/").pop() ?? t.dir}
+									{t.dir.split(/[/\\]/).pop() ?? t.dir}
 								</span>
 								<button
 									type="button"

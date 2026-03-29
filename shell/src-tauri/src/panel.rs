@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::home_dir;
+
 /// Panel manifest stored in ~/.naia/panels/{id}/panel.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PanelManifest {
@@ -23,7 +25,7 @@ pub struct PanelManifest {
 /// List installed panels by scanning ~/.naia/panels/
 #[tauri::command]
 pub fn panel_list_installed() -> Vec<PanelManifest> {
-	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+	let home = home_dir();
 	let panels_dir = std::path::PathBuf::from(&home).join(".naia/panels");
 
 	if !panels_dir.is_dir() {
@@ -78,16 +80,14 @@ pub fn panel_list_installed() -> Vec<PanelManifest> {
 /// Called from iframe-bridge.ts → Tauri invoke("panel_read_file").
 #[tauri::command]
 pub fn panel_read_file(path: String) -> Result<String, String> {
-	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+	let home = home_dir();
 	// Canonicalize HOME itself to handle symlinks in the home path
-	let home_path = std::path::PathBuf::from(&home)
-		.canonicalize()
+	let home_path = dunce::canonicalize(&home)
 		.map_err(|_| "Access denied".to_string())?;
 
 	// Resolve to canonical path to defeat symlink / path-traversal attacks.
 	// Returns a generic "Access denied" to avoid leaking path existence.
-	let canonical = std::path::PathBuf::from(&path)
-		.canonicalize()
+	let canonical = dunce::canonicalize(&path)
 		.map_err(|_| "Access denied".to_string())?;
 
 	if !canonical.starts_with(&home_path) {
@@ -117,6 +117,7 @@ pub struct PanelShellResult {
 /// Allowed commands mapped to absolute paths to prevent PATH hijacking.
 /// Note: path-containing arguments are blocked by the '/' restriction below.
 /// File access should use panel_read_file rather than shell commands.
+#[cfg(unix)]
 const SHELL_CMD_MAP: &[(&str, &str)] = &[
 	("ls", "/usr/bin/ls"),
 	("echo", "/usr/bin/echo"),
@@ -125,6 +126,37 @@ const SHELL_CMD_MAP: &[(&str, &str)] = &[
 	("uname", "/usr/bin/uname"),
 	("whoami", "/usr/bin/whoami"),
 ];
+
+#[cfg(windows)]
+const SHELL_CMD_MAP: &[(&str, &str)] = &[
+	("ls", r"C:\Windows\System32\cmd.exe"),      // /C dir
+	("echo", r"C:\Windows\System32\cmd.exe"),    // /C echo
+	("pwd", r"C:\Windows\System32\cmd.exe"),     // /C cd
+	("date", r"C:\Windows\System32\cmd.exe"),    // /C date /t
+	("uname", r"C:\Windows\System32\cmd.exe"),   // /C ver
+	("whoami", r"C:\Windows\System32\whoami.exe"),
+];
+
+/// Map shell command name to Windows cmd.exe arguments
+#[cfg(windows)]
+fn windows_cmd_args(cmd: &str, args: &[String]) -> Vec<String> {
+	match cmd {
+		"ls" => {
+			let mut v = vec!["/C".to_string(), "dir".to_string()];
+			v.extend(args.iter().cloned());
+			v
+		}
+		"echo" => {
+			let mut v = vec!["/C".to_string(), "echo".to_string()];
+			v.extend(args.iter().cloned());
+			v
+		}
+		"pwd" => vec!["/C".to_string(), "cd".to_string()],
+		"date" => vec!["/C".to_string(), "date".to_string(), "/t".to_string()],
+		"uname" => vec!["/C".to_string(), "ver".to_string()],
+		_ => args.to_vec(),
+	}
+}
 
 /// Run an allowlisted shell command on behalf of an iframe panel.
 /// Uses absolute command paths (no PATH lookup). cwd is always HOME.
@@ -143,10 +175,11 @@ pub fn panel_run_shell(cmd: String, args: Vec<String>) -> Result<PanelShellResul
 		if arg.contains('\0') {
 			return Err("Argument contains null byte".to_string());
 		}
-		if arg.contains(['|', '&', ';', '$', '`', '\\', '\n', '\r']) {
+		if arg.contains(['|', '&', ';', '$', '`', '\n', '\r']) {
 			return Err(format!("Argument contains disallowed characters: {}", arg));
 		}
-		if arg.contains('/') {
+		// Block path separators (both / and \ on all platforms)
+		if arg.contains('/') || arg.contains('\\') {
 			return Err(format!("Path separator not allowed in argument: {}", arg));
 		}
 		if arg.contains("..") {
@@ -154,15 +187,19 @@ pub fn panel_run_shell(cmd: String, args: Vec<String>) -> Result<PanelShellResul
 		}
 	}
 
-	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+	let home = home_dir();
 	// Canonicalize HOME consistently with panel_read_file; fall back to raw path if unavailable
-	let home_dir = std::path::PathBuf::from(&home)
-		.canonicalize()
+	let home_path = dunce::canonicalize(&home)
 		.unwrap_or_else(|_| std::path::PathBuf::from(&home));
 
+	#[cfg(unix)]
+	let final_args = args.clone();
+	#[cfg(windows)]
+	let final_args = windows_cmd_args(&cmd, &args);
+
 	let output = std::process::Command::new(program)
-		.args(&args)
-		.current_dir(&home_dir) // Always run from HOME, never inheriting Tauri's cwd
+		.args(&final_args)
+		.current_dir(&home_path) // Always run from HOME, never inheriting Tauri's cwd
 		.output()
 		.map_err(|e| format!("Failed to run command: {}", e))?;
 
@@ -181,9 +218,8 @@ pub fn panel_remove_installed(panel_id: String) -> Result<(), String> {
 		return Err(format!("Invalid panel id: {}", panel_id));
 	}
 
-	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-	let home_path = std::path::PathBuf::from(&home)
-		.canonicalize()
+	let home = home_dir();
+	let home_path = dunce::canonicalize(&home)
 		.map_err(|_| "Access denied".to_string())?;
 
 	let panel_dir = std::path::PathBuf::from(&home)
@@ -196,8 +232,7 @@ pub fn panel_remove_installed(panel_id: String) -> Result<(), String> {
 
 	// Canonicalize to resolve symlinks — prevents deleting directories outside HOME
 	// (mirrors panel_read_file's boundary check)
-	let canonical = panel_dir
-		.canonicalize()
+	let canonical = dunce::canonicalize(&panel_dir)
 		.map_err(|_| "Access denied".to_string())?;
 	if !canonical.starts_with(&home_path) {
 		return Err("Access denied".to_string());

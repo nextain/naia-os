@@ -110,16 +110,14 @@ fn get_workspace_root() -> String {
 /// Returns the canonical form of the workspace root, resolving any symlinks.
 /// All path comparisons must use this form for consistency.
 fn canonical_workspace_root() -> Result<PathBuf, String> {
-    PathBuf::from(get_workspace_root())
-        .canonicalize()
+    dunce::canonicalize(get_workspace_root())
         .map_err(|e| format!("Workspace root inaccessible: {e}"))
 }
 
 /// Validates that `path` (which must exist) resolves to a location inside
 /// WORKSPACE_ROOT after symlink resolution. Returns the canonical path.
 fn validate_in_workspace(path: &str) -> Result<PathBuf, String> {
-    let canonical = PathBuf::from(path)
-        .canonicalize()
+    let canonical = dunce::canonicalize(path)
         .map_err(|e| format!("Path inaccessible: {e}"))?;
     let root = canonical_workspace_root()?;
     if !canonical.starts_with(&root) {
@@ -143,8 +141,7 @@ fn validate_write_path(path: &str) -> Result<PathBuf, String> {
             .parent()
             .ok_or_else(|| "Invalid path: no valid ancestor found".to_string())?;
     }
-    let canonical_ancestor = check
-        .canonicalize()
+    let canonical_ancestor = dunce::canonicalize(&check)
         .map_err(|e| format!("Path error: {e}"))?;
     let root = canonical_workspace_root()?;
     if !canonical_ancestor.starts_with(&root) {
@@ -372,7 +369,7 @@ pub fn workspace_get_sessions(
         // and stored by the file-change watcher (which also uses canonical_workspace_root).
         // Without this, /home/luke/... vs /var/home/luke/... symlink differences would cause
         // groupBy key mismatch and last_change/branch cache lookups to miss.
-        let path_str = std::fs::canonicalize(&path)
+        let path_str = dunce::canonicalize(&path)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| path.to_string_lossy().to_string());
 
@@ -606,8 +603,7 @@ pub fn workspace_set_root(root: String) -> Result<String, String> {
     if !p.is_dir() {
         return Err(format!("Workspace root is not a directory: {root}"));
     }
-    let canonical = p
-        .canonicalize()
+    let canonical = dunce::canonicalize(&p)
         .map_err(|e| format!("Workspace root inaccessible: {e}"))?;
     let canonical_str = canonical.to_string_lossy().to_string();
     let m = WORKSPACE_ROOT_OVERRIDE.get_or_init(|| Mutex::new(WORKSPACE_ROOT.to_string()));
@@ -639,7 +635,7 @@ pub fn workspace_classify_dirs() -> Result<Vec<ClassifiedDir>, String> {
             continue;
         }
         // Canonicalize to match canonical paths returned by get_all_worktree_paths()
-        let path_str = std::fs::canonicalize(&path)
+        let path_str = dunce::canonicalize(&path)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| path.to_string_lossy().to_string());
 
@@ -701,8 +697,8 @@ fn get_main_worktree(path: &Path) -> Option<String> {
         .find_map(|l| l.strip_prefix("worktree "))
         .map(str::to_string)?;
     // Canonicalize both for comparison (symlinks, e.g. /home → /var/home on Fedora)
-    let canon_main = std::fs::canonicalize(&main_path).ok()?;
-    let canon_path = std::fs::canonicalize(path).ok()?;
+    let canon_main = dunce::canonicalize(&main_path).ok()?;
+    let canon_path = dunce::canonicalize(path).ok()?;
     if canon_main == canon_path {
         None // this IS the main worktree
     } else {
@@ -728,7 +724,7 @@ fn get_all_worktree_paths(root: &Path) -> Vec<String> {
                         for line in text.lines() {
                             if let Some(wt_path) = line.strip_prefix("worktree ") {
                                 // Canonicalize so paths match classify_dirs and get_sessions keys
-                                let canonical = std::fs::canonicalize(wt_path)
+                                let canonical = dunce::canonicalize(wt_path)
                                     .map(|p| p.to_string_lossy().to_string())
                                     .unwrap_or_else(|_| wt_path.to_string());
                                 paths.push(canonical);
@@ -801,9 +797,8 @@ mod tests {
             }
         }
         // The real guard: if it resolves to outside workspace, we must reject it.
-        if let Ok(canonical) = std::path::PathBuf::from(traversal).canonicalize() {
-            let root = std::path::PathBuf::from(WORKSPACE_ROOT)
-                .canonicalize()
+        if let Ok(canonical) = dunce::canonicalize(traversal) {
+            let root = dunce::canonicalize(WORKSPACE_ROOT)
                 .unwrap_or_else(|_| std::path::PathBuf::from(WORKSPACE_ROOT));
             // If it resolved to outside root, validate_in_workspace must have returned Err
             if !canonical.starts_with(&root) {
@@ -816,6 +811,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_validate_in_workspace_rejects_etc_passwd() {
         let result = validate_in_workspace("/etc/passwd");
         assert!(result.is_err(), "/etc/passwd must be rejected");
@@ -827,6 +823,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_validate_in_workspace_rejects_home_ssh() {
         let result = validate_in_workspace("/root/.ssh/id_rsa");
         assert!(result.is_err(), "SSH key path must be rejected");
@@ -835,6 +832,7 @@ mod tests {
     // ── validate_write_path ──────────────────────────────────────────────────
 
     #[test]
+    #[cfg(unix)]
     fn test_validate_write_path_rejects_outside_workspace() {
         let result = validate_write_path("/etc/cron.d/evil");
         assert!(result.is_err(), "/etc/cron.d/evil must be rejected");
@@ -855,8 +853,7 @@ mod tests {
 
             // Verify the returned path is actually inside WORKSPACE_ROOT
             let returned = result.unwrap();
-            let root = std::path::PathBuf::from(WORKSPACE_ROOT)
-                .canonicalize()
+            let root = dunce::canonicalize(WORKSPACE_ROOT)
                 .unwrap_or_else(|_| std::path::PathBuf::from(WORKSPACE_ROOT));
             assert!(
                 returned.starts_with(&root),
@@ -886,6 +883,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_validate_write_path_rejects_dotdot_in_new_path() {
         // Attempt to write to /var/home/luke/dev/../../etc/cron.d/evil
         let traversal = "/var/home/luke/dev/../../etc/cron.d/evil";

@@ -54,11 +54,10 @@ fn spawn_chrome_monitor(app: AppHandle, pid: u32, port: u16) {
         loop {
             std::thread::sleep(std::time::Duration::from_millis(500));
 
-            // Primary: kill -0 detects truly dead PIDs (ESRCH).
-            // BUT kill -0 returns 0 for zombie processes (PID still in table).
+            // Primary: check if Chrome PID is still alive.
             // Secondary: CDP health check catches zombies — a zombie Chrome
             // no longer serves HTTP even though its PID is still present.
-            let pid_exists = unsafe { libc::kill(pid as i32, 0) == 0 };
+            let pid_exists = crate::is_pid_alive(pid);
             let cdp_alive = pid_exists && ureq::get(&version_url)
                 .call()
                 .map(|r| r.status() == 200)
@@ -187,7 +186,8 @@ fn agent_browser_bin() -> Option<String> {
         }
     }
     // nvm-managed node puts binaries under ~/.config/nvm
-    if let Ok(home) = std::env::var("HOME") {
+    let home = crate::home_dir();
+    if !home.is_empty() {
         for suffix in &[
             ".config/nvm/versions/node",
             ".nvm/versions/node",
@@ -619,16 +619,25 @@ pub fn browser_embed_init(app: AppHandle, x: f64, y: f64, width: f64, height: f6
     crate::log_verbose("[browser] init: spawning Chrome");
     // No Chrome running — kill any lingering processes from previous sessions
     // (--keep-alive-for-test keeps Chrome alive even after app exit).
-    let _ = Command::new("pkill")
-        .args(["-f", "naia/chrome-profile"])
-        .output();
+    #[cfg(unix)]
+    { let _ = Command::new("pkill").args(["-f", "naia/chrome-profile"]).output(); }
+    #[cfg(windows)]
+    {
+        // Kill only Chrome processes using our naia profile (not all Chrome instances)
+        let _ = Command::new("wmic")
+            .args(["process", "where", "commandline like '%naia%chrome-profile%'", "call", "terminate"])
+            .output();
+    }
     std::thread::sleep(std::time::Duration::from_millis(300));
 
     let port = find_free_port();
     // Use a persistent profile directory so Chrome login sessions survive app restarts.
-    let tmpdir = std::env::var("HOME")
-        .map(|h| format!("{h}/.naia/chrome-profile"))
-        .unwrap_or_else(|_| std::env::temp_dir().join("naia-chrome-profile").to_string_lossy().to_string());
+    let home = crate::home_dir();
+    let tmpdir = if home.is_empty() {
+        std::env::temp_dir().join("naia-chrome-profile").to_string_lossy().to_string()
+    } else {
+        std::path::PathBuf::from(&home).join(".naia/chrome-profile").to_string_lossy().to_string()
+    };
     std::fs::create_dir_all(&tmpdir)
         .map_err(|e| format!("Failed to create Chrome profile dir: {e}"))?;
 
