@@ -85,9 +85,10 @@ async function callGemini(
 
 function callClaudeCli(prompt: string): string {
 	try {
+		// Pipe prompt via stdin to avoid shell escaping issues
 		const result = execSync(
-			`claude -p "${prompt.replace(/"/g, '\\"').replace(/\n/g, '\\n')}" --max-tokens 100 2>/dev/null`,
-			{ timeout: 30000, encoding: "utf-8" },
+			`claude -p 2>/dev/null`,
+			{ input: prompt, timeout: 60000, encoding: "utf-8" },
 		);
 		return result.trim();
 	} catch {
@@ -322,9 +323,16 @@ async function main() {
 	const allFacts = await adapter.semantic.getAll();
 	console.log(`\n  Stored: ${allFacts.length} facts\n`);
 
-	// ─── Phase 2: Run tests ──────────────────────────────────────────────
-	console.log("=== Phase 2: Testing ===\n");
-	const results: TestResult[] = [];
+	// ─── Phase 2: Collect responses (no judging yet) ────────────────────
+	console.log("=== Phase 2: Collecting responses ===\n");
+
+	interface PendingResult {
+		id: string; capability: string; query: string; weight: number; isBonus: boolean;
+		q: any; // original query spec for judge prompt building
+		withMemResp: string; memories: string[];
+		noMemResp?: string;
+	}
+	const pending: PendingResult[] = [];
 	let testNum = 0;
 
 	for (const [capName, cap] of Object.entries(templates.capabilities) as [string, any][]) {
@@ -346,7 +354,7 @@ async function main() {
 			if (q.update) { await throttle(); await system.encode({ content: q.update, role: "user" }, { project: "benchmark" }); }
 			if (q.noisy_input) { await throttle(); await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" }); }
 
-			// ── WITH memory ──
+			// WITH memory — get response
 			let memories: string[] = [];
 			try {
 				await throttle();
@@ -356,28 +364,162 @@ async function main() {
 				console.error(`    ⚠ recall: ${err.message?.slice(0, 60)}`);
 			}
 			const withMemResp = await askWithMemory(apiKey, memories, query);
-			const withMemJudge = await judge(apiKey, config.judge, q, capName, withMemResp);
 
-			// ── WITHOUT memory ──
-			let noMemResult: TestResult["noMemory"] | undefined;
+			// WITHOUT memory — get response
+			let noMemResp: string | undefined;
 			if (!config.skipNoMemory) {
-				const noMemResp = await askWithoutMemory(apiKey, query);
-				const noMemJudge = await judge(apiKey, config.judge, q, capName, noMemResp);
-				noMemResult = { response: noMemResp.slice(0, 200), pass: noMemJudge.pass, reason: noMemJudge.reason };
+				noMemResp = await askWithoutMemory(apiKey, query);
+			}
+
+			pending.push({ id, capability: capName, query, weight, isBonus, q, withMemResp, memories, noMemResp });
+			console.log(`  ${id} "${query.slice(0, 35)}..." — resp: ${withMemResp.slice(0, 60)}...`);
+		}
+		console.log();
+	}
+
+	// ─── Phase 3: Judge all at once ──────────────────────────────────────
+	console.log(`=== Phase 3: Judging (${config.judge}) ===\n`);
+	const results: TestResult[] = [];
+
+	if (config.judge === "gemini-pro") {
+		// Build one big prompt with all test items
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const fullPrompt = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "테스트번호: PASS 또는 FAIL — 이유" 형식으로 답하세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending ${pending.length} tests to gemini-2.5-pro in one call...`);
+		const batchResult = await callGemini(apiKey, [{ role: "user", content: fullPrompt }], 2000, "gemini-2.5-pro");
+		console.log(`  Response: ${batchResult.length} chars\n`);
+
+		// Parse batch result
+		const lines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const line = lines.find((l) => l.includes(`${i + 1}`) || l.includes(p.id)) ?? "";
+			const pass = line.toUpperCase().includes("PASS");
+			const reason = line.slice(0, 120) || `line ${i + 1} not found in batch`;
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				// For no-memory, use keyword fallback (no extra API call)
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: false, reason: "keyword" };
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult.pass = kw.pass;
+				noMemResult.reason = kw.reason;
 			}
 
 			results.push({
-				id, capability: capName, query, weight, isBonus,
-				withMemory: { response: withMemResp.slice(0, 200), pass: withMemJudge.pass, reason: withMemJudge.reason, memories },
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
-			const wIcon = withMemJudge.pass ? "✅" : "❌";
-			const nIcon = noMemResult ? (noMemResult.pass ? "✅" : "❌") : "⏭";
-			console.log(`  ${id} "${query.slice(0, 30)}..." — mem:${wIcon} noMem:${nIcon}`);
-			console.log(`    judge: ${withMemJudge.reason.slice(0, 80)}`);
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
 		}
-		console.log();
+	} else if (config.judge === "claude-cli") {
+		// Send all to Claude CLI in one prompt
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const fullPrompt = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "${pending[0]?.id ?? 'ID'}: PASS — 이유" 또는 "${pending[0]?.id ?? 'ID'}: FAIL — 이유" 형식으로 답하세요. 다른 형식은 사용하지 마세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending ${pending.length} tests to Claude CLI in one call...`);
+		const batchResult = callClaudeCli(fullPrompt);
+		console.log(`  Response: ${batchResult.length} chars\n`);
+
+		const lines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const line = lines.find((l) => l.includes(p.id)) ?? lines[i] ?? "";
+			const pass = line.toUpperCase().includes("PASS") && !line.toUpperCase().startsWith("FAIL");
+			const reason = line.slice(0, 120) || `line for ${p.id} not found`;
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+			}
+
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
+		}
+	} else if (config.judge === "dual") {
+		// Gemini Pro batch + Claude CLI batch, then compare
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const batchInstruction = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "ID: PASS — 이유" 또는 "ID: FAIL — 이유" 형식으로 답하세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending to gemini-2.5-pro...`);
+		const gBatch = await callGemini(apiKey, [{ role: "user", content: batchInstruction }], 3000, "gemini-2.5-pro");
+		console.log(`  gemini-pro: ${gBatch.length} chars`);
+
+		console.log(`  Sending to Claude CLI...`);
+		const cBatch = callClaudeCli(batchInstruction);
+		console.log(`  claude-cli: ${cBatch.length} chars\n`);
+
+		const gLines = gBatch.split("\n").filter((l) => l.trim().length > 0);
+		const cLines = cBatch.split("\n").filter((l) => l.trim().length > 0);
+
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const gLine = gLines.find((l) => l.includes(p.id)) ?? gLines[i] ?? "";
+			const cLine = cLines.find((l) => l.includes(p.id)) ?? cLines[i] ?? "";
+			const gPass = gLine.toUpperCase().includes("PASS") && !gLine.toUpperCase().startsWith("FAIL");
+			const cPass = cLine.toUpperCase().includes("PASS") && !cLine.toUpperCase().startsWith("FAIL");
+
+			let pass: boolean;
+			let reason: string;
+			if (gPass === cPass) {
+				pass = gPass;
+				reason = `[agree] ${gLine.slice(0, 60)}`;
+			} else {
+				// Disagreement — take the PASS if one judge has a non-empty reason
+				pass = (gLine.length > cLine.length) ? gPass : cPass;
+				reason = `[disagree G:${gPass?"P":"F"} C:${cPass?"P":"F"}] G:${gLine.slice(0, 40)} | C:${cLine.slice(0, 40)}`;
+			}
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+			}
+
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
+		}
+	} else {
+		// keyword fallback
+		for (const p of pending) {
+			const kw = keywordJudge(p.withMemResp, p.q, p.capability);
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kwN = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kwN.pass, reason: kwN.reason };
+			}
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+		}
 	}
 
 	// ─── Phase 3: Report ─────────────────────────────────────────────────
