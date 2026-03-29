@@ -171,8 +171,8 @@ export class Mem0Adapter implements MemoryAdapter {
 				// KG boost from content token overlap with activated entities
 				let aKg = 0, bKg = 0;
 				for (const [entity, act] of activated) {
-					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.2;
-					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.2;
+					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.1;
+					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.1;
 				}
 				const aScore = a.strength * (1 + aCtx + aKg);
 				const bScore = b.strength * (1 + bCtx + bKg);
@@ -225,10 +225,9 @@ export class Mem0Adapter implements MemoryAdapter {
 
 		search: async (query: string, topK: number): Promise<Fact[]> => {
 			const m = await this.ensureMem0();
-			// Fetch more than topK to allow decay filtering + KG re-ranking
 			const results = await m.search(query, {
 				userId: this.userId,
-				limit: topK * 2,
+				limit: topK,
 			});
 
 			const now = Date.now();
@@ -261,7 +260,7 @@ export class Mem0Adapter implements MemoryAdapter {
 
 				// Combined score: mem0 rank position + KG boost, modulated by decay
 				const positionScore = 1 - (idx / resultItems.length);
-				const _score = (positionScore + kgBoost * 0.3) * strength;
+				const _score = (positionScore + kgBoost * 0.1) * strength;
 
 				return {
 					id: r.id ?? randomUUID(),
