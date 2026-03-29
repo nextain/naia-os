@@ -12,6 +12,8 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { MemorySystem } from "../index.js";
+import { Mem0Adapter } from "../mem0-adapter.js";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 const THROTTLE_MS = 2000;
@@ -139,34 +141,42 @@ async function main() {
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey) { console.error("GEMINI_API_KEY required"); process.exit(1); }
 
-	const { Memory } = await import("mem0ai/oss");
 	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
 	const templates = JSON.parse(readFileSync(join(import.meta.dirname, "query-templates.json"), "utf-8"));
 
-	// ─── Phase 1: Encode ─────────────────────────────────────────────────
-	console.log("=== Phase 1: Encoding ===\n");
+	// ─── Phase 1: Encode via MemorySystem(Mem0Adapter) ───────────────────
+	// This tests the FULL naia pipeline: importance gating → mem0 storage → reconsolidation
+	console.log("=== Phase 1: Encoding via MemorySystem(Mem0Adapter) ===\n");
 	const dbPath = `/tmp/mem0-comp-${randomUUID()}`;
-	const m = new Memory({
-		embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
-		vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
-		llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
-		historyDbPath: `${dbPath}-hist.db`,
+	const adapter = new Mem0Adapter({
+		mem0Config: {
+			embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
+			vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
+			llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
+			historyDbPath: `${dbPath}-hist.db`,
+		},
+		userId: "bench",
 	});
+	const system = new MemorySystem({ adapter });
 
 	for (const fact of factBank.facts) {
 		try {
 			await throttle();
-			await m.add([{ role: "user", content: fact.statement }], { userId: "bench" });
-			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+			// Goes through: scoreImportance → shouldStore → episode.store → checkAndReconsolidate
+			const episode = await system.encode(
+				{ content: fact.statement, role: "user" },
+				{ project: "benchmark" },
+			);
+			const stored = episode !== null;
+			console.log(`  ${stored ? "✅" : "⛔"} ${fact.id}: ${fact.statement.slice(0, 50)}...${stored ? "" : " (gated out by importance)"}`);
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 		}
 	}
 
-	// Verify
-	const allMems = await m.getAll({ userId: "bench" });
-	const memList = (allMems?.results ?? allMems ?? []).map((r: any) => r.memory ?? r.text ?? "");
-	console.log(`\n  Stored: ${memList.length} memories\n`);
+	// Verify stored memories
+	const allFacts = await adapter.semantic.getAll();
+	console.log(`\n  Stored: ${allFacts.length} facts (after importance gating + reconsolidation)\n`);
 
 	// ─── Phase 2: Run ALL capabilities ───────────────────────────────────
 	console.log("=== Phase 2: Testing ===\n");
@@ -186,38 +196,50 @@ async function main() {
 			const query = q.query || q.verify || "";
 			if (!query) continue;
 
-			// Handle setup (entity disambiguation)
+			// Handle setup (entity disambiguation) — goes through MemorySystem.encode()
 			if (q.setup) {
-				await m.add([{ role: "user", content: q.setup }], { userId: "bench" });
 				await throttle();
+				await system.encode({ content: q.setup, role: "user" }, { project: "benchmark" });
 			}
 
-			// Handle update (contradiction)
+			// Handle update (contradiction) — goes through MemorySystem.encode() → checkAndReconsolidate()
 			if (q.update) {
-				await m.add([{ role: "user", content: q.update }], { userId: "bench" });
 				await throttle();
+				await system.encode({ content: q.update, role: "user" }, { project: "benchmark" });
 			}
 
-			// Handle noisy_input (noise resilience)
+			// Handle noisy_input (noise resilience) — goes through importance gating
 			if (q.noisy_input) {
-				await m.add([{ role: "user", content: q.noisy_input }], { userId: "bench" });
 				await throttle();
+				await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" });
 			}
 
-			// ── WITH memory ──
+			// ── WITH memory — uses MemorySystem.recall() (decay + context weighting) ──
 			let memories: string[] = [];
 			const useAll = capName === "multi_fact_synthesis";
 			if (useAll) {
+				// Synthesis needs broad context — use recall with high topK
 				try {
-					const all = await m.getAll({ userId: "bench" });
-					memories = (all?.results ?? all ?? []).map((r: any) => r.memory ?? r.text ?? "");
-				} catch {}
+					await throttle();
+					const result = await system.recall(query, { project: "benchmark", topK: 20 });
+					memories = [
+						...result.facts.map((f) => f.content),
+						...result.episodes.map((e) => e.content),
+					];
+				} catch (err: any) {
+					console.error(`    ⚠ recall error: ${err.message?.slice(0, 60)}`);
+				}
 			} else {
 				try {
 					await throttle();
-					const raw = await m.search(query, { userId: "bench", limit: 10 });
-					memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
-				} catch {}
+					const result = await system.recall(query, { project: "benchmark", topK: 10 });
+					memories = [
+						...result.facts.map((f) => f.content),
+						...result.episodes.map((e) => e.content),
+					];
+				} catch (err: any) {
+					console.error(`    ⚠ recall error: ${err.message?.slice(0, 60)}`);
+				}
 			}
 			const withMemResp = await askWithMemory(apiKey, memories, query);
 
@@ -317,7 +339,8 @@ async function main() {
 	const reportPath = join(reportDir, `memory-comprehensive-${new Date().toISOString().slice(0, 10)}.json`);
 	writeFileSync(reportPath, JSON.stringify({
 		timestamp: new Date().toISOString(),
-		version: "comprehensive-v1",
+		version: "comprehensive-v2",
+		pipeline: "MemorySystem(Mem0Adapter) — importance gating + decay + reconsolidation + mem0 vector search",
 		model: "gemini-2.5-flash",
 		core: { total: core.length, withMemory: memPass, noMemory: noMemPass, delta: memPass - noMemPass },
 		bonus: { total: bonus.length, withMemory: bonusMemPass },
@@ -326,6 +349,8 @@ async function main() {
 		details: results,
 	}, null, 2));
 	console.log(`  Report: ${reportPath}`);
+
+	await system.close();
 }
 
 main().catch(console.error);
