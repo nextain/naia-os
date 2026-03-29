@@ -156,11 +156,30 @@ formats:
         reason: "On first install, enableTools is only set after onboarding — diagnostics should always work for debugging"
         fallback: "Uses DEFAULT_GATEWAY_URL (ws://localhost:18789) when enableTools is false"
       ci_status: "manual only (requires WSL + VirtualMachinePlatform)"
+    cross_platform_code:
+      canonicalize: "dunce::canonicalize used in workspace.rs, panel.rs, lib.rs — removes Windows UNC prefix (\\?\\)"
+      home_dir: "crate::home_dir() — HOME (Unix) or USERPROFILE (Windows)"
+      platform_module: "shell/src-tauri/src/platform/{mod,windows,linux,wsl}.rs — Windows API (OpenProcess, TerminateProcess)"
+      shell_commands: "panel.rs SHELL_CMD_MAP — #[cfg(unix)] Unix paths, #[cfg(windows)] C:\\Windows\\System32\\"
+      workspace_root: "Empty fallback on Windows — triggers folder picker dialog (@tauri-apps/plugin-dialog)"
+      terminal_shell: "WorkspaceCenterPanel.tsx — powershell on Windows, bash on Linux"
+      deep_link: "platform::start_deep_link_file_watcher() — Windows file-based deep link (Chromium sandbox blocks IPC)"
+    build_prerequisites:
+      - "Visual Studio Build Tools 2022 (MSVC C++ workload)"
+      - "CMake (for whisper.cpp native build)"
+      - "LLVM (libclang for bindgen — prevents MSYS2 glibc header pollution)"
+      - "Node.js 22+, pnpm"
+      - "Rust stable-x86_64-pc-windows-msvc"
+    build_env_vars:
+      LIBCLANG_PATH: "C:/Program Files/LLVM/bin"
+    dev_note: "cargo tauri dev (without --config windows) for dev mode — windows config requires bundled node.exe"
+    whisper_rs: "upstream codeberg (tazz4843/whisper-rs) — NOT nextain fork. Fork decision reversed."
     pending_issues:
       - "Config sync: should_skip_openclaw_sync prevents runtime provider/model sync to WSL"
-      - "restart_gateway race condition on deep link auth (partially mitigated by auto_approve timeout)"
       - "Gateway /health endpoint: version/methods not exposed — only available via WebSocket skill_diagnostics"
-    ci_status: "build-windows job added to release-app.yml (NSIS + updater sig)"
+      - "tauri:dev npm script has Linux-only GDK_BACKEND=x11 — Windows must use cargo tauri dev directly"
+      - "Onboarding button border invisible in light theme (rgba(255,255,255,0.08) on white)"
+    ci_status: "build-windows job added to release-app.yml (NSIS + MSI + updater sig)"
 
   iso:
     builder: ublue-os/titanoboa@main
