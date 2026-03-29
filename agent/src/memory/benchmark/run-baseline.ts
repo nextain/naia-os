@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { LocalAdapter } from "../local-adapter.js";
+import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
 import type { Fact } from "../types.js";
 

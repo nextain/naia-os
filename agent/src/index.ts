@@ -31,7 +31,7 @@ import type { ChatMessage, StreamChunk } from "./providers/types.js";
 import { actionInstall as panelActionInstall } from "./skills/built-in/panel.js";
 import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
 import { MemorySystem } from "./memory/index.js";
-import { LocalAdapter } from "./memory/local-adapter.js";
+import { LocalAdapter } from "./memory/adapters/local.js";
 import { synthesize as ttsSynthesize } from "./tts/index.js";
 
 const activeStreams = new Map<string, AbortController>();
