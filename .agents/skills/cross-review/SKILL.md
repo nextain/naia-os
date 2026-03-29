@@ -218,17 +218,37 @@ For each collected report:
 
 5. **Classify** each matched group (R = number of reviewers who submitted reports this round,
    NOT the configured count — accounts for timeouts):
-   - ALL R reviewers agree → **CONFIRMED**
+
+   First, determine the **confirmation threshold** based on `spec.consensus.strategy`
+   and the finding's highest severity:
+
+   | strategy | CRITICAL severity | HIGH/MEDIUM/LOW severity |
+   |----------|:-----------------:|:------------------------:|
+   | `"unanimous"` | ALL R | ALL R |
+   | `"majority"` | ALL R (safety override) | `ceil(R/2)` |
+
+   > **Design decision (2026-03-29)**: CRITICAL findings always require unanimous
+   > agreement regardless of profile strategy. Rationale: CRITICAL = data loss,
+   > security, incorrect output — false negative cost is too high for majority vote.
+   > This may produce false positives (over-escalation to debate), which is the
+   > preferred error direction. Revisit if CRITICAL FP rate exceeds 30% in practice.
+
+   Then classify:
+   - Supporters >= threshold → **CONFIRMED**
    - R >= 3 AND only 1 reviewer, no match → **AUTO-DISMISSED** (no strike)
    - R = 2 AND only 1 reviewer → **CONTESTED** (auto-dismiss skipped for R=2)
-   - Any other distribution → **CONTESTED**
+   - Supporters < threshold → **CONTESTED**
 
-6. Log finding events:
+6. Log finding events (with voting audit trail for retrospective):
    ```json
-   {"type":"FINDING_CONFIRMED","review_id":"{id}","round":{n},"finding_id":"{fid}","supporters":[...]}
-   {"type":"FINDING_DISMISSED","review_id":"{id}","round":{n},"finding_id":"{fid}","reason":"auto-dismiss (solo, R>=3)"}
-   {"type":"FINDING_CONTESTED","review_id":"{id}","round":{n},"finding_id":"{fid}","supporters":[...],"challengers":[...]}
+   {"type":"FINDING_CONFIRMED","review_id":"{id}","round":{n},"finding_id":"{fid}","severity":"{sev}","supporters":[...],"threshold":"{N}/{R}","strategy":"{unanimous|majority}","rationale":"supporters >= threshold"}
+   {"type":"FINDING_DISMISSED","review_id":"{id}","round":{n},"finding_id":"{fid}","severity":"{sev}","reason":"auto-dismiss (solo, R>=3)"}
+   {"type":"FINDING_CONTESTED","review_id":"{id}","round":{n},"finding_id":"{fid}","severity":"{sev}","supporters":[...],"challengers":[...],"threshold":"{N}/{R}","strategy":"{unanimous|majority}","rationale":"supporters < threshold"}
    ```
+
+   > The `threshold`, `strategy`, and `rationale` fields enable post-hoc voting
+   > error analysis. Query: find all CONTESTED findings that were later CONFIRMED
+   > in debate — if threshold was the cause, the strategy may need recalibration.
 
 ### Phase 3 — Selective Debate (only if CONTESTED findings exist)
 
@@ -240,15 +260,21 @@ For each CONTESTED finding:
      What specific code path/input triggers the issue? Provide concrete evidence."
    - Max sub-rounds: `spec.consensus.max_debate_rounds` from profile (default: 3)
 
-2. After examination, take a final vote among the original reviewers:
-   - Simple majority: `ceil(R/2)` votes to confirm
-   - For even R, a tie (R/2 each) → CONFIRMED (bias toward surfacing findings)
-   - For R=2: `ceil(2/2) = 1`, so the finding raiser's vote confirms alone.
-     This is by design — for R=2, formal dismissal (Section 3.2 of framework doc) is the override.
+2. After examination, take a final vote among the original reviewers.
+   Apply the same severity-based threshold as Phase 2 step 5:
 
-3. Log votes:
+   | strategy | CRITICAL severity | HIGH/MEDIUM/LOW severity |
+   |----------|:-----------------:|:------------------------:|
+   | `"unanimous"` | ALL R | ALL R |
+   | `"majority"` | ALL R (safety override) | `ceil(R/2)` |
+
+   - For even R with majority, a tie (R/2 each) → CONFIRMED (bias toward surfacing)
+   - For R=2: `ceil(2/2) = 1`, so the finding raiser's vote confirms alone.
+     This is by design — for R=2, formal dismissal (Appendix 8E) is the override.
+
+3. Log votes (with audit trail):
    ```json
-   {"type":"VOTE_CAST","review_id":"{id}","round":{n},"voter_id":"{vid}","finding_id":"{fid}","vote":"confirm|dismiss","evidence":"{text}"}
+   {"type":"VOTE_CAST","review_id":"{id}","round":{n},"voter_id":"{vid}","finding_id":"{fid}","severity":"{sev}","vote":"confirm|dismiss","evidence":"{text}","threshold":"{N}/{R}"}
    ```
 
 ### Round Result
@@ -468,10 +494,18 @@ If in ANY round: every reviewer has ≥1 auto-dismissed solo finding AND 0 confi
 
 After Phase 3 debate, if a reviewer believes a CONFIRMED finding is wrong:
 1. Challenger invokes formal dismissal per framework Section 3.2
-2. Eligible voters: all participants EXCEPT the finding's raiser
-3. Vote: DISMISS or KEEP (quorum: `spec.dismissal.finding_dismissal`)
-4. If DISMISSED: finding removed, raiser gets 1 strike
-5. If KEPT: finding remains confirmed, no strike
+2. **R=2 guard**: Formal finding dismissal is DISABLED when R=2.
+   Rationale: with R=2, the non-raiser is the sole eligible voter and can
+   always dismiss unilaterally, creating a confirm→dismiss infinite loop.
+   R=2 findings go through Phase 3 debate only; no post-debate dismissal.
+3. Eligible voters: all participants EXCEPT the finding's raiser (requires R >= 3)
+4. Vote: DISMISS or KEEP (quorum: `spec.dismissal.finding_dismissal`)
+5. If DISMISSED: finding removed, raiser gets 1 strike (counted in 8A's `strike_count`)
+6. If KEPT: finding remains confirmed, no strike
+
+> **Strike merge (2026-03-29)**: 8E strikes feed into the same `strike_count`
+> map as 8A. Both sources accumulate toward `strikes_before_dismissal` threshold.
+> This means a reviewer with 1 auto-dismiss strike + 1 formal-dismiss strike = 2 = threshold.
 
 ## Step 6: Cleanup
 

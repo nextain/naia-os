@@ -21,7 +21,9 @@ spec:
     round_timeout_seconds: 300
     review_timeout_seconds: 1800
 
-  # Phase 2+: Formal dismissal protocol (MVP uses inline auto-dismiss only)
+  # Dismissal protocol. finding_dismissal and participant_dismissal are
+  # referenced by SKILL.md Appendix 8E and 8B respectively.
+  # quorum.dismiss is reserved for Phase 4 (formal multi-voter quorum).
   dismissal:
     finding_dismissal: "unanimous_except_target"
     participant_dismissal: "unanimous_except_target"
