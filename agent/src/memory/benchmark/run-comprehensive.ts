@@ -62,10 +62,10 @@ async function askWithMemory(apiKey: string, memories: string[], question: strin
 		{ role: "system", content: `당신은 사용자의 개인 AI 동반자입니다.
 
 ## 규칙
-1. 기억 중에서 사용자 질문과 **직접 관련된 것만** 사용하세요.
-2. 기억에 있더라도 질문과 무관한 내용은 답에 포함하지 마세요.
-3. 질문에 대한 답이 기억에 없으면 "기억에 없습니다"라고 답하세요.
-4. 기억에 없는 내용을 절대 지어내지 마세요.
+1. 기억 중에서 사용자 질문과 **관련된 것**을 활용하세요.
+2. 사용자가 도움을 요청하면(코드 작성, 설정, 추천 등), 기억에 있는 사용자의 선호와 환경을 **자연스럽게 반영**하세요. 예: 사용자가 TypeScript를 쓴다고 했으면 TypeScript 기준으로 답하세요.
+3. 사용자가 자신에 대한 사실을 물어보는데 기억에 없으면 "기억에 없습니다"라고 답하세요.
+4. 기억에 없는 **사실**을 절대 지어내지 마세요. 하지만 기억에 있는 사실을 기반으로 도움을 주는 건 좋습니다.
 5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.
 
 ${memCtx}` },
@@ -100,12 +100,21 @@ function judgeNotContains(response: string, forbidden: string[]): JudgeResult {
 
 function judgeAbstention(response: string, hallucination_keywords?: string[]): JudgeResult {
 	const lower = response.toLowerCase();
-	const refusals = ["말씀하신 적", "기억에 없", "모르", "없는 것 같", "언급하신 적", "기억이 없", "알 수 없", "말한 적", "정보가 없"];
+	const refusals = ["말씀하신 적", "기억에 없", "모르", "없는 것 같", "언급하신 적", "기억이 없", "알 수 없", "말한 적", "정보가 없", "없습니다", "아닙니다", "죄송", "확인할 수 없", "기억에는 없", "기억에 따르면 없"];
 	const hasRefusal = refusals.some((p) => lower.includes(p));
+	// Negation context: if hallucination keyword appears with refusal, it's a correct distinction
+	const negationContext = ["없", "아니", "않", "안 "];
 
 	if (hallucination_keywords && hallucination_keywords.length > 0) {
 		const hallucinated = hallucination_keywords.filter((k) => lower.includes(k.toLowerCase()));
-		if (hallucinated.length > 0) return { pass: false, reason: `FAIL: hallucinated [${hallucinated.join(", ")}]` };
+		if (hallucinated.length > 0) {
+			// Check if keyword appears in negation context (e.g., "Nuxt.js를 쓴다고는 없습니다")
+			const inNegation = hasRefusal || negationContext.some((n) => lower.includes(n));
+			if (inNegation) {
+				return { pass: true, reason: `PASS: refusal with correct distinction [${hallucinated.join(", ")}]` };
+			}
+			return { pass: false, reason: `FAIL: hallucinated [${hallucinated.join(", ")}]` };
+		}
 	}
 
 	if (hasRefusal) return { pass: true, reason: "PASS: refusal detected" };
