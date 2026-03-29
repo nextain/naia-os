@@ -341,6 +341,39 @@ phases:
       "Assisted-by": "<tool name>"
     output: "PR ready for merge"
 
+  close:
+    description: "Issue completion verification and close"
+    prerequisite: "ALL prior phases including commit must be complete"
+    steps:
+      - "Lessons learned audit: re-read ALL lessons added during this issue"
+      - "  - Check for duplicates against existing lessons (different wording, same root cause)"
+      - "  - Check for factual errors (did the fix actually work? is the root cause correct?)"
+      - "  - Check ID conflicts (no duplicate IDs with existing lessons)"
+      - "  - Remove or merge any problematic entries before posting completion report"
+      - "Phase completion audit: verify EVERY phase was executed, not skipped"
+      - "  - For each phase (understand → commit): confirm it was done with evidence"
+      - "  - Flag any phase that was skipped or partially completed"
+      - "  - If any phase is incomplete: go back and complete it before closing"
+      - "Test result summary: include final test metrics"
+      - "  - Total tests planned vs executed vs passed"
+      - "  - Detection rate, false positive rate, and other success criteria"
+      - "  - Any deferred/skipped tests with justification"
+      - "Post Issue completion comment (gh issue comment) with:"
+      - "  1. Phase-by-phase completion checklist (all 14 phases) — each phase: done/skipped/partial with evidence"
+      - "  2. Final test results table (planned vs executed vs passed)"
+      - "  3. Deliverable list (commits, files, artifacts)"
+      - "  4. Lessons learned — new entries added during this issue (IDs and titles)"
+      - "  5. Context updates — files added/modified in .agents/, .users/, AGENTS.md"
+      - "  6. Known limitations or future work (explicitly separated from 'done')"
+      - "User reviews the completion comment and confirms close"
+      - "Close the Issue via gh issue close (only after user confirmation)"
+    rules:
+      - "AI MUST NOT close the issue autonomously — user confirms close"
+      - "AI MUST NOT conflate 'implementation complete' with 'issue complete'"
+      - "Deferred tests or incomplete phases MUST be listed, not hidden"
+      - "If tests are incomplete, the issue stays open until they pass or are explicitly deferred by user"
+    output: "Issue closed with full completion record"
+
 # ─── Gates (user confirmation required) ──────────────────────
 
 gates:
@@ -352,6 +385,8 @@ gates:
     prompt: "Here is my implementation plan. Shall I proceed?"
   - phase: sync
     prompt: "Here are the context updates from this work. Please review before I proceed."
+  - phase: close
+    prompt: "Completion report posted as Issue comment. Please review and confirm close."
 
 # ─── Progress File (Session Handoff) ─────────────────────────
 

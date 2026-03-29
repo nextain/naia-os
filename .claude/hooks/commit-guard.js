@@ -32,6 +32,7 @@ const PHASE_ORDER = [
 	"sync_verify",
 	"report",
 	"commit",
+	"close",
 ];
 
 // Minimum phase required before git commit is safe

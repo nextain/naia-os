@@ -12,7 +12,7 @@ For non-feature changes (typos, config values, simple directives), use `developm
 
 ---
 
-## 13 Phases
+## 14 Phases
 
 ### User-Involved (front-loaded)
 
@@ -38,6 +38,7 @@ For non-feature changes (typos, config values, simple directives), use `developm
 | 11 | **Sync Verify** | Verify context accuracy (2 consecutive clean passes) |
 | 12 | **Report** | Summarize results to user |
 | 13 | **Commit** | Commit with Issue reference, create PR |
+| 14 | **Close** | Lessons learned 재검토 + phase-by-phase 완료보고 이슈 댓글 → 사용자 확인 후 close (gate) |
 
 ---
 

@@ -179,8 +179,8 @@ Default workflow for feature-level work (new features, feature-scope bug fixes).
 
 **SoT**: `.agents/workflows/issue-driven-development.yaml` — ALWAYS read at session start.
 
-**Core flow** (13 phases):
-Issue → Understand (gate) → Scope (gate) → Investigate → Plan (gate) → Build → Review → E2E Test → Post-test Review → Sync (gate) → Sync Verify → Report → Commit
+**Core flow** (14 phases):
+Issue → Understand (gate) → Scope (gate) → Investigate → Plan (gate) → Build → Review → E2E Test → Post-test Review → Sync (gate) → Sync Verify → Report → Commit → Close (gate)
 
 **Gate**: User confirmation required at understand, scope, plan, sync (STOP before proceeding).
 
