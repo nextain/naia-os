@@ -381,6 +381,15 @@ export class LocalAdapter implements MemoryAdapter {
 		getAll: async (): Promise<Fact[]> => {
 			return [...this.store.facts];
 		},
+
+		delete: async (id: string): Promise<boolean> => {
+			const idx = this.store.facts.findIndex((f) => f.id === id);
+			if (idx === -1) return false;
+			this.store.facts.splice(idx, 1);
+			this.markDirty();
+			this.save();
+			return true;
+		},
 	};
 
 	// ─── Procedural Memory ────────────────────────────────────────────────

@@ -1,163 +1,143 @@
-use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
 
-pub type MemoryDb = Arc<Mutex<Connection>>;
-
-/// A semantic fact extracted from conversations
+/// Agent's semantic Fact — matches agent/src/memory/types.ts Fact interface
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Fact {
+#[serde(rename_all = "camelCase")]
+pub struct AgentFact {
     pub id: String,
-    pub key: String,
-    pub value: String,
-    pub source_session: Option<String>,
+    pub content: String,
+    #[serde(default)]
+    pub entities: Vec<String>,
+    #[serde(default)]
+    pub topics: Vec<String>,
+    #[serde(default)]
     pub created_at: i64,
+    #[serde(default)]
     pub updated_at: i64,
+    #[serde(default)]
+    pub importance: f64,
+    #[serde(default)]
+    pub recall_count: i64,
+    #[serde(default)]
+    pub last_accessed: i64,
+    #[serde(default)]
+    pub strength: f64,
+    #[serde(default)]
+    pub source_episodes: Vec<String>,
 }
 
-pub fn init_db(path: &std::path::Path) -> Result<MemoryDb, String> {
-    let conn =
-        Connection::open(path).map_err(|e| format!("Failed to open memory DB: {}", e))?;
-
-    conn.execute_batch("PRAGMA journal_mode=WAL;")
-        .map_err(|e| format!("Failed to set WAL mode: {}", e))?;
-
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS facts (
-            id             TEXT PRIMARY KEY,
-            key            TEXT NOT NULL UNIQUE,
-            value          TEXT NOT NULL,
-            source_session TEXT,
-            created_at     INTEGER NOT NULL,
-            updated_at     INTEGER NOT NULL
-        );",
-    )
-    .map_err(|e| format!("Failed to create memory tables: {}", e))?;
-
-    Ok(Arc::new(Mutex::new(conn)))
+/// On-disk JSON schema (matches LocalAdapter's MemoryStore)
+#[derive(Debug, Deserialize)]
+struct MemoryStore {
+    #[serde(default)]
+    facts: Vec<AgentFact>,
 }
 
-// === Facts CRUD ===
+/// Get the Agent memory JSON file path (~/.naia/memory/alpha-memory.json)
+fn agent_memory_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join(".naia")
+        .join("memory")
+        .join("alpha-memory.json")
+}
 
-pub fn get_all_facts(db: &MemoryDb) -> Result<Vec<Fact>, String> {
-    let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
-    let mut stmt = conn
-        .prepare("SELECT id, key, value, source_session, created_at, updated_at FROM facts ORDER BY updated_at DESC")
-        .map_err(|e| format!("Query error: {}", e))?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(Fact {
-                id: row.get(0)?,
-                key: row.get(1)?,
-                value: row.get(2)?,
-                source_session: row.get(3)?,
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
-            })
-        })
-        .map_err(|e| format!("Query error: {}", e))?;
-
-    let mut facts = Vec::new();
-    for row in rows {
-        facts.push(row.map_err(|e| format!("Row error: {}", e))?);
+/// Read all facts from Agent's memory JSON file.
+/// Returns empty vec if file doesn't exist or is invalid.
+pub fn get_all_agent_facts() -> Vec<AgentFact> {
+    let path = agent_memory_path();
+    match std::fs::read_to_string(&path) {
+        Ok(content) => match serde_json::from_str::<MemoryStore>(&content) {
+            Ok(store) => store.facts,
+            Err(_) => Vec::new(),
+        },
+        Err(_) => Vec::new(),
     }
-    Ok(facts)
 }
 
-pub fn upsert_fact(db: &MemoryDb, fact: &Fact) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
-    conn.execute(
-        "INSERT INTO facts (id, key, value, source_session, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, source_session = excluded.source_session, updated_at = excluded.updated_at",
-        rusqlite::params![fact.id, fact.key, fact.value, fact.source_session, fact.created_at, fact.updated_at],
-    )
-    .map_err(|e| format!("Upsert error: {}", e))?;
-    Ok(())
-}
+/// Delete a fact from Agent's memory JSON file by ID.
+/// Returns true if the fact was found and deleted.
+///
+/// RACE NOTE: Agent (Node.js) also writes this file during consolidation (30-min cycle)
+/// and recall (recallCount updates). Both sides use atomic write (tmp+rename).
+/// No cross-process file lock exists — a lost update is theoretically possible if
+/// Agent writes during the read-modify-write window here. In practice this is rare
+/// because user-initiated deletes are infrequent and consolidation runs every 30 min.
+/// Future: route deletes through Agent IPC to eliminate this race entirely.
+pub fn delete_agent_fact(fact_id: &str) -> Result<bool, String> {
+    let path = agent_memory_path();
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read memory file: {}", e))?;
 
-pub fn delete_fact(db: &MemoryDb, fact_id: &str) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| format!("Lock error: {}", e))?;
-    conn.execute("DELETE FROM facts WHERE id = ?1", [fact_id])
-        .map_err(|e| format!("Delete error: {}", e))?;
-    Ok(())
+    let mut raw: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse memory JSON: {}", e))?;
+
+    let facts = raw
+        .get_mut("facts")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| "No facts array in memory file".to_string())?;
+
+    let original_len = facts.len();
+    facts.retain(|f| f.get("id").and_then(|v| v.as_str()) != Some(fact_id));
+    let deleted = facts.len() < original_len;
+
+    if deleted {
+        // Atomic write: write to tmp, then rename
+        let tmp_path = path.with_extension("json.tmp");
+        let serialized = serde_json::to_string_pretty(&raw)
+            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        std::fs::write(&tmp_path, &serialized)
+            .map_err(|e| format!("Failed to write tmp file: {}", e))?;
+        std::fs::rename(&tmp_path, &path)
+            .map_err(|e| format!("Failed to rename tmp file: {}", e))?;
+    }
+
+    Ok(deleted)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use tempfile::TempDir;
 
-    fn test_db() -> (MemoryDb, TempDir) {
-        let dir = TempDir::new().unwrap();
-        let db_path = dir.path().join("test_memory.db");
-        let db = init_db(&db_path).unwrap();
-        (db, dir)
+    #[test]
+    fn parse_agent_memory_json() {
+        let content = r#"{
+            "version": 1,
+            "facts": [
+                {
+                    "id": "f1",
+                    "content": "User prefers TypeScript",
+                    "entities": ["TypeScript"],
+                    "topics": ["preference"],
+                    "createdAt": 1000,
+                    "updatedAt": 1000,
+                    "importance": 0.8,
+                    "recallCount": 2,
+                    "lastAccessed": 2000,
+                    "strength": 0.7,
+                    "sourceEpisodes": ["ep1"]
+                }
+            ],
+            "episodes": [],
+            "skills": [],
+            "reflections": [],
+            "associations": {}
+        }"#;
+        let store: MemoryStore = serde_json::from_str(content).unwrap();
+        assert_eq!(store.facts.len(), 1);
+        assert_eq!(store.facts[0].id, "f1");
+        assert_eq!(store.facts[0].content, "User prefers TypeScript");
+        assert_eq!(store.facts[0].entities, vec!["TypeScript"]);
+        assert_eq!(store.facts[0].importance, 0.8);
     }
 
     #[test]
-    fn init_db_creates_facts_table() {
-        let (db, _dir) = test_db();
-        let conn = db.lock().unwrap();
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = 'facts'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn init_db_enables_wal_mode() {
-        let (db, _dir) = test_db();
-        let conn = db.lock().unwrap();
-        let mode: String = conn
-            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
-            .unwrap();
-        assert_eq!(mode, "wal");
-    }
-
-    #[test]
-    fn init_db_is_idempotent() {
-        let dir = TempDir::new().unwrap();
-        let db_path = dir.path().join("test.db");
-        let _db1 = init_db(&db_path).unwrap();
-        let _db2 = init_db(&db_path).unwrap();
-    }
-
-    #[test]
-    fn facts_crud_lifecycle() {
-        let (db, _dir) = test_db();
-
-        // Insert
-        let fact = Fact {
-            id: "f1".into(), key: "user_name".into(), value: "Luke".into(),
-            source_session: Some("s1".into()), created_at: 1000, updated_at: 1000,
-        };
-        upsert_fact(&db, &fact).unwrap();
-
-        // Read
-        let facts = get_all_facts(&db).unwrap();
-        assert_eq!(facts.len(), 1);
-        assert_eq!(facts[0].key, "user_name");
-        assert_eq!(facts[0].value, "Luke");
-
-        // Upsert (update existing key)
-        let fact2 = Fact {
-            id: "f2".into(), key: "user_name".into(), value: "Luke Kim".into(),
-            source_session: Some("s2".into()), created_at: 1000, updated_at: 2000,
-        };
-        upsert_fact(&db, &fact2).unwrap();
-        let facts = get_all_facts(&db).unwrap();
-        assert_eq!(facts.len(), 1);
-        assert_eq!(facts[0].value, "Luke Kim");
-
-        // Delete
-        delete_fact(&db, &facts[0].id).unwrap();
-        let facts = get_all_facts(&db).unwrap();
-        assert!(facts.is_empty());
+    fn empty_file_returns_empty_facts() {
+        let content = r#"{"version": 1, "episodes": [], "skills": [], "reflections": [], "associations": {}}"#;
+        let store: MemoryStore = serde_json::from_str(content).unwrap();
+        assert!(store.facts.is_empty());
     }
 }

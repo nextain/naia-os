@@ -166,10 +166,6 @@ struct AuditState {
     db: audit::AuditDb,
 }
 
-struct MemoryState {
-    db: memory::MemoryDb,
-}
-
 fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
     match mutex.lock() {
         Ok(guard) => guard,
@@ -1573,65 +1569,13 @@ async fn get_audit_stats(
 // === Facts commands (sessions/messages now managed by Gateway) ===
 
 #[tauri::command]
-async fn memory_get_all_facts(
-    state: tauri::State<'_, MemoryState>,
-) -> Result<Vec<memory::Fact>, String> {
-    memory::get_all_facts(&state.db)
+async fn memory_get_all_facts() -> Result<Vec<memory::AgentFact>, String> {
+    Ok(memory::get_all_agent_facts())
 }
 
 #[tauri::command]
-async fn memory_upsert_fact(
-    fact: memory::Fact,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::upsert_fact(&state.db, &fact)
-}
-
-#[tauri::command]
-async fn memory_delete_fact(
-    fact_id: String,
-    state: tauri::State<'_, MemoryState>,
-) -> Result<(), String> {
-    memory::delete_fact(&state.db, &fact_id)
-}
-
-/// Read OpenClaw workspace memory files modified after a given timestamp.
-/// Returns Vec<(filename, content, mtime_ms)> for fact extraction.
-#[tauri::command]
-async fn read_openclaw_memory_files(since_ms: u64) -> Result<Vec<(String, String, u64)>, String> {
-    let home = home_dir();
-    let memory_dir = format!("{}/.openclaw/workspace/memory", home);
-    let dir = std::path::Path::new(&memory_dir);
-    if !dir.exists() {
-        return Ok(vec![]);
-    }
-    let mut results = Vec::new();
-    let entries = std::fs::read_dir(dir)
-        .map_err(|e| format!("Failed to read memory dir: {}", e))?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("md") {
-            continue;
-        }
-        let meta = std::fs::metadata(&path)
-            .map_err(|e| format!("Failed to stat {:?}: {}", path, e))?;
-        let mtime = meta.modified()
-            .map_err(|e| format!("Failed to get mtime {:?}: {}", path, e))?
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-        if mtime <= since_ms {
-            continue;
-        }
-        let content = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read {:?}: {}", path, e))?;
-        let filename = path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string();
-        results.push((filename, content, mtime));
-    }
-    Ok(results)
+async fn memory_delete_fact(fact_id: String) -> Result<bool, String> {
+    memory::delete_agent_fact(&fact_id)
 }
 
 /// Validate an API key by making a test request to the provider
@@ -2606,9 +2550,7 @@ pub fn run() {
             get_audit_log,
             get_audit_stats,
             memory_get_all_facts,
-            memory_upsert_fact,
             memory_delete_fact,
-            read_openclaw_memory_files,
             validate_api_key,
             list_audio_output_devices,
             generate_oauth_state,
@@ -2686,16 +2628,8 @@ pub fn run() {
             app.manage(AuditState { db: audit_db.clone() });
             log_verbose(&format!("[Naia] Audit DB initialized at: {}", audit_db_path.display()));
 
-            // Initialize memory DB
-            let memory_db_path = app_handle
-                .path()
-                .app_config_dir()
-                .map(|d| d.join("memory.db"))
-                .map_err(|e| format!("Failed to get config dir: {}", e))?;
-            let memory_db = memory::init_db(&memory_db_path)
-                .map_err(|e| -> Box<dyn std::error::Error> { format!("Failed to init memory DB: {}", e).into() })?;
-            app.manage(MemoryState { db: memory_db });
-            log_verbose(&format!("[Naia] Memory DB initialized at: {}", memory_db_path.display()));
+            // Memory: Agent MemorySystem reads/writes ~/.naia/memory/alpha-memory.json directly.
+            // Shell reads that file via memory::get_all_agent_facts() — no SQLite DB needed.
 
             // Migrate legacy vosk-models → stt-models
             stt_models::migrate_legacy_vosk_models(&app_handle);

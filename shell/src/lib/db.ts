@@ -1,25 +1,27 @@
 import { invoke } from "@tauri-apps/api/core";
 
-// === Facts (Shell-exclusive feature — Gateway has no structured facts) ===
+// === Agent Memory (reads from Agent's ~/.naia/memory/alpha-memory.json) ===
 
-export interface Fact {
+/** Agent's semantic Fact — matches agent/src/memory/types.ts Fact interface */
+export interface AgentFact {
 	id: string;
-	key: string;
-	value: string;
-	source_session: string | null;
-	created_at: number;
-	updated_at: number;
+	content: string;
+	entities: string[];
+	topics: string[];
+	createdAt: number;
+	updatedAt: number;
+	importance: number;
+	recallCount: number;
+	lastAccessed: number;
+	strength: number;
+	sourceEpisodes: string[];
 }
 
-export async function getAllFacts(): Promise<Fact[]> {
+export async function getAllAgentFacts(): Promise<AgentFact[]> {
 	return invoke("memory_get_all_facts");
 }
 
-export async function upsertFact(fact: Fact): Promise<void> {
-	return invoke("memory_upsert_fact", { fact });
-}
-
-export async function deleteFact(factId: string): Promise<void> {
+export async function deleteAgentFact(factId: string): Promise<boolean> {
 	return invoke("memory_delete_fact", { factId });
 }
 

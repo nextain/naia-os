@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 	invoke: (...args: unknown[]) => mockInvoke(...args),
 }));
 
-describe("db (facts-only)", () => {
+describe("db (agent memory)", () => {
 	beforeEach(() => {
 		mockInvoke.mockResolvedValue(undefined);
 	});
@@ -17,49 +17,41 @@ describe("db (facts-only)", () => {
 		vi.resetModules();
 	});
 
-	it("getAllFacts calls Tauri backend", async () => {
+	it("getAllAgentFacts calls Tauri backend", async () => {
 		const facts = [
 			{
 				id: "f1",
-				key: "user_name",
-				value: "Luke",
-				source_session: null,
-				created_at: 1000,
-				updated_at: 1000,
+				content: "User prefers TypeScript",
+				entities: ["TypeScript"],
+				topics: ["preference"],
+				createdAt: 1000,
+				updatedAt: 1000,
+				importance: 0.8,
+				recallCount: 2,
+				lastAccessed: 2000,
+				strength: 0.7,
+				sourceEpisodes: ["ep1"],
 			},
 		];
 		mockInvoke.mockResolvedValueOnce(facts);
 
-		const { getAllFacts } = await import("../db");
-		const result = await getAllFacts();
+		const { getAllAgentFacts } = await import("../db");
+		const result = await getAllAgentFacts();
 
 		expect(mockInvoke).toHaveBeenCalledWith("memory_get_all_facts");
 		expect(result).toEqual(facts);
 	});
 
-	it("upsertFact calls Tauri with correct args", async () => {
-		const fact = {
-			id: "f1",
-			key: "user_name",
-			value: "Luke",
-			source_session: null,
-			created_at: 1000,
-			updated_at: 1000,
-		};
+	it("deleteAgentFact calls Tauri with correct args", async () => {
+		mockInvoke.mockResolvedValueOnce(true);
 
-		const { upsertFact } = await import("../db");
-		await upsertFact(fact);
-
-		expect(mockInvoke).toHaveBeenCalledWith("memory_upsert_fact", { fact });
-	});
-
-	it("deleteFact calls Tauri with correct args", async () => {
-		const { deleteFact } = await import("../db");
-		await deleteFact("f1");
+		const { deleteAgentFact } = await import("../db");
+		const result = await deleteAgentFact("f1");
 
 		expect(mockInvoke).toHaveBeenCalledWith("memory_delete_fact", {
 			factId: "f1",
 		});
+		expect(result).toBe(true);
 	});
 
 	it("validateApiKey calls Tauri with correct args", async () => {

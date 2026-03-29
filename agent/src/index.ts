@@ -32,6 +32,7 @@ import { actionInstall as panelActionInstall } from "./skills/built-in/panel.js"
 import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "./system-prompt.js";
 import { MemorySystem } from "./memory/index.js";
 import { LocalAdapter } from "./memory/adapters/local.js";
+import type { MemoryAdapter } from "./memory/types.js";
 import { synthesize as ttsSynthesize } from "./tts/index.js";
 
 const activeStreams = new Map<string, AbortController>();
@@ -39,7 +40,47 @@ const activeStreams = new Map<string, AbortController>();
 // ─── Memory System (singleton) ───────────────────────────────────────────────
 const MEMORY_STORE_PATH = join(homedir(), ".naia", "memory", "alpha-memory.json");
 mkdirSync(join(homedir(), ".naia", "memory"), { recursive: true });
-const memoryAdapter = new LocalAdapter(MEMORY_STORE_PATH);
+
+/** Resolve memory adapter from config. Defaults to LocalAdapter. */
+function resolveMemoryAdapter(): MemoryAdapter {
+	// Check OpenClaw config for memory adapter setting
+	const configCandidates = [
+		join(homedir(), ".openclaw", "openclaw.json"),
+		join(homedir(), ".naia", "openclaw", "openclaw.json"),
+	];
+	for (const path of configCandidates) {
+		try {
+			const raw = JSON.parse(readFileSync(path, "utf-8")) as {
+				memory?: {
+					adapter?: string;
+					mem0Config?: {
+						embedder: { provider: string; config: Record<string, unknown> };
+						vectorStore: { provider: string; config: Record<string, unknown> };
+						llm: { provider: string; config: Record<string, unknown> };
+						historyDbPath?: string;
+					};
+				};
+			};
+			if (raw.memory?.adapter === "mem0" && raw.memory.mem0Config) {
+				// Dynamic require — mem0ai is an optional dependency (devDependencies).
+				// Falls back to LocalAdapter if mem0ai is not installed.
+				try {
+					const { Mem0Adapter } = require("./memory/adapters/mem0.js") as {
+						Mem0Adapter: new (options: { mem0Config: typeof raw.memory.mem0Config }) => MemoryAdapter;
+					};
+					return new Mem0Adapter({ mem0Config: raw.memory.mem0Config });
+				} catch {
+					// mem0ai not installed — fall through to LocalAdapter
+				}
+			}
+		} catch {
+			// ignore and try next
+		}
+	}
+	return new LocalAdapter(MEMORY_STORE_PATH);
+}
+
+const memoryAdapter = resolveMemoryAdapter();
 const memorySystem = new MemorySystem({ adapter: memoryAdapter });
 memorySystem.startConsolidation();
 

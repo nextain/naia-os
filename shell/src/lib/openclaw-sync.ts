@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { loadConfig } from "./config";
-import { getAllFacts } from "./db";
 import { getLocale } from "./i18n";
 import { Logger } from "./logger";
 import { buildSystemPrompt } from "./persona";
@@ -9,12 +8,8 @@ import { buildSystemPrompt } from "./persona";
  * Best-effort sync of Shell provider settings to OpenClaw gateway config.
  * Errors are logged but never block the UI.
  *
- * Always loads config + facts internally and builds the full system prompt
- * with facts included, so that SOUL.md contains user facts for all channels
- * (including Discord DM where Shell is not in the loop).
- *
- * Callers may still pass overrides for provider/model/apiKey etc., but
- * the system prompt is always built internally with full context + facts.
+ * Builds the full system prompt with persona/locale context.
+ * User facts are handled by Agent MemorySystem (sessionRecall) — not included here.
  */
 export async function syncToOpenClaw(
 	provider: string,
@@ -35,10 +30,7 @@ export async function syncToOpenClaw(
 	ollamaHost?: string,
 ): Promise<void> {
 	try {
-		// Always build prompt internally with full context + facts.
-		// This ensures SOUL.md contains user facts regardless of caller.
 		const cfg = loadConfig();
-		const facts = await getAllFacts().catch(() => []);
 		const fullPrompt = buildSystemPrompt(persona || cfg?.persona || undefined, {
 			agentName: agentName || cfg?.agentName || undefined,
 			userName: userName || cfg?.userName || undefined,
@@ -47,7 +39,6 @@ export async function syncToOpenClaw(
 			speechStyle: cfg?.speechStyle,
 			discordDefaultUserId: discordDefaultUserId || cfg?.discordDefaultUserId,
 			discordDmChannelId: discordDmChannelId || cfg?.discordDmChannelId,
-			facts: facts.length > 0 ? facts : undefined,
 		});
 
 		await invoke("sync_openclaw_config", {
