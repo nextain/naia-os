@@ -1,0 +1,46 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: security-review
+  description: "Security audit — high bar, more reviewers, more clean rounds"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 4
+    specs:
+      - id: appsec
+        expertise: "Application security (OWASP Top 10)"
+        prompt_ref: security-expert.md
+        strategy: "OWASP pattern scan — injection, auth, XSS, CSRF, path traversal, secrets, race conditions (TOCTOU), resource exhaustion (DoS)"
+      - id: correctness
+        expertise: "Logic and correctness (security-relevant)"
+        prompt_ref: correctness.md
+        # Rationale: logic errors in security code are security vulnerabilities (off-by-one in bounds checks,
+        # swallowed errors allowing bypass, race conditions). Intentional overlap with appsec on race
+        # conditions provides independent verification — desirable in security audits.
+        strategy: "Line-by-line logic — race conditions, error handling, edge cases as security vectors"
+      - id: threat-modeler
+        expertise: "Threat modeling and attack surface analysis"
+        prompt_ref: threat-modeler.md
+        strategy: "Attack surface enumeration — trust boundaries, data flows, privilege escalation paths"
+      - id: slop-detector
+        expertise: "SLOP and quality detection"
+        prompt_ref: slop-detector.md
+        strategy: "Claim verification — check every citation, flag ungrounded security claims"
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 3
+
+  limits:
+    max_rounds: 12
+
+  evidence_requirements:
+    min_files_read: 5
+    must_read_source: true
+
+  quality_signals:
+    # Raised from base 0.7: security audit demands higher citation accuracy
+    # to prevent false confidence from unverified claims. Not empirically calibrated yet.
+    min_verifiability: 0.8

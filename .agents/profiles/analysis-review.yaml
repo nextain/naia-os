@@ -1,0 +1,31 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: analysis-review
+  description: "Investigation and analysis review — verify source accuracy, reasoning quality"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: platform-specialist
+        expertise: "Platform and architecture knowledge"
+        prompt_ref: platform-specialist.md
+        strategy: "Verify claims against actual codebase — check file paths, function signatures, API surfaces"
+      - id: reasoning-auditor
+        expertise: "Logical reasoning and argumentation"
+        prompt_ref: reasoning-auditor.md
+        strategy: "Check logical chain — are conclusions supported by evidence? Are there gaps or leaps?"
+      - id: slop-detector
+        expertise: "SLOP and quality detection"
+        prompt_ref: slop-detector.md
+        strategy: "Claim verification — check every file:line citation, compute quality signals"
+
+  consensus:
+    strategy: "unanimous"
+    clean_rounds: 2
+
+  evidence_requirements:
+    min_files_read: 3
+    must_read_source: true

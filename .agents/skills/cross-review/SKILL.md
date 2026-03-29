@@ -139,10 +139,56 @@ For each collected report:
 
    If parsing fails for a report, log `PARSE_WARNING` and treat as CLEAN with 0 findings.
 
-2. **Quality signal check** (Tier 1, for each reviewer):
-   - Count files referenced in findings vs files listed in "Files read"
-   - If claim-to-read ratio > 3.0: log health warning for this reviewer
-   - Track dismissed-finding count per reviewer for health monitoring
+2. **Quality signal check** (Tier 1 + Tier 2, for each reviewer):
+
+   **Tier 1 — Zero cost (from report structure):**
+   - **Claim-to-Read Ratio**: `files_referenced_in_findings / files_in_files_read_section`.
+     Threshold: > 3.0 (claiming about many files but reading few).
+   - **Specificity Score**: `findings_with_file_line / total_findings`.
+     Threshold: < 0.30 (vague claims without `file:line` evidence).
+   - **Verifiability Score**: For each finding citing `file:line`, read the actual line
+     and check if the cited content matches the finding description.
+     Score = `verified_citations / total_citations`. Threshold: < 0.70.
+   - **Prompt Echo Ratio**: `findings_identical_to_review_target_description / total_findings`.
+     Threshold: > 0.50 (parroting the request back).
+
+   **Tier 2 — Low cost (from report text):**
+   - **Hedge Density**: Count hedge phrases ("it's worth noting", "arguably", "consider",
+     "might", "potentially", "perhaps") per 100 words of findings text.
+     Threshold: > 3.0 per 100 words.
+   - **Cross-Agent Agreement**: After finding matching (step 4), compute
+     `matched_findings / total_findings` for this reviewer. Threshold: < 0.30 sustained
+     for 2+ consecutive rounds.
+   - **Novelty Ratio**: (Round 2+ only) `new_findings_not_in_previous_round / total_findings`.
+     Threshold: < 0.50 (repeating known findings without new analysis).
+
+   **Composite Health Score** (per reviewer, per round):
+   ```
+   Normalize each signal to 0.0-1.0:
+   - Ratio signals: 1.0 - min(value / threshold, 1.0)
+   - Proportion signals: value as-is (already 0-1)
+
+   Score = (
+     norm(Claim-to-Read)  × 0.15 +
+     Specificity           × 0.15 +
+     Verifiability         × 0.25 +
+     norm(Prompt Echo)     × 0.10 +
+     norm(Hedge Density)   × 0.10 +
+     Cross-Agreement       × 0.15 +
+     Novelty               × 0.10
+   ) × 100
+   ```
+
+   **Actions based on score:**
+   - Score >= 50: OK (no action)
+   - Score 30-49: log `AGENT_HEALTH_WARNING` with signal breakdown, continue
+   - Score < 30: log `AGENT_HEALTH_FLAGGED`, eligible for auto-dismissal if profile allows
+     (`spec.health_check.auto_dismiss_on_low_score: true`, default: false)
+
+   Log per-reviewer health:
+   ```json
+   {"type":"HEALTH_SCORE","review_id":"{id}","round":{n},"reviewer_id":"{rid}","score":{n},"signals":{"claim_to_read":{v},"specificity":{v},"verifiability":{v},"prompt_echo":{v},"hedge_density":{v},"cross_agreement":{v},"novelty":{v}}}
+   ```
 
 3. Log events:
    ```json
@@ -196,6 +242,23 @@ For each CONTESTED finding:
    ```
 
 ### Round Result
+
+0. **Context Drift Check (Phase 3)**: Before counting findings, check if any reviewer
+   reported `REQUESTER_CONTEXT_DRIFT` as their verdict.
+   - If 1+ reviewers report DRIFT:
+     - Log: `{"type":"CONTEXT_DRIFT_DETECTED","review_id":"{id}","round":{n},"detector_ids":[...],"evidence":[...]}`
+     - Display warning to user:
+       ```
+       ⚠ Context drift detected by {reviewer_ids}.
+       Evidence: {evidence from reviewer reports}
+       Recommendation: Re-read the review target and refresh context before continuing.
+       Continue with current context? [y/n]
+       ```
+     - If user says no: pause review, allow requester to refresh, then resume from Round N+1
+     - If user says yes: continue normally (drift acknowledged but not acted on)
+   - A reviewer should report DRIFT when they observe that the review target description
+     or the requester's responses reference code/state that does not match actual files
+     (e.g., requester describes a function that was renamed or deleted).
 
 1. Count total CONFIRMED findings (from Phase 2 + Phase 3)
 

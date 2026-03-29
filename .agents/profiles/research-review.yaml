@@ -1,0 +1,31 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: research-review
+  description: "Deep research review — majority consensus, source verification focus"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: domain-expert
+        expertise: "Domain knowledge and technical depth"
+        prompt_ref: correctness.md
+        strategy: "Verify technical claims against source material — check citations, data accuracy"
+      - id: methodology-critic
+        expertise: "Research methodology and reasoning"
+        prompt_ref: reasoning-auditor.md
+        strategy: "Assess methodology — sample size, controls, statistical validity, logical fallacies"
+      - id: source-verifier
+        expertise: "Source verification and fact-checking"
+        prompt_ref: slop-detector.md
+        strategy: "Verify every cited source — does the paper say what's claimed? Are URLs valid?"
+
+  consensus:
+    strategy: "majority"
+    clean_rounds: 2
+
+  evidence_requirements:
+    min_files_read: 3
+    must_read_source: true
