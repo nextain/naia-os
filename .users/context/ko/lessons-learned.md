@@ -657,3 +657,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **근본 원인**: Review-pass Pass 3에서 잘못된 배치 감지. `Editor` describe는 파일 타입 렌더링 담당; `WorkspaceCenterPanel` describe는 세션 라이프사이클 및 context push 동작 담당.
 
 **수정**: `errorAlert` 테스트를 `WorkspaceCenterPanel` describe 블록으로 이동. 규칙: 테스트 대상(테스트 중인 컴포넌트)과 describe 블록 이름을 항상 일치시킬 것.
+
+---
+
+## L054 — Claude에게 "나쁜 리뷰어가 돼라"는 안 됨 — 코드로 시뮬레이션 (#165)
+
+**날짜**: 2026-03-29 | **분류**: 테스트 | **범위**: `.agents/tests/fixtures/mock-reviewers/`
+
+**문제**: TC-2.1에서 Claude에게 "구조화된 형식을 따르지 마" 라는 프롬프트를 줬지만, Claude의 도움 편향이 지시를 덮어씌우고 완벽한 리포트를 작성함.
+
+**원인**: LLM 정렬 — Claude는 도움이 되지 않으라는 지시보다 도움이 되는 것을 우선함.
+
+**해결**: 실제 관찰된 SLOP 패턴 6가지를 기반으로 나쁜 출력을 결정론적으로 생성하는 코드(`malformed-reviewer.js`) 작성. LLM을 완전히 우회.
+
+---
+
+## L055 — 전문 리뷰어의 단독 발견 ≠ 나쁜 리뷰어의 단독 발견 (#165)
+
+**날짜**: 2026-03-29 | **분류**: 프레임워크 설계 | **범위**: `.agents/skills/cross-review/SKILL.md`
+
+**문제**: 보안 리뷰어의 정당한 보안 발견(command injection 등)이 나쁜 리뷰어의 비현실적 발견과 동일하게 strike 처리됨.
+
+**원인**: Strike 누적기가 도메인 적합성을 확인하지 않고 모든 auto-dismissed solo finding을 동등하게 카운트.
+
+**해결**: 8A에 도메인 적합성 검사 추가. 도메인 일관 발견은 strike 미카운트.
+
+---
+
+## L056 — 다중 세션 워크스페이스에서 session-inject가 잘못된 이슈를 선택 (#165)
+
+**날짜**: 2026-03-29 | **분류**: 하네스 | **범위**: `.claude/hooks/session-inject.js`
+
+**문제**: 여러 Claude 세션이 동시 실행 시, 가장 최근 수정된 progress 파일만 표시됨.
+
+**원인**: mtime 기반 선택, 세션 인식 없음, 서브모듈 progress 미스캔.
+
+**해결**: `.session-map.json`으로 session_id → issue 매핑 + 서브모듈 progress 스캔 + 우선순위: 세션 클레임 > mtime 폴백.
