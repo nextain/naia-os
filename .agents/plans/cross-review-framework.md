@@ -482,19 +482,28 @@ No existing system combines ALL of these:
 - Finding cross-validation (cross-examination for contested items)
 - Finding dismissal voting (quorum: flag + dismiss > total)
 - Participant dismissal protocol (strikes → removal → replacement)
+- NOTE: Phase 2 dismissal uses strike counting (auto-dismissed finding count) as a proxy
+  for health scoring. Full Tier 1/2 health signals are Phase 3. This is intentional:
+  strike counting is simple and requires no calibration, serving as a bridge until
+  Phase 3 composite health scores are available.
 
 ### Phase 3: Advanced Health Monitoring
-- Tier 1 quality signals integration with process-guard
-- Phi Accrual quality detector (requires calibration data from Phase 1+2)
+- Tier 1/2 quality signals (Claim-to-Read, Specificity, Verifiability, Hedge, Cross-Agreement, Novelty)
+- Composite health score formula (weighted 7-signal, thresholds 50/30)
 - Context drift detection (REQUESTER_CONTEXT_DRIFT verdict)
-- KS adaptive stability (for larger agent pools)
+- Domain-aware strike counting (specialized reviewer solo findings exempt)
+- NOTE: Phase 3 health signals enhance Phase 2 dismissal but are not a prerequisite.
+  Phase 2 operates correctly with strike counting alone. Phase 3 adds early warning
+  (health score < 50 before strikes accumulate) and prevents specialized reviewer false flags.
+- Deferred: Phi Accrual (cold-start problem), KS adaptive stability (requires R>=5)
 
 ### Phase 4: Profile System & Integration
 - YAML profiles with inheritance (Docker Compose `extends`)
-- Built-in profiles for common review types
-- Integration with existing harness hooks (process-guard, commit-guard)
-- Cost management with model cascading (Haiku→Sonnet→Opus)
-- MiniCheck integration for Tier 3 quality signals
+- Built-in profiles for common review types (code, analysis, security, research, doc)
+- Integration with existing harness hooks (process-guard, commit-guard) — verified compatible
+- Cost management with advisory token budget tracking
+- Model cascading (Haiku→Sonnet→Opus per phase)
+- Deferred: MiniCheck integration for Tier 3 quality signals (requires local 770M model)
 
 ## 8. Known Risks (Round 2 identified)
 

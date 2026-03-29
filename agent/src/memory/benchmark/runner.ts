@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LocalAdapter } from "../local-adapter.js";
+import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
 import { calculateStrength, BASE_DECAY, IMPORTANCE_DAMPING } from "../decay.js";
 import { scoreImportance, STORAGE_GATE_THRESHOLD } from "../importance.js";

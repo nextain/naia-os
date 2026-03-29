@@ -1,0 +1,30 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: doc-review
+  description: "Documentation review — accuracy against code, lighter consensus"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 2
+    specs:
+      - id: accuracy-checker
+        expertise: "Code-documentation alignment"
+        prompt_ref: correctness.md
+        strategy: "Compare every documented claim against actual code — API signatures, examples, paths"
+      - id: consistency-checker
+        expertise: "Internal consistency and completeness"
+        prompt_ref: reasoning-auditor.md
+        strategy: "Check internal consistency — contradictions, missing sections, broken cross-references"
+
+  consensus:
+    strategy: "majority"
+    clean_rounds: 1
+
+  limits:
+    max_rounds: 5
+
+  evidence_requirements:
+    min_files_read: 2
+    must_read_source: true

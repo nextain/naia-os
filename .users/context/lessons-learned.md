@@ -658,3 +658,39 @@ if (cmd === "plugin:store|get") return [null, false];
 **Root cause**: Review-pass Pass 3 caught the misplacement. The `Editor` describe covers file-type rendering; `WorkspaceCenterPanel` describe covers session lifecycle and context push behaviour.
 
 **Fix**: Move `errorAlert` tests to the `WorkspaceCenterPanel` describe block. Rule: always match the test subject (component under test) to the describe block name.
+
+---
+
+## L054 — Claude refuses to "be a bad reviewer" — use code to simulate bad output (#165)
+
+**Date**: 2026-03-29 | **Category**: Testing | **Scope**: `.agents/tests/fixtures/mock-reviewers/`
+
+**Problem**: TC-2.1 asked Claude to produce intentionally malformed/bad review output via prompt ("Do NOT follow any report format"). Claude's helpfulness bias completely overrode the instruction and produced a fully structured, high-quality report.
+
+**Root cause**: LLM alignment — Claude prioritizes being helpful over following instructions to be unhelpful. This is a fundamental characteristic, not a bug.
+
+**Fix**: Write deterministic code (`malformed-reviewer.js`) that generates bad output based on empirically observed SLOP patterns (hedge cascade, scope overflow, structural parroting, stale cache, confidence laundering). Bypass the LLM entirely for test fixture generation.
+
+---
+
+## L055 — Specialized reviewer solo findings ≠ bad reviewer solo findings (#165)
+
+**Date**: 2026-03-29 | **Category**: Framework Design | **Scope**: `.agents/skills/cross-review/SKILL.md`
+
+**Problem**: In TC-Phase2-04, the security reviewer accumulated 3 strikes from legitimate solo security findings (command injection, auth bypass, PID reuse). Same auto-dismiss treatment as a bad reviewer's impractical findings.
+
+**Root cause**: Strike accumulator counted ALL auto-dismissed solo findings equally, without checking whether the finding was within the reviewer's domain of expertise.
+
+**Fix**: Added domain-relevance check in 8A Strike Accumulator. Domain-consistent solo findings (security finding from security reviewer) do NOT increment strikes. Only domain-inconsistent findings (e.g., nation-state threat from a standard reviewer) count.
+
+---
+
+## L056 — session-inject picks wrong issue in multi-session workspace (#165)
+
+**Date**: 2026-03-29 | **Category**: Harness | **Scope**: `.claude/hooks/session-inject.js`
+
+**Problem**: With multiple Claude sessions running concurrently, session-inject always showed the most recently modified progress file — another session's issue would override the current one.
+
+**Root cause**: Hook used mtime-based selection with no session awareness. Also only scanned `cwd/.agents/progress/`, missing submodule progress files.
+
+**Fix**: (1) Added `.session-map.json` for session_id → issue mapping. (2) Scan submodule `*/.agents/progress/` directories. (3) Priority: session-specific claim > mtime fallback.

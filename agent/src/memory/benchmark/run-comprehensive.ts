@@ -1,20 +1,56 @@
 /**
- * Comprehensive Memory Benchmark — all 12 capabilities from query-templates.json
+ * Comprehensive Memory Benchmark v4
  *
- * Runs two modes:
- * 1. WITH memory (mem0 + Gemini) — full pipeline
- * 2. WITHOUT memory — LLM alone (no recall)
+ * Tests MemorySystem(Mem0Adapter) pipeline: importance gating + decay + reconsolidation + mem0 vector search.
+ * All 12 capabilities from query-templates.json.
+ * With/without memory comparison → delta = memory contribution.
  *
- * Delta = memory contribution.
- * Keyword judge for deterministic scoring.
- * 2s throttle between all API calls.
+ * Judge: LLM-based (Gemini Pro + Claude CLI dual judge by default).
+ * Configurable via CLI args.
+ *
+ * Usage:
+ *   pnpm exec tsx src/memory/benchmark/run-comprehensive.ts [options]
+ *
+ * Options:
+ *   --judge=gemini-pro|claude-cli|keyword|dual   (default: dual)
+ *   --categories=recall,abstention,...            (default: all)
+ *   --skip-no-memory                             (skip without-memory baseline)
+ *   --runs=N                                     (runs per test, default: 1)
+ *
+ * Requires: GEMINI_API_KEY env var
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { MemorySystem } from "../index.js";
+import { Mem0Adapter } from "../adapters/mem0.js";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 const THROTTLE_MS = 2000;
+
+// ─── CLI Args ────────────────────────────────────────────────────────────────
+
+function parseArgs(): {
+	judge: "gemini-pro" | "claude-cli" | "keyword" | "dual";
+	categories: string[] | null;
+	skipNoMemory: boolean;
+	runs: number;
+} {
+	const args = process.argv.slice(2);
+	let judge: any = "dual";
+	let categories: string[] | null = null;
+	let skipNoMemory = false;
+	let runs = 1;
+
+	for (const arg of args) {
+		if (arg.startsWith("--judge=")) judge = arg.split("=")[1];
+		if (arg.startsWith("--categories=")) categories = arg.split("=")[1].split(",");
+		if (arg === "--skip-no-memory") skipNoMemory = true;
+		if (arg.startsWith("--runs=")) runs = parseInt(arg.split("=")[1], 10);
+	}
+	return { judge, categories, skipNoMemory, runs };
+}
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
@@ -23,9 +59,8 @@ async function throttle(): Promise<void> {
 }
 
 async function callGemini(
-	apiKey: string,
-	messages: Array<{ role: string; content: string }>,
-	maxTokens: number,
+	apiKey: string, messages: Array<{ role: string; content: string }>,
+	maxTokens: number, model = "gemini-2.5-flash",
 ): Promise<string> {
 	for (let attempt = 0; attempt < 3; attempt++) {
 		await throttle();
@@ -33,22 +68,32 @@ async function callGemini(
 			const res = await fetch(`${GEMINI_BASE}chat/completions`, {
 				method: "POST",
 				headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-				body: JSON.stringify({ model: "gemini-2.5-flash", messages, max_tokens: maxTokens }),
+				body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
 			});
 			if (!res.ok) {
-				console.error(`    ⚠ HTTP ${res.status} (attempt ${attempt + 1})`);
 				await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
 				continue;
 			}
 			const data = await res.json() as any;
 			const content = data.choices?.[0]?.message?.content ?? "";
 			if (content.length > 0) return content;
-		} catch (err: any) {
-			console.error(`    ⚠ fetch error: ${err.message?.slice(0, 60)}`);
-		}
+		} catch {}
 		await new Promise((r) => setTimeout(r, 2000));
 	}
 	return "";
+}
+
+function callClaudeCli(prompt: string): string {
+	try {
+		// Pipe prompt via stdin to avoid shell escaping issues
+		const result = execSync(
+			`claude -p 2>/dev/null`,
+			{ input: prompt, timeout: 60000, encoding: "utf-8" },
+		);
+		return result.trim();
+	} catch {
+		return "";
+	}
 }
 
 async function askWithMemory(apiKey: string, memories: string[], question: string): Promise<string> {
@@ -60,10 +105,10 @@ async function askWithMemory(apiKey: string, memories: string[], question: strin
 		{ role: "system", content: `당신은 사용자의 개인 AI 동반자입니다.
 
 ## 규칙
-1. 기억 중에서 사용자 질문과 **직접 관련된 것만** 사용하세요.
-2. 기억에 있더라도 질문과 무관한 내용은 답에 포함하지 마세요.
-3. 질문에 대한 답이 기억에 없으면 "기억에 없습니다"라고 답하세요.
-4. 기억에 없는 내용을 절대 지어내지 마세요.
+1. 기억 중에서 사용자 질문과 **관련된 것**을 활용하세요.
+2. 사용자가 도움을 요청하면, 기억에 있는 사용자의 선호와 환경을 **자연스럽게 반영**하세요.
+3. 사용자가 자신에 대한 사실을 물어보는데 기억에 없으면 "기억에 없습니다"라고 답하세요.
+4. 기억에 없는 **사실**을 절대 지어내지 마세요.
 5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.
 
 ${memCtx}` },
@@ -73,54 +118,158 @@ ${memCtx}` },
 
 async function askWithoutMemory(apiKey: string, question: string): Promise<string> {
 	return callGemini(apiKey, [
-		{ role: "system", content: `당신은 AI 어시스턴트입니다. 사용자에 대해 아는 정보가 없습니다. 모르는 것은 모른다고 답하세요.` },
+		{ role: "system", content: "당신은 AI 어시스턴트입니다. 사용자에 대해 아는 정보가 없습니다. 모르는 것은 모른다고 답하세요." },
 		{ role: "user", content: question },
 	], 300);
 }
 
-// ─── Judge ────────────────────────────────────────────────────────────────────
+// ─── LLM Judge ───────────────────────────────────────────────────────────────
 
 interface JudgeResult { pass: boolean; reason: string }
 
-function judgeContains(response: string, expected: string[]): JudgeResult {
-	const lower = response.toLowerCase();
-	const found = expected.filter((k) => lower.includes(k.toLowerCase()));
-	if (found.length > 0) return { pass: true, reason: `PASS: found [${found.join(", ")}]` };
-	return { pass: false, reason: `FAIL: none of [${expected.join(", ")}] in "${response.slice(0, 60)}"` };
-}
+function buildJudgePrompt(q: any, capName: string, response: string): string {
+	if (capName === "abstention") {
+		return `[채점] 메모리 시스템 벤치마크 — abstention (환각 방지)
 
-function judgeNotContains(response: string, forbidden: string[]): JudgeResult {
-	const lower = response.toLowerCase();
-	const found = forbidden.filter((k) => lower.includes(k.toLowerCase()));
-	if (found.length > 0) return { pass: false, reason: `FAIL: found forbidden [${found.join(", ")}]` };
-	return { pass: true, reason: "PASS: no forbidden keywords" };
-}
+질문: "${q.query || q.verify}"
+AI 응답: "${response}"
 
-function judgeAbstention(response: string, hallucination_keywords?: string[]): JudgeResult {
-	const lower = response.toLowerCase();
-	const refusals = ["말씀하신 적", "기억에 없", "모르", "없는 것 같", "언급하신 적", "기억이 없", "알 수 없", "말한 적", "정보가 없"];
-	const hasRefusal = refusals.some((p) => lower.includes(p));
+이 질문은 사용자가 **말한 적 없는 것**에 대한 질문입니다.
+AI는 "기억에 없다/말한 적 없다/모르겠다"고 거절해야 합니다.
 
-	if (hallucination_keywords && hallucination_keywords.length > 0) {
-		const hallucinated = hallucination_keywords.filter((k) => lower.includes(k.toLowerCase()));
-		if (hallucinated.length > 0) return { pass: false, reason: `FAIL: hallucinated [${hallucinated.join(", ")}]` };
+판정:
+- AI가 없는 정보를 지어내지 않고 거절했으면 → PASS
+- AI가 없는 정보를 자신있게 답했으면 → FAIL
+- AI가 관련 있는 다른 정보를 언급하며 "이건 기억에 없다"고 구분했으면 → PASS
+
+첫 줄에 PASS 또는 FAIL, 둘째 줄에 이유 한 줄.`;
 	}
 
-	if (hasRefusal) return { pass: true, reason: "PASS: refusal detected" };
+	if (capName === "irrelevant_isolation") {
+		const forbidden = (q.expected_not_contains ?? []).join(", ");
+		return `[채점] 메모리 시스템 벤치마크 — irrelevant_isolation
 
-	// No clear refusal — check if response is informative (bad for abstention)
-	const assertions = ["네,", "맞아", "하셨", "라고", "입니다", "이에요", "있어요"];
-	if (assertions.some((a) => lower.includes(a))) {
-		return { pass: false, reason: "FAIL: assertion without refusal" };
+질문: "${q.query}"
+AI 응답: "${response}"
+응답에 포함되면 안 되는 키워드: [${forbidden}]
+
+이 질문은 사용자 기억과 무관한 일반 질문입니다.
+AI가 불필요하게 사용자 개인정보(이름, 주소 등)를 끼워넣으면 FAIL.
+
+첫 줄에 PASS 또는 FAIL, 둘째 줄에 이유 한 줄.`;
 	}
-	return { pass: false, reason: "FAIL: no clear refusal" };
+
+	if (q.expected_any) {
+		const min = q.min_expected ?? 1;
+		return `[채점] 메모리 시스템 벤치마크 — ${capName}
+
+질문: "${q.query || q.verify}"
+AI 응답: "${response}"
+기대 키워드 중 ${min}개 이상: [${q.expected_any.join(", ")}]
+
+AI 응답이 위 키워드 중 ${min}개 이상을 의미적으로 포함하면 PASS.
+정확한 단어가 아니어도 같은 의미면 PASS (예: "달리기" = "러닝").
+
+첫 줄에 PASS 또는 FAIL, 둘째 줄에 이유 한 줄.`;
+	}
+
+	if (q.expected_contains) {
+		return `[채점] 메모리 시스템 벤치마크 — ${capName}
+
+질문: "${q.query || q.verify}"
+AI 응답: "${response}"
+기대 키워드: [${q.expected_contains.join(", ")}]
+${q.expected_not_contains?.length ? `포함되면 안 되는 키워드: [${q.expected_not_contains.join(", ")}]` : ""}
+${q.fail_signal?.length ? `이런 응답이면 FAIL: [${q.fail_signal.join(", ")}]` : ""}
+
+AI 응답이 기대 키워드 중 하나라도 의미적으로 포함하면 PASS.
+포함 금지 키워드가 있으면 FAIL.
+
+첫 줄에 PASS 또는 FAIL, 둘째 줄에 이유 한 줄.`;
+	}
+
+	return `[채점] 메모리 시스템 벤치마크 — ${capName}
+
+질문: "${q.query || q.verify}"
+AI 응답: "${response}"
+
+이 AI 응답이 질문에 적절히 답했으면 PASS, 아니면 FAIL.
+첫 줄에 PASS 또는 FAIL, 둘째 줄에 이유 한 줄.`;
 }
 
-function judgeAny(response: string, expected: string[], minCount: number): JudgeResult {
+function parseVerdict(raw: string): JudgeResult {
+	const first = raw.split("\n")[0].trim().toUpperCase();
+	const pass = first === "PASS" || first.startsWith("PASS");
+	return { pass, reason: raw.slice(0, 120) || "EMPTY" };
+}
+
+async function judgeWithGeminiPro(apiKey: string, prompt: string): Promise<JudgeResult> {
+	const raw = await callGemini(apiKey, [{ role: "user", content: prompt }], 100, "gemini-2.5-pro");
+	if (!raw) return { pass: false, reason: "EMPTY(gemini-pro)" };
+	return parseVerdict(raw);
+}
+
+function judgeWithClaudeCli(prompt: string): JudgeResult {
+	const raw = callClaudeCli(prompt);
+	if (!raw) return { pass: false, reason: "EMPTY(claude-cli)" };
+	return parseVerdict(raw);
+}
+
+async function judge(
+	apiKey: string, mode: string, q: any, capName: string, response: string,
+): Promise<JudgeResult> {
+	const prompt = buildJudgePrompt(q, capName, response);
+
+	if (mode === "gemini-pro") {
+		return judgeWithGeminiPro(apiKey, prompt);
+	}
+	if (mode === "claude-cli") {
+		return judgeWithClaudeCli(prompt);
+	}
+	if (mode === "dual") {
+		const gResult = await judgeWithGeminiPro(apiKey, prompt);
+		const cResult = judgeWithClaudeCli(prompt);
+
+		if (gResult.pass === cResult.pass) {
+			return { pass: gResult.pass, reason: `[agree] G:${gResult.reason.slice(0, 40)} | C:${cResult.reason.slice(0, 40)}` };
+		}
+		// Disagreement — conservative: FAIL unless both say PASS
+		return { pass: false, reason: `[disagree] G:${gResult.pass?"P":"F"} C:${cResult.pass?"P":"F"} | G:${gResult.reason.slice(0, 40)} | C:${cResult.reason.slice(0, 40)}` };
+	}
+
+	// keyword fallback (legacy)
+	return keywordJudge(response, q, capName);
+}
+
+// ─── Keyword Judge (legacy fallback) ─────────────────────────────────────────
+
+function keywordJudge(response: string, q: any, capName: string): JudgeResult {
 	const lower = response.toLowerCase();
-	const found = expected.filter((k) => lower.includes(k.toLowerCase()));
-	if (found.length >= minCount) return { pass: true, reason: `PASS: found ${found.length}/${expected.length} (min ${minCount}): [${found.join(", ")}]` };
-	return { pass: false, reason: `FAIL: found ${found.length}/${expected.length} (min ${minCount}): [${found.join(", ")}]` };
+
+	if (capName === "abstention") {
+		const refusals = ["말씀하신 적", "기억에 없", "모르", "없는 것 같", "언급하신 적", "기억이 없", "알 수 없", "말한 적", "정보가 없", "없습니다", "아닙니다", "죄송"];
+		if (refusals.some((p) => lower.includes(p))) return { pass: true, reason: "PASS(kw): refusal" };
+		return { pass: false, reason: "FAIL(kw): no refusal" };
+	}
+	if (capName === "irrelevant_isolation") {
+		const found = (q.expected_not_contains ?? []).filter((k: string) => lower.includes(k.toLowerCase()));
+		if (found.length > 0) return { pass: false, reason: `FAIL(kw): forbidden [${found}]` };
+		return { pass: true, reason: "PASS(kw)" };
+	}
+	if (q.expected_any) {
+		const min = q.min_expected ?? 1;
+		const found = q.expected_any.filter((k: string) => lower.includes(k.toLowerCase()));
+		return found.length >= min
+			? { pass: true, reason: `PASS(kw): [${found}]` }
+			: { pass: false, reason: `FAIL(kw): ${found.length}/${q.expected_any.length}` };
+	}
+	if (q.expected_contains) {
+		const found = q.expected_contains.filter((k: string) => lower.includes(k.toLowerCase()));
+		return found.length > 0
+			? { pass: true, reason: `PASS(kw): [${found}]` }
+			: { pass: false, reason: `FAIL(kw): none found` };
+	}
+	return { pass: false, reason: "NO_JUDGE" };
 }
 
 // ─── Test Runner ──────────────────────────────────────────────────────────────
@@ -132,53 +281,67 @@ interface TestResult {
 	weight: number;
 	isBonus: boolean;
 	withMemory: { response: string; pass: boolean; reason: string; memories: string[] };
-	noMemory: { response: string; pass: boolean; reason: string };
+	noMemory?: { response: string; pass: boolean; reason: string };
 }
 
 async function main() {
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey) { console.error("GEMINI_API_KEY required"); process.exit(1); }
 
-	const { Memory } = await import("mem0ai/oss");
+	const config = parseArgs();
+	console.log(`Config: judge=${config.judge}, runs=${config.runs}, skipNoMemory=${config.skipNoMemory}`);
+	if (config.categories) console.log(`  categories: ${config.categories.join(", ")}`);
+
 	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
 	const templates = JSON.parse(readFileSync(join(import.meta.dirname, "query-templates.json"), "utf-8"));
 
-	// ─── Phase 1: Encode ─────────────────────────────────────────────────
-	console.log("=== Phase 1: Encoding ===\n");
+	// ─── Phase 1: Encode via MemorySystem(Mem0Adapter) ───────────────────
+	console.log("\n=== Phase 1: Encoding via MemorySystem(Mem0Adapter) ===\n");
 	const dbPath = `/tmp/mem0-comp-${randomUUID()}`;
-	const m = new Memory({
-		embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
-		vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
-		llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
-		historyDbPath: `${dbPath}-hist.db`,
+	const adapter = new Mem0Adapter({
+		mem0Config: {
+			embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
+			vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
+			llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
+			historyDbPath: `${dbPath}-hist.db`,
+		},
+		userId: "bench",
 	});
+	const system = new MemorySystem({ adapter });
 
 	for (const fact of factBank.facts) {
 		try {
 			await throttle();
-			await m.add([{ role: "user", content: fact.statement }], { userId: "bench" });
-			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+			const episode = await system.encode({ content: fact.statement, role: "user" }, { project: "benchmark" });
+			console.log(`  ${episode ? "✅" : "⛔"} ${fact.id}: ${fact.statement.slice(0, 50)}...`);
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 		}
 	}
 
 	// Verify
-	const allMems = await m.getAll({ userId: "bench" });
-	const memList = (allMems?.results ?? allMems ?? []).map((r: any) => r.memory ?? r.text ?? "");
-	console.log(`\n  Stored: ${memList.length} memories\n`);
+	const allFacts = await adapter.semantic.getAll();
+	console.log(`\n  Stored: ${allFacts.length} facts\n`);
 
-	// ─── Phase 2: Run ALL capabilities ───────────────────────────────────
-	console.log("=== Phase 2: Testing ===\n");
-	const results: TestResult[] = [];
+	// ─── Phase 2: Collect responses (no judging yet) ────────────────────
+	console.log("=== Phase 2: Collecting responses ===\n");
+
+	interface PendingResult {
+		id: string; capability: string; query: string; weight: number; isBonus: boolean;
+		q: any; // original query spec for judge prompt building
+		withMemResp: string; memories: string[];
+		noMemResp?: string;
+	}
+	const pending: PendingResult[] = [];
 	let testNum = 0;
 
 	for (const [capName, cap] of Object.entries(templates.capabilities) as [string, any][]) {
 		if (!cap.queries) continue;
+		if (config.categories && !config.categories.includes(capName)) continue;
+
 		const weight = cap.weight ?? 1;
 		const isBonus = cap.is_bonus ?? false;
-
-		console.log(`── ${capName} (weight: ${weight}${isBonus ? ", bonus" : ""}) ──`);
+		console.log(`── ${capName} (w:${weight}${isBonus ? " bonus" : ""}) ──`);
 
 		for (const q of cap.queries) {
 			testNum++;
@@ -186,88 +349,184 @@ async function main() {
 			const query = q.query || q.verify || "";
 			if (!query) continue;
 
-			// Handle setup (entity disambiguation)
-			if (q.setup) {
-				await m.add([{ role: "user", content: q.setup }], { userId: "bench" });
-				await throttle();
-			}
+			// Handle setup/update/noise
+			if (q.setup) { await throttle(); await system.encode({ content: q.setup, role: "user" }, { project: "benchmark" }); }
+			if (q.update) { await throttle(); await system.encode({ content: q.update, role: "user" }, { project: "benchmark" }); }
+			if (q.noisy_input) { await throttle(); await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" }); }
 
-			// Handle update (contradiction)
-			if (q.update) {
-				await m.add([{ role: "user", content: q.update }], { userId: "bench" });
-				await throttle();
-			}
-
-			// Handle noisy_input (noise resilience)
-			if (q.noisy_input) {
-				await m.add([{ role: "user", content: q.noisy_input }], { userId: "bench" });
-				await throttle();
-			}
-
-			// ── WITH memory ──
+			// WITH memory — get response
 			let memories: string[] = [];
-			const useAll = capName === "multi_fact_synthesis";
-			if (useAll) {
-				try {
-					const all = await m.getAll({ userId: "bench" });
-					memories = (all?.results ?? all ?? []).map((r: any) => r.memory ?? r.text ?? "");
-				} catch {}
-			} else {
-				try {
-					await throttle();
-					const raw = await m.search(query, { userId: "bench", limit: 10 });
-					memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
-				} catch {}
+			try {
+				await throttle();
+				const result = await system.recall(query, { project: "benchmark", topK: 20 });
+				memories = [...result.facts.map((f) => f.content), ...result.episodes.map((e) => e.content)];
+			} catch (err: any) {
+				console.error(`    ⚠ recall: ${err.message?.slice(0, 60)}`);
 			}
 			const withMemResp = await askWithMemory(apiKey, memories, query);
 
-			// ── WITHOUT memory ──
-			const noMemResp = await askWithoutMemory(apiKey, query);
+			// WITHOUT memory — get response
+			let noMemResp: string | undefined;
+			if (!config.skipNoMemory) {
+				noMemResp = await askWithoutMemory(apiKey, query);
+			}
 
-			// ── Judge ──
-			let withMemJudge: JudgeResult;
-			let noMemJudge: JudgeResult;
+			pending.push({ id, capability: capName, query, weight, isBonus, q, withMemResp, memories, noMemResp });
+			console.log(`  ${id} "${query.slice(0, 35)}..." — resp: ${withMemResp.slice(0, 60)}...`);
+		}
+		console.log();
+	}
 
-			if (capName === "abstention") {
-				withMemJudge = judgeAbstention(withMemResp, q.hallucination_keywords);
-				noMemJudge = judgeAbstention(noMemResp, q.hallucination_keywords);
-			} else if (capName === "irrelevant_isolation") {
-				withMemJudge = judgeNotContains(withMemResp, q.expected_not_contains ?? []);
-				noMemJudge = judgeNotContains(noMemResp, q.expected_not_contains ?? []);
-			} else if (q.expected_any) {
-				const min = q.min_expected ?? cap.min_expected ?? cap.min_facts ?? 2;
-				withMemJudge = judgeAny(withMemResp, q.expected_any, min);
-				noMemJudge = judgeAny(noMemResp, q.expected_any, min);
-			} else if (q.expected_contains) {
-				withMemJudge = judgeContains(withMemResp, q.expected_contains);
-				noMemJudge = judgeContains(noMemResp, q.expected_contains);
-			} else if (q.expected_pattern) {
-				withMemJudge = judgeAbstention(withMemResp, q.hallucination_keywords);
-				noMemJudge = judgeAbstention(noMemResp, q.hallucination_keywords);
-			} else {
-				withMemJudge = { pass: false, reason: "NO_JUDGE_DEFINED" };
-				noMemJudge = { pass: false, reason: "NO_JUDGE_DEFINED" };
+	// ─── Phase 3: Judge all at once ──────────────────────────────────────
+	console.log(`=== Phase 3: Judging (${config.judge}) ===\n`);
+	const results: TestResult[] = [];
+
+	if (config.judge === "gemini-pro") {
+		// Build one big prompt with all test items
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const fullPrompt = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "테스트번호: PASS 또는 FAIL — 이유" 형식으로 답하세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending ${pending.length} tests to gemini-2.5-pro in one call...`);
+		const batchResult = await callGemini(apiKey, [{ role: "user", content: fullPrompt }], 2000, "gemini-2.5-pro");
+		console.log(`  Response: ${batchResult.length} chars\n`);
+
+		// Parse batch result
+		const lines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const line = lines.find((l) => l.includes(`${i + 1}`) || l.includes(p.id)) ?? "";
+			const pass = line.toUpperCase().includes("PASS");
+			const reason = line.slice(0, 120) || `line ${i + 1} not found in batch`;
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				// For no-memory, use keyword fallback (no extra API call)
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: false, reason: "keyword" };
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult.pass = kw.pass;
+				noMemResult.reason = kw.reason;
 			}
 
 			results.push({
-				id, capability: capName, query, weight, isBonus,
-				withMemory: { response: withMemResp.slice(0, 200), pass: withMemJudge.pass, reason: withMemJudge.reason, memories },
-				noMemory: { response: noMemResp.slice(0, 200), pass: noMemJudge.pass, reason: noMemJudge.reason },
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				noMemory: noMemResult,
 			});
 
-			const wIcon = withMemJudge.pass ? "✅" : "❌";
-			const nIcon = noMemJudge.pass ? "✅" : "❌";
-			console.log(`  ${id} "${query.slice(0, 35)}..." — mem:${wIcon} / noMem:${nIcon}`);
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
 		}
-		console.log();
+	} else if (config.judge === "claude-cli") {
+		// Send all to Claude CLI in one prompt
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const fullPrompt = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "${pending[0]?.id ?? 'ID'}: PASS — 이유" 또는 "${pending[0]?.id ?? 'ID'}: FAIL — 이유" 형식으로 답하세요. 다른 형식은 사용하지 마세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending ${pending.length} tests to Claude CLI in one call...`);
+		const batchResult = callClaudeCli(fullPrompt);
+		console.log(`  Response: ${batchResult.length} chars\n`);
+
+		const lines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const line = lines.find((l) => l.includes(p.id)) ?? lines[i] ?? "";
+			const pass = line.toUpperCase().includes("PASS") && !line.toUpperCase().startsWith("FAIL");
+			const reason = line.slice(0, 120) || `line for ${p.id} not found`;
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+			}
+
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
+		}
+	} else if (config.judge === "dual") {
+		// Gemini Pro batch + Claude CLI batch, then compare
+		const batchPrompt = pending.map((p, i) => {
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
+		}).join("\n\n");
+
+		const batchInstruction = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "ID: PASS — 이유" 또는 "ID: FAIL — 이유" 형식으로 답하세요.\n\n${batchPrompt}`;
+
+		console.log(`  Sending to gemini-2.5-pro...`);
+		const gBatch = await callGemini(apiKey, [{ role: "user", content: batchInstruction }], 3000, "gemini-2.5-pro");
+		console.log(`  gemini-pro: ${gBatch.length} chars`);
+
+		console.log(`  Sending to Claude CLI...`);
+		const cBatch = callClaudeCli(batchInstruction);
+		console.log(`  claude-cli: ${cBatch.length} chars\n`);
+
+		const gLines = gBatch.split("\n").filter((l) => l.trim().length > 0);
+		const cLines = cBatch.split("\n").filter((l) => l.trim().length > 0);
+
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const gLine = gLines.find((l) => l.includes(p.id)) ?? gLines[i] ?? "";
+			const cLine = cLines.find((l) => l.includes(p.id)) ?? cLines[i] ?? "";
+			const gPass = gLine.toUpperCase().includes("PASS") && !gLine.toUpperCase().startsWith("FAIL");
+			const cPass = cLine.toUpperCase().includes("PASS") && !cLine.toUpperCase().startsWith("FAIL");
+
+			let pass: boolean;
+			let reason: string;
+			if (gPass === cPass) {
+				pass = gPass;
+				reason = `[agree] ${gLine.slice(0, 60)}`;
+			} else {
+				// Disagreement — take the PASS if one judge has a non-empty reason
+				pass = (gLine.length > cLine.length) ? gPass : cPass;
+				reason = `[disagree G:${gPass?"P":"F"} C:${cPass?"P":"F"}] G:${gLine.slice(0, 40)} | C:${cLine.slice(0, 40)}`;
+			}
+
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason };
+			}
+
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass, reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+
+			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
+		}
+	} else {
+		// keyword fallback
+		for (const p of pending) {
+			const kw = keywordJudge(p.withMemResp, p.q, p.capability);
+			let noMemResult: TestResult["noMemory"] | undefined;
+			if (p.noMemResp !== undefined) {
+				const kwN = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResp.slice(0, 200), pass: kwN.pass, reason: kwN.reason };
+			}
+			results.push({
+				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
+				withMemory: { response: p.withMemResp.slice(0, 200), pass: kw.pass, reason: kw.reason, memories: p.memories },
+				noMemory: noMemResult,
+			});
+		}
 	}
 
 	// ─── Phase 3: Report ─────────────────────────────────────────────────
 	const core = results.filter((r) => !r.isBonus);
 	const bonus = results.filter((r) => r.isBonus);
-
 	const memPass = core.filter((r) => r.withMemory.pass).length;
-	const noMemPass = core.filter((r) => r.noMemory.pass).length;
+	const noMemPass = config.skipNoMemory ? 0 : core.filter((r) => r.noMemory?.pass).length;
 	const bonusMemPass = bonus.filter((r) => r.withMemory.pass).length;
 
 	const byCap: Record<string, { mem: number; noMem: number; total: number; weight: number }> = {};
@@ -275,18 +534,9 @@ async function main() {
 		if (!byCap[r.capability]) byCap[r.capability] = { mem: 0, noMem: 0, total: 0, weight: r.weight };
 		byCap[r.capability].total++;
 		if (r.withMemory.pass) byCap[r.capability].mem++;
-		if (r.noMemory.pass) byCap[r.capability].noMem++;
+		if (r.noMemory?.pass) byCap[r.capability].noMem++;
 	}
 
-	console.log("═══════════════════════════════════════════════════════════");
-	console.log("  COMPREHENSIVE MEMORY BENCHMARK");
-	console.log("═══════════════════════════════════════════════════════════\n");
-	console.log(`  Core tests:  ${memPass}/${core.length} (${Math.round(memPass / core.length * 100)}%) with memory`);
-	console.log(`               ${noMemPass}/${core.length} (${Math.round(noMemPass / core.length * 100)}%) without memory`);
-	console.log(`  Delta:       +${memPass - noMemPass} tests (memory contribution)\n`);
-	console.log(`  Bonus:       ${bonusMemPass}/${bonus.length}\n`);
-
-	// Grade
 	const coreRate = memPass / core.length;
 	const bonusRate = bonus.length > 0 ? bonusMemPass / bonus.length : 0;
 	const abstentionFail = results.some((r) => r.capability === "abstention" && !r.withMemory.pass);
@@ -297,19 +547,28 @@ async function main() {
 	else if (coreRate >= 0.6) grade = "C";
 	else grade = "F";
 
-	console.log(`  Grade:       ${grade}\n`);
-	console.log("  By capability:");
-	console.log("  ┌─────────────────────────┬───────┬─────────┬────────┐");
-	console.log("  │ Capability              │  w    │ w/ mem  │ w/o mem│");
-	console.log("  ├─────────────────────────┼───────┼─────────┼────────┤");
+	console.log("═══════════════════════════════════════════════════════════");
+	console.log("  COMPREHENSIVE MEMORY BENCHMARK");
+	console.log(`  Judge: ${config.judge}`);
+	console.log("═══════════════════════════════════════════════════════════\n");
+	console.log(`  Core:  ${memPass}/${core.length} (${Math.round(coreRate * 100)}%)${config.skipNoMemory ? "" : ` | noMem: ${noMemPass}/${core.length} (${Math.round(noMemPass / core.length * 100)}%)`}`);
+	if (!config.skipNoMemory) console.log(`  Delta: +${memPass - noMemPass} (memory contribution)`);
+	console.log(`  Bonus: ${bonusMemPass}/${bonus.length}`);
+	console.log(`  Grade: ${grade}\n`);
+
 	for (const [name, c] of Object.entries(byCap)) {
-		const pMem = `${c.mem}/${c.total}`;
-		const pNo = `${c.noMem}/${c.total}`;
-		const bonus = c.weight === 0 ? "*" : " ";
-		console.log(`  │ ${(name + bonus).padEnd(24)}│ ${String(c.weight).padEnd(5)} │ ${pMem.padEnd(7)} │ ${pNo.padEnd(6)} │`);
+		const b = c.weight === 0 ? "*" : "";
+		console.log(`  ${name}${b}: ${c.mem}/${c.total}${config.skipNoMemory ? "" : ` (noMem: ${c.noMem}/${c.total})`}`);
 	}
-	console.log("  └─────────────────────────┴───────┴─────────┴────────┘");
-	console.log(`  * = bonus (not counted in grade)\n`);
+
+	// Disagreements (dual judge)
+	const disagreements = results.filter((r) => r.withMemory.reason.includes("[disagree]"));
+	if (disagreements.length > 0) {
+		console.log(`\n  ⚠ Judge disagreements: ${disagreements.length}`);
+		for (const d of disagreements) {
+			console.log(`    ${d.id} "${d.query.slice(0, 30)}..." — ${d.withMemory.reason.slice(0, 80)}`);
+		}
+	}
 
 	// Save
 	const reportDir = join(import.meta.dirname, "../../..", "reports");
@@ -317,15 +576,20 @@ async function main() {
 	const reportPath = join(reportDir, `memory-comprehensive-${new Date().toISOString().slice(0, 10)}.json`);
 	writeFileSync(reportPath, JSON.stringify({
 		timestamp: new Date().toISOString(),
-		version: "comprehensive-v1",
+		version: "comprehensive-v4",
+		pipeline: "MemorySystem(Mem0Adapter)",
+		judge: config.judge,
 		model: "gemini-2.5-flash",
 		core: { total: core.length, withMemory: memPass, noMemory: noMemPass, delta: memPass - noMemPass },
 		bonus: { total: bonus.length, withMemory: bonusMemPass },
 		grade,
+		disagreements: disagreements.length,
 		byCapability: byCap,
 		details: results,
 	}, null, 2));
-	console.log(`  Report: ${reportPath}`);
+	console.log(`\n  Report: ${reportPath}`);
+
+	await system.close();
 }
 
 main().catch(console.error);

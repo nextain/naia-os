@@ -22,16 +22,22 @@ If no arguments: ask the user for profile and target.
 ## Step 2: Load Profile
 
 1. Read `.agents/profiles/{profile}.yaml`
+   - If the file does not exist: report `Profile not found: .agents/profiles/{profile}.yaml` and **stop**.
+   - If the file is not valid YAML: report `Profile parse error: {error details}` and **stop**.
 2. If the profile has `metadata.extends`: read the parent profile, deep-merge (child overrides parent).
    For MVP: if extends `_base`, read `.agents/profiles/_base.yaml` and merge manually.
-3. Validate:
+   - If the parent profile does not exist: report `Parent profile not found: {parent}` and **stop**.
+3. For each reviewer spec with `prompt_ref`: verify `.agents/prompts/{prompt_ref}` exists.
+   - If a prompt file is missing: report `Prompt not found: .agents/prompts/{prompt_ref}` and **stop**.
+4. Validate:
    - `spec.reviewers.count >= 2`
    - `spec.reviewers.specs` has exactly `count` entries (if present)
    - Each reviewer spec has `id`, `expertise`, `prompt_ref`, `strategy`
    - `spec.consensus.clean_rounds >= 1`
    - `spec.limits.max_rounds >= 1`
 
-If validation fails, report errors and stop.
+If validation fails, report specific errors (which field, expected vs actual) and **stop**.
+Do not proceed to Step 3 with a partially loaded or invalid profile.
 
 ## Step 3: Initialize Review
 
@@ -107,7 +113,10 @@ For each reviewer in `spec.reviewers.specs`:
    ```
 
 3. Spawn the reviewer using the **Agent** tool:
-   - Use `model:` set to `spec.model_policy.judgment` from the profile (default: `"sonnet"`)
+   - **Model cascading** (per `spec.model_policy` in profile):
+     - Phase 1 (Independent Review): use `judgment` tier (default: `"sonnet"`)
+     - Phase 3 (Selective Debate): use `arbitration` tier (default: `"opus"`)
+     - Generation tasks (drafting, summarizing): use `generation` tier (default: `"haiku"`)
    - Each reviewer is a SEPARATE Agent call with independent context
    - **Spawn ALL reviewers in a SINGLE message** (parallel execution)
    - Each Agent call includes the constructed prompt above
@@ -133,10 +142,56 @@ For each collected report:
 
    If parsing fails for a report, log `PARSE_WARNING` and treat as CLEAN with 0 findings.
 
-2. **Quality signal check** (Tier 1, for each reviewer):
-   - Count files referenced in findings vs files listed in "Files read"
-   - If claim-to-read ratio > 3.0: log health warning for this reviewer
-   - Track dismissed-finding count per reviewer for health monitoring
+2. **Quality signal check** (Tier 1 + Tier 2, for each reviewer):
+
+   **Tier 1 — Zero cost (from report structure):**
+   - **Claim-to-Read Ratio**: `files_referenced_in_findings / files_in_files_read_section`.
+     Threshold: > 3.0 (claiming about many files but reading few).
+   - **Specificity Score**: `findings_with_file_line / total_findings`.
+     Threshold: < 0.30 (vague claims without `file:line` evidence).
+   - **Verifiability Score**: For each finding citing `file:line`, read the actual line
+     and check if the cited content matches the finding description.
+     Score = `verified_citations / total_citations`. Threshold: < 0.70.
+   - **Prompt Echo Ratio**: `findings_identical_to_review_target_description / total_findings`.
+     Threshold: > 0.50 (parroting the request back).
+
+   **Tier 2 — Low cost (from report text):**
+   - **Hedge Density**: Count hedge phrases ("it's worth noting", "arguably", "consider",
+     "might", "potentially", "perhaps") per 100 words of findings text.
+     Threshold: > 3.0 per 100 words.
+   - **Cross-Agent Agreement**: After finding matching (step 4), compute
+     `matched_findings / total_findings` for this reviewer. Threshold: < 0.30 sustained
+     for 2+ consecutive rounds.
+   - **Novelty Ratio**: (Round 2+ only) `new_findings_not_in_previous_round / total_findings`.
+     Threshold: < 0.50 (repeating known findings without new analysis).
+
+   **Composite Health Score** (per reviewer, per round):
+   ```
+   Normalize each signal to 0.0-1.0:
+   - Ratio signals: 1.0 - min(value / threshold, 1.0)
+   - Proportion signals: value as-is (already 0-1)
+
+   Score = (
+     norm(Claim-to-Read)  × 0.15 +
+     Specificity           × 0.15 +
+     Verifiability         × 0.25 +
+     norm(Prompt Echo)     × 0.10 +
+     norm(Hedge Density)   × 0.10 +
+     Cross-Agreement       × 0.15 +
+     Novelty               × 0.10
+   ) × 100
+   ```
+
+   **Actions based on score:**
+   - Score >= 50: OK (no action)
+   - Score 30-49: log `AGENT_HEALTH_WARNING` with signal breakdown, continue
+   - Score < 30: log `AGENT_HEALTH_FLAGGED`, eligible for auto-dismissal if profile allows
+     (`spec.health_check.auto_dismiss_on_low_score: true`, default: false)
+
+   Log per-reviewer health:
+   ```json
+   {"type":"HEALTH_SCORE","review_id":"{id}","round":{n},"reviewer_id":"{rid}","score":{n},"signals":{"claim_to_read":{v},"specificity":{v},"verifiability":{v},"prompt_echo":{v},"hedge_density":{v},"cross_agreement":{v},"novelty":{v}}}
+   ```
 
 3. Log events:
    ```json
@@ -191,10 +246,28 @@ For each CONTESTED finding:
 
 ### Round Result
 
+0. **Context Drift Check (Phase 3)**: Before counting findings, check if any reviewer
+   reported `REQUESTER_CONTEXT_DRIFT` as their verdict.
+   - If 1+ reviewers report DRIFT:
+     - Log: `{"type":"CONTEXT_DRIFT_DETECTED","review_id":"{id}","round":{n},"detector_ids":[...],"evidence":[...]}`
+     - Display warning to user:
+       ```
+       ⚠ Context drift detected by {reviewer_ids}.
+       Evidence: {evidence from reviewer reports}
+       Recommendation: Re-read the review target and refresh context before continuing.
+       Continue with current context? [y/n]
+       ```
+     - If user says no: pause review, allow requester to refresh, then resume from Round N+1
+     - If user says yes: continue normally (drift acknowledged but not acted on)
+   - A reviewer should report DRIFT when they observe that the review target description
+     or the requester's responses reference code/state that does not match actual files
+     (e.g., requester describes a function that was renamed or deleted).
+
 1. Count total CONFIRMED findings (from Phase 2 + Phase 3)
 
 2. **Strike Accumulation (Phase 2)**: After Phase 2 voting, for each FINDING_DISMISSED
-   where the finding was auto-dismissed (solo, R>=3), increment `strike_count[reviewer_id]`.
+   where the finding was auto-dismissed (solo, R>=3), check domain relevance (see Appendix 8A)
+   and increment `strike_count[reviewer_id]` only for domain-inconsistent findings.
    If `strike_count[reviewer_id] >= spec.dismissal.strikes_before_dismissal` (default: 2):
    - Log AGENT_HEALTH_FLAGGED with `dismissed_findings[]` list
    - **Dismissal vote**: The orchestrator (main agent) evaluates whether the
@@ -227,6 +300,17 @@ For each CONTESTED finding:
 5. If `round >= spec.limits.max_rounds`:
    → **REVIEW COMPLETE** (max rounds reached) — go to Step 5
 
+5b. **Budget check (advisory)**: After each round, estimate token usage from agent
+   response lengths. Track `estimated_tokens_this_round` and `estimated_tokens_total`.
+   - If `estimated_tokens_total > spec.cost.max_total_tokens`:
+     → Log `{"type":"BUDGET_EXCEEDED","review_id":"{id}","round":{n},"estimated_tokens":{n}}`
+     → **REVIEW COMPLETE** (budget exceeded) — go to Step 5 with status BUDGET_EXCEEDED
+   - If `estimated_tokens_this_round > spec.cost.per_round_tokens`:
+     → Skip Phase 3 debate for this round, proceed directly to Round Result
+     → Log advisory warning
+   NOTE: Token counts are estimates (response length × ~1.3). Exact counts require
+   API-level instrumentation not available in prompt-only orchestration.
+
 6. Log:
    ```json
    {"type":"ROUND_COMPLETED","review_id":"{id}","round":{n},"confirmed":{n},"dismissed":{n},"contested":{n},"clean_count":{n}}
@@ -252,7 +336,7 @@ Produce the final consolidated report:
 **Review ID**: {review_id}
 **Profile**: {profile_name}
 **Rounds**: {total_rounds}
-**Result**: {CLEAN | FOUND_ISSUES | MAX_ROUNDS_REACHED}
+**Result**: {CLEAN | FOUND_ISSUES | MAX_ROUNDS_REACHED | BUDGET_EXCEEDED}
 
 ### Reviewer Summary
 
@@ -274,9 +358,18 @@ Produce the final consolidated report:
 
 ### Health Summary
 
-| Reviewer | Dismissed Count | Status |
-|----------|----------------|--------|
-| {id} | {n} | OK / ⚠ Warning |
+| Reviewer | Health Score | Dismissed Count | Strike Count | Status |
+|----------|:-----------:|:--------------:|:------------:|--------|
+| {id} | {score}/100 | {n} | {n} | OK / ⚠ Warning / 🚫 Dismissed |
+
+### Cost Summary (advisory)
+
+| Metric | Value |
+|--------|-------|
+| Total rounds | {n} |
+| Estimated tokens (total) | ~{n} |
+| Budget (max_total_tokens) | {n} |
+| Model usage | Phase 1: {judgment}, Phase 3: {arbitration} |
 
 **Event log**: `.agents/reviews/{review_id}.jsonl`
 ```
@@ -297,16 +390,26 @@ Maintain a `strike_count` map (reviewer_id → count), initialized at REVIEW_STA
 
 After Phase 2 voting in each round:
 - For every FINDING_DISMISSED event where the finding was auto-dismissed (solo, R>=3):
-  - Increment `strike_count[reviewer_id]` by 1
-  - Log: `{"type":"FINDING_DISMISSED", ..., "reviewer_id":"{id}", "strike_incremented": true}`
+  - **Domain relevance check**: Before incrementing, evaluate whether the finding is
+    within the reviewer's assigned domain (per `expertise` and `strategy` in profile).
+    A security reviewer's solo security finding is domain-consistent even if no other
+    reviewer corroborates it (other reviewers may lack security expertise).
+    - If the finding is **domain-consistent**: do NOT increment strike. Log with
+      `"strike_incremented": false, "reason": "domain-consistent solo finding"`.
+    - If the finding is **domain-inconsistent** (e.g., accessibility finding from a
+      security reviewer, or nation-state threat on a known-good config): increment
+      `strike_count[reviewer_id]` by 1. Log with `"strike_incremented": true`.
+  - A finding is domain-inconsistent when it references concerns outside the reviewer's
+    `expertise` field, OR when it applies a threat model significantly beyond the
+    profile's intended scope (e.g., nation-state threats in a standard code review).
 
 NOTE: Confirmed findings are EXCULPATORY — they do NOT increment strikes.
 Default threshold: `spec.dismissal.strikes_before_dismissal` (default: 2 from _base.yaml).
 
 The health check fires **ONCE after ALL findings in a round are processed** —
-not after each individual finding. All auto-dismissals contribute to strike_count
-before the check runs. The dismissal vote executes between Round N result and
-Round N+1 start — never mid-round.
+not after each individual finding. Only domain-inconsistent auto-dismissals contribute
+to strike_count before the check runs. The dismissal vote executes between Round N
+result and Round N+1 start — never mid-round.
 
 ### 8B. Dismissal Vote
 
@@ -388,15 +491,48 @@ The following are NOT problems:
 3. **All findings dismissed** — This is a valid outcome (CLEAN round). Dismissed findings are low-confidence solo findings that no other reviewer corroborated.
 4. **R=2 Phase 3 auto-confirm** — With 2 reviewers, contested findings are confirmed by the raiser's vote. This is by design. The formal dismissal protocol (Phase 2+) provides the override.
 
+## Harness Hook Integration
+
+The following existing hooks integrate naturally with cross-review:
+- **process-guard.js**: Blocks "clean pass" declarations without file reads — applies to orchestrator
+- **commit-guard.js**: Checks progress file phase — cross-review runs during `review` phase
+
+No hook modifications needed. Cross-review operates within the existing harness framework.
+
 ## Related Files
 
 | File | Purpose |
 |------|---------|
 | `.agents/plans/cross-review-framework.md` | High-level design (converged) |
 | `.agents/plans/cross-review-implementation-design.md` | Implementation design (converged) |
-| `.agents/profiles/_base.yaml` | Base profile (defaults for all profiles) |
-| `.agents/profiles/code-review.yaml` | Code review profile (MVP) |
-| `.agents/prompts/correctness.md` | Correctness reviewer system prompt |
-| `.agents/prompts/security-expert.md` | Security reviewer system prompt |
-| `.agents/prompts/slop-detector.md` | SLOP detector system prompt |
+| `.agents/plans/cross-review-phase2-dismissal-plan.md` | Phase 2 dismissal investigation plan |
+| `.agents/plans/cross-review-test-plan.md` | Test plan (23 test cases) |
+| **Profiles** | |
+| `.agents/profiles/_base.yaml` | Base profile (inherited by all) |
+| `.agents/profiles/code-review.yaml` | Code review (3 reviewers, unanimous) |
+| `.agents/profiles/analysis-review.yaml` | Analysis/investigation review |
+| `.agents/profiles/security-review.yaml` | Security audit (4 reviewers, 3 clean rounds) |
+| `.agents/profiles/research-review.yaml` | Research review (majority consensus) |
+| `.agents/profiles/doc-review.yaml` | Documentation review (2 reviewers, lightweight) |
+| **Reviewer Prompts** | |
+| `.agents/prompts/correctness.md` | Line-by-line logic analysis |
+| `.agents/prompts/security-expert.md` | Pattern-based security scan |
+| `.agents/prompts/slop-detector.md` | Claim verification + quality signals |
+| `.agents/prompts/platform-specialist.md` | Source verification |
+| `.agents/prompts/reasoning-auditor.md` | Argument chain analysis |
+| `.agents/prompts/threat-modeler.md` | Attack surface enumeration |
+| **Test Fixtures** | |
+| `.agents/tests/fixtures/injected-bugs/` | Injected bug files (5) for detection rate |
+| `.agents/tests/fixtures/known-good/` | Known-good files for FP rate |
+| `.agents/tests/fixtures/malformed-reports/` | Malformed reports for parse testing |
+| `.agents/tests/fixtures/malformed-profiles/` | Invalid profiles for TC-5.3 |
+| **Test Personas** | |
+| `.agents/prompts/bad-reviewer-a-domain-amnesiac.md` | WCAG expert on Rust code |
+| `.agents/prompts/bad-reviewer-b-scope-constrained.md` | Lines 1-20 only |
+| `.agents/prompts/bad-reviewer-c-overcautious.md` | Nation-state threat model |
+| `.agents/profiles/phase2-test.yaml` | Phase 2 test (Persona A) |
+| `.agents/profiles/phase2-test-b.yaml` | Phase 2 test (Persona B) |
+| `.agents/profiles/phase2-test-c.yaml` | Phase 2 test (Persona C) |
+| **Reports** | |
+| `docs/reports/cross-review-test-results-phase-*.md` | Test result reports |
 | `.agents/reviews/` | Event logs (gitignored) |

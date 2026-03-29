@@ -1,0 +1,20 @@
+apiVersion: cross-review/v1
+kind: ReviewProfile
+metadata:
+  name: bad-yaml
+  description: "Intentionally malformed YAML for TC-5.3"
+  extends: _base
+
+spec:
+  reviewers:
+    count: 3
+    specs:
+      - id: correctness
+        expertise: "Logic and correctness"
+        prompt_ref: correctness.md
+      # Missing 'strategy' field — validation should catch this
+      - id: security
+        expertise: "Security"
+        prompt_ref: security-expert.md
+        strategy: "Pattern scan"
+      # Only 2 specs but count says 3 — validation should catch this

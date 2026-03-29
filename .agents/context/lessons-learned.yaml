@@ -553,3 +553,33 @@ lessons:
     problem: "errorAlert and re-arm tests were initially placed inside the Editor describe block. This caused logical grouping errors and misleading test names in the output."
     root_cause: "Review-pass Pass 3 caught the misplacement. The Editor describe covers file-type rendering; WorkspaceCenterPanel describe covers session lifecycle and context push behaviour."
     fix: "Move errorAlert tests to the WorkspaceCenterPanel describe block. Rule: always match the test subject (component under test) to the describe block name."
+
+  - id: L054
+    date: "2026-03-29"
+    issue: "#165"
+    category: testing
+    scope: ".agents/tests/fixtures/mock-reviewers/"
+    title: "Claude refuses bad-reviewer prompt — use code to generate bad output"
+    problem: "TC-2.1 asked Claude to produce malformed review output. Claude's helpfulness bias overrode the instruction."
+    root_cause: "LLM alignment: Claude prioritizes helpfulness over instructions to be unhelpful."
+    fix: "Write deterministic malformed-reviewer.js that generates bad output based on 6 empirically observed SLOP patterns."
+
+  - id: L055
+    date: "2026-03-29"
+    issue: "#165"
+    category: framework-design
+    scope: ".agents/skills/cross-review/SKILL.md"
+    title: "Specialized reviewer solo findings ≠ bad reviewer solo findings"
+    problem: "Security reviewer accumulated strikes from legitimate domain-specific solo findings."
+    root_cause: "Strike accumulator counted all auto-dismissed solos equally without domain check."
+    fix: "Domain-relevance check in 8A: domain-consistent solo findings do NOT increment strikes."
+
+  - id: L056
+    date: "2026-03-29"
+    issue: "#165"
+    category: harness
+    scope: ".claude/hooks/session-inject.js"
+    title: "session-inject picks wrong issue in multi-session workspace"
+    problem: "Multiple concurrent sessions all see the most recently modified progress file."
+    root_cause: "mtime-based selection with no session awareness; submodule progress dirs not scanned."
+    fix: "session_id → issue mapping via .session-map.json + submodule progress dir scanning."

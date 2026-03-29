@@ -13,8 +13,8 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { calculateStrength, shouldPrune } from "./decay.js";
-import { type KGState, KnowledgeGraph, emptyKGState } from "./knowledge-graph.js";
+import { calculateStrength, shouldPrune } from "../decay.js";
+import { type KGState, KnowledgeGraph, emptyKGState } from "../knowledge-graph.js";
 import type {
 	ConsolidationResult,
 	Episode,
@@ -23,7 +23,7 @@ import type {
 	RecallContext,
 	Reflection,
 	Skill,
-} from "./types.js";
+} from "../types.js";
 
 /** On-disk schema for JSON persistence */
 interface MemoryStore {

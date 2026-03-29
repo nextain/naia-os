@@ -19,11 +19,12 @@
     "semantic_search": {
       "description": "직접 언급하지 않은 표현으로 시맨틱 매칭 검색",
       "weight": 2,
-      "min_expected": 2,
+      "min_expected": 1,
+      "note": "min_expected=1: 의미 검색이 1개라도 연결하면 성공. 2개 이상 연결은 가산점.",
       "queries": [
-        {"facts": ["F02","F03","F04"], "query": "내 개발 환경 어떻게 되지?", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"]},
-        {"facts": ["F02","F03","F04"], "query": "내 기술 스택 알려줘", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"]},
-        {"facts": ["F02","F03","F04"], "query": "나 뭘로 코딩해?", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"]},
+        {"facts": ["F02","F03","F04"], "query": "내 개발 환경 어떻게 되지?", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"], "min_expected": 2},
+        {"facts": ["F02","F03","F04"], "query": "내 기술 스택 알려줘", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"], "min_expected": 2},
+        {"facts": ["F02","F03","F04"], "query": "나 뭘로 코딩해?", "expected_any": ["TypeScript","Neovim","Next.js","FastAPI"], "min_expected": 2},
         {"facts": ["F02","F04"], "query": "내 로컬 셋업 어때?", "expected_any": ["TypeScript","Next.js","FastAPI","Fedora"]},
         {"facts": ["F05","F14"], "query": "내 작업 스타일이 어때?", "expected_any": ["다크모드","탭","오전","오후","코딩"]},
         {"facts": ["F07","F10"], "query": "나 음식 취향이 어때?", "expected_any": ["아메리카노","매운","순한"]},

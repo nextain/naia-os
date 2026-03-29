@@ -14,8 +14,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { calculateStrength, shouldPrune } from "./decay.js";
-import { KnowledgeGraph, emptyKGState, type KGState } from "./knowledge-graph.js";
+import { calculateStrength, shouldPrune } from "../decay.js";
+import { KnowledgeGraph, emptyKGState, type KGState } from "../knowledge-graph.js";
 import type {
 	ConsolidationResult,
 	Episode,
@@ -24,7 +24,7 @@ import type {
 	RecallContext,
 	Reflection,
 	Skill,
-} from "./types.js";
+} from "../types.js";
 
 // mem0 types (imported dynamically to avoid bundling issues)
 type Mem0Memory = any; // Will be import("mem0ai/oss").Memory

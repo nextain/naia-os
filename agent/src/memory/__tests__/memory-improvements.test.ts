@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { calculateStrength, shouldPrune, BASE_DECAY, IMPORTANCE_DAMPING, PRUNE_THRESHOLD } from "../decay.js";
-import { LocalAdapter } from "../local-adapter.js";
+import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
 import type { Episode, Fact, ImportanceScore } from "../types.js";
 

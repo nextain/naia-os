@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { LocalAdapter } from "../local-adapter.js";
+import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
 
 describe("Memory E2E — 3 Session Simulation", () => {
