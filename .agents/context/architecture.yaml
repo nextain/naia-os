@@ -538,10 +538,17 @@ gateway_client_protocol:
   auth_params:
     token: "gateway.auth.token from config (shared secret)"
     client_id: "cli (matches paired device clientId)"
-    platform: "linux"
+    platform: "linux (Windows: Gateway runs inside WSL, so platform is still linux)"
     mode: "cli"
     min_protocol: 3
     max_protocol: 3
+
+  windows_notes:
+    description: "On Windows, Gateway runs inside WSL2 NaiaEnv distro"
+    connection: "ws://127.0.0.1:18789 (mirrored networking allows localhost access from host)"
+    spawn: "wsl.exe -d NaiaEnv -- node /opt/naia/openclaw/node_modules/openclaw/openclaw.mjs gateway run"
+    config_requirement: "gateway.mode=local must be set in /root/.openclaw/openclaw.json"
+    race_condition_guard: "restart_gateway uses AtomicBool compare_exchange to prevent concurrent restarts"
 
 voice_architecture:
   description: "Voice I/O via two modes: omni LLM (built-in voice) or STT→LLM→TTS pipeline"
@@ -676,20 +683,11 @@ voice_architecture:
           - {id: "whisper-small", size: "466MB", wer: "~20%"}
           - {id: "whisper-medium", size: "1.5GB", wer: "~12%"}
           - {id: "whisper-large-v3", size: "3GB", wer: "~8%"}
-        cuda_dynamic:
-          description: "Runtime CUDA backend loading — single binary works on both NVIDIA and non-NVIDIA systems"
-          feature_flag: "cuda-dynamic (Cargo feature on naia-shell → tauri-plugin-stt → whisper-rs)"
-          mechanism: "2-pass CMake build: Pass 1 = static CPU-only binary, Pass 2 = libggml-cuda.so/.dll MODULE"
-          runtime_behavior: |
-            libggml-cuda.so/.dll + libggml-base.so/.dll placed next to executable → GPU acceleration
-            Shared libs absent → graceful CPU-only fallback, no crash
-            ggml_backend_load_all() called via std::sync::Once before first WhisperContext creation
-          build_requirement: "CUDA toolkit (nvcc) required at build time only; runtime CUDA auto-detected via dlopen/LoadLibrary"
-          platform_support:
-            linux: "Tested — CPU fallback verified in CUDA-free distrobox (2026-03-14)"
-            windows: "Untested — build.rs .dll patterns added but not verified on MSVC builds"
-          fork_repo: "https://github.com/nextain/whisper-rs-fork (cuda-dynamic branch on master)"
-          upstream_pr: "Planned for codeberg.org/tazz4843/whisper-rs"
+        cuda:
+          description: "NVIDIA GPU acceleration via upstream whisper-rs cuda feature"
+          feature_flag: "cuda (Cargo feature on naia-shell → tauri-plugin-stt → whisper-rs/cuda)"
+          build_requirement: "CUDA toolkit (nvcc) required at build time"
+          note: "Uses upstream whisper-rs directly (codeberg.org/tazz4843/whisper-rs)"
       google: {status: "disabled in UI (future)"}
       elevenlabs: {status: "disabled in UI (future)"}
     runtime:
@@ -699,7 +697,7 @@ voice_architecture:
         - "shell/src-tauri/plugins/tauri-plugin-stt/src/models.rs — ListenConfig with engine/modelId"
         - "shell/src-tauri/src/stt_models.rs — model catalog, download, delete, migration"
       models_dir: "~/.local/share/com.naia.shell/stt-models/"
-      build_deps: "cmake. .cargo/config.toml sets WHISPER_DONT_GENERATE_BINDINGS=1"
+      build_deps: "cmake + LLVM/libclang (for whisper-rs-sys bindgen)"
     config_fields: "sttProvider ('vosk'|'whisper'), sttModel (model_id string)"
     settings_ui: "STT provider dropdown + model list with size/WER/download/delete buttons"
     first_install: "no sttProvider set → voice button shows popup → navigate to settings"

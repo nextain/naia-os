@@ -19,7 +19,7 @@ finish-args:
   - --filesystem=home
   - --talk-name=org.freedesktop.Flatpak
   - --talk-name=org.freedesktop.Notifications
-  - --own-name=com.naia.shell.*
+  - --own-name=io.nextain.naia.*
   - --env=FLATPAK=1
   - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
   - --env=GDK_BACKEND=x11

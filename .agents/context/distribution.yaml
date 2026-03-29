@@ -23,7 +23,7 @@ formats:
       - "Node bundled at /app/bin/node"
       - "pnpm not in PATH — use npx pnpm, npx tauri"
       - "Claude Code terminal cannot flatpak install — use desktop terminal"
-      - "--own-name=com.naia.shell.* required for single-instance D-Bus in Flatpak sandbox"
+      - "--own-name=io.nextain.naia.* required for single-instance D-Bus in Flatpak sandbox"
       - "tauri dev registers competing MIME handlers — local-reinstall script cleans them automatically"
 
   agent_build_pipeline:
@@ -50,6 +50,117 @@ formats:
   rpm:
     built_by: tauri build
     status: working
+
+  windows:
+    description: "Windows desktop app (NSIS installer with embedded frontend)"
+    status: working
+    build_command: "cd shell && pnpm tauri build --config src-tauri/tauri.conf.windows.json"
+    output: "shell/src-tauri/target/release/bundle/nsis/Naia_{version}_x64-setup.exe"
+    config_overlay: "shell/src-tauri/tauri.conf.windows.json"
+    bundle_targets: ["nsis"]
+    nsis_config:
+      install_mode: "currentUser"
+      languages: ["English", "Korean", "Japanese"]
+      start_menu_folder: "Naia"
+      code_signing: "not configured (SmartScreen warning on install)"
+      uninstall_hooks: "not implemented — see issue #53"
+    bundled_resources:
+      node_exe: "resources/node.exe (downloaded at CI build time, ~45MB)"
+      agent: "agent/dist + agent/node_modules (from base config)"
+    wsl_requirement:
+      description: "Windows app requires WSL2 + NaiaEnv distro for Gateway execution"
+      tiers:
+        tier_1: "No WSL/NaiaEnv — shows WslSetupScreen"
+        tier_2: "WSL ready — Gateway runs inside NaiaEnv via wsl.exe"
+      wsl_availability_check:
+        definitive: "sc.exe query vmcompute (vmcompute service exists only after VMP activation + reboot)"
+        false_positive: "wsl --version always succeeds on Win11 regardless of feature state"
+        feature_state: "get_windows_feature_state() — returns Enabled/Disabled/EnablePending/None"
+      provisioning_steps:
+        1: "Enable VirtualMachinePlatform + Microsoft-Windows-Subsystem-Linux (temp .ps1 file + Start-Process -Verb RunAs)"
+        2: "Reboot (only once — vmcompute check prevents false WSL availability)"
+        3: "Download Ubuntu 24.04 rootfs from cdimage.ubuntu.com (~374MB .wsl file)"
+        4: "wsl --import NaiaEnv (after verifying vmcompute service exists)"
+        5: "Install Node.js 22 (NodeSource)"
+        6: "Install OpenClaw (npm install openclaw@latest)"
+        7: "Set gateway.mode=local in /root/.openclaw/openclaw.json"
+        8: "Write /etc/wsl.conf (systemd=true)"
+      broken_approaches:
+        - "wsl --install -d Ubuntu-24.04 --no-launch — reports 'already installed' without registering"
+        - "wsl --export on uninitialized distro — WSL_E_DISTRO_NOT_FOUND"
+        - "Inline PowerShell -ArgumentList — mangles pipes and semicolons"
+        - "Get-WindowsOptionalFeature from non-elevated Tauri — COMException"
+      wsl_setup_white_screen:
+        description: "WebView goes white during WSL feature activation (UAC elevation). Root cause unknown."
+        workaround: |
+          1. WslSetupScreen shows warning text before install (i18n: wslSetup.whiteScreenNotice)
+          2. After enable_wsl_features_elevated(), show Win32 MessageBoxW (OK/Cancel)
+          3. OK → register RunOnce auto-start + shutdown /r /t 3
+          4. Cancel or OK → std::process::exit(0) (kills white-screened app)
+          5. After reboot, app auto-starts via RunOnce registry (one-time, self-cleaning)
+        files:
+          - "shell/src-tauri/src/platform/windows.rs — show_native_reboot_dialog(), register_run_once()"
+          - "shell/src/components/WslSetupScreen.tsx — whiteScreenNotice text"
+          - "shell/src/lib/i18n.ts — wslSetup.whiteScreenNotice (14 languages)"
+      gateway_spawn_flow:
+        initial_startup: "spawn_gateway() → try_platform_gateway_spawn() — Skip if NaiaEnv absent"
+        after_wsl_setup: "App.tsx onComplete → restartGateway() → spawn gateway in WSL"
+        after_onboarding: "handleComplete() → restartGateway() → restart gateway"
+        health_check: "GET http://127.0.0.1:18789/__openclaw__/canvas/ from Windows host (WSL2 localhost forwarding)"
+        health_monitor: "Started in restart_gateway if not started during initial setup"
+      auto_approve_timeout:
+        description: "auto_approve_pending_devices has 15s timeout to prevent restart_gateway hang"
+        mechanism: "try_wait() polling loop with child.kill() on timeout"
+    restart_gateway_guard:
+      description: "Atomic guard prevents concurrent Gateway restarts"
+      mechanism: "compare_exchange on restarting_gateway AtomicBool (SeqCst)"
+      reason: "Deep link auth can trigger multiple restartGateway calls; without guard, Gateway killed mid-spawn"
+      frontend_debounce: "2s debounce + inflight promise in openclaw-sync.ts"
+    identity_sync:
+      description: "Device identity + openclaw.json copied from WSL NaiaEnv to Windows ~/.openclaw/"
+      trigger: "sync_wsl_identity_to_windows() called after auto_approve_pending_devices in both spawn + reuse paths"
+      reason: "agent-core on Windows needs ~/.openclaw/identity/device.json for Gateway WebSocket handshake"
+      files_synced:
+        - "/root/.openclaw/identity/device.json → ~/.openclaw/identity/device.json"
+        - "/root/.openclaw/openclaw.json → ~/.openclaw/openclaw.json"
+    config_sync:
+      description: "should_skip_openclaw_sync() returns true on Windows"
+      reason: "Config path is Windows-side ~/.openclaw/ but Gateway reads WSL /root/.openclaw/"
+      impact: "Provider/model/API key changes from Shell UI not synced to WSL gateway"
+      status: "partially mitigated — identity_sync copies initial config but runtime changes not synced"
+    e2e_test:
+      infra_script: "scripts/test-windows-e2e.mjs"
+      app_script: "scripts/test-windows-app-e2e.mjs"
+      commands:
+        infra: "node scripts/test-windows-e2e.mjs [--skip-cleanup]"
+        app: "node scripts/test-windows-app-e2e.mjs [--skip-cleanup]"
+      infra_phases:
+        1: "Verify clean state (no NaiaEnv, no .naia, no .openclaw)"
+        2: "WSL setup (rootfs download → NaiaEnv → provision)"
+        3: "Gateway startup + HTTP/canvas health check (WSL + Windows host)"
+        4: "Device auto-approval + config copy"
+        5: "Agent ↔ Gateway handshake"
+      app_phases:
+        1: "Preconditions (binary exists, NaiaEnv registered, vmcompute available)"
+        2: "Launch naia-shell.exe (with CAFE_DEBUG_E2E=1 for WebSocket probe)"
+        3: "Wait for Gateway health from Windows host (max 120s)"
+        4: "Verify Gateway status + WSL process + /health JSON details"
+        5: "Verify WebSocket chain (agent-core → Gateway via skill_diagnostics probe)"
+      websocket_probe:
+        description: "E2E self-test sends skill_diagnostics tool_request through agent-core stdin"
+        trigger: "CAFE_DEBUG_E2E=1 env var — Rust backend sends probe after Gateway+agent startup"
+        verification: "E2E script checks naia.log for [E2E-DEBUG] agent_response tool_result tool=skill_diagnostics success=true"
+        chain: "Rust backend → agent-core stdin → agent WebSocket → Gateway → response → agent stdout → Rust log"
+      diagnostics_fix:
+        description: "DiagnosticsTab no longer requires enableTools=true to check Gateway status"
+        reason: "On first install, enableTools is only set after onboarding — diagnostics should always work for debugging"
+        fallback: "Uses DEFAULT_GATEWAY_URL (ws://localhost:18789) when enableTools is false"
+      ci_status: "manual only (requires WSL + VirtualMachinePlatform)"
+    pending_issues:
+      - "Config sync: should_skip_openclaw_sync prevents runtime provider/model sync to WSL"
+      - "restart_gateway race condition on deep link auth (partially mitigated by auto_approve timeout)"
+      - "Gateway /health endpoint: version/methods not exposed — only available via WebSocket skill_diagnostics"
+    ci_status: "build-windows job added to release-app.yml (NSIS + updater sig)"
 
   iso:
     builder: ublue-os/titanoboa@main
@@ -131,6 +242,8 @@ release:
     - Naia-Shell-x86_64.deb
     - Naia-Shell-x86_64.rpm
     - Naia-Shell-x86_64.flatpak
+    - Naia-Shell-x86_64-setup.exe
+    - Naia-Shell-x86_64-setup.exe.sig
     - SHA256SUMS
     - latest.json
   naming_convention: "Version-independent filenames for stable /latest/ download URLs"
@@ -146,20 +259,22 @@ workflows:
 ci_pipeline:
   # Parallel
   build_linux: "tauri build (with signing) → AppImage + .sig, DEB, RPM"
+  build_windows: "tauri build --config windows.json → NSIS .exe + .sig (downloads node.exe for bundling)"
   build_flatpak: "flatpak-builder → flatpak build-bundle"
-  # Sequential (depends on both above)
-  release: "download artifacts → release notes from YAML → latest.json → SHA256SUMS → GitHub Release → itch.io butler push"
+  # Sequential (depends on all above)
+  release: "download artifacts → release notes from YAML → latest.json (linux + windows) → SHA256SUMS → GitHub Release → itch.io butler push"
   # Triggered by release success
   generate_iso: "OCI image → bootable ISO (needs GHCR image first)"
 
 app_update:
-  mechanism: "Tauri updater plugin (Ed25519 signed AppImage)"
+  mechanism: "Tauri updater plugin (Ed25519 signed — AppImage on Linux, NSIS .exe on Windows)"
   endpoint: "https://github.com/nextain/naia-os/releases/latest/download/latest.json"
   signing: "TAURI_SIGNING_PRIVATE_KEY + TAURI_SIGNING_PRIVATE_KEY_PASSWORD (CI secrets)"
   flatpak_exclusion: "FLATPAK=1 env → updater plugin not registered (Flatpak manages own updates)"
   itch_io:
     channel_linux: "nextain/naia:linux (AppImage)"
     channel_flatpak: "nextain/naia:linux-flatpak"
+    channel_windows: "nextain/naia:windows (NSIS setup.exe)"
     secret: BUTLER_API_KEY
   changelog:
     source: "releases/v*.yaml (multilingual YAML)"
@@ -246,6 +361,34 @@ troubleshooting:
     symptom: "App launches but shows white/blank screen"
     cause: "Used cargo build --release instead of npx tauri build --no-bundle"
     fix: "ALWAYS use npx tauri build --no-bundle (WebKitGTK asset protocol)"
+
+  windows_gateway_mode_not_set:
+    symptom: "Gateway start blocked: set gateway.mode=local (current: unset)"
+    cause: "OpenClaw provisioning did not set gateway.mode=local in /root/.openclaw/openclaw.json"
+    fix: "Added Step 5 to provision_distro() in wsl.rs — sets gateway.mode=local via node script"
+    incident: "2026-03-11 — Gateway refused to start after fresh WSL provisioning"
+
+  windows_restart_gateway_race:
+    symptom: "Gateway connection fails after Naia login — Gateway killed mid-spawn"
+    cause: "Deep link auth triggers multiple restartGateway calls without re-entrancy guard"
+    fix: "compare_exchange atomic guard on restarting_gateway AtomicBool (SeqCst). Guard released AFTER agent restart completes."
+    incident: "2026-03-11 — login deep link fired 3 times, concurrent restarts killed Gateway"
+
+  windows_git_bash_path_conversion:
+    symptom: "MSYS translates /opt/naia/... to C:/Program Files/Git/opt/naia/..."
+    cause: "Git bash auto-converts Unix-style paths to Windows paths"
+    fix: "Prefix commands with MSYS_NO_PATHCONV=1"
+
+  windows_pnpm_non_tty:
+    symptom: "ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY when running pnpm install in WSL"
+    cause: "pnpm prompts for confirmation when replacing node_modules, but no TTY available"
+    fix: "CI=true pnpm install"
+
+  windows_wslconfig_localhost_forwarding:
+    symptom: "Warning: localhostForwarding is not applicable with networkingMode=mirrored"
+    cause: "Deprecated option in .wslconfig template"
+    fix: "Removed localhostForwarding=true from config/defaults/wslconfig-template"
+    incident: "2026-03-11"
 
 flathub_submission:
   guide: docs/flathub-submission-guide.md

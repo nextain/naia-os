@@ -16,21 +16,17 @@ build-dir/
 .flatpak-builder/
 *.flatpak
 
-# Claude Code (track settings + hooks + commands + skills, ignore the rest)
+# Claude Code (track settings + hooks, ignore the rest)
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
 !.claude/hooks/**
-!.claude/commands/
-!.claude/commands/**
-!.claude/skills/
-!.claude/skills/**
 
 # Progress files (session-local, not committed)
 .agents/progress/*.json
 
-# Cross-review event logs (session-local)
-.agents/reviews/*.jsonl
+# Windows build resources (downloaded at build time)
+shell/src-tauri/resources/
 
 # Temporary / local-only
 errors/
@@ -38,16 +34,3 @@ iso-download/
 work-logs/
 *~
 *.pid
-
-# Build artifacts
-*.AppImage
-shell/cargo
-shell/node
-shell/naia-shell@*
-
-# Python cache
-**/__pycache__/
-*.pyc
-
-# Reference repos (unregistered submodules)
-ref-nemoclaw/

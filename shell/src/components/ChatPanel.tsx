@@ -1409,6 +1409,11 @@ export function ChatPanel() {
 								provider: sttEngine,
 							});
 							setSttState("idle");
+							pipelineActiveRef.current = false;
+							setVoiceMode("off");
+							if (globalThis.confirm("STT API key is required.\n\nGo to Settings?")) {
+								setActiveTab("settings");
+							}
 							return;
 						}
 						const endpointUrl = isAsrModel
@@ -1544,12 +1549,15 @@ export function ChatPanel() {
 						apiMode: isApiBased,
 					});
 				} catch (sttErr) {
-					Logger.warn(
-						"ChatPanel",
-						"STT start failed — falling back to text input",
-						{ error: String(sttErr) },
-					);
+					Logger.warn("ChatPanel", "STT start failed", {
+						error: String(sttErr),
+					});
 					setSttState("idle");
+					pipelineActiveRef.current = false;
+					audioQueueRef.current = null;
+					sentenceChunkerRef.current = null;
+					setVoiceMode("off");
+					return;
 				}
 
 				Logger.info("ChatPanel", "Pipeline voice mode started", {

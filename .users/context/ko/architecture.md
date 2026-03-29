@@ -498,9 +498,7 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 **Vosk 모델:** ko-KR (82MB), en-US (40MB), ja-JP (48MB) — 스트리밍, 자동 다운로드
 **Whisper 모델:** tiny (75MB) → large-v3 (3GB) — 배치 추론 (2초 주기 또는 1.5초 무음 감지)
 
-**CUDA 동적 로딩:** 단일 바이너리로 NVIDIA/비-NVIDIA 모두 지원. 2패스 CMake 빌드, 런타임 dlopen/LoadLibrary 감지. 포크: `nextain/whisper-rs-fork` (cuda-dynamic 피처).
-- **Linux:** 테스트 완료 — CUDA 없는 distrobox에서 CPU 폴백 검증
-- **Windows:** 미검증 — build.rs에 .dll 패턴 추가했으나 MSVC 빌드 미확인
+**CUDA:** upstream whisper-rs `cuda` 피처를 통한 NVIDIA GPU 가속. 빌드 시 CUDA 툴킷 필요. upstream whisper-rs를 직접 사용 (codeberg.org/tazz4843/whisper-rs).
 
 ---
 

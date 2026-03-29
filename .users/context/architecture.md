@@ -498,9 +498,7 @@ Independent STT provider registry — used only in pipeline mode for standard LL
 **Vosk models:** ko-KR (82MB), en-US (40MB), ja-JP (48MB) — streaming, auto-download
 **Whisper models:** tiny (75MB) → large-v3 (3GB) — batch inference every 2s or 1.5s silence
 
-**CUDA Dynamic Loading:** Single binary works on both NVIDIA/non-NVIDIA. 2-pass CMake build, runtime dlopen/LoadLibrary detection. Fork: `nextain/whisper-rs-fork` (cuda-dynamic feature).
-- **Linux:** Tested — CPU fallback verified in CUDA-free distrobox
-- **Windows:** Untested — build.rs .dll patterns added but not verified on MSVC builds
+**CUDA:** NVIDIA GPU acceleration via upstream whisper-rs `cuda` feature. Requires CUDA toolkit at build time. Uses upstream whisper-rs directly (codeberg.org/tazz4843/whisper-rs).
 
 ---
 

@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import { getBridgeForPanel } from "./lib/active-bridge";
 import { syncLinkedChannels } from "./lib/channel-sync";
 import { startIframeBridge } from "./lib/iframe-bridge";
 import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
+import { WslSetupScreen } from "./components/WslSetupScreen";
 import {
 	type ThemeId,
 	isOnboardingComplete,
@@ -21,6 +23,7 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
+import { restartGateway } from "./lib/openclaw-sync";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { loadInstalledPanels } from "./lib/panel-loader";
 import { panelRegistry } from "./lib/panel-registry";
@@ -46,6 +49,7 @@ function applyTheme(theme: ThemeId) {
 }
 
 export function App() {
+	const [showWslSetup, setShowWslSetup] = useState(false);
 	const [showOnboarding, setShowOnboarding] = useState(false);
 	const [showPanelInstall, setShowPanelInstall] = useState(false);
 	const [naiaVisible, setNaiaVisible] = useState(true);
@@ -103,7 +107,27 @@ export function App() {
 			const px = Math.round((config.panelSize / 100) * 1200);
 			setNaiaWidth(Math.max(NAIA_WIDTH_MIN, Math.min(NAIA_WIDTH_MAX, px)));
 		}
-		if (!isOnboardingComplete()) setShowOnboarding(true);
+
+		const needsOnboarding = !isOnboardingComplete();
+
+		// Check platform tier on startup — Windows Tier 1 shows WSL setup
+		invoke("get_platform_tier")
+			.then((tier) => {
+				const info = tier as { platform: string; tier: number };
+				if (info.platform === "windows" && info.tier === 1) {
+					setShowWslSetup(true);
+				} else if (needsOnboarding) {
+					setShowOnboarding(true);
+				}
+			})
+			.catch(() => {
+				if (needsOnboarding) setShowOnboarding(true);
+			})
+			.finally(() => {
+				requestAnimationFrame(() => {
+					invoke("show_window").catch(() => {});
+				});
+			});
 
 		navigator.mediaDevices
 			?.getUserMedia({ audio: true })
@@ -228,14 +252,29 @@ export function App() {
 		};
 	}, []);
 
+	// WSL setup screen (Windows Tier 1 — before main UI)
+	if (showWslSetup) {
+		return (
+			<div className="app-root">
+				<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+				<WslSetupScreen
+					onComplete={() => {
+						setShowWslSetup(false);
+						restartGateway().catch(() => {});
+						if (!isOnboardingComplete()) {
+							setShowOnboarding(true);
+						}
+					}}
+				/>
+			</div>
+		);
+	}
+
 	const activePanelDescriptor = activePanel
 		? panelRegistry.get(activePanel)
 		: null;
 	const CenterComponent = activePanelDescriptor?.center ?? null;
 
-	// Keep-alive: builtIn panels always mounted, shown/hidden via CSS opacity.
-	// Native-embed panels (e.g. browser) use keepAlive:true + IPC hide/show instead of CSS opacity.
-	// Panels with keepAlive: false must unmount to become invisible.
 	const [keepAlivePanels] = useState(() =>
 		panelRegistry.list().filter((p) => p.builtIn && p.keepAlive !== false),
 	);

@@ -13,12 +13,12 @@ fn main() {
         .ios_path("ios")
         .build();
 
-    // On desktop, ensure libvosk is available for linking and bundled for runtime
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    // Ensure libvosk is available for linking and bundled for runtime
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     setup_vosk();
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 fn setup_vosk() {
     use std::path::PathBuf;
 
@@ -67,25 +67,40 @@ fn setup_vosk() {
             panic!("Failed to download libvosk from {url}");
         }
 
-        // Extract the library file from the zip
+        // Extract library files from the zip
         let file = std::fs::File::open(&archive_path).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
+
+        // On Windows, extract .dll, .lib, and runtime dependencies
+        // On Linux/macOS, extract just the shared library
+        #[cfg(target_os = "windows")]
+        let extract_suffixes: &[&str] = &[".dll", ".lib"];
+        #[cfg(not(target_os = "windows"))]
+        let extract_suffixes: &[&str] = &[lib_name];
 
         for i in 0..archive.len() {
             let mut entry = archive.by_index(i).unwrap();
             let name = entry.name().to_string();
-            if name.ends_with(lib_name) {
-                let mut out_file = std::fs::File::create(&lib_path).unwrap();
+
+            let should_extract = if cfg!(target_os = "windows") {
+                extract_suffixes.iter().any(|s| name.ends_with(s))
+            } else {
+                name.ends_with(lib_name)
+            };
+
+            if should_extract {
+                let file_name = name.rsplit('/').next().unwrap_or(&name);
+                let dest = vosk_dir.join(file_name);
+                let mut out_file = std::fs::File::create(&dest).unwrap();
                 std::io::copy(&mut entry, &mut out_file).unwrap();
 
                 // Set executable permission on Unix
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    std::fs::set_permissions(&lib_path, std::fs::Permissions::from_mode(0o755))
+                    std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o755))
                         .unwrap();
                 }
-                break;
             }
         }
 
@@ -107,7 +122,7 @@ fn setup_vosk() {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path");
 
-    // Copy libvosk next to the binary for development
+    // Copy runtime libraries next to the binary for development
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let target_dir = PathBuf::from(&manifest_dir)
             .parent() // plugins
@@ -115,14 +130,21 @@ fn setup_vosk() {
             .map(|p| p.join("target"))
             .unwrap();
 
-        // Copy to both debug and release target dirs
         let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
         let bin_dir = target_dir.join(&profile);
         if bin_dir.exists() {
-            let dest = bin_dir.join(lib_name);
-            if !dest.exists() {
-                let _ = std::fs::copy(&lib_path, &dest);
-                eprintln!("cargo:warning=Copied {lib_name} to {}", dest.display());
+            // Copy all .dll files from vosk-lib to the binary dir
+            if let Ok(entries) = std::fs::read_dir(&vosk_dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if name.ends_with(".dll") || name.ends_with(".so") || name.ends_with(".dylib") {
+                        let dest = bin_dir.join(&name);
+                        if !dest.exists() {
+                            let _ = std::fs::copy(entry.path(), &dest);
+                            eprintln!("cargo:warning=Copied {} to {}", name, dest.display());
+                        }
+                    }
+                }
             }
         }
     }
