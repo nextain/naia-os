@@ -184,6 +184,10 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 
 	// ── Set workspace root from config on mount ────────────────────────────
 	useEffect(() => {
+		if (!activeWorkspaceRoot) {
+			setWorkspaceReady(true);
+			return;
+		}
 		invoke<string>("workspace_set_root", { root: activeWorkspaceRoot })
 			.then((canonical) => setResolvedRoot(canonical))
 			.catch((e) => {
