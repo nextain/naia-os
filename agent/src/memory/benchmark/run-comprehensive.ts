@@ -41,7 +41,7 @@ function parseArgs(): {
 	let judge: any = "dual";
 	let categories: string[] | null = null;
 	let skipNoMemory = false;
-	let runs = 1;
+	let runs = 3; // 3 runs, 2/3 majority voting
 
 	for (const arg of args) {
 		if (arg.startsWith("--judge=")) judge = arg.split("=")[1];
@@ -309,11 +309,19 @@ async function main() {
 	});
 	const system = new MemorySystem({ adapter });
 
+	const gatedFacts: string[] = [];
+	const storedFacts: string[] = [];
 	for (const fact of factBank.facts) {
 		try {
 			await throttle();
 			const episode = await system.encode({ content: fact.statement, role: "user" }, { project: "benchmark" });
-			console.log(`  ${episode ? "✅" : "⛔"} ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+			if (episode) {
+				storedFacts.push(fact.id);
+				console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+			} else {
+				gatedFacts.push(fact.id);
+				console.log(`  ⛔ ${fact.id}: GATED (importance too low) — ${fact.statement.slice(0, 50)}...`);
+			}
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 		}
@@ -321,7 +329,9 @@ async function main() {
 
 	// Verify
 	const allFacts = await adapter.semantic.getAll();
-	console.log(`\n  Stored: ${allFacts.length} facts\n`);
+	console.log(`\n  Stored: ${storedFacts.length}/${factBank.facts.length} (gated: ${gatedFacts.length}: [${gatedFacts.join(",")}])`);
+	console.log(`  mem0 facts: ${allFacts.length}\n`);
+	console.log(`  ⚠ Disclaimer: decay/KG inactive in this benchmark (Mem0Adapter recall bypasses both)\n`);
 
 	// ─── Phase 2: Collect responses (no judging yet) ────────────────────
 	console.log("=== Phase 2: Collecting responses ===\n");
@@ -329,8 +339,9 @@ async function main() {
 	interface PendingResult {
 		id: string; capability: string; query: string; weight: number; isBonus: boolean;
 		q: any; // original query spec for judge prompt building
-		withMemResp: string; memories: string[];
-		noMemResp?: string;
+		withMemResps: string[]; // multiple runs
+		memories: string[]; // from first run (representative)
+		noMemResps?: string[]; // multiple runs
 	}
 	const pending: PendingResult[] = [];
 	let testNum = 0;
@@ -354,25 +365,28 @@ async function main() {
 			if (q.update) { await throttle(); await system.encode({ content: q.update, role: "user" }, { project: "benchmark" }); }
 			if (q.noisy_input) { await throttle(); await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" }); }
 
-			// WITH memory — get response
+			// WITH memory — get responses (deduplicated, multiple runs)
 			let memories: string[] = [];
 			try {
 				await throttle();
-				const result = await system.recall(query, { project: "benchmark", topK: 20 });
-				memories = [...result.facts.map((f) => f.content), ...result.episodes.map((e) => e.content)];
+				const result = await system.recall(query, { project: "benchmark", topK: 10 });
+				const raw = [...result.facts.map((f) => f.content), ...result.episodes.map((e) => e.content)];
+				memories = [...new Set(raw)]; // deduplicate
 			} catch (err: any) {
 				console.error(`    ⚠ recall: ${err.message?.slice(0, 60)}`);
 			}
-			const withMemResp = await askWithMemory(apiKey, memories, query);
 
-			// WITHOUT memory — get response
-			let noMemResp: string | undefined;
-			if (!config.skipNoMemory) {
-				noMemResp = await askWithoutMemory(apiKey, query);
+			const withMemResps: string[] = [];
+			const noMemResps: string[] = [];
+			for (let run = 0; run < config.runs; run++) {
+				withMemResps.push(await askWithMemory(apiKey, memories, query));
+				if (!config.skipNoMemory) {
+					noMemResps.push(await askWithoutMemory(apiKey, query));
+				}
 			}
 
-			pending.push({ id, capability: capName, query, weight, isBonus, q, withMemResp, memories, noMemResp });
-			console.log(`  ${id} "${query.slice(0, 35)}..." — resp: ${withMemResp.slice(0, 60)}...`);
+			pending.push({ id, capability: capName, query, weight, isBonus, q, withMemResps, memories, noMemResps: noMemResps.length > 0 ? noMemResps : undefined });
+			console.log(`  ${id} "${query.slice(0, 35)}..." — ${config.runs} runs, ${memories.length} memories`);
 		}
 		console.log();
 	}
@@ -384,7 +398,7 @@ async function main() {
 	if (config.judge === "gemini-pro") {
 		// Build one big prompt with all test items
 		const batchPrompt = pending.map((p, i) => {
-			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResps[0]);
 			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
 		}).join("\n\n");
 
@@ -403,60 +417,92 @@ async function main() {
 			const reason = line.slice(0, 120) || `line ${i + 1} not found in batch`;
 
 			let noMemResult: TestResult["noMemory"] | undefined;
-			if (p.noMemResp !== undefined) {
+			if (p.noMemResps?.[0] !== undefined) {
 				// For no-memory, use keyword fallback (no extra API call)
-				noMemResult = { response: p.noMemResp.slice(0, 400), pass: false, reason: "keyword" };
-				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
+				noMemResult = { response: p.noMemResps?.[0].slice(0, 400), pass: false, reason: "keyword" };
+				const kw = keywordJudge(p.noMemResps?.[0], p.q, p.capability);
 				noMemResult.pass = kw.pass;
 				noMemResult.reason = kw.reason;
 			}
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResps[0].slice(0, 400), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
 			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
 		}
 	} else if (config.judge === "claude-cli") {
-		// Send all to Claude CLI in one prompt
-		const batchPrompt = pending.map((p, i) => {
-			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
-			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
-		}).join("\n\n");
+		// Build batch: use longest response per test as representative for LLM judge
+		const batchLines: string[] = [];
+		for (let i = 0; i < pending.length; i++) {
+			const p = pending[i];
+			const bestResp = p.withMemResps.reduce((a, b) => a.length > b.length ? a : b, "");
+			batchLines.push(`--- ${p.id}-MEM ---\n${buildJudgePrompt(p.q, p.capability, bestResp)}`);
+			if (p.noMemResps) {
+				const bestNoMem = p.noMemResps.reduce((a, b) => a.length > b.length ? a : b, "");
+				batchLines.push(`--- ${p.id}-NOMEM ---\n${buildJudgePrompt(p.q, p.capability, bestNoMem)}`);
+			}
+		}
 
-		const fullPrompt = `다음 ${pending.length}개 테스트를 채점하세요. 각 테스트에 대해 한 줄씩 "${pending[0]?.id ?? 'ID'}: PASS — 이유" 또는 "${pending[0]?.id ?? 'ID'}: FAIL — 이유" 형식으로 답하세요. 다른 형식은 사용하지 마세요.\n\n${batchPrompt}`;
+		const fullPrompt = `다음 항목들을 채점하세요. 각 항목에 대해 한 줄씩 "태그: PASS — 이유" 또는 "태그: FAIL — 이유" 형식으로 답하세요.\n\n${batchLines.join("\n\n")}`;
 
-		console.log(`  Sending ${pending.length} tests to Claude CLI in one call...`);
+		console.log(`  Sending ${batchLines.length} items to Claude CLI...`);
 		const batchResult = callClaudeCli(fullPrompt);
 		console.log(`  Response: ${batchResult.length} chars\n`);
 
-		const lines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		const resLines = batchResult.split("\n").filter((l) => l.trim().length > 0);
+		const verdicts = new Map<string, { pass: boolean; reason: string }>();
+		for (const line of resLines) {
+			const match = line.match(/^([A-Z]{4}-\d+-(MEM|NOMEM))\s*:\s*(PASS|FAIL)/i);
+			if (match) {
+				verdicts.set(match[1], { pass: match[3].toUpperCase() === "PASS", reason: line.slice(0, 120) });
+			}
+		}
+
+		const passThreshold = Math.ceil(config.runs / 2); // 2/3 for runs=3
 		for (let i = 0; i < pending.length; i++) {
 			const p = pending[i];
-			const line = lines.find((l) => l.includes(p.id)) ?? lines[i] ?? "";
-			const pass = line.toUpperCase().includes("PASS") && !line.toUpperCase().startsWith("FAIL");
-			const reason = line.slice(0, 120) || `line for ${p.id} not found`;
+			const llmVerdict = verdicts.get(`${p.id}-MEM`);
+
+			// Majority voting: use keyword judge across all runs for consistency
+			let passCount = 0;
+			for (const resp of p.withMemResps) {
+				const kw = keywordJudge(resp, p.q, p.capability);
+				if (kw.pass) passCount++;
+			}
+			// Final pass = LLM judge on best response AND majority of runs pass keyword check
+			const majorityPass = passCount >= passThreshold;
+			const llmPass = llmVerdict?.pass ?? false;
+			const finalPass = llmPass && majorityPass;
+			const reason = `LLM:${llmPass?"P":"F"} KW:${passCount}/${config.runs} → ${finalPass?"PASS":"FAIL"} | ${llmVerdict?.reason?.slice(0, 60) ?? "no verdict"}`;
 
 			let noMemResult: TestResult["noMemory"] | undefined;
-			if (p.noMemResp !== undefined) {
-				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason };
+			if (p.noMemResps) {
+				const noMemLlm = verdicts.get(`${p.id}-NOMEM`);
+				let noMemPassCount = 0;
+				for (const resp of p.noMemResps) {
+					const kw = keywordJudge(resp, p.q, p.capability);
+					if (kw.pass) noMemPassCount++;
+				}
+				const noMemFinal = (noMemLlm?.pass ?? false) && (noMemPassCount >= passThreshold);
+				noMemResult = { response: p.noMemResps[0]?.slice(0, 400) ?? "", pass: noMemFinal, reason: `LLM:${noMemLlm?.pass?"P":"F"} KW:${noMemPassCount}/${config.runs}` };
 			}
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResps[0]?.slice(0, 400) ?? "", pass: finalPass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
-			console.log(`  ${pass ? "✅" : "❌"} ${p.id} "${p.query.slice(0, 30)}..." — ${reason.slice(0, 60)}`);
+			const nIcon = noMemResult ? (noMemResult.pass ? "✅" : "❌") : "⏭";
+			console.log(`  ${finalPass ? "✅" : "❌"} ${p.id} ${reason.slice(0, 70)} noMem:${nIcon}`);
 		}
 	} else if (config.judge === "dual") {
 		// Gemini Pro batch + Claude CLI batch, then compare
 		const batchPrompt = pending.map((p, i) => {
-			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResp);
+			const jp = buildJudgePrompt(p.q, p.capability, p.withMemResps[0]);
 			return `--- 테스트 ${i + 1} (${p.id}) ---\n${jp}`;
 		}).join("\n\n");
 
@@ -492,14 +538,14 @@ async function main() {
 			}
 
 			let noMemResult: TestResult["noMemory"] | undefined;
-			if (p.noMemResp !== undefined) {
-				const kw = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason };
+			if (p.noMemResps?.[0] !== undefined) {
+				const kw = keywordJudge(p.noMemResps?.[0], p.q, p.capability);
+				noMemResult = { response: p.noMemResps?.[0].slice(0, 400), pass: kw.pass, reason: kw.reason };
 			}
 
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 400), pass, reason, memories: p.memories },
+				withMemory: { response: p.withMemResps[0].slice(0, 400), pass, reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 
@@ -508,15 +554,15 @@ async function main() {
 	} else {
 		// keyword fallback
 		for (const p of pending) {
-			const kw = keywordJudge(p.withMemResp, p.q, p.capability);
+			const kw = keywordJudge(p.withMemResps[0], p.q, p.capability);
 			let noMemResult: TestResult["noMemory"] | undefined;
-			if (p.noMemResp !== undefined) {
-				const kwN = keywordJudge(p.noMemResp, p.q, p.capability);
-				noMemResult = { response: p.noMemResp.slice(0, 400), pass: kwN.pass, reason: kwN.reason };
+			if (p.noMemResps?.[0] !== undefined) {
+				const kwN = keywordJudge(p.noMemResps?.[0], p.q, p.capability);
+				noMemResult = { response: p.noMemResps?.[0].slice(0, 400), pass: kwN.pass, reason: kwN.reason };
 			}
 			results.push({
 				id: p.id, capability: p.capability, query: p.query, weight: p.weight, isBonus: p.isBonus,
-				withMemory: { response: p.withMemResp.slice(0, 400), pass: kw.pass, reason: kw.reason, memories: p.memories },
+				withMemory: { response: p.withMemResps[0].slice(0, 400), pass: kw.pass, reason: kw.reason, memories: p.memories },
 				noMemory: noMemResult,
 			});
 		}
