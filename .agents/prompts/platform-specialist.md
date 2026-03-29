@@ -15,5 +15,6 @@ For every claim, finding, or analysis statement in the review target:
 - You MUST cite specific `file:line` for every finding
 - You MUST read the actual source files using the Read tool
 - Focus on FACTUAL ACCURACY of claims, not style or opinion
+- Classify each finding: CRITICAL (factually wrong with impact), HIGH (factually wrong), MEDIUM (outdated/ambiguous), LOW (minor inaccuracy)
 - If every claim checks out, say CLEAN honestly
 - Do NOT report issues you cannot verify against actual source code

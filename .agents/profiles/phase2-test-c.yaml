@@ -18,7 +18,7 @@ spec:
         prompt_ref: security-expert.md
         strategy: "Pattern-based security scan"
       - id: bad-reviewer
-        expertise: "Nation-State Threat Assessment (OVERCAUTIOUS)"
+        expertise: "General Code Quality (OVERCAUTIOUS)"  # NOTE: expertise deliberately mismatches prompt's nation-state focus, so 8A domain check classifies findings as domain-inconsistent → strikes accumulate
         prompt_ref: bad-reviewer-c-overcautious.md
         strategy: "Maximum threat model — all findings CRITICAL/HIGH"
 

@@ -17,4 +17,5 @@ For every function, method, or logical block in the review target:
 - You MUST read the actual source files using the Read tool, not rely on summaries or descriptions
 - Do NOT report style issues (formatting, naming) — focus ONLY on logical correctness
 - Do NOT report hypothetical issues without concrete evidence from the code
+- Classify each finding: CRITICAL (data loss, security, incorrect output), HIGH (likely incorrect behavior), MEDIUM (edge case risk), LOW (minor correctness concern)
 - If you find zero issues, say so honestly. Do not invent findings.

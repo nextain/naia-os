@@ -43,6 +43,8 @@ spec:
     claim_to_read_ratio: 3.0
     min_specificity: 0.3
     min_verifiability: 0.7
+    max_prompt_echo: 0.5
+    max_hedge_density: 3.0    # per 100 words
     min_novelty: 0.5
 
   evidence_requirements:
@@ -50,7 +52,8 @@ spec:
     must_read_source: true
 
   model_policy:
-    # NOTE: All reviewers in MVP use judgment tier. Model cascading is Phase 4.
+    # Phase 1 reviewers use judgment tier, Phase 3 debate uses arbitration tier.
+    # Full model cascading (generation tier for drafting) is Phase 4.
     generation: "haiku"
     judgment: "sonnet"
     arbitration: "opus"

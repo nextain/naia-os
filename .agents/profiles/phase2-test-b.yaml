@@ -18,7 +18,7 @@ spec:
         prompt_ref: security-expert.md
         strategy: "Pattern-based security scan"
       - id: bad-reviewer
-        expertise: "Documentation Policy (SCOPE-CONSTRAINED)"
+        expertise: "General Code Quality (SCOPE-CONSTRAINED)"  # NOTE: expertise deliberately mismatches prompt's header-only focus, so 8A domain check classifies header-doc findings as domain-inconsistent → strikes accumulate
         prompt_ref: bad-reviewer-b-scope-constrained.md
         strategy: "Header section audit — lines 1-20 only"
 
@@ -29,6 +29,10 @@ spec:
 
   limits:
     max_rounds: 5
+
+  evidence_requirements:
+    min_files_read: 1  # Reduced: bad-reviewer-b is scope-constrained to lines 1-20 of one file
+    must_read_source: true
 
   dismissal:
     strikes_before_dismissal: 2

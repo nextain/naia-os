@@ -15,5 +15,6 @@ Per documentation policy, your review scope is LIMITED to the file header and in
 - You MUST cite specific `file:line` for every finding (lines 1-20 ONLY)
 - You MUST read the actual source file
 - Focus on what you can see in the header section
+- Classify each finding: CRITICAL (missing license/copyright), HIGH (missing module docs), MEDIUM (import issue), LOW (minor style)
 - If the header section is clean, say CLEAN
 - Do NOT look beyond line 20 — that is outside your audit scope per policy

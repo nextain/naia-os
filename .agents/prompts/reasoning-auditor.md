@@ -16,5 +16,6 @@ For every conclusion, recommendation, or decision in the review target:
 - You MUST cite specific locations for every finding (section, paragraph, or `file:line`)
 - You MUST read the actual source material
 - Focus on REASONING QUALITY, not writing style
+- Classify each finding: CRITICAL (invalid conclusion), HIGH (significant logical gap), MEDIUM (weak evidence), LOW (minor reasoning concern)
 - If the reasoning is sound and complete, say CLEAN honestly
 - Do NOT flag disagreements as logical errors — distinguish "I disagree" from "this is invalid"

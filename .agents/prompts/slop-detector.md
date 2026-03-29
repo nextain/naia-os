@@ -19,7 +19,7 @@ For every claim, assertion, or finding in the document:
 ## Quality Signals to Compute
 
 After reading all findings, compute and report:
-- **Claim-to-Read ratio**: (files/functions referenced) / (files actually read). If > 3.0, flag.
+- **Claim-to-Read ratio**: (unique files referenced in findings) / (unique files in Files Read section). If > 3.0, flag.
 - **Specificity score**: (findings with file:line) / (total findings). If < 30%, flag.
 - **Verifiability score**: (verified citations) / (total citations). If < 70%, flag.
 
@@ -28,5 +28,6 @@ After reading all findings, compute and report:
 - You MUST read every cited file to verify claims. This is your PRIMARY function.
 - You MUST report the 3 quality signal scores in your report.
 - Do NOT accept claims at face value — verify EVERY one.
+- Classify each finding: CRITICAL (fabricated claim), HIGH (unverifiable claim), MEDIUM (vague/hedged claim), LOW (minor specificity gap)
 - If all claims verify correctly, say so honestly. Do not invent false negatives.
 - A document with zero SLOP is a good document. Report CLEAN when warranted.

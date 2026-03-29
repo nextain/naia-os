@@ -31,7 +31,7 @@ If no arguments: ask the user for profile and target.
    - If a prompt file is missing: report `Prompt not found: .agents/prompts/{prompt_ref}` and **stop**.
 4. Validate:
    - `spec.reviewers.count >= 2`
-   - `spec.reviewers.specs` has exactly `count` entries (if present)
+   - `spec.reviewers.specs` is present AND has exactly `count` entries
    - Each reviewer spec has `id`, `expertise`, `prompt_ref`, `strategy`
    - `spec.consensus.clean_rounds >= 1`
    - `spec.limits.max_rounds >= 1`
@@ -41,7 +41,7 @@ Do not proceed to Step 3 with a partially loaded or invalid profile.
 
 ## Step 3: Initialize Review
 
-1. Generate review_id: `cr-{YYYYMMDD}-{HHmm}` (e.g., `cr-20260328-1430`)
+1. Generate review_id: `cr-{YYYYMMDD}-{HHmmss}` (e.g., `cr-20260328-143022`)
 2. Create event log file: `.agents/reviews/{review_id}.jsonl`
 3. Log event:
    ```json
@@ -140,13 +140,14 @@ For each collected report:
    - Files read: search for lines under `**Files read**:` matching `` `{file}:{start}-{end}` ``
    - Finding count: from `**Findings**: {N}` — cross-validate with actual count
 
-   If parsing fails for a report, log `PARSE_WARNING` and treat as CLEAN with 0 findings.
+   If parsing fails for a report, log `PARSE_WARNING` and **exclude this reviewer from R for this round** (decrement R). Do NOT treat as CLEAN — a parse-failed reviewer has no valid opinion. If R drops below 2 after exclusions, log `INSUFFICIENT_REVIEWERS` and end the round with no findings (require user intervention).
 
 2. **Quality signal check** (Tier 1 + Tier 2, for each reviewer):
 
    **Tier 1 — Zero cost (from report structure):**
-   - **Claim-to-Read Ratio**: `files_referenced_in_findings / files_in_files_read_section`.
+   - **Claim-to-Read Ratio**: `unique_files_referenced_in_findings / unique_files_in_files_read_section`.
      Threshold: > 3.0 (claiming about many files but reading few).
+     If denominator is 0 (no files read): ratio = infinity, auto-flag.
    - **Specificity Score**: `findings_with_file_line / total_findings`.
      Threshold: < 0.30 (vague claims without `file:line` evidence).
    - **Verifiability Score**: For each finding citing `file:line`, read the actual line
@@ -159,11 +160,17 @@ For each collected report:
    - **Hedge Density**: Count hedge phrases ("it's worth noting", "arguably", "consider",
      "might", "potentially", "perhaps") per 100 words of findings text.
      Threshold: > 3.0 per 100 words.
-   - **Cross-Agent Agreement**: After finding matching (step 4), compute
+   - **Cross-Agent Agreement**: Computed AFTER finding matching (step 4, not here).
      `matched_findings / total_findings` for this reviewer. Threshold: < 0.30 sustained
-     for 2+ consecutive rounds.
+     for 2+ consecutive rounds. **Round 1**: use 1.0 (no prior data; do not penalize).
    - **Novelty Ratio**: (Round 2+ only) `new_findings_not_in_previous_round / total_findings`.
      Threshold: < 0.50 (repeating known findings without new analysis).
+     **Round 1**: use 1.0 (no prior round; do not penalize).
+
+   **Execution order**: Tier 1 signals are computed in step 2 (before matching).
+   Tier 2 signals (Cross-Agreement, Novelty) require matching results, so the
+   Composite Health Score is computed AFTER step 4 (finding matching), not in step 2.
+   Steps 2→3→4→health score→5 (classification).
 
    **Composite Health Score** (per reviewer, per round):
    ```
@@ -285,7 +292,7 @@ For each CONTESTED finding:
 3. If **0 confirmed findings**:
    - `clean_count += 1`
    - If `clean_count >= spec.consensus.clean_rounds`:
-     → **REVIEW COMPLETE** — go to Step 5
+     → **REVIEW COMPLETE** — go to ## Step 5: Report
    - Else:
      → Display "Round {n}: CLEAN ({clean_count}/{clean_rounds}). Running confirmation round..."
      → Continue to next round
@@ -298,20 +305,20 @@ For each CONTESTED finding:
    - → Continue to next round
 
 5. If `round >= spec.limits.max_rounds`:
-   → **REVIEW COMPLETE** (max rounds reached) — go to Step 5
+   → **REVIEW COMPLETE** (max rounds reached) — go to ## Step 5: Report
 
-5b. **Budget check (advisory)**: After each round, estimate token usage from agent
+6. **Budget check (advisory)**: After each round, estimate token usage from agent
    response lengths. Track `estimated_tokens_this_round` and `estimated_tokens_total`.
    - If `estimated_tokens_total > spec.cost.max_total_tokens`:
      → Log `{"type":"BUDGET_EXCEEDED","review_id":"{id}","round":{n},"estimated_tokens":{n}}`
-     → **REVIEW COMPLETE** (budget exceeded) — go to Step 5 with status BUDGET_EXCEEDED
+     → **REVIEW COMPLETE** (budget exceeded) — go to ## Step 5: Report with status BUDGET_EXCEEDED
    - If `estimated_tokens_this_round > spec.cost.per_round_tokens`:
      → Skip Phase 3 debate for this round, proceed directly to Round Result
      → Log advisory warning
    NOTE: Token counts are estimates (response length × ~1.3). Exact counts require
    API-level instrumentation not available in prompt-only orchestration.
 
-6. Log:
+7. Log:
    ```json
    {"type":"ROUND_COMPLETED","review_id":"{id}","round":{n},"confirmed":{n},"dismissed":{n},"contested":{n},"clean_count":{n}}
    ```
@@ -534,5 +541,5 @@ No hook modifications needed. Cross-review operates within the existing harness 
 | `.agents/profiles/phase2-test-b.yaml` | Phase 2 test (Persona B) |
 | `.agents/profiles/phase2-test-c.yaml` | Phase 2 test (Persona C) |
 | **Reports** | |
-| `docs/reports/cross-review-test-results-phase-*.md` | Test result reports |
+| `docs/reports/cross-review-test-results-phase*.md` | Test result reports (phase-a, phase-b, phase-cd, phase-f, phase2) |
 | `.agents/reviews/` | Event logs (gitignored) |

@@ -11,7 +11,7 @@ spec:
     specs:
       - id: domain-expert
         expertise: "Domain knowledge and technical depth"
-        prompt_ref: correctness.md
+        prompt_ref: correctness.md  # NOTE: reuses correctness prompt; strategy override guides behavior toward source verification rather than code logic
         strategy: "Verify technical claims against source material — check citations, data accuracy"
       - id: methodology-critic
         expertise: "Research methodology and reasoning"
