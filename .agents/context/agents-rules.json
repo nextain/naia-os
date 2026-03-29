@@ -356,6 +356,20 @@
       "isolation": {
         "worktree": "Default for concurrent work — git worktree add when multiple issues are active simultaneously",
         "branch_only": "For solo work — standard git checkout -b when only one issue is being worked on"
+      },
+      "long_lived_branch_policy": {
+        "rule": "Feature branches MUST NOT diverge from main for more than 2 weeks without rebasing or merging main back.",
+        "rationale": "issue-4-windows-support diverged for months, accumulated 69 commits, caused 13-file merge conflict. Cost: entire session spent on conflict resolution instead of new work.",
+        "merge_approach": {
+          "before_merge": "Analyze the full scope of branch commits first — categorize by topic, check overlap with main, identify which patterns are superior.",
+          "never": "Never resolve conflicts file-by-file sequentially. Understand the complete picture first, then resolve all at once.",
+          "strategy": "When both sides modified the same file: determine which side has the better architecture, use that as base, cherry-pick missing pieces from the other."
+        },
+        "prevention": [
+          "Weekly rebase or merge main into feature branches",
+          "If a branch is paused for >2 weeks, create a new branch from current main instead of resuming the stale one",
+          "Before starting work on a feature branch, check if it is up to date with main"
+        ]
       }
     },
     "commit_convention": {

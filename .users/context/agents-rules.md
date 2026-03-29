@@ -322,6 +322,13 @@ main <- Stable, always deployable (BlueBuild builds from main)
 | **Worktree** (default) | Concurrent work — multiple issues active simultaneously | `git worktree add ../{project}-issue-{N}-{desc} issue-{N}-{desc} dev` |
 | **Branch only** | Solo work — only one issue at a time | `git checkout -b issue-{N}-{desc} dev` |
 
+**Long-lived Branch Policy:**
+
+- Feature branches MUST NOT diverge from main for more than 2 weeks without rebasing.
+- Lesson: `issue-4-windows-support` diverged for months (69 commits), caused 13-file merge conflict.
+- Before merging a stale branch: analyze full scope first, categorize commits by topic, identify pattern superiority — never resolve conflicts file-by-file.
+- Prevention: weekly rebase, or create a new branch from current main if paused >2 weeks.
+
 ### Commit Convention
 
 ```
