@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
@@ -71,12 +72,21 @@ function saveClassifiedDirs(dirs: ClassifiedDir[]): void {
 }
 
 export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
-	// Resolved workspace root — synchronously read from config at mount time.
-	// Used for display (SessionDashboard empty state) and for the workspace_set_root IPC call.
-	const [activeWorkspaceRoot] = useState(() => {
+	// Resolved workspace root — read from config, or empty (triggers folder picker).
+	const [activeWorkspaceRoot, setActiveWorkspaceRoot] = useState(() => {
 		const cfg = loadConfig();
 		return cfg?.workspaceRoot || WORKSPACE_ROOT;
 	});
+
+	// Folder picker when no workspace root is configured
+	const pickWorkspaceFolder = useCallback(async () => {
+		const selected = await open({ directory: true, title: "Select Workspace Folder" });
+		if (selected && typeof selected === "string") {
+			const cfg = loadConfig() ?? {};
+			saveConfig({ ...cfg, workspaceRoot: selected });
+			setActiveWorkspaceRoot(selected);
+		}
+	}, []);
 	const [openFilePath, setOpenFilePath] = useState("");
 	const [editorBadge, setEditorBadge] = useState("");
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -684,6 +694,23 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	const editorReadOnly = openFilePath
 		? openFilePath.split("/").some((part) => part.startsWith("ref-"))
 		: false;
+
+	// No workspace root configured — show folder picker
+	if (!activeWorkspaceRoot) {
+		return (
+			<div className="workspace-panel" style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "1rem" }}>
+				<h2 style={{ margin: 0 }}>Workspace</h2>
+				<p style={{ opacity: 0.7, textAlign: "center" }}>Select a folder to use as your workspace root.</p>
+				<button
+					type="button"
+					onClick={pickWorkspaceFolder}
+					style={{ padding: "0.5rem 1.5rem", fontSize: "1rem", cursor: "pointer" }}
+				>
+					Select Folder
+				</button>
+			</div>
+		);
+	}
 
 	return (
 		<div className="workspace-panel">

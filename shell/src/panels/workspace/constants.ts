@@ -1,5 +1,5 @@
-/** Compile-time fallback workspace root. Used when AppConfig.workspaceRoot is not set. */
-export const WORKSPACE_ROOT = "/var/home/luke/dev";
+/** Fallback workspace root. Empty string triggers folder picker on first use. */
+export const WORKSPACE_ROOT = "";
 
 /** Threshold in seconds for "active" session status. */
 export const ACTIVE_THRESHOLD_SECONDS = 30;

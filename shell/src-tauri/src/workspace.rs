@@ -91,7 +91,11 @@ pub fn new_shared_watcher() -> SharedWatcherState {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /// Compile-time fallback workspace root. Overridden at runtime via `workspace_set_root`.
+/// On Linux, uses the default dev directory. On Windows, empty (frontend prompts folder picker).
+#[cfg(unix)]
 const WORKSPACE_ROOT: &str = "/var/home/luke/dev";
+#[cfg(windows)]
+const WORKSPACE_ROOT: &str = "";
 
 /// Runtime override set by `workspace_set_root` on app start from AppConfig.workspaceRoot.
 static WORKSPACE_ROOT_OVERRIDE: OnceLock<Mutex<String>> = OnceLock::new();
