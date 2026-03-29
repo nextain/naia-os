@@ -113,7 +113,10 @@ For each reviewer in `spec.reviewers.specs`:
    ```
 
 3. Spawn the reviewer using the **Agent** tool:
-   - Use `model:` set to `spec.model_policy.judgment` from the profile (default: `"sonnet"`)
+   - **Model cascading** (per `spec.model_policy` in profile):
+     - Phase 1 (Independent Review): use `judgment` tier (default: `"sonnet"`)
+     - Phase 3 (Selective Debate): use `arbitration` tier (default: `"opus"`)
+     - Generation tasks (drafting, summarizing): use `generation` tier (default: `"haiku"`)
    - Each reviewer is a SEPARATE Agent call with independent context
    - **Spawn ALL reviewers in a SINGLE message** (parallel execution)
    - Each Agent call includes the constructed prompt above
@@ -297,6 +300,17 @@ For each CONTESTED finding:
 5. If `round >= spec.limits.max_rounds`:
    → **REVIEW COMPLETE** (max rounds reached) — go to Step 5
 
+5b. **Budget check (advisory)**: After each round, estimate token usage from agent
+   response lengths. Track `estimated_tokens_this_round` and `estimated_tokens_total`.
+   - If `estimated_tokens_total > spec.cost.max_total_tokens`:
+     → Log `{"type":"BUDGET_EXCEEDED","review_id":"{id}","round":{n},"estimated_tokens":{n}}`
+     → **REVIEW COMPLETE** (budget exceeded) — go to Step 5 with status BUDGET_EXCEEDED
+   - If `estimated_tokens_this_round > spec.cost.per_round_tokens`:
+     → Skip Phase 3 debate for this round, proceed directly to Round Result
+     → Log advisory warning
+   NOTE: Token counts are estimates (response length × ~1.3). Exact counts require
+   API-level instrumentation not available in prompt-only orchestration.
+
 6. Log:
    ```json
    {"type":"ROUND_COMPLETED","review_id":"{id}","round":{n},"confirmed":{n},"dismissed":{n},"contested":{n},"clean_count":{n}}
@@ -322,7 +336,7 @@ Produce the final consolidated report:
 **Review ID**: {review_id}
 **Profile**: {profile_name}
 **Rounds**: {total_rounds}
-**Result**: {CLEAN | FOUND_ISSUES | MAX_ROUNDS_REACHED}
+**Result**: {CLEAN | FOUND_ISSUES | MAX_ROUNDS_REACHED | BUDGET_EXCEEDED}
 
 ### Reviewer Summary
 
@@ -344,9 +358,18 @@ Produce the final consolidated report:
 
 ### Health Summary
 
-| Reviewer | Dismissed Count | Status |
-|----------|----------------|--------|
-| {id} | {n} | OK / ⚠ Warning |
+| Reviewer | Health Score | Dismissed Count | Strike Count | Status |
+|----------|:-----------:|:--------------:|:------------:|--------|
+| {id} | {score}/100 | {n} | {n} | OK / ⚠ Warning / 🚫 Dismissed |
+
+### Cost Summary (advisory)
+
+| Metric | Value |
+|--------|-------|
+| Total rounds | {n} |
+| Estimated tokens (total) | ~{n} |
+| Budget (max_total_tokens) | {n} |
+| Model usage | Phase 1: {judgment}, Phase 3: {arbitration} |
 
 **Event log**: `.agents/reviews/{review_id}.jsonl`
 ```
@@ -468,15 +491,48 @@ The following are NOT problems:
 3. **All findings dismissed** — This is a valid outcome (CLEAN round). Dismissed findings are low-confidence solo findings that no other reviewer corroborated.
 4. **R=2 Phase 3 auto-confirm** — With 2 reviewers, contested findings are confirmed by the raiser's vote. This is by design. The formal dismissal protocol (Phase 2+) provides the override.
 
+## Harness Hook Integration
+
+The following existing hooks integrate naturally with cross-review:
+- **process-guard.js**: Blocks "clean pass" declarations without file reads — applies to orchestrator
+- **commit-guard.js**: Checks progress file phase — cross-review runs during `review` phase
+
+No hook modifications needed. Cross-review operates within the existing harness framework.
+
 ## Related Files
 
 | File | Purpose |
 |------|---------|
 | `.agents/plans/cross-review-framework.md` | High-level design (converged) |
 | `.agents/plans/cross-review-implementation-design.md` | Implementation design (converged) |
-| `.agents/profiles/_base.yaml` | Base profile (defaults for all profiles) |
-| `.agents/profiles/code-review.yaml` | Code review profile (MVP) |
-| `.agents/prompts/correctness.md` | Correctness reviewer system prompt |
-| `.agents/prompts/security-expert.md` | Security reviewer system prompt |
-| `.agents/prompts/slop-detector.md` | SLOP detector system prompt |
+| `.agents/plans/cross-review-phase2-dismissal-plan.md` | Phase 2 dismissal investigation plan |
+| `.agents/plans/cross-review-test-plan.md` | Test plan (23 test cases) |
+| **Profiles** | |
+| `.agents/profiles/_base.yaml` | Base profile (inherited by all) |
+| `.agents/profiles/code-review.yaml` | Code review (3 reviewers, unanimous) |
+| `.agents/profiles/analysis-review.yaml` | Analysis/investigation review |
+| `.agents/profiles/security-review.yaml` | Security audit (4 reviewers, 3 clean rounds) |
+| `.agents/profiles/research-review.yaml` | Research review (majority consensus) |
+| `.agents/profiles/doc-review.yaml` | Documentation review (2 reviewers, lightweight) |
+| **Reviewer Prompts** | |
+| `.agents/prompts/correctness.md` | Line-by-line logic analysis |
+| `.agents/prompts/security-expert.md` | Pattern-based security scan |
+| `.agents/prompts/slop-detector.md` | Claim verification + quality signals |
+| `.agents/prompts/platform-specialist.md` | Source verification |
+| `.agents/prompts/reasoning-auditor.md` | Argument chain analysis |
+| `.agents/prompts/threat-modeler.md` | Attack surface enumeration |
+| **Test Fixtures** | |
+| `.agents/tests/fixtures/injected-bugs/` | Injected bug files (5) for detection rate |
+| `.agents/tests/fixtures/known-good/` | Known-good files for FP rate |
+| `.agents/tests/fixtures/malformed-reports/` | Malformed reports for parse testing |
+| `.agents/tests/fixtures/malformed-profiles/` | Invalid profiles for TC-5.3 |
+| **Test Personas** | |
+| `.agents/prompts/bad-reviewer-a-domain-amnesiac.md` | WCAG expert on Rust code |
+| `.agents/prompts/bad-reviewer-b-scope-constrained.md` | Lines 1-20 only |
+| `.agents/prompts/bad-reviewer-c-overcautious.md` | Nation-state threat model |
+| `.agents/profiles/phase2-test.yaml` | Phase 2 test (Persona A) |
+| `.agents/profiles/phase2-test-b.yaml` | Phase 2 test (Persona B) |
+| `.agents/profiles/phase2-test-c.yaml` | Phase 2 test (Persona C) |
+| **Reports** | |
+| `docs/reports/cross-review-test-results-phase-*.md` | Test result reports |
 | `.agents/reviews/` | Event logs (gitignored) |

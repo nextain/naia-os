@@ -217,6 +217,7 @@ Claude Code development assistant skills. **SoT: `.agents/skills/`** — `.claud
 
 | Skill | Description | Invocation |
 |-------|-------------|------------|
+| `cross-review` | Multi-agent mutual verification — spawn independent reviewers, cross-check findings, vote, dismiss degraded participants. 6 profiles (code/analysis/security/research/doc + custom) | Manual |
 | `merge-worktree` | Squash-merge worktree → main, naia-os conventional commit + progress.json trailers | Manual (phase 13) |
 | `verify-implementation` | Run all registered `verify-*` skills sequentially, generate unified report | Auto (phase 7, 9) |
 | `manage-skills` | Analyze session changes, create/update `verify-*` skills, update AGENTS.md | Auto (phase 10) |
