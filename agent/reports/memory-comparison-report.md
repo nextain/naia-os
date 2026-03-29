@@ -1,175 +1,249 @@
-# Memory System Comparison Benchmark Report
+# Naia Memory System — 벤치마크 비교 보고서
 
-**Issue**: #172 — 유사 프로젝트 벤치마크 비교
-**Date**: 2026-03-29 ~ 2026-03-30
-**Benchmark**: 55 tests (12 categories), keyword judge, 1 run per test
-**Embedding**: Gemini embedding-001 (3072d) for all vector-enabled systems
-**LLM**: Gemini 2.5 Flash for response generation
-
----
-
-## 1. Results
-
-| # | System | Stars | Core (51) | Rate | Grade |
-|:-:|--------|------:|:---------:|:----:|:-----:|
-| 1 | **Letta (MemGPT)** | 21.8K | 49/51 | **96%** | **A** |
-| 2 | **Naia** (MemorySystem+Mem0) | — | 47/51 | **92%** | **A** |
-| 3 | **OpenClaw (Cline)** | 59.6K | 43/51 | **84%** | **B** |
-| 4 | **Super Agent Party** | 2.0K | 43/51 | **84%** | **B** |
-| 5 | **mem0 OSS** | 51.4K | 42/51 | **82%** | **B** |
-| 6 | **jikime-adk** | 5 | 17/51 | 33% | F |
-| 7 | **jikime-mem** | 0 | 13/51 | 25% | F |
-| 8 | **project-airi** (no memory) | 36.2K | 12/51 | 24% | F |
-| 9 | **Open-LLM-VTuber** (no memory) | 6.4K | 11/51 | 22% | F |
-
-**Not tested**: Zep CE (OpenAI API key required — Graphiti hardcodes OpenAI embeddings)
+**프로젝트**: Naia OS — Alpha Memory System
+**이슈**: #172 유사 프로젝트 벤치마크 비교, #173 P2 개선
+**기간**: 2026-03-28 ~ 2026-03-30
+**작성자**: AI Agent (Claude Opus 4.6)
 
 ---
 
-## 2. Category Breakdown
+## 1. 이 보고서가 답하는 질문
 
-| Category | w | Naia | Letta | OpenClaw | SAP | mem0 | j-adk | j-mem | airi | OLV |
-|----------|:-:|:----:|:-----:|:--------:|:---:|:----:|:-----:|:-----:|:----:|:---:|
-| direct_recall | 1 | 9/9 | **9/9** | 9/9 | 8/9 | 8/9 | 1/9 | 0/9 | 0/9 | 0/9 |
-| semantic_search | 2 | **9/9** | **9/9** | 9/9 | 7/9 | 8/9 | 1/9 | 0/9 | 0/9 | 0/9 |
-| proactive_recall | 2 | 2/5 | **4/5** | 3/5 | 4/5 | 3/5 | 1/5 | 2/5 | 0/5 | 0/5 |
-| abstention | 2 | 9/9 | **9/9** | **9/9** | **9/9** | **9/9** | 9/9 | 8/9 | 9/9 | 8/9 |
-| irrelevant_isolation | 1 | **3/3** | **3/3** | 2/3 | **3/3** | **3/3** | **3/3** | **3/3** | **3/3** | **3/3** |
-| multi_fact_synthesis | 2 | **2/3** | **2/3** | 2/3 | 1/3 | 1/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| entity_disambiguation | 2 | **4/4** | **4/4** | 3/4 | 3/4 | 2/4 | 1/4 | 0/4 | 0/4 | 0/4 |
-| contradiction_direct | 2 | **3/3** | **3/3** | 3/3 | 2/3 | **3/3** | 0/3 | 0/3 | 0/3 | 0/3 |
-| unchanged_persistence | 1 | **3/3** | **3/3** | 3/3 | 3/3 | 2/3 | 0/3 | 0/3 | 0/3 | 0/3 |
-| noise_resilience | 2 | **3/3** | **3/3** | 0/3 | **3/3** | **3/3** | 1/3 | 0/3 | 0/3 | 0/3 |
-| *contradiction_indirect* | *0* | 2/2 | 1/2 | 2/2 | 1/2 | 1/2 | 0/2 | 0/2 | 0/2 | 0/2 |
-| *temporal_history* | *0* | 1/2 | 2/2 | 2/2 | 1/2 | 1/2 | 0/2 | 0/2 | 0/2 | 0/2 |
+> "Naia의 기억 시스템은 다른 프로젝트들과 비교해서 어느 수준인가?"
+
+9개 오픈소스 프로젝트와 동일한 테스트를 돌려 비교했습니다.
 
 ---
 
-## 3. Systems Description
+## 2. 비교 대상 프로젝트
 
-### Tier A (90%+)
+| 프로젝트 | GitHub Stars | 무엇을 하는 프로젝트인가 | 메모리 방식 |
+|----------|:-----------:|--------------------------|-----------|
+| **Letta (MemGPT)** | 21.8K | 상태 유지 AI 에이전트 플랫폼 | 3단계 메모리 (핵심/보관/회상) |
+| **Naia** | — | 개인 AI OS (우리 프로젝트) | 4-Store + 벡터 검색 |
+| **OpenClaw (Cline)** | 59.6K | IDE 자율 코딩 에이전트 | SQLite + 벡터 + 텍스트 하이브리드 |
+| **Super Agent Party** | 2.0K | 올인원 AI 동반자 | mem0 + FAISS 벡터 |
+| **mem0** | 51.4K | 범용 AI 메모리 라이브러리 | 벡터 DB + LLM 팩트 추출 |
+| **jikime-adk** | 5 | 레거시 코드 현대화 도구 | SQLite 텍스트 검색 |
+| **jikime-mem** | 0 | Claude Code 세션 메모리 | SQLite 텍스트 검색 |
+| **project-airi** | 36.2K | AI 동반자 (게임, 음성) | 메모리 미구현 (WIP) |
+| **Open-LLM-VTuber** | 6.4K | 음성 AI VTuber | 메모리 없음 (대화 히스토리만) |
 
-**Letta (MemGPT)** — 96%, 21.8K stars
-- 3-tier 메모리: Core (RAM) + Archival (Disk) + Recall (Cache)
-- UC Berkeley 연구팀 출신, OS 가상 메모리 개념을 AI에 적용
-- 강점: proactive_recall, entity_disambiguation, temporal_history
-
-**Naia** — 92%
-- 4-Store 아키텍처: Episodic + Semantic + Procedural + Working
-- Ebbinghaus decay, Hebbian KG, reconsolidation (현재 recall 비활성)
-- 강점: multi_fact_synthesis, contradiction_indirect, noise_resilience
-
-### Tier B (75-89%)
-
-**OpenClaw (Cline)** — 84%, 59.6K stars
-- SQLite + Gemini vector + FTS5 hybrid (0.7 vector + 0.3 text)
-- 코딩 에이전트 IDE 확장, 메모리는 Markdown 파일 기반
-- 약점: noise_resilience 0/3 (메모리 파일에 잡음이 혼재)
-
-**Super Agent Party** — 84%, 2.0K stars
-- mem0 + FAISS 벡터 스토어
-- 올인원 AI 동반자 (neuro-sama + openclaw 통합)
-- mem0 백엔드와 동일하지만 FAISS 벡터 스토어가 약간 다른 결과
-
-**mem0 OSS** — 82%, 51.4K stars
-- 범용 AI 메모리 레이어, 벡터 DB + LLM fact extraction
-- Naia의 실제 벡터 검색 백엔드
-- entity_disambiguation에서 Naia(4/4)보다 약함(2/4)
-
-### Tier F (벡터 검색 없음 또는 없는 메모리)
-
-**jikime-adk** — 33%, SQLite FTS5만 (벡터는 MCP only, CLI 미지원)
-**jikime-mem** — 25%, SQLite LIKE만 (ChromaDB 미연결)
-**project-airi** — 24%, 메모리 WIP (스텁)
-**Open-LLM-VTuber** — 22%, 대화 히스토리만 (영구 메모리 없음)
+**미테스트**: Zep (4.3K) — OpenAI API 키 필수로 테스트 불가
 
 ---
 
-## 4. Key Findings
+## 3. 어떻게 테스트했는가
 
-### 4.1 벡터 검색이 결정적
-- 벡터 검색 있음: 82~96%
-- 벡터 검색 없음: 22~33%
-- **차이: ~50-70%p** — 메모리 시스템의 가치는 벡터 검색 품질에 크게 의존
-
-### 4.2 Letta가 1위
-- 3-tier 메모리 아키텍처가 가장 효과적
-- proactive_recall (4/5), entity_disambiguation (4/4), temporal_history (2/2)에서 강세
-- Naia 대비 4%p 차이는 주로 proactive_recall에서 발생
-
-### 4.3 Naia의 위치
-- mem0 백엔드 위에 4-Store 레이어를 올린 구조
-- raw mem0(82%)보다 10%p 높은 92% — importance gating + fact merging의 효과
-- decay/KG를 recall에 연결하면 Letta 수준 도달 가능 (#173)
-
-### 4.4 SAP 재검증
-- 1차 실행: 71% — FAISS 인메모리 상태가 Python 프로세스 간 소실
-- 수정 후: 84% — persistent subprocess로 상태 유지
-- 적대적 리뷰에서 발견된 버그 수정으로 +13%p
-
-### 4.5 OpenClaw의 특이점
-- noise_resilience 0/3 — Markdown 파일 기반이라 잡음 메시지가 메모리에 그대로 포함
-- 나머지 카테고리는 strong — hybrid search (벡터+FTS5)가 효과적
-
----
-
-## 5. Limitations
-
-| 한계 | 영향 |
-|------|------|
-| keyword judge (claude-cli보다 관대) | 전체적으로 5-6%p 상승 추정 |
-| runs=1 (이전 기준은 runs=3) | 통계적 안정성 낮음 |
-| fact 15개 + topK=10 | 검색 정밀도 미측정 |
-| Zep 미테스트 | OpenAI 키 필요 |
-| 단일 세션 테스트 | 크로스세션 미커버 |
-
----
-
-## 6. Review Log
-
-적대적 리뷰 8패스 수행, 7건 자동 수정:
-
-| 패스 | 렌즈 | 결과 | 수정 |
-|------|------|------|------|
-| 1 | 정확성 | FIXED | SAP FAISS 상태 소실, setup/update silent failure |
-| 2 | 완전성 | FIXED | 인덱싱 대기 없음, bonus 필터 버그, Zep limit 위치 |
-| 3-6 | 일관성+패턴+운영+테스트 | FIXED | 이스케이프 불완전, SAP timeout 리스너 미해제 |
-| 7 | 종합 재확인 | CLEAN | - |
-| 8 | 종합 재확인 | CLEAN | - |
-
----
-
-## 7. Infrastructure
+### 3.1 테스트 구조
 
 ```
-src/memory/benchmark/comparison/
-├── types.ts              — BenchmarkAdapter interface
-├── run-comparison.ts     — Multi-adapter benchmark runner
-├── adapter-naia.ts       — Naia MemorySystem+Mem0 (92%)
-├── adapter-mem0.ts       — raw mem0 OSS (82%)
-├── adapter-letta.ts      — Letta REST API + Gemini embedding (96%)
-├── adapter-openclaw.ts   — OpenClaw CLI + Gemini vector+FTS5 (84%)
-├── adapter-sap.ts        — Super Agent Party mem0+FAISS subprocess (84%)
-├── adapter-zep.ts        — Zep CE REST API (untested)
-├── adapter-jikime-mem.ts — jikime-mem REST API (25%)
-├── adapter-jikime-adk.ts — jikime-adk Go CLI (33%)
-└── adapter-no-memory.ts  — No memory baseline (22-24%)
+[15개 사실 입력] → [메모리 시스템에 저장] → [55개 질문] → [LLM 답변 생성] → [자동 채점]
 ```
 
-Usage:
+모든 시스템에 **동일한 사실**을 넣고, **동일한 질문**을 하고, **동일한 기준**으로 채점합니다.
+
+### 3.2 입력 사실 (예시)
+
+| ID | 사실 |
+|----|------|
+| F01 | "나는 김하늘이야. 스타트업 대표고 풀스택 개발자야" |
+| F03 | "에디터는 Neovim 쓰고 있어" |
+| F07 | "커피는 아메리카노만 마셔. 우유 들어간 건 싫어해" |
+| F12 | "주말에는 주로 러닝을 해. 한강 달리기 좋아해" |
+
+총 15개 사실 + 3개 변경(에디터 Neovim→Cursor, 주소 성수동→판교 등) + 잡담 노이즈
+
+### 3.3 12가지 테스트 카테고리
+
+각 카테고리는 기억 시스템의 다른 능력을 측정합니다:
+
+| 카테고리 | 가중치 | 무엇을 측정하는가 | 질문 예시 |
+|----------|:------:|------------------|----------|
+| **직접 회상** | 1 | 저장한 사실을 직접 물으면 답하는가 | "내 이름이 뭐야?" → "김하늘" |
+| **의미 검색** | 2 | 다른 표현으로 물어도 찾는가 | "내 개발 환경 어때?" → TypeScript, Neovim... |
+| **능동 기억** | 2 | 묻지 않았는데 기억을 활용하는가 | "에디터 설정 도와줘" → Neovim 기반으로 답변 |
+| **환각 방지** | 2 | 모르는 것을 지어내지 않는가 | "내 차가 뭐야?" → "말씀하신 적 없습니다" |
+| **무관 격리** | 1 | 무관한 질문에 기억을 꺼내지 않는가 | "HTTP 404가 뭐야?" → 개인정보 언급 안 함 |
+| **종합 추론** | 2 | 여러 기억을 조합하여 답하는가 | "새 프로젝트 세팅해줘" → TS+Next.js+탭 반영 |
+| **개체 구분** | 2 | 나와 타인 정보를 구분하는가 | "내 에디터는?" → Neovim (동료 것 아님) |
+| **변경 감지** | 2 | 정보가 바뀌면 업데이트하는가 | "에디터 뭐 써?" → "Cursor" (업데이트 반영) |
+| **유지 확인** | 1 | 바꾸지 않은 것은 그대로인가 | "커피 뭐 좋아해?" → "아메리카노" (변함없음) |
+| **노이즈 내성** | 2 | 잡담 속 정보도 추출하는가 | 잡담 중 "모니터 34인치 울트라와이드" → 기억 |
+| *간접 변화* | *0* | 암묵적 변화를 감지하는가 (보너스) | "요즘 관심 있는 거?" → Python (간접 추론) |
+| *변경 이력* | *0* | 이전 값을 기억하는가 (보너스) | "원래 어디 살았어?" → "성수동" |
+
+### 3.4 채점 방식
+
+- **keyword judge**: 답변에 기대 키워드가 포함되면 PASS
+  - 예: "아메리카노"가 답변에 있으면 PASS
+  - 장점: 빠르고 일관적
+  - 단점: LLM judge보다 ~5%p 관대 (이전 claude-cli judge 기준 Naia 86%)
+- **등급 기준**:
+  - **A**: Core 90% 이상 + Bonus 50% 이상
+  - **B**: Core 75% 이상
+  - **C**: Core 60% 이상
+  - **F**: Core 60% 미만 또는 환각 방지 실패
+
+### 3.5 공정성 보장
+
+- 모든 시스템에 **동일한 임베딩 모델** 사용 (Gemini embedding-001, 3072차원)
+- 모든 시스템에 **동일한 LLM** 사용 (Gemini 2.5 Flash)
+- 벡터 검색이 가능한 시스템은 모두 **벡터 검색 활성화 후 테스트**
+- 메모리가 없는 시스템도 **있는 그대로** 테스트 (제외하지 않음)
+
+---
+
+## 4. 결과
+
+### 4.1 전체 순위
+
+| 순위 | 프로젝트 | 통과 (51개 중) | 통과율 | 등급 | 비고 |
+|:----:|----------|:--------------:|:------:|:----:|------|
+| 1 | **Letta (MemGPT)** | 49/51 | **96%** | A | 3단계 메모리 아키텍처 |
+| 2 | **Naia** | 47/51 | **92%** | A | 4-Store 아키텍처 |
+| 3 | **OpenClaw** | 43/51 | **84%** | B | 하이브리드 검색 |
+| 4 | **Super Agent Party** | 43/51 | **84%** | B | mem0+FAISS |
+| 5 | **mem0** | 42/51 | **82%** | B | 벡터 검색만 |
+| 6 | jikime-adk | 17/51 | 33% | F | 텍스트 검색만 |
+| 7 | jikime-mem | 13/51 | 25% | F | 텍스트 검색만 |
+| 8 | project-airi | 12/51 | 24% | F | 메모리 없음 |
+| 9 | Open-LLM-VTuber | 11/51 | 22% | F | 메모리 없음 |
+
+### 4.2 카테고리별 비교 (상위 5개만)
+
+| 카테고리 | Letta | Naia | OpenClaw | SAP | mem0 |
+|----------|:-----:|:----:|:--------:|:---:|:----:|
+| 직접 회상 (9) | **9** | **9** | **9** | 8 | 8 |
+| 의미 검색 (9) | **9** | **9** | **9** | 7 | 8 |
+| 능동 기억 (5) | **4** | 2 | 3 | **4** | 3 |
+| 환각 방지 (9) | **9** | **9** | **9** | **9** | **9** |
+| 무관 격리 (3) | **3** | **3** | 2 | **3** | **3** |
+| 종합 추론 (3) | **2** | **2** | **2** | 1 | 1 |
+| 개체 구분 (4) | **4** | **4** | 3 | 3 | 2 |
+| 변경 감지 (3) | **3** | **3** | **3** | 2 | **3** |
+| 유지 확인 (3) | **3** | **3** | **3** | **3** | 2 |
+| 노이즈 내성 (3) | **3** | **3** | 0 | **3** | **3** |
+
+---
+
+## 5. 해석 — 이 결과가 의미하는 것
+
+### 5.1 벡터 검색이 결정적이다
+
+벡터 검색(의미 기반 유사도 검색)이 **있으면 82~96%, 없으면 22~33%**. 차이가 약 60%p입니다.
+
+- "커피 뭐 좋아해?"라고 물으면 → 벡터 검색은 "아메리카노만 마셔"를 찾음
+- 텍스트 검색은 "커피"라는 단어가 정확히 포함된 문장만 찾으므로 놓칠 수 있음
+
+**결론**: 메모리 시스템의 핵심은 벡터 검색 품질입니다.
+
+### 5.2 Naia는 2위이며 Letta와의 차이는 좁다
+
+- Letta 96% vs Naia 92% — **4%p 차이**
+- 차이의 원인: **능동 기억** (Letta 4/5, Naia 2/5)
+  - "에디터 설정 도와줘"라고 했을 때, 사용자가 Neovim 쓴다는 걸 기억하고 알아서 반영하는 능력
+  - Naia는 기억은 있지만 "알아서 적용"하는 빈도가 낮음
+
+### 5.3 OpenClaw이 의외로 강하다
+
+- 59.6K 스타의 코딩 에이전트가 84%로 B등급
+- 하이브리드 검색 (벡터 70% + 텍스트 30%)이 효과적
+- **약점**: 노이즈 내성 0/3 — Markdown 파일에 잡담도 그대로 저장해서 검색에 방해
+
+### 5.4 메모리 없는 프로젝트도 22~24%를 받는다
+
+- project-airi와 Open-LLM-VTuber는 메모리가 없는데도 22~24%
+- 이유: 환각 방지(9/9)와 무관 격리(3/3)에서 만점 — LLM이 "모르겠다"고 답하면 PASS
+- **해석**: 22~24%가 "메모리 없이 LLM만으로 가능한 점수"이며, 이 위의 점수가 메모리 시스템의 순수 기여분
+
+### 5.5 96%는 천장 효과가 있다
+
+- 51개 테스트 중 Letta가 49개를 맞춤 → 변별력이 부족해지고 있음
+- 더 어려운 테스트를 추가해야 (fact 100개+, 크로스세션 등) 실제 능력 차이가 드러남
+- 현재 fact 15개에 topK=10이라 거의 전수 검색 — 검색 정밀도를 측정하지 못하고 있음
+
+---
+
+## 6. KG/Decay 활성화 실험 (#173)
+
+### 무엇을 했는가
+
+Naia의 Knowledge Graph(연상 기억)와 Ebbinghaus decay(망각 곡선)가 recall에서 비활성이었습니다.
+이를 활성화하여 결과 re-ranking에 반영했습니다.
+
+### 결과
+
+| 카테고리 | 활성화 전 | 활성화 후 | 변화 |
+|----------|:---------:|:---------:|:----:|
+| 능동 기억 | 2/5 | **4/5** | +2 ✅ |
+| 유지 확인 | 2/3 | **3/3** | +1 ✅ |
+| 간접 변화 (보너스) | 1/2 | **2/2** | +1 ✅ |
+| 환각 방지 | **9/9** | 7/9 | -2 ❌ |
+| 직접 회상 | **9/9** | 8/9 | -1 ❌ |
+| 개체 구분 | **4/4** | 3/4 | -1 ❌ |
+| **전체** | **47/51 (92%)** | **45/51 (88%)** | **-2** |
+
+### 해석
+
+- **좋아진 것**: KG가 관련 기억을 더 잘 끌어와서 능동 기억이 크게 개선 (Letta 수준 도달)
+- **나빠진 것**: 더 많은 기억이 반환되면서 LLM이 "없는 정보도 있는 것 같다"고 오판 → 환각 방지 하락
+- **결론**: KG 부스트 강도를 줄이거나, 환각 방지 로직을 강화해야 함. 파라미터 튜닝 진행 중.
+
+---
+
+## 7. 알려진 한계와 향후 계획
+
+| 한계 | 영향 | 대응 |
+|------|------|------|
+| keyword judge (관대) | ~5%p 과대 추정 | claude-cli judge + runs=3으로 재검증 예정 |
+| fact 15개 (적음) | 전수 검색에 가까움 | fact 100개+ 확대 (#173) |
+| 단일 세션 테스트 | 크로스세션 미검증 | 3-session 시나리오 추가 (#173) |
+| Zep 미테스트 | 비교 불완전 | OpenAI 키 확보 후 테스트 |
+| 1회 실행 | 통계적 변동 | runs=3 + 2/3 다수결 |
+
+---
+
+## 8. 벤치마크 인프라
+
+### 어댑터 구조
+
+각 메모리 시스템을 동일한 인터페이스로 래핑했습니다:
+
+```typescript
+interface BenchmarkAdapter {
+  addFact(content: string): Promise<boolean>;  // 사실 저장
+  search(query: string, topK: number): Promise<string[]>;  // 검색
+}
+```
+
+### 실행 방법
+
 ```bash
 GEMINI_API_KEY=... pnpm exec tsx src/memory/benchmark/comparison/run-comparison.ts \
   --adapters=naia,mem0,letta,openclaw,sap \
   --judge=keyword --runs=1
 ```
 
+### 파일 위치
+
+```
+agent/src/memory/benchmark/
+├── comparison/           ← 비교 벤치마크 (이 보고서의 소스)
+│   ├── run-comparison.ts ← 실행 러너
+│   ├── adapter-*.ts      ← 9개 시스템 어댑터
+│   └── types.ts          ← 인터페이스 정의
+├── fact-bank.json        ← 15개 테스트 사실
+├── query-templates.json  ← 55개 테스트 질문 (12 카테고리)
+└── run-comprehensive.ts  ← 단일 시스템 상세 벤치마크
+```
+
 ---
 
-## 8. Next Steps
+## 9. 요약
 
-| Priority | Task | Expected Impact |
-|:--------:|------|-----------------|
-| 1 | **#173**: decay/KG를 recall 경로에 연결 | Naia 92% → Letta(96%) 수준 도달 |
-| 2 | **#174**: Naia Shell 실제 적용 | 체감 성능 측정 |
-| 3 | Zep 테스트 (OpenAI 키 확보 후) | 비교 완성 |
-| 4 | claude-cli judge + runs=3 재실행 | 통계적 신뢰성 향상 |
+- **Naia는 9개 프로젝트 중 2위** (92%, Grade A)
+- **1위 Letta(96%)와의 차이는 4%p** — 주로 능동 기억에서 발생
+- **벡터 검색이 핵심** — 있으면 82%+, 없으면 22~33%
+- **KG 활성화로 능동 기억 개선 가능** — 단, 환각 방지와의 균형 필요
+- **테스트 변별력 확대 필요** — fact 100개+, 크로스세션으로 더 정밀한 비교 예정
