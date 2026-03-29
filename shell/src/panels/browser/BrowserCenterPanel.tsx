@@ -277,6 +277,21 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	// ── Auto-detect Chrome install while showing "no-chrome" ──────────────────
+	useEffect(() => {
+		if (status !== "no-chrome") return;
+		const timer = setInterval(() => {
+			invoke<boolean>("browser_check").then((ok) => {
+				if (ok) {
+					clearInterval(timer);
+					initEmbed();
+				}
+			});
+		}, 5000);
+		return () => clearInterval(timer);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [status]);
+
 	// ── Focus: HTML input focused → route keyboard to Tauri shell ────────────
 	useEffect(() => {
 		const onFocusIn = (e: FocusEvent) => {
@@ -548,6 +563,8 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 
 	// ── No Chrome ────────────────────────────────────────────────────────────
 	if (status === "no-chrome") {
+		const isWindows = navigator.userAgent.includes("Windows");
+		const isMac = navigator.userAgent.includes("Mac");
 		return (
 			<div className="browser-panel browser-panel--install">
 				<div className="browser-panel__install-box">
@@ -555,9 +572,22 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 					<p className="browser-panel__install-desc">
 						내장 브라우저를 사용하려면 Google Chrome이 필요합니다.
 					</p>
-					<p className="browser-panel__install-desc">
-						<code>flatpak install com.google.Chrome</code>
-					</p>
+					{isWindows || isMac ? (
+						<button
+							className="browser-panel__install-btn"
+							onClick={() => {
+								import("@tauri-apps/plugin-opener").then((opener) =>
+									opener.openUrl("https://www.google.com/chrome/"),
+								);
+							}}
+						>
+							Chrome 다운로드
+						</button>
+					) : (
+						<p className="browser-panel__install-desc">
+							<code>flatpak install com.google.Chrome</code>
+						</p>
+					)}
 				</div>
 			</div>
 		);

@@ -113,6 +113,25 @@ fn setup_vosk() {
         eprintln!("cargo:warning=libvosk downloaded to {}", lib_path.display());
     }
 
+    // On Windows, generate .lib import library if only .dll was extracted (vosk zip has no .lib)
+    #[cfg(target_os = "windows")]
+    {
+        let lib_file = vosk_dir.join("libvosk.lib");
+        if !lib_file.exists() && vosk_dir.join("libvosk.dll").exists() {
+            let def_path = vosk_dir.join("libvosk.def");
+            std::fs::write(&def_path, "LIBRARY libvosk\nEXPORTS\n    vosk_model_new\n    vosk_model_free\n    vosk_model_find_word\n    vosk_recognizer_new\n    vosk_recognizer_free\n    vosk_recognizer_accept_waveform\n    vosk_recognizer_accept_waveform_s\n    vosk_recognizer_result\n    vosk_recognizer_final_result\n    vosk_recognizer_partial_result\n    vosk_recognizer_set_spk_model\n    vosk_set_log_level\n    vosk_gpu_init\n    vosk_gpu_thread_init\n    vosk_recognizer_set_max_alternatives\n    vosk_recognizer_set_words\n    vosk_recognizer_set_partial_words\n    vosk_recognizer_set_nlsml\n    vosk_recognizer_reset\n    vosk_recognizer_new_spk\n    vosk_recognizer_new_grm\n    vosk_spk_model_new\n    vosk_spk_model_free\n    vosk_batch_model_new\n    vosk_batch_model_free\n    vosk_batch_model_wait\n    vosk_batch_recognizer_new\n    vosk_batch_recognizer_free\n    vosk_batch_recognizer_accept_waveform\n    vosk_batch_recognizer_finish_stream\n    vosk_batch_recognizer_front_result\n    vosk_batch_recognizer_pop\n    vosk_batch_recognizer_get_pending_chunks\n    vosk_batch_recognizer_set_nlsml\n")
+                .expect("Failed to write libvosk.def");
+            let status = std::process::Command::new("lib.exe")
+                .args([&format!("/DEF:{}", def_path.display()), &format!("/OUT:{}", lib_file.display()), "/MACHINE:X64"])
+                .status();
+            if !status.map(|s| s.success()).unwrap_or(false) {
+                let _ = std::process::Command::new("dlltool")
+                    .args(["-d", &def_path.display().to_string(), "-l", &lib_file.display().to_string()])
+                    .status();
+            }
+        }
+    }
+
     // Tell the linker where to find libvosk
     println!("cargo:rustc-link-search=native={}", vosk_dir.display());
 

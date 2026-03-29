@@ -1,5 +1,6 @@
 //! Windows platform implementations.
 
+use super::{PlatformHandle, PlatformWindowManager, WindowRect};
 use std::path::PathBuf;
 use std::process::{Child, Command};
 
@@ -641,5 +642,157 @@ pub(crate) fn normalize_path(path: &std::path::Path) -> PathBuf {
         PathBuf::from(stripped)
     } else {
         path.to_path_buf()
+    }
+}
+
+// ─── Browser window embedding (Win32) ────────────────────────────────────────
+
+use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, RECT, TRUE, FALSE};
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
+
+pub struct Win32WindowManager;
+
+fn hwnd_to_isize(h: HWND) -> isize { h as isize }
+fn isize_to_hwnd(i: isize) -> HWND { i as HWND }
+
+struct FindByPidCtx { target_pid: u32, found_hwnd: HWND }
+
+unsafe extern "system" fn enum_by_pid_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let ctx = &mut *(lparam as *mut FindByPidCtx);
+    let mut pid: u32 = 0;
+    GetWindowThreadProcessId(hwnd, &mut pid);
+    if pid == ctx.target_pid && IsWindowVisible(hwnd) != 0 {
+        let mut rect = std::mem::zeroed::<RECT>();
+        if GetWindowRect(hwnd, &mut rect) != 0 {
+            let w = rect.right - rect.left;
+            let h = rect.bottom - rect.top;
+            if w > 100 && h > 100 { ctx.found_hwnd = hwnd; return FALSE; }
+        }
+    }
+    TRUE
+}
+
+struct FindChromeCtx { found_hwnd: HWND }
+
+unsafe extern "system" fn enum_chrome_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let ctx = &mut *(lparam as *mut FindChromeCtx);
+    if IsWindowVisible(hwnd) != 0 {
+        let mut class_buf = [0u16; 256];
+        let len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 256);
+        if len > 0 {
+            let class_name = String::from_utf16_lossy(&class_buf[..len as usize]);
+            if class_name.starts_with("Chrome_WidgetWin") {
+                let mut rect = std::mem::zeroed::<RECT>();
+                if GetWindowRect(hwnd, &mut rect) != 0 {
+                    let w = rect.right - rect.left;
+                    let h = rect.bottom - rect.top;
+                    if w > 200 && h > 200 { ctx.found_hwnd = hwnd; return FALSE; }
+                }
+            }
+        }
+    }
+    TRUE
+}
+
+impl PlatformWindowManager for Win32WindowManager {
+    fn find_window_by_pid(&self, pid: u32, timeout_ms: u64) -> Result<PlatformHandle, String> {
+        let attempts = (timeout_ms / 500).max(1);
+        for _ in 0..attempts {
+            let mut ctx = FindByPidCtx { target_pid: pid, found_hwnd: std::ptr::null_mut() };
+            unsafe { EnumWindows(Some(enum_by_pid_cb), &mut ctx as *mut _ as LPARAM); }
+            if !ctx.found_hwnd.is_null() { return Ok(PlatformHandle::Win32(hwnd_to_isize(ctx.found_hwnd))); }
+            let mut chrome_ctx = FindChromeCtx { found_hwnd: std::ptr::null_mut() };
+            unsafe { EnumWindows(Some(enum_chrome_cb), &mut chrome_ctx as *mut _ as LPARAM); }
+            if !chrome_ctx.found_hwnd.is_null() { return Ok(PlatformHandle::Win32(hwnd_to_isize(chrome_ctx.found_hwnd))); }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        Err(format!("Chrome window not found for PID {pid} within {timeout_ms} ms"))
+    }
+
+    fn find_window_by_name(&self, name: &str, timeout_ms: u64) -> Result<PlatformHandle, String> {
+        let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+        let attempts = (timeout_ms / 500).max(1);
+        for attempt in 0..attempts {
+            let hwnd = unsafe { FindWindowW(std::ptr::null(), wide.as_ptr()) };
+            if !hwnd.is_null() { return Ok(PlatformHandle::Win32(hwnd_to_isize(hwnd))); }
+            std::thread::sleep(std::time::Duration::from_millis(if attempt == 0 { 1000 } else { 500 }));
+        }
+        Err(format!("Window '{name}' not found within {timeout_ms} ms"))
+    }
+
+    fn embed(&self, parent: PlatformHandle, child: PlatformHandle, rect: WindowRect) -> Result<(), String> {
+        let PlatformHandle::Win32(pv) = parent else { return Err("not Win32".into()); };
+        let PlatformHandle::Win32(cv) = child else { return Err("not Win32".into()); };
+        let (ph, ch) = (isize_to_hwnd(pv), isize_to_hwnd(cv));
+        unsafe {
+            let style = GetWindowLongW(ch, GWL_STYLE) as u32;
+            SetWindowLongW(ch, GWL_STYLE, ((style & !(WS_POPUP | WS_CAPTION | WS_THICKFRAME)) | WS_CHILD) as i32);
+            if SetParent(ch, ph).is_null() { return Err("SetParent failed".into()); }
+            MoveWindow(ch, rect.x, rect.y, rect.width as i32, rect.height as i32, TRUE);
+            ShowWindow(ch, SW_SHOW);
+            SetFocus(ch);
+        }
+        Ok(())
+    }
+
+    fn remap(&self, handle: PlatformHandle, rect: WindowRect) -> Result<(), String> {
+        let PlatformHandle::Win32(v) = handle else { return Err("not Win32".into()); };
+        let h = isize_to_hwnd(v);
+        unsafe { MoveWindow(h, rect.x, rect.y, rect.width as i32, rect.height as i32, TRUE); ShowWindow(h, SW_SHOW); SetFocus(h); }
+        Ok(())
+    }
+
+    fn resize(&self, handle: PlatformHandle, rect: WindowRect) -> Result<(), String> {
+        let PlatformHandle::Win32(v) = handle else { return Err("not Win32".into()); };
+        unsafe { MoveWindow(isize_to_hwnd(v), rect.x, rect.y, rect.width as i32, rect.height as i32, TRUE); }
+        Ok(())
+    }
+
+    fn focus(&self, handle: PlatformHandle) -> Result<(), String> {
+        let PlatformHandle::Win32(v) = handle else { return Ok(()); };
+        unsafe { SetFocus(isize_to_hwnd(v)); }
+        Ok(())
+    }
+
+    fn show(&self, handle: PlatformHandle) -> Result<(), String> {
+        let PlatformHandle::Win32(v) = handle else { return Ok(()); };
+        let h = isize_to_hwnd(v);
+        unsafe { ShowWindow(h, SW_SHOW); SetFocus(h); }
+        Ok(())
+    }
+
+    fn hide(&self, handle: PlatformHandle) -> Result<(), String> {
+        let PlatformHandle::Win32(v) = handle else { return Ok(()); };
+        unsafe { ShowWindow(isize_to_hwnd(v), SW_HIDE); }
+        Ok(())
+    }
+
+    fn chrome_bin(&self) -> Option<String> {
+        for name in &["chrome", "google-chrome", "chromium"] {
+            if let Ok(out) = Command::new("where.exe").arg(name).output() {
+                if out.status.success() {
+                    let p = String::from_utf8_lossy(&out.stdout).lines().next().unwrap_or("").trim().to_string();
+                    if !p.is_empty() { return Some(p); }
+                }
+            }
+        }
+        let pf = std::env::var("ProgramFiles").unwrap_or_default();
+        let pf86 = std::env::var("ProgramFiles(x86)").unwrap_or_default();
+        let la = std::env::var("LOCALAPPDATA").unwrap_or_default();
+        for path in &[
+            format!("{pf}\\Google\\Chrome\\Application\\chrome.exe"),
+            format!("{pf86}\\Google\\Chrome\\Application\\chrome.exe"),
+            format!("{la}\\Google\\Chrome\\Application\\chrome.exe"),
+        ] {
+            if std::path::Path::new(path).exists() { return Some(path.clone()); }
+        }
+        None
+    }
+
+    fn chrome_spawn_args(&self) -> (Vec<String>, Vec<(String, String)>) { (vec![], vec![]) }
+
+    fn kill_lingering_chrome(&self) {
+        let _ = Command::new("wmic").args(["process", "where", "commandline like '%naia%chrome-profile%'", "call", "terminate"]).output();
     }
 }
