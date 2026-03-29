@@ -125,38 +125,64 @@ export class Mem0Adapter implements MemoryAdapter {
 						memoryText.includes(ep.content.slice(0, 50)) ||
 						ep.content.includes(memoryText.slice(0, 50)),
 				);
+				const now = Date.now();
 				if (match) {
 					match.recallCount++;
-					match.lastAccessed = Date.now();
+					match.lastAccessed = now;
+					match.strength = calculateStrength(
+						match.importance.utility, match.timestamp,
+						match.recallCount, match.lastAccessed, now,
+					);
 					matchedEpisodes.push(match);
 				} else {
 					// mem0 returned a memory not in our episode list
 					// (could be from a previous session). Create a synthetic episode.
+					const createdAt = r.created_at ? new Date(r.created_at).getTime() : now;
+					const strength = calculateStrength(0.5, createdAt, 1, now, now);
 					matchedEpisodes.push({
 						id: r.id ?? randomUUID(),
 						content: memoryText,
 						summary: memoryText.slice(0, 200),
-						timestamp: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+						timestamp: createdAt,
 						importance: { importance: 0.5, surprise: 0, emotion: 0.5, utility: 0.5 },
 						encodingContext: { project: r.metadata?.project },
 						consolidated: true,
 						recallCount: 1,
-						lastAccessed: Date.now(),
-						strength: 0.5,
+						lastAccessed: now,
+						strength,
 					});
 				}
 			}
 
-			// Apply context boost if project matches
-			if (context.project) {
-				matchedEpisodes.sort((a, b) => {
-					const aBoost = a.encodingContext.project === context.project ? 1 : 0;
-					const bBoost = b.encodingContext.project === context.project ? 1 : 0;
-					return bBoost - aBoost;
-				});
-			}
+			// KG spreading activation for episode re-ranking
+			const queryTokens = query.split(/\s+/).filter((t) => t.length >= 2);
+			const activated = new Map<string, number>();
+			try {
+				const kgResults = this.kg.spreadingActivation(queryTokens);
+				for (const { entity, activation } of kgResults) {
+					activated.set(entity.toLowerCase(), activation);
+				}
+			} catch {}
 
-			return matchedEpisodes.slice(0, topK);
+			// Sort by: decay strength × (1 + context boost + KG boost)
+			matchedEpisodes.sort((a, b) => {
+				const aCtx = context.project && a.encodingContext.project === context.project ? 0.3 : 0;
+				const bCtx = context.project && b.encodingContext.project === context.project ? 0.3 : 0;
+				// KG boost from content token overlap with activated entities
+				let aKg = 0, bKg = 0;
+				for (const [entity, act] of activated) {
+					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.2;
+					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.2;
+				}
+				const aScore = a.strength * (1 + aCtx + aKg);
+				const bScore = b.strength * (1 + bCtx + bKg);
+				return bScore - aScore;
+			});
+
+			// Filter decayed episodes
+			return matchedEpisodes
+				.filter((ep) => ep.strength > 0.05)
+				.slice(0, topK);
 		},
 
 		getRecent: async (n: number): Promise<Episode[]> => {
@@ -199,25 +225,66 @@ export class Mem0Adapter implements MemoryAdapter {
 
 		search: async (query: string, topK: number): Promise<Fact[]> => {
 			const m = await this.ensureMem0();
+			// Fetch more than topK to allow decay filtering + KG re-ranking
 			const results = await m.search(query, {
 				userId: this.userId,
-				limit: topK,
+				limit: topK * 2,
 			});
 
+			const now = Date.now();
 			const resultItems = results?.results ?? results ?? [];
-			return resultItems.map((r: any) => ({
-				id: r.id ?? randomUUID(),
-				content: r.memory ?? r.text ?? r.content ?? "",
-				entities: r.metadata?.entities ?? [],
-				topics: r.metadata?.topics ?? [],
-				createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
-				updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
-				importance: 0.5,
-				recallCount: 1,
-				lastAccessed: Date.now(),
-				strength: 0.5,
-				sourceEpisodes: [],
-			}));
+
+			// KG spreading activation for re-ranking
+			const queryTokens = query.split(/\s+/).filter((t) => t.length >= 2);
+			const activated = new Map<string, number>();
+			try {
+				const kgResults = this.kg.spreadingActivation(queryTokens);
+				for (const { entity, activation } of kgResults) {
+					activated.set(entity.toLowerCase(), activation);
+				}
+			} catch {}
+
+			const facts: Array<Fact & { _score: number }> = resultItems.map((r: any, idx: number) => {
+				const createdAt = r.created_at ? new Date(r.created_at).getTime() : now;
+				const updatedAt = r.updated_at ? new Date(r.updated_at).getTime() : now;
+				const entities: string[] = r.metadata?.entities ?? [];
+
+				// Decay-based strength
+				const strength = calculateStrength(0.5, createdAt, 1, now, now);
+
+				// KG activation bonus
+				let kgBoost = 0;
+				for (const entity of entities) {
+					const act = activated.get(entity.toLowerCase());
+					if (act) kgBoost += act;
+				}
+
+				// Combined score: mem0 rank position + KG boost, modulated by decay
+				const positionScore = 1 - (idx / resultItems.length);
+				const _score = (positionScore + kgBoost * 0.3) * strength;
+
+				return {
+					id: r.id ?? randomUUID(),
+					content: r.memory ?? r.text ?? r.content ?? "",
+					entities,
+					topics: r.metadata?.topics ?? [],
+					createdAt,
+					updatedAt,
+					importance: 0.5,
+					recallCount: 1,
+					lastAccessed: now,
+					strength,
+					sourceEpisodes: [],
+					_score,
+				};
+			});
+
+			// Filter decayed + sort by combined score
+			return facts
+				.filter((f) => f.strength > 0.05)
+				.sort((a, b) => b._score - a._score)
+				.slice(0, topK)
+				.map(({ _score, ...fact }) => fact);
 		},
 
 		decay: async (now: number): Promise<number> => {
@@ -262,16 +329,6 @@ export class Mem0Adapter implements MemoryAdapter {
 				strength: 0.5,
 				sourceEpisodes: [],
 			}));
-		},
-
-		delete: async (id: string): Promise<boolean> => {
-			try {
-				const m = await this.ensureMem0();
-				await m.delete(id);
-				return true;
-			} catch {
-				return false;
-			}
 		},
 	};
 
