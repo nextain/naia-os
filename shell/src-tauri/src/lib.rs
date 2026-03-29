@@ -3,6 +3,7 @@ mod browser;
 mod gemini_live;
 mod memory;
 mod panel;
+mod platform;
 mod pty;
 mod stt_models;
 mod workspace;
@@ -20,6 +21,117 @@ pub(crate) fn home_dir() -> String {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_default()
+}
+
+/// Search a node version manager directory for the highest Node 22+ version.
+pub(crate) fn find_highest_node_version(versions_dir: &str, bin_subpath: &str) -> Option<std::path::PathBuf> {
+    let entries = std::fs::read_dir(versions_dir).ok()?;
+    let mut versions: Vec<_> = entries
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let name = name.trim_start_matches('v').to_string();
+            let major: u32 = name.split('.').next()?.parse().ok()?;
+            if major >= 22 { Some((major, e.path())) } else { None }
+        })
+        .collect();
+    versions.sort_by(|a, b| b.0.cmp(&a.0));
+    versions.first().and_then(|(_, path)| {
+        let node_bin = path.join(bin_subpath);
+        if node_bin.exists() { Some(node_bin) } else { None }
+    })
+}
+
+/// Process a deep-link URL (naia://auth?key=xxx). Extracted as a function
+/// so both the Tauri deep-link plugin callback and the Windows file watcher
+/// can share the same parsing + validation logic.
+pub(crate) fn process_deep_link_url(
+    url_str: &str,
+    app_handle: &AppHandle,
+    oauth_state: Option<&Arc<Mutex<Option<String>>>>,
+    source: &str,
+) {
+    let redacted = url_str.split('?').next().unwrap_or(url_str);
+    log_both(&format!("[Naia] Deep link received ({}): {}?[REDACTED]", source, redacted));
+    let parsed = match url::Url::parse(url_str) {
+        Ok(u) => u,
+        Err(_) => return,
+    };
+    if parsed.host_str() != Some("auth") && parsed.path() != "auth" && parsed.path() != "/auth" {
+        return;
+    }
+    let mut key = None;
+    let mut code = None;
+    let mut user_id = None;
+    let mut incoming_state = None;
+    let mut channel = None;
+    let mut discord_user_id = None;
+    let mut discord_channel_id = None;
+    let mut discord_target = None;
+    for (k, v) in parsed.query_pairs() {
+        match k.as_ref() {
+            "key" => key = Some(v.to_string()),
+            "code" => code = Some(v.to_string()),
+            "user_id" => user_id = Some(v.to_string()),
+            "state" => incoming_state = Some(v.to_string()),
+            "channel" => channel = Some(v.to_string()),
+            "discord_user_id" | "discordUserId" => discord_user_id = Some(v.to_string()),
+            "discord_channel_id" | "discordChannelId" => discord_channel_id = Some(v.to_string()),
+            "discord_target" | "discordTarget" => discord_target = Some(v.to_string()),
+            _ => {}
+        }
+    }
+    if let Some(state_mutex) = oauth_state {
+        let expected = lock_or_recover(state_mutex, "oauth_state(deep_link)").clone();
+        if let Some(ref expected_val) = expected {
+            match &incoming_state {
+                Some(s) if s == expected_val => {
+                    *lock_or_recover(state_mutex, "oauth_state(clear)") = None;
+                }
+                Some(_) => { log_both("[Naia] Deep link rejected: state mismatch"); return; }
+                None => { log_both("[Naia] Deep link rejected: missing state parameter"); return; }
+            }
+        }
+    }
+    let validated_user_id = user_id.filter(|uid| {
+        uid.len() <= 256 && uid.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '@')
+    });
+    let resolved_key = if key.is_some() {
+        key
+    } else if let Some(code_val) = code {
+        if code_val.starts_with("gw-") { Some(code_val) } else {
+            log_both("[Naia] Deep link rejected: code is not a gateway API key");
+            None
+        }
+    } else { None };
+    if let Some(naia_key) = resolved_key {
+        let is_valid = naia_key.starts_with("gw-") && naia_key.len() <= 256
+            && naia_key.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_');
+        if is_valid {
+            let payload = serde_json::json!({ "naiaKey": naia_key, "naiaUserId": validated_user_id });
+            let _ = app_handle.emit("naia_auth_complete", payload);
+            log_both("[Naia] Naia auth complete — key received via deep link");
+        } else {
+            log_both("[Naia] Deep link rejected: invalid key format");
+        }
+    }
+    let is_discord_flow = matches!(channel.as_deref(), Some("discord"))
+        || discord_user_id.is_some() || discord_channel_id.is_some() || discord_target.is_some();
+    if is_discord_flow {
+        let validated_discord_user_id = discord_user_id.filter(|uid| is_valid_discord_snowflake(uid));
+        let validated_discord_channel_id = discord_channel_id.filter(|cid| is_valid_discord_snowflake(cid));
+        let normalized_target = discord_target
+            .and_then(|t| { let t = t.trim().to_string(); if t.starts_with("user:") || t.starts_with("channel:") { Some(t) } else { None } })
+            .or_else(|| validated_discord_user_id.as_ref().map(|uid| format!("user:{}", uid)))
+            .or_else(|| validated_discord_channel_id.as_ref().map(|cid| format!("channel:{}", cid)));
+        let payload = serde_json::json!({
+            "discordUserId": validated_discord_user_id,
+            "discordChannelId": validated_discord_channel_id,
+            "discordTarget": normalized_target,
+        });
+        let _ = app_handle.emit("discord_auth_complete", payload);
+        log_both("[Naia] Discord auth complete — deep link payload received");
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -2743,6 +2855,8 @@ pub fn run() {
                     }
                 }
             });
+
+            platform::start_deep_link_file_watcher(app_handle.clone());
 
             // Set window icon explicitly (prevents default yellow WRY icon on Linux)
             if let Some(window) = app.get_webview_window("main") {
