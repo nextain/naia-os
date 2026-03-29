@@ -1,5 +1,6 @@
 import { createPrivateKey, randomUUID, sign } from "node:crypto";
 import WebSocket from "ws";
+import { clearNodeIdCache } from "./tool-bridge.js";
 import type {
 	GatewayAdapter,
 	GatewayConnectOptions,
@@ -70,6 +71,20 @@ export class GatewayClient implements GatewayAdapter {
 			],
 			device,
 		} = options;
+
+		// Enforce TLS for non-localhost connections to prevent token leakage.
+		const parsed = new URL(url);
+		const isLocal =
+			parsed.hostname === "localhost" ||
+			parsed.hostname === "127.0.0.1" ||
+			parsed.hostname === "::1";
+		if (!isLocal && parsed.protocol !== "wss:") {
+			return Promise.reject(
+				new Error(
+					"Insecure WebSocket (ws://) not allowed for remote connections. Use wss://",
+				),
+			);
+		}
 
 		return new Promise((resolve, reject) => {
 			const ws = new WebSocket(url);
@@ -155,16 +170,20 @@ export class GatewayClient implements GatewayAdapter {
 							const signedAt = Date.now();
 							let signature = "";
 							try {
+								// Sanitize fields to prevent pipe-delimiter
+								// confusion in the signature payload.
+								const sanitize = (s: string) =>
+									s.replace(/\|/g, "");
 								const payload = [
 									"v2",
-									device.id,
-									clientId,
-									mode,
-									role,
-									scopes.join(","),
+									sanitize(device.id),
+									sanitize(clientId),
+									sanitize(mode),
+									sanitize(role),
+									sanitize(scopes.join(",")),
 									String(signedAt),
-									token,
-									challengeNonce,
+									sanitize(token),
+									sanitize(challengeNonce),
 								].join("|");
 								const key = createPrivateKey(device.privateKeyPem);
 								signature = sign(
@@ -263,6 +282,8 @@ export class GatewayClient implements GatewayAdapter {
 			this.ws.close();
 			this.ws = null;
 		}
+		// Invalidate stale nodeId cache so reconnect fetches fresh topology.
+		clearNodeIdCache(this);
 	}
 
 	private handleResponse(res: GatewayResponse): void {

@@ -735,8 +735,32 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
         if ep.exists() {
             if let Ok(raw) = std::fs::read_to_string(ep) {
                 if let Ok(env_obj) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&raw) {
+                    // Allowlist: only safe environment variable prefixes are
+                    // forwarded to the gateway process to prevent LD_PRELOAD /
+                    // LD_LIBRARY_PATH injection (CWE-15).
+                    const ALLOWED_ENV_PREFIXES: &[&str] = &[
+                        "OPENAI_", "ANTHROPIC_", "GEMINI_", "XAI_", "GOOGLE_",
+                        "OPENCLAW_", "NAIA_", "CAFE_", "HF_", "HUGGING",
+                        "OLLAMA_", "LM_STUDIO_", "DEEPSEEK_",
+                        "NODE_", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+                    ];
+                    const BLOCKED_EXACT: &[&str] = &[
+                        "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES",
+                        "PYTHONPATH", "PERLLIB", "RUBYLIB", "CLASSPATH",
+                        "PATH", "HOME", "SHELL",
+                    ];
                     for (key, val) in &env_obj {
                         if let Some(s) = val.as_str() {
+                            let upper = key.to_uppercase();
+                            if BLOCKED_EXACT.contains(&upper.as_str()) {
+                                log_verbose(&format!("[Naia] Gateway env BLOCKED: {}", key));
+                                continue;
+                            }
+                            let allowed = ALLOWED_ENV_PREFIXES.iter().any(|p| upper.starts_with(p));
+                            if !allowed {
+                                log_verbose(&format!("[Naia] Gateway env SKIPPED (not allowlisted): {}", key));
+                                continue;
+                            }
                             cmd.env(key, s);
                             log_verbose(&format!("[Naia] Gateway env: {}=***", key));
                         }
@@ -1275,6 +1299,20 @@ async fn send_to_agent_command(
     state: tauri::State<'_, AppState>,
     audit_state: tauri::State<'_, AuditState>,
 ) -> Result<(), String> {
+    // Validate JSON structure and enforce size limit before forwarding (CWE-20).
+    const MAX_MESSAGE_BYTES: usize = 10 * 1024 * 1024; // 10 MB
+    if message.len() > MAX_MESSAGE_BYTES {
+        return Err(format!("Message too large: {} bytes", message.len()));
+    }
+    let parsed: serde_json::Value = serde_json::from_str(&message)
+        .map_err(|e| format!("Invalid JSON from frontend: {}", e))?;
+    if !parsed.is_object() {
+        return Err("Message must be a JSON object".to_string());
+    }
+    // Require a "type" field
+    if parsed.get("type").and_then(|v| v.as_str()).is_none() {
+        return Err("Message must have a string 'type' field".to_string());
+    }
     send_to_agent(&state, &message, Some(&app), Some(&audit_state.db))
 }
 
@@ -1381,11 +1419,13 @@ async fn validate_api_key(provider: String, api_key: String) -> Result<bool, Str
 
     let result = match provider.as_str() {
         "gemini" => {
-            let url = format!(
-                "https://generativelanguage.googleapis.com/v1beta/models?key={}",
-                api_key
-            );
-            client.get(&url).send().await
+            // Use header instead of query parameter to avoid leaking API key
+            // in logs, proxy caches, and Referer headers (CWE-598).
+            client
+                .get("https://generativelanguage.googleapis.com/v1beta/models")
+                .header("x-goog-api-key", &api_key)
+                .send()
+                .await
         }
         "xai" => {
             client
@@ -1667,6 +1707,18 @@ fn write_discord_bot_token(token: String) -> Result<(), String> {
 #[tauri::command]
 async fn discord_api(endpoint: String, method: String, body: Option<String>) -> Result<String, String> {
     let token = read_discord_bot_token()?;
+
+    // Validate endpoint to prevent path traversal / URL injection (CWE-94).
+    if endpoint.contains("..") || endpoint.contains("//") || endpoint.contains('@')
+        || endpoint.contains('\n') || endpoint.contains('\r')
+    {
+        return Err("Invalid endpoint: suspicious characters".to_string());
+    }
+    // Must start with / and only contain safe URL chars
+    if !endpoint.starts_with('/') {
+        return Err("Invalid endpoint: must start with /".to_string());
+    }
+
     let url = format!("https://discord.com/api/v10{}", endpoint);
 
     let client = reqwest::Client::new();
@@ -1691,7 +1743,9 @@ async fn discord_api(endpoint: String, method: String, body: Option<String>) -> 
     let text = res.text().await.map_err(|e| format!("Failed to read response: {}", e))?;
 
     if status >= 400 {
-        return Err(format!("Discord API error {}: {}", status, &text[..text.len().min(200)]));
+        // Use char boundary-safe truncation to avoid panic on multi-byte UTF-8
+        let truncated: String = text.chars().take(200).collect();
+        return Err(format!("Discord API error {}: {}", status, truncated));
     }
 
     Ok(text)
@@ -1702,6 +1756,34 @@ async fn read_local_binary(path: String) -> Result<Vec<u8>, String> {
     let file_path = std::path::PathBuf::from(&path);
     if !file_path.is_absolute() {
         return Err("Path must be absolute".to_string());
+    }
+
+    // Canonicalize to resolve symlinks and prevent traversal (CWE-22).
+    let canonical = std::fs::canonicalize(&file_path)
+        .map_err(|e| format!("Cannot resolve path {}: {}", path, e))?;
+
+    // Restrict to user home directory and common safe locations.
+    let home = std::env::var("HOME").unwrap_or_default();
+    let allowed_roots: Vec<std::path::PathBuf> = vec![
+        std::path::PathBuf::from(&home),
+        std::path::PathBuf::from("/tmp"),
+        std::path::PathBuf::from("/usr/share"),
+    ];
+    if !allowed_roots.iter().any(|root| canonical.starts_with(root)) {
+        return Err(format!(
+            "Access denied: {} is outside allowed directories",
+            path
+        ));
+    }
+
+    // Block sensitive files even within home directory
+    let sensitive_dirs: Vec<std::path::PathBuf> = vec![
+        std::path::PathBuf::from(&home).join(".ssh"),
+        std::path::PathBuf::from(&home).join(".gnupg"),
+        std::path::PathBuf::from(&home).join(".config/naia-os/secrets"),
+    ];
+    if sensitive_dirs.iter().any(|dir| canonical.starts_with(dir)) {
+        return Err(format!("Access denied: {} is in a sensitive directory", path));
     }
 
     let metadata = std::fs::metadata(&file_path)
@@ -1996,11 +2078,12 @@ async fn sync_openclaw_config(params: OpenClawSyncParams) -> Result<(), String> 
                 }),
             );
 
-            let auth_tmp = format!("{}.tmp", auth_path.display());
+            // Use with_extension to avoid lossy Path::display() on non-UTF-8 paths.
+            let auth_tmp = auth_path.with_extension("json.tmp");
             let auth_pretty = serde_json::to_string_pretty(&auth_root)
                 .map_err(|e| format!("JSON serialize auth-profiles: {}", e))?;
             std::fs::write(&auth_tmp, auth_pretty.as_bytes())
-                .map_err(|e| format!("Failed to write {}: {}", auth_tmp, e))?;
+                .map_err(|e| format!("Failed to write {}: {}", auth_tmp.display(), e))?;
             std::fs::rename(&auth_tmp, &auth_path)
                 .map_err(|e| format!("Failed to rename auth-profiles: {}", e))?;
 
@@ -2421,32 +2504,38 @@ pub fn run() {
                                 }
                             }
 
-                            // Verify OAuth state to prevent CSRF
+                            // Verify OAuth state to prevent CSRF (CWE-352).
+                            // Always require state when one was set; reject if
+                            // incoming link omits it entirely to prevent crafted
+                            // deep links from bypassing the check.
                             let expected_state = lock_or_recover(
                                 &oauth_state_ref,
                                 "state.oauth_state(deep_link_expected)",
                             )
                             .clone();
-                            if let Some(ref expected) = expected_state {
-                                match &incoming_state {
-                                    Some(s) if s == expected => {
-                                        // State matches — clear it (single-use)
-                                        *lock_or_recover(
-                                            &oauth_state_ref,
-                                            "state.oauth_state(deep_link_clear)",
-                                        ) = None;
-                                    }
-                                    Some(_) => {
-                                        log_both("[Naia] Deep link rejected: state mismatch");
-                                        continue;
-                                    }
-                                    None => {
-                                        log_both("[Naia] Deep link rejected: missing state parameter");
+                            match (&expected_state, &incoming_state) {
+                                (Some(expected), Some(incoming)) if incoming == expected => {
+                                    // State matches — clear it (single-use)
+                                    *lock_or_recover(
+                                        &oauth_state_ref,
+                                        "state.oauth_state(deep_link_clear)",
+                                    ) = None;
+                                }
+                                (Some(_), _) => {
+                                    // Expected state set but incoming is missing or wrong
+                                    log_both("[Naia] Deep link rejected: state mismatch or missing");
+                                    continue;
+                                }
+                                (None, _) => {
+                                    // No expected state — this path is only valid when
+                                    // the deep link carries a direct key (manual entry).
+                                    // Require the key parameter to be present.
+                                    if key.is_none() {
+                                        log_both("[Naia] Deep link rejected: no state and no key");
                                         continue;
                                     }
                                 }
                             }
-                            // If no expected state (e.g. manual key entry), allow without check
 
                             // Validate user_id if present: alphanumeric, hyphens, underscores, dots, max 256 chars
                             let validated_user_id = user_id.clone().filter(|uid| {

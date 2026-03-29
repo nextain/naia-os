@@ -109,7 +109,21 @@ function shellEscape(s: string): string {
 	return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-/** Validate path has no null bytes or directory traversal */
+/** Sensitive paths that agent tools must never read/write (CWE-22). */
+const SENSITIVE_PATH_PATTERNS = [
+	/^\/?etc\//,
+	/^\/?proc\//,
+	/^\/?sys\//,
+	/^\/?dev\//,
+	/\/\.ssh\//,
+	/\/\.gnupg\//,
+	/\/\.aws\//,
+	/\/\.config\/gcloud\//,
+	/\/\.kube\//,
+	/\/\.docker\/config\.json$/,
+];
+
+/** Validate path has no null bytes, directory traversal, or sensitive targets */
 function validatePath(path: string): string | null {
 	if (path.includes("\0")) {
 		return "Invalid path: contains null byte";
@@ -117,6 +131,9 @@ function validatePath(path: string): string | null {
 	const normalized = path.replace(/\\/g, "/");
 	if (normalized.split("/").includes("..")) {
 		return "Invalid path: directory traversal";
+	}
+	if (SENSITIVE_PATH_PATTERNS.some((p) => p.test(normalized))) {
+		return "Invalid path: access to sensitive system path denied";
 	}
 	return null;
 }
@@ -263,8 +280,26 @@ const BLOCKED_PATTERNS = [
 	/^dd\s+if=/,
 ];
 
+/** Commands targeting sensitive paths — defense in depth with validatePath */
+const SENSITIVE_COMMAND_PATTERNS = [
+	/\b\/etc\//,
+	/\b\/proc\//,
+	/\b\/sys\//,
+	/\b~?\/?\.ssh\//,
+	/\b~?\/?\.gnupg\//,
+	/\b~?\/?\.aws\//,
+	/\b~?\/?\.kube\//,
+];
+
 function isBlockedCommand(command: string): boolean {
-	return BLOCKED_PATTERNS.some((pattern) => pattern.test(command.trim()));
+	const trimmed = command.trim();
+	if (BLOCKED_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+		return true;
+	}
+	if (SENSITIVE_COMMAND_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+		return true;
+	}
+	return false;
 }
 
 function hasMethod(client: GatewayAdapter, method: string): boolean {
@@ -378,8 +413,14 @@ function toToolResult(result: CommandResult): ToolResult {
 	};
 }
 
-/** Per-client nodeId cache to avoid repeated node.list RPC calls */
+/** Per-client nodeId cache to avoid repeated node.list RPC calls.
+ *  Call `clearNodeIdCache(client)` on reconnect to prevent stale routing. */
 const nodeIdCache = new WeakMap<GatewayAdapter, string | null>();
+
+/** Invalidate cached nodeId — must be called on reconnect / close. */
+export function clearNodeIdCache(client: GatewayAdapter): void {
+	nodeIdCache.delete(client);
+}
 
 async function resolveNodeId(client: GatewayAdapter): Promise<string | null> {
 	if (nodeIdCache.has(client)) {
@@ -463,11 +504,12 @@ async function runShellCommand(
 	const errors: string[] = [];
 
 	let actualCommand = command;
-	// Automatically route command to host if running inside a flatpak sandbox
+	// Automatically route command to host if running inside a flatpak sandbox.
+	// Use base64 encoding to avoid nested shell quoting issues (CWE-78).
 	try {
 		if (fs.existsSync("/.flatpak-info")) {
-			const escaped = command.replace(/'/g, "'\\''");
-			actualCommand = `flatpak-spawn --host bash -c '${escaped}'`;
+			const b64 = Buffer.from(command, "utf8").toString("base64");
+			actualCommand = `flatpak-spawn --host bash -c "eval \\"\\$(echo ${b64} | base64 -d)\\""`;
 		}
 	} catch {
 		/* ignore */

@@ -49,6 +49,28 @@ pub fn pty_create(
         .openpty(size)
         .map_err(|e| format!("openpty failed: {e}"))?;
 
+    // Validate command against an allowlist of known safe shells (CWE-77).
+    const ALLOWED_SHELLS: &[&str] = &[
+        "bash", "/bin/bash", "/usr/bin/bash",
+        "sh", "/bin/sh", "/usr/bin/sh",
+        "zsh", "/bin/zsh", "/usr/bin/zsh",
+        "fish", "/usr/bin/fish",
+        "pwsh", "powershell",
+        "cmd", "cmd.exe",
+        // Flatpak host shell passthrough
+        "flatpak-spawn",
+    ];
+    let cmd_base = command.split_whitespace().next().unwrap_or("");
+    if !ALLOWED_SHELLS.contains(&cmd_base) {
+        return Err(format!("Blocked: '{}' is not an allowed shell", cmd_base));
+    }
+
+    // Validate dir is absolute and contains no traversal
+    let dir_path = std::path::Path::new(&dir);
+    if !dir_path.is_absolute() || dir.contains("..") {
+        return Err("Invalid working directory".to_string());
+    }
+
     let mut cmd = CommandBuilder::new(&command);
     cmd.cwd(&dir);
 
