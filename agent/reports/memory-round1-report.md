@@ -1,288 +1,230 @@
-# Memory System 개선 보고서 — Round 1
+# Memory System 1차 완료 보고서
 
-**프로젝트**: Naia OS (nextain/naia-os)
-**이슈**: #151 체감 검증 + 약점 개선
-**Epic**: #145 Alpha Memory v2
+**프로젝트**: Naia OS — Alpha Memory System
+**이슈**: #151 체감 검증 + 약점 개선 (Epic #145)
 **일자**: 2026-03-28 ~ 2026-03-29
-**작성**: Claude Opus 4.6
+**결과**: 86% (44/51), Grade B
 
 ---
 
-## 1. 요약
+## 1. Baseline — 시작 시점의 상태
+
+### 1.1 기존 구현
+
+naia-os의 메모리 시스템은 신경과학 기반 4-Store 아키텍처로 설계되었습니다:
+
+- **Episodic Memory** — 타임스탬프 이벤트 (해마 모델)
+- **Semantic Memory** — 추출된 사실/지식 (신피질 모델)
+- **Procedural Memory** — 스킬과 반성 (기저핵 모델)
+- **Working Memory** — ContextManager (#65, 별도 관리)
+
+핵심 모듈:
+- `decay.ts` — Ebbinghaus 망각 곡선
+- `importance.ts` — 3축 중요도 점수 (importance, surprise, emotion)
+- `knowledge-graph.ts` — Hebbian 연상 + spreading activation
+- `reconsolidation.ts` — 모순 감지 + 자동 팩트 업데이트
+- `adapters/local.ts` — JSON 파일 기반 저장 (zero dependency)
+- `adapters/mem0.ts` — mem0 벡터 검색 백엔드
+
+### 1.2 Baseline 벤치마크 (내부)
+
+| 항목 | 점수 | 문제 |
+|------|:----:|------|
+| decayCurveAccuracy | 1.000 | |
+| recallStrengthening | 0.600 | |
+| spreadingActivation | 1.000 | |
+| hebbianCorrelation | 1.000 | |
+| contradictionDetection | 1.000 | |
+| reconsolidation | 1.000 | |
+| contextDependentRetrieval | 1.000 | |
+| **importanceRetention** | **0.333 (warn)** | 고중요도 기억이 60일 만에 프루닝 |
+| **consolidationCompression** | **1:1 (warn)** | 에피소드→팩트 압축 없음 |
+| importanceGating | 1.000 | |
+| **총합** | **80% (8 pass / 2 warn)** | |
+
+### 1.3 Baseline 체감 성능
+
+측정 도구 없음. "체감 성능"이라고 부를 수 있는 수치가 존재하지 않았음.
+
+---
+
+## 2. 개선 사항
+
+### 2.1 메모리 코어 개선
+
+| 모듈 | 변경 | 이유 |
+|------|------|------|
+| `decay.ts` | BASE_DECAY 0.16→0.08, IMPORTANCE_DAMPING 0.8→0.85 | 사용자 이름(importance 0.7+)이 2달이면 잊혀짐 → 60일+ 생존으로 |
+| `index.ts` | 팩트 병합 로직 추가 (union-find + Jaccard similarity + temporal proximity) | 6에피소드→6팩트(1:1) → 6에피소드→2팩트(3:1)로 압축 |
+| `reconsolidation.ts` | 한국어 조사 substring 매칭 + false positive 방지 | "에디터는"↔"에디터" 매칭 가능, "use"↔"because" 오탐 차단 |
+| `index.ts` | 모순 감지 시 첫 번째 매칭만 업데이트 | 동일 content로 여러 팩트 덮어쓰기 방지 |
+| `index.ts` | consolidateNow에서 매 반복 existingFacts 재조회 | stale cache 방지 |
+| `adapters/` | local.ts + mem0.ts 서브디렉토리 분리 | 독립 패키지 추출 준비 |
+
+### 2.2 내부 벤치마크 결과 (개선 후)
+
+| 항목 | Before | After |
+|------|:------:|:-----:|
+| importanceRetention | 0.333 (warn) | **1.000 (pass)** |
+| consolidationCompression | 1:1 (warn) | **3:1 (pass)** |
+| **총합** | **80%** | **100% (10/10 pass)** |
+
+### 2.3 프로세스 개선
+
+| 변경 | 내용 |
+|------|------|
+| review-pass Pass 6 추가 | "테스트 유효성" 렌즈 — 테스트가 실제 코드 경로를 거치는지 검증 |
+| E2E 워크플로우 수정 | 테스트 실행 전 코드 경로 추적 필수 |
+| API 호출 규칙 | 배치로 모아서 보내거나 지연 처리. 병렬 금지. |
+
+---
+
+## 3. 벤치마크 설명
+
+### 3.1 구성
 
 | 항목 | 값 |
 |------|:---:|
-| **종합 점수** | **84% (43/51), Grade B** |
-| 메모리 기여도 | 8% → 84% (+39개 테스트) |
-| 테스트 범위 | 12개 카테고리, 55개 테스트 |
-| 내부 벤치마크 | 100% (10/10) |
-| 단위 테스트 추가 | 30개 |
+| 테스트 케이스 | 55개 (12 카테고리) |
+| 실행 횟수 | 3회 per test, 2/3 majority voting |
+| 파이프라인 | MemorySystem(Mem0Adapter) — importance gating + reconsolidation + mem0 vector search |
+| LLM | Gemini 2.5 Flash (응답 생성) |
+| Judge | Claude CLI (LLM 채점) + keyword (majority voting) |
+| Baseline 비교 | 메모리 없이 LLM만 (동일 judge) |
 
-**메모리 없이 LLM만으로는 8%**, 메모리 시스템이 있으면 **84%**. 메모리 시스템이 실제로 동작하고 있다는 것을 수치로 증명.
+### 3.2 12개 카테고리
 
----
+| # | 카테고리 | 가중치 | 테스트 수 | 측정 대상 |
+|---|----------|:------:|:--------:|----------|
+| 1 | direct_recall | 1 | 9 | 저장된 사실을 직접 질문으로 인출 |
+| 2 | semantic_search | 2 | 9 | 직접 언급 안 한 표현으로 의미 검색 |
+| 3 | proactive_recall | 2 | 5 | 묻지 않았는데 자연스럽게 기억 적용 |
+| 4 | abstention | 2 | 9 | 말한 적 없는 것을 지어내지 않음 (환각 방지) |
+| 5 | irrelevant_isolation | 1 | 3 | 무관한 질문에 기억을 꺼내지 않음 |
+| 6 | multi_fact_synthesis | 2 | 3 | 여러 기억을 조합하여 종합 답변 |
+| 7 | entity_disambiguation | 2 | 4 | 타인 정보와 사용자 정보 구분 |
+| 8 | contradiction_direct | 2 | 3 | 명시적 변경 감지 및 업데이트 |
+| 9 | unchanged_persistence | 1 | 3 | 변경 안 한 사실은 그대로 유지 |
+| 10 | noise_resilience | 2 | 3 | 잡담 속에 묻힌 사실 추출 |
+| 11 | *contradiction_indirect* | *0* | *2* | *간접적 변화 감지 (bonus)* |
+| 12 | *temporal_history* | *0* | *2* | *변경 이력 인식 (bonus)* |
 
-## 2. 카테고리별 성적
+### 3.3 등급 기준
 
-| 카테고리 | 가중치 | 점수 | 메모리 없음 | 판정 |
-|----------|:------:|:----:|:----------:|:----:|
-| abstention (환각 방지) | 2 | **9/9 (100%)** | 1/9 | ✅ Perfect |
-| contradiction_direct (모순 감지) | 2 | **3/3 (100%)** | 0/3 | ✅ Perfect |
-| irrelevant_isolation (무관 질문 격리) | 1 | **3/3 (100%)** | 3/3 | ✅ Perfect |
-| unchanged_persistence (미변경 유지) | 1 | **3/3 (100%)** | 0/3 | ✅ Perfect |
-| noise_resilience (잡담 속 사실 추출) | 2 | **3/3 (100%)** | 0/3 | ✅ Perfect |
-| direct_recall (직접 인출) | 1 | **8/9 (89%)** | 0/9 | ✅ Strong |
-| entity_disambiguation (타인 구분) | 2 | **3/4 (75%)** | 0/4 | 🟡 Good |
-| multi_fact_synthesis (팩트 조합) | 2 | **2/3 (67%)** | 0/3 | 🟡 Needs work |
-| semantic_search (의미 검색) | 2 | **6/9 (67%)** | 0/9 | 🟡 Needs work |
-| proactive_recall (자발적 적용) | 2 | **3/5 (60%)** | 0/5 | 🟡 Needs work |
-| *contradiction_indirect (간접 변화)* | *0* | *0/2 (0%)* | *0/2* | *❌ Bonus* |
-| *temporal_history (변경 이력)* | *0* | *1/2 (50%)* | *0/2* | *🟡 Bonus* |
+| 등급 | 조건 |
+|:----:|------|
+| **A** | core ≥ 90% + bonus 50%+ |
+| **B** | core ≥ 75% |
+| **C** | core ≥ 60% |
+| **F** | core < 60% OR abstention 실패 |
 
-### 2.1 각 카테고리가 의미하는 것
+### 3.4 알려진 한계
 
-#### direct_recall (직접 인출) — 8/9, 가중치 1
-**"말한 걸 물어보면 답할 수 있는가?"**
-
-가장 기본적인 능력. 사용자가 "내 이름이 뭐야?", "내 OS가 뭐야?" 같이 직접적으로 물어보면 저장된 사실을 정확히 인출.
-
-| 테스트 | 질문 | 기대 답 | 결과 |
-|--------|------|---------|:----:|
-| 내 이름 | "내 이름이 뭐야?" | 김하늘 | ✅ |
-| 직업 | "나 뭐하는 사람이야?" | 대표, 개발자 | ✅ |
-| 에디터 | "내 에디터 뭐야?" | Neovim | ✅ |
-| 주소 | "나 어디 살아?" | 성수동 | ✅ |
-| 커피 | "내가 좋아하는 커피가 뭐야?" | 아메리카노 | ✅ |
-| 동생 | "내 동생 이름이 뭐야?" | 김바다 | ✅ |
-| OS | "내 OS가 뭐야?" | Fedora | ✅ |
-| 취미 | "내 취미가 뭐야?" | 러닝 | ✅ |
-| Git | "나 Git 어떻게 써?" | CLI | ❌ (1회) |
-
-#### semantic_search (의미 검색) — 6/9, 가중치 2
-**"직접 말한 단어가 아닌 다른 표현으로 물어도 찾는가?"**
-
-사용자가 "TypeScript"를 말했는데 "내 개발 환경"이라고 물어보면 연결할 수 있는지. 키워드 매칭이 아닌 의미적 이해가 필요.
-
-| 테스트 | 질문 | 기대 답 (2개 이상) | 결과 |
-|--------|------|-------------------|:----:|
-| 개발 환경 | "내 개발 환경 어떻게 되지?" | TypeScript, Neovim, Next.js, FastAPI | ✅ |
-| 기술 스택 | "내 기술 스택 알려줘" | TypeScript, Neovim, Next.js, FastAPI | ✅ |
-| 코딩 도구 | "나 뭘로 코딩해?" | TypeScript, Neovim, Next.js, FastAPI | ✅ |
-| 로컬 셋업 | "내 로컬 셋업 어때?" | TypeScript, Next.js, FastAPI, Fedora | ❌ |
-| 작업 스타일 | "내 작업 스타일이 어때?" | 다크모드, 탭, 오전, 오후 | ❌ |
-| 음식 취향 | "나 음식 취향이 어때?" | 아메리카노, 매운, 순한 | ✅ |
-| 주말 활동 | "주말에 뭐 하지?" | 러닝, 한강 | ✅ |
-| 백엔드 | "내가 백엔드로 뭘 쓰지?" | FastAPI, Python | ❌ |
-| 회사 제품 | "우리 회사가 뭐 만들어?" | AI, 앱 | ✅ |
-
-#### proactive_recall (자발적 적용) — 3/5, 가중치 2
-**"묻지 않았는데 알아서 기억을 적용하는가?"**
-
-사용자가 기억을 물어본 게 아니라 도움을 요청했을 때, AI가 저장된 선호/정보를 자연스럽게 반영하는지. 예: "에디터 설정 도와줘" → Neovim 기준으로 답변.
-
-| 테스트 | 질문 | 기대 반영 | 결과 |
-|--------|------|----------|:----:|
-| 에디터 설정 | "에디터 설정 좀 도와줘" | Neovim | ✅ |
-| API 서버 | "새 API 서버 만들어볼까" | FastAPI | ✅ |
-| 리팩토링 | "이 코드 리팩토링 좀 해줘" | TypeScript | ❌ |
-| 프로젝트 설정 | "새 프로젝트 설정 파일 만들어줘" | 탭 인덴트 | ❌ |
-| 패키지 설치 | "패키지 설치 어떻게 해?" | Fedora | ✅ |
-
-#### abstention (환각 방지) — 9/9, 가중치 2
-**"말한 적 없는 것을 지어내지 않는가?"**
-
-가장 중요한 안전 카테고리. 하나라도 실패하면 자동 F등급. 사용자가 언급한 적 없는 것을 물어봤을 때 "기억에 없다"고 거절해야 함. 특히 유사한 것과 혼동하면 안 됨 (Next.js는 씀 → Nuxt.js도 쓴다고 하면 실패).
-
-| 테스트 | 질문 | 기대 | 함정 | 결과 |
-|--------|------|------|------|:----:|
-| Docker | "Docker 관련해서 뭐라고 했었지?" | 거절 | Docker Compose 환각 | ✅ |
-| 게임 | "좋아하는 게임이 뭐야?" | 거절 | | ✅ |
-| AWS | "AWS 쓴다고 했나?" | 거절 | EC2, Lambda 환각 | ✅ |
-| 자동차 | "내 차가 뭐야?" | 거절 | | ✅ |
-| 일본어 | "일본어 할 줄 안다고 했었나?" | 거절 | | ✅ |
-| 고양이 | "고양이 키운다고 했지?" | 거절 | | ✅ |
-| Nuxt.js | "Nuxt.js 쓴다고 했었나?" | 거절 | Next.js와 혼동 금지 | ✅ |
-| 녹차 | "차 좋아한다고 했지? 녹차?" | 거절 | 커피는 말했지만 차는 아님 | ✅ |
-| 수영 | "수영 한다고 했었나?" | 거절 | 러닝은 하지만 수영은 아님 | ✅ |
-
-#### irrelevant_isolation (무관 질문 격리) — 3/3, 가중치 1
-**"관계없는 질문에 기억을 불필요하게 꺼내지 않는가?"**
-
-"오늘 날씨 어때?" 같은 일반 질문에 "참고로 당신은 성수동에 살고..." 같이 기억을 끼워넣으면 안 됨.
-
-| 테스트 | 질문 | 포함되면 안 되는 것 | 결과 |
-|--------|------|-------------------|:----:|
-| 날씨 | "오늘 날씨 어때?" | 김하늘, 성수동, Neovim | ✅ |
-| 파이썬 문법 | "리스트 컴프리헨션 문법이 뭐야?" | 김하늘, Neovim, FastAPI | ✅ |
-| HTTP | "HTTP 404가 뭐야?" | 김하늘, 성수동, 아메리카노 | ✅ |
-
-#### multi_fact_synthesis (팩트 조합) — 2/3, 가중치 2
-**"여러 기억을 조합해서 종합적인 답변을 하는가?"**
-
-단일 사실 인출이 아니라 3개 이상의 기억을 엮어서 답해야 함.
-
-| 테스트 | 질문 | 기대 조합 (3개 이상) | 결과 |
-|--------|------|---------------------|:----:|
-| 프로젝트 세팅 | "새 프로젝트 하나 세팅해줘" | TypeScript, Next.js, 다크모드, 탭 | ✅ |
-| 머신 가이드 | "내 개발 머신 세팅 가이드 만들어줘" | Neovim, 다크모드, 탭, Fedora | ✅ |
-| 자기소개 | "내 소개 한 줄로 써줘" | 김하늘, AI, 개발자, 스타트업 | ❌ |
-
-#### entity_disambiguation (타인 구분) — 3/4, 가중치 2
-**"타인의 정보와 사용자 정보를 혼동하지 않는가?"**
-
-"내 동료는 Vim을 쓰거든" 직후 "근데 내 에디터는?" → Neovim이어야 하고 Vim이면 안 됨.
-
-| 테스트 | 설정 | 질문 | 기대 | 결과 |
-|--------|------|------|------|:----:|
-| 동료 에디터 | "동료는 Vim 써" | "내 에디터는?" | Neovim | ✅ |
-| 친구 프레임워크 | "친구가 React Native 써" | "나는 뭘로 프론트?" | Next.js | ✅ |
-| 동생 직업 | "동생 김바다는 디자이너" | "나는 뭐하는 사람?" | 개발자 | ✅ |
-| 팀원 인덴트 | "팀원이 spaces 쓰자고 해" | "내 인덴트 스타일은?" | 탭 | ❌ |
-
-#### contradiction_direct (모순 감지) — 3/3, 가중치 2
-**"명시적 변경을 감지하고 업데이트하는가?"**
-
-"에디터 Cursor로 바꿨어" → 이전 "Neovim" 기억을 "Cursor"로 업데이트해야 함.
-
-| 테스트 | 변경 입력 | 검증 질문 | 기대 | 결과 |
-|--------|----------|----------|------|:----:|
-| 에디터 변경 | "에디터 Cursor로 바꿨어" | "에디터 뭐야?" | Cursor | ✅ |
-| 이사 | "판교로 이사해" | "어디 살아?" | 판교 | ✅ |
-| Git 도구 | "GitKraken 쓰기로 했어" | "Git 뭘로 써?" | GitKraken | ✅ |
-
-#### unchanged_persistence (미변경 유지) — 3/3, 가중치 1
-**"변경하지 않은 사실은 그대로 유지되는가?"**
-
-에디터를 바꿨다고 인덴트 스타일까지 바뀌면 안 됨.
-
-| 테스트 | 질문 | 기대 (변경 안 됨) | 결과 |
-|--------|------|-----------------|:----:|
-| 인덴트 | "내 인덴트 스타일은?" | 탭 | ✅ |
-| 커피 | "좋아하는 커피는?" | 아메리카노 | ✅ |
-| 취미 | "내 취미가 뭐야?" | 러닝 | ✅ |
-
-#### noise_resilience (잡담 속 사실 추출) — 3/3, 가중치 2
-**"잡담 사이에 묻힌 사실을 골라낼 수 있는가?"**
-
-"아 오늘 피곤하다. 점심에 순대국 먹었는데 괜찮더라. 아 맞다, 모니터를 울트라와이드로 바꿨어. 34인치." → "모니터 뭐야?" → "울트라와이드 34인치"
-
-| 테스트 | 잡담 속 사실 | 질문 | 기대 | 결과 |
-|--------|------------|------|------|:----:|
-| 모니터 | "...모니터를 울트라와이드로 바꿨어. 34인치..." | "모니터 뭐야?" | 울트라와이드, 34인치 | ✅ |
-| 회식 | "...금요일에 팀 회식이야. 치킨..." | "이번 주 일정?" | 금요일, 회식 | ✅ |
-| 알레르기 | "응 알겠어. 잠깐만. 나 알레르기가 있어. 새우." | "알레르기 뭐야?" | 새우 | ✅ |
-
-#### contradiction_indirect (간접 변화, bonus) — 0/2
-**"부정어 없이 간접적으로 변한 것을 감지하는가?"**
-
-"Python이 다시 재밌더라. Django로 해보려고" — "바꿨어"나 "대신"이 없어도 관심사 변화를 감지.
-
-| 테스트 | 입력 | 질문 | 기대 | 결과 |
-|--------|------|------|------|:----:|
-| Python 관심 | "Python이 재밌더라. Django로..." | "요즘 관심 있는 거?" | Python, Django | ❌ |
-| VS Code 호감 | "VS Code가 편하네" | "에디터 요즘 어때?" | VS Code | ❌ |
-
-#### temporal_history (변경 이력, bonus) — 1/2
-**"뭘 쓰다가 뭘로 바꿨는지 이력을 알고 있는가?"**
-
-| 테스트 | 질문 | 기대 | 결과 |
-|--------|------|------|:----:|
-| 에디터 이력 | "에디터 뭐 쓰다가 바꿨지?" | Neovim, Cursor 모두 | ✅ |
-| 이전 주소 | "원래 어디 살았어?" | 성수동 | ❌ |
-
----
-
-## 3. 수행한 작업
-
-### 3.1 메모리 코어 개선
-
-| 파일 | 변경 | 효과 |
-|------|------|------|
-| `decay.ts` | BASE_DECAY 0.16→0.08, IMPORTANCE_DAMPING 0.8→0.85 | 고중요도(0.7+) 기억 60일+ 생존. 이전엔 2달이면 이름도 잊음 |
-| `index.ts` | 팩트 병합 (union-find + Jaccard + temporal grouping) | 에피소드→팩트 압축 3:1 달성 |
-| `reconsolidation.ts` | 한국어 조사 substring 매칭 + false positive 방지 | "에디터는"↔"에디터" 매칭, "use"↔"because" 오탐 차단 |
-| `index.ts` | 모순 감지 시 첫 번째 매칭만 업데이트 | 의미적 중복 방지 |
-| `index.ts` | consolidateNow에서 매 반복 existingFacts 재조회 | stale cache 방지 |
-
-### 3.2 벤치마크 인프라
-
-| 파일 | 내용 |
-|------|------|
-| `run-v2.ts` | keyword judge(deterministic) + LLM judge, 2초 throttle, search 로깅, 인코딩 검증 |
-| `run-comprehensive.ts` | **신규**. 12개 카테고리 55개 테스트, with/without memory 비교 |
-| `memory-improvements.test.ts` | **신규**. 30개 단위 테스트 (장기보존, 파라미터, 압축, 한국어, 스케일링) |
-
-### 3.3 리뷰
-
-- 코드 적대적 리뷰 3회 (기본 모드 2회 + 경량 1회)
-- 테스트 적대적 리뷰 1회
-- Opus 심사 1회 (92% → "과대평가, 70-80% 보정" 판정)
-- 종합 벤치마크로 최종 확인: **84%**
-
----
-
-## 4. 발견한 문제들
-
-### 4.1 측정 도구가 더 큰 문제였다
-
-| 문제 | 영향 |
-|------|------|
-| LLM judge가 Gemini rate limit으로 빈 응답 반환 (~60%) | 정답도 FAIL 처리 → 17%라는 허위 수치 |
-| `includes("PASS")` 파싱 → "NOT PASS"도 PASS | 결과 왜곡 |
-| embedding dimension 3072 vs 768 혼동 | 디버깅 시간 낭비 |
-| run-v2.ts가 query-templates.json의 50개 중 24개만 하드코딩 | 쉬운 테스트 편향 (75%가 recall/abstention) |
-
-**교훈**: 측정 도구부터 검증해야 한다. 부정확한 측정 위에 3라운드의 "개선"을 쌓았지만, 실제로는 메모리 시스템이 이미 잘 동작하고 있었다.
-
-### 4.2 실제 약점
-
-| 약점 | 원인 | 개선 방향 |
+| 한계 | 영향 | 대응 (P2) |
 |------|------|----------|
-| **proactive_recall 60%** | LLM이 기억을 묻지 않으면 적용 안 함 | 시스템 프롬프트에 "사용자 선호를 자연스럽게 반영" 지시 강화 |
-| **semantic_search 67%** | "개발 환경" ↔ "TypeScript" 연결이 embedding에서 약함 | 다중 쿼리 검색 또는 query expansion |
-| **contradiction_indirect 0%** | 부정어 없는 변화 감지 불가 ("Python이 재밌더라" → TypeScript 변화?) | LLM 기반 모순 감지 (현재는 키워드 휴리스틱) |
+| fact 15개 + topK=10 ≈ 거의 전수 검색 | 검색 정밀도 미측정 | #173: fact 100개 확대 |
+| decay/KG가 recall 경로에서 비활성 | 4-Store 아키텍처의 핵심이 미검증 | #173: KG를 recall에 연결 |
+| 단일 세션 내 테스트 | 크로스세션 시나리오 미커버 | #173: 크로스세션 테스트 |
+| 카테고리당 3개 | 통계적 표본 부족 | #173: 6개+ 보강 |
+| mem0 LLM이 fact 재작성 | 원본 보존 vs 재작성 미분리 | #173: 분리 테스트 |
 
 ---
 
-## 5. 90% 달성 가능성
+## 4. 결과
 
-현재 core 실패 **8개**. 46/51 = **90.2%** (Grade A)에 도달하려면 **3개만 더 고치면 된다**.
+### 4.1 최종 점수
 
-| 개선 대상 | 현재 실패 수 | 수정 난이도 | 방법 |
-|-----------|:-----------:|:----------:|------|
-| semantic_search | 3/9 실패 | 중 | 시스템 프롬프트에 검색된 기억 전체 활용 지시, query expansion |
-| proactive_recall | 2/5 실패 | 중 | "사용자가 묻지 않아도 관련 선호를 자연스럽게 반영" 프롬프트 |
-| multi_fact_synthesis | 1/3 실패 | 하 | 전체 기억 주입 시 이미 2/3 성공, 프롬프트 조정 |
-| entity_disambiguation | 1/4 실패 | 하 | "타인 정보와 사용자 정보를 명확히 구분" 프롬프트 |
-| direct_recall | 1/9 실패 | 하 | LLM 응답 비결정성, 재실행 시 통과 가능 |
+```
+═══════════════════════════════════════════════════════════
+  COMPREHENSIVE MEMORY BENCHMARK
+  Judge: claude-cli | runs: 3 | voting: 2/3
+  Pipeline: MemorySystem(Mem0Adapter)
+  ⚠ decay/KG inactive in recall path
+═══════════════════════════════════════════════════════════
 
-**semantic_search 3개 중 2개 + proactive_recall 1개만 고치면 90% 돌파.**
-주로 LLM 프롬프트 개선과 search 결과 활용 방식 조정이므로, 코어 아키텍처 변경 없이 달성 가능.
+  Core:  44/51 (86%) with memory
+               8/51 (16%) without memory
+  Delta: +36 tests (memory contribution)
+  Bonus: 2/4
+  Grade: B
+```
+
+### 4.2 카테고리별
+
+| 카테고리 | w | withMem | noMem | Delta | 판정 |
+|----------|:-:|:------:|:-----:|:-----:|:----:|
+| direct_recall | 1 | **9/9** | 0/9 | +9 | ✅ Perfect |
+| semantic_search | 2 | **8/9** | 0/9 | +8 | ✅ |
+| abstention | 2 | **9/9** | 5/9 | +4 | ✅ Perfect |
+| irrelevant_isolation | 1 | **3/3** | 3/3 | 0 | ✅ Perfect |
+| contradiction_direct | 2 | **3/3** | 0/3 | +3 | ✅ Perfect |
+| noise_resilience | 2 | **3/3** | 0/3 | +3 | ✅ Perfect |
+| proactive_recall | 2 | 3/5 | 0/5 | +3 | 🟡 60% |
+| multi_fact_synthesis | 2 | 2/3 | 0/3 | +2 | 🟡 67% |
+| entity_disambiguation | 2 | 2/4 | 0/4 | +2 | 🟡 50% |
+| unchanged_persistence | 1 | 2/3 | 0/3 | +2 | 🟡 67% |
+| *contradiction_indirect* | *0* | *1/2* | *0/2* | *+1* | *🟡 bonus* |
+| *temporal_history* | *0* | *1/2* | *0/2* | *+1* | *🟡 bonus* |
+
+### 4.3 핵심 수치
+
+| 지표 | 값 |
+|------|:---:|
+| **메모리 기여도** | **+36 tests (16% → 86%)** |
+| 검색 성공 카테고리 | 6/10 Perfect |
+| 검색 필요 개선 카테고리 | 4/10 |
+| noMemory에서도 통과하는 테스트 | 8개 (주로 abstention + irrelevant_isolation) |
 
 ---
 
-## 6. AIRI 비교
+## 5. AIRI 비교 (정성 분석)
 
 | 항목 | Naia OS | AIRI |
 |------|---------|------|
-| 아키텍처 | 4-Store (episodic/semantic/procedural/working) | 메시지 히스토리 (append-only) |
-| 망각 | Ebbinghaus decay (수식 기반) | 없음 (영구 저장) |
+| 아키텍처 | 4-Store (E/S/P/W) | 메시지 히스토리 |
+| 망각 | Ebbinghaus decay | 없음 (영구 저장) |
 | 모순 감지 | 키워드+substring 휴리스틱 | 없음 |
-| 감정 모델링 | 3축 점수 (importance/surprise/emotion) | 없음 |
+| 감정 모델링 | 3축 점수 | 없음 |
 | Knowledge Graph | Hebbian + spreading activation | 없음 |
-| 벡터 검색 | mem0 백엔드 (3072d Gemini embedding) | pgvector (1536d) |
-| 테스트 | 11파일 + 종합 벤치마크 55개 | 없음 |
+| 벡터 검색 | mem0 (3072d) | pgvector (1536d) |
+| 테스트 | 11파일 + 55개 벤치마크 | 없음 |
 | 구현량 | ~1000줄 + 벤치마크 ~700줄 | ~100줄 |
-| 벤치마크 점수 | **84% Grade B** | 측정 불가 |
-
-AIRI는 설계 비전은 진보적이었지만(감정 스코어링, pgvector), 구현은 메시지 저장소 수준. Naia OS는 신경과학 기반 4-store 모델을 실제로 동작시키고 수치로 검증한 상태.
+| 벤치마크 점수 | **86% Grade B** | 미측정 (#172에서 비교 예정) |
 
 ---
 
-## 7. 다음 단계
+## 6. 다음 단계
 
-1. **Round 2 구현**: proactive_recall + semantic_search 프롬프트 개선 → 90% 목표
-2. **contradiction_indirect**: LLM 기반 간접 모순 감지 추가
-3. **temporal_history**: 변경 이력 추적 기능
-4. **Ollama 로컬 모델 테스트**: GPU 도착 후 qwen3:8b로 동일 벤치마크 실행
-5. **#152 출시 판정**: Grade A 달성 시 v1 출시 결정
+| 순서 | 이슈 | 내용 |
+|:----:|------|------|
+| 1 | **#172** | 유사 프로젝트 벤치마크 비교 (mem0, Zep, MemGPT, AIRI) |
+| 2 | **#174** | Naia Shell 실제 적용 — 3-session 체감 테스트 |
+| 3 | **#173** | P2 개선 — fact 100개, KG 활성화, 크로스세션 → Grade A |
+| 4 | **#152** | 출시 판정 — P2 완료 후 |
+
+---
+
+## 7. 독립 패키지 준비 상태
+
+`src/memory/` 외부 의존성 **0**. 디렉토리 통째로 추출 가능.
+
+```
+src/memory/
+├── index.ts              — MemorySystem 오케스트레이터
+├── types.ts              — 인터페이스 정의
+├── decay.ts              — Ebbinghaus 망각 곡선
+├── importance.ts         — 3축 중요도 점수
+├── knowledge-graph.ts    — Hebbian 연상 기억
+├── reconsolidation.ts    — 모순 감지/업데이트
+├── embeddings.ts         — 임베딩 유틸
+├── adapters/
+│   ├── local.ts          — JSON 기반 (zero dep)
+│   └── mem0.ts           — mem0 벡터 백엔드
+├── benchmark/            — 종합 벤치마크 (7개 러너)
+└── __tests__/            — 11개 테스트 파일
+```
+
+검토 방향:
+- 별도 레포 분리 → 비공개 가능
+- npm 패키지 배포 → 다른 프로젝트에 이식
+- project-airi 업스트림 기여 → 성능 비교 확정 후
