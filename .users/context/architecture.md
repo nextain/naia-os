@@ -645,6 +645,19 @@ Built-in panel for Claude Code session monitoring and PTY terminal tabs. Always 
 
 ---
 
+## Browser Panel — Chrome Embedding (#95, #164)
+
+Chrome is embedded natively into Tauri using `PlatformWindowManager` trait abstraction:
+- **Linux:** X11 `XReparentWindow` via x11rb (`platform/linux.rs` → `X11WindowManager`)
+- **Windows:** Win32 `SetParent` via windows-sys (`platform/windows.rs` → `Win32WindowManager`)
+- **macOS:** Not yet implemented (add `PlatformWindowManager` impl)
+
+Chrome discovery: Linux = `which` + Flatpak, Windows = `where.exe` + Program Files. UI shows "Chrome Download" button with auto-detect polling (5s) when Chrome is not installed.
+
+12 AI tools: navigate, back, forward, reload, click, fill, scroll, press, snapshot, get_text, screenshot, eval.
+
+---
+
 ## Panel System — Iframe Bridge (#98, 2026-03-23)
 
 Installed panels can be iframe-based (have `index.html`). The iframe bridge gives these panels access to Shell services via `postMessage`.

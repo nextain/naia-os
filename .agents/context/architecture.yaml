@@ -478,10 +478,19 @@ panel_system:
       id: "browser"
       added: "2026-03-20 (#95)"
       file: "shell/src/panels/browser/index.tsx + BrowserCenterPanel.tsx"
-      description: "Chrome X11 embed via XReparentWindow; 12 AI tools (skill_browser_*); Chrome browser-level permissions (mic/camera/notifications via CDP)"
+      description: "Chrome native embed via PlatformWindowManager trait; 12 AI tools (skill_browser_*); Chrome browser-level permissions (mic/camera/notifications via CDP)"
+      embedding:
+        linux: "X11 XReparentWindow via x11rb (platform/linux.rs X11WindowManager)"
+        windows: "Win32 SetParent via windows-sys (platform/windows.rs Win32WindowManager)"
+        macos: "NOT YET — add PlatformWindowManager impl"
       tools: "skill_browser_navigate, back, forward, reload, click, fill, scroll, press, snapshot, get_text, screenshot, eval"
       chrome_profile: "~/.naia/chrome-profile/ — persistent (login sessions survive restarts)"
-      requires: "GDK_BACKEND=x11 (XWayland mode), google-chrome binary in PATH"
+      chrome_discovery:
+        linux: "which google-chrome → flatpak-spawn → flatpak installed"
+        windows: "where.exe chrome → Program Files → LOCALAPPDATA"
+      requires:
+        linux: "GDK_BACKEND=x11 (XWayland mode), google-chrome in PATH or Flatpak"
+        windows: "Google Chrome installed (auto-detect + download button in UI)"
 
     workspace:
       id: "workspace"
