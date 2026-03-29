@@ -4035,6 +4035,9 @@ body.resizing-row {
 	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
+	padding-top: 12px;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+	margin-top: auto;
 }
 
 .onboarding-nav-spacer {
