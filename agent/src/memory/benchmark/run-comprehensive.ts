@@ -36,20 +36,23 @@ function parseArgs(): {
 	categories: string[] | null;
 	skipNoMemory: boolean;
 	runs: number;
+	pipeline: "naia" | "raw-mem0";
 } {
 	const args = process.argv.slice(2);
 	let judge: any = "dual";
 	let categories: string[] | null = null;
 	let skipNoMemory = false;
 	let runs = 3; // 3 runs, 2/3 majority voting
+	let pipeline: "naia" | "raw-mem0" = "naia";
 
 	for (const arg of args) {
 		if (arg.startsWith("--judge=")) judge = arg.split("=")[1];
 		if (arg.startsWith("--categories=")) categories = arg.split("=")[1].split(",");
 		if (arg === "--skip-no-memory") skipNoMemory = true;
 		if (arg.startsWith("--runs=")) runs = parseInt(arg.split("=")[1], 10);
+		if (arg.startsWith("--pipeline=")) pipeline = arg.split("=")[1] as any;
 	}
-	return { judge, categories, skipNoMemory, runs };
+	return { judge, categories, skipNoMemory, runs, pipeline };
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -289,49 +292,66 @@ async function main() {
 	if (!apiKey) { console.error("GEMINI_API_KEY required"); process.exit(1); }
 
 	const config = parseArgs();
-	console.log(`Config: judge=${config.judge}, runs=${config.runs}, skipNoMemory=${config.skipNoMemory}`);
+	console.log(`Config: judge=${config.judge}, runs=${config.runs}, pipeline=${config.pipeline}, skipNoMemory=${config.skipNoMemory}`);
 	if (config.categories) console.log(`  categories: ${config.categories.join(", ")}`);
 
+	const { Memory } = await import("mem0ai/oss");
 	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
 	const templates = JSON.parse(readFileSync(join(import.meta.dirname, "query-templates.json"), "utf-8"));
 
-	// ─── Phase 1: Encode via MemorySystem(Mem0Adapter) ───────────────────
-	console.log("\n=== Phase 1: Encoding via MemorySystem(Mem0Adapter) ===\n");
+	// ─── Phase 1: Encode ─────────────────────────────────────────────────
 	const dbPath = `/tmp/mem0-comp-${randomUUID()}`;
-	const adapter = new Mem0Adapter({
-		mem0Config: {
-			embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
-			vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
-			llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
-			historyDbPath: `${dbPath}-hist.db`,
-		},
-		userId: "bench",
-	});
-	const system = new MemorySystem({ adapter });
+	const mem0Config = {
+		embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
+		vectorStore: { provider: "memory", config: { collectionName: "comp", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
+		llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
+		historyDbPath: `${dbPath}-hist.db`,
+	};
 
-	const gatedFacts: string[] = [];
-	const storedFacts: string[] = [];
-	for (const fact of factBank.facts) {
-		try {
-			await throttle();
-			const episode = await system.encode({ content: fact.statement, role: "user" }, { project: "benchmark" });
-			if (episode) {
-				storedFacts.push(fact.id);
-				console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
-			} else {
-				gatedFacts.push(fact.id);
-				console.log(`  ⛔ ${fact.id}: GATED (importance too low) — ${fact.statement.slice(0, 50)}...`);
+	// Pipeline-specific setup
+	let system: MemorySystem | null = null;
+	let rawMem0: any = null;
+
+	if (config.pipeline === "naia") {
+		console.log("\n=== Phase 1: Encoding via MemorySystem(Mem0Adapter) ===\n");
+		const adapter = new Mem0Adapter({ mem0Config, userId: "bench" });
+		system = new MemorySystem({ adapter });
+
+		const gatedFacts: string[] = [];
+		const storedFacts: string[] = [];
+		for (const fact of factBank.facts) {
+			try {
+				await throttle();
+				const episode = await system.encode({ content: fact.statement, role: "user" }, { project: "benchmark" });
+				if (episode) {
+					storedFacts.push(fact.id);
+					console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+				} else {
+					gatedFacts.push(fact.id);
+					console.log(`  ⛔ ${fact.id}: GATED — ${fact.statement.slice(0, 50)}...`);
+				}
+			} catch (err: any) {
+				console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 			}
-		} catch (err: any) {
-			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 		}
-	}
+		console.log(`\n  Stored: ${storedFacts.length}/${factBank.facts.length} (gated: ${gatedFacts.length})`);
+		console.log(`  ⚠ Disclaimer: decay/KG inactive in recall path\n`);
+	} else {
+		console.log("\n=== Phase 1: Encoding via raw mem0 (no Naia layer) ===\n");
+		rawMem0 = new Memory(mem0Config);
 
-	// Verify
-	const allFacts = await adapter.semantic.getAll();
-	console.log(`\n  Stored: ${storedFacts.length}/${factBank.facts.length} (gated: ${gatedFacts.length}: [${gatedFacts.join(",")}])`);
-	console.log(`  mem0 facts: ${allFacts.length}\n`);
-	console.log(`  ⚠ Disclaimer: decay/KG inactive in this benchmark (Mem0Adapter recall bypasses both)\n`);
+		for (const fact of factBank.facts) {
+			try {
+				await throttle();
+				await rawMem0.add([{ role: "user", content: fact.statement }], { userId: "bench" });
+				console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
+			} catch (err: any) {
+				console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
+			}
+		}
+		const allMems = await rawMem0.getAll({ userId: "bench" });
+		console.log(`\n  mem0 stored: ${(allMems?.results ?? allMems ?? []).length} memories\n`);
+	}
 
 	// ─── Phase 2: Collect responses (no judging yet) ────────────────────
 	console.log("=== Phase 2: Collecting responses ===\n");
@@ -360,18 +380,35 @@ async function main() {
 			const query = q.query || q.verify || "";
 			if (!query) continue;
 
-			// Handle setup/update/noise
-			if (q.setup) { await throttle(); await system.encode({ content: q.setup, role: "user" }, { project: "benchmark" }); }
-			if (q.update) { await throttle(); await system.encode({ content: q.update, role: "user" }, { project: "benchmark" }); }
-			if (q.noisy_input) { await throttle(); await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" }); }
+			// Handle setup/update/noise — pipeline-aware
+			if (q.setup) {
+				await throttle();
+				if (system) await system.encode({ content: q.setup, role: "user" }, { project: "benchmark" });
+				else await rawMem0.add([{ role: "user", content: q.setup }], { userId: "bench" });
+			}
+			if (q.update) {
+				await throttle();
+				if (system) await system.encode({ content: q.update, role: "user" }, { project: "benchmark" });
+				else await rawMem0.add([{ role: "user", content: q.update }], { userId: "bench" });
+			}
+			if (q.noisy_input) {
+				await throttle();
+				if (system) await system.encode({ content: q.noisy_input, role: "user" }, { project: "benchmark" });
+				else await rawMem0.add([{ role: "user", content: q.noisy_input }], { userId: "bench" });
+			}
 
 			// WITH memory — get responses (deduplicated, multiple runs)
 			let memories: string[] = [];
 			try {
 				await throttle();
-				const result = await system.recall(query, { project: "benchmark", topK: 10 });
-				const raw = [...result.facts.map((f) => f.content), ...result.episodes.map((e) => e.content)];
-				memories = [...new Set(raw)]; // deduplicate
+				if (system) {
+					const result = await system.recall(query, { project: "benchmark", topK: 10 });
+					const raw = [...result.facts.map((f) => f.content), ...result.episodes.map((e) => e.content)];
+					memories = [...new Set(raw)];
+				} else {
+					const raw = await rawMem0.search(query, { userId: "bench", limit: 10 });
+					memories = [...new Set((raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? ""))];
+				}
 			} catch (err: any) {
 				console.error(`    ⚠ recall: ${err.message?.slice(0, 60)}`);
 			}
@@ -622,8 +659,8 @@ async function main() {
 	const reportPath = join(reportDir, `memory-comprehensive-${new Date().toISOString().slice(0, 10)}.json`);
 	writeFileSync(reportPath, JSON.stringify({
 		timestamp: new Date().toISOString(),
-		version: "comprehensive-v4",
-		pipeline: "MemorySystem(Mem0Adapter)",
+		version: "comprehensive-v5",
+		pipeline: config.pipeline === "naia" ? "MemorySystem(Mem0Adapter)" : "raw mem0 (no Naia layer)",
 		judge: config.judge,
 		model: "gemini-2.5-flash",
 		core: { total: core.length, withMemory: memPass, noMemory: noMemPass, delta: memPass - noMemPass },
@@ -635,7 +672,7 @@ async function main() {
 	}, null, 2));
 	console.log(`\n  Report: ${reportPath}`);
 
-	await system.close();
+	if (system) await system.close();
 }
 
 main().catch(console.error);
