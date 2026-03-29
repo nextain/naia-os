@@ -191,6 +191,8 @@ export interface MemoryAdapter {
 		associate(entityA: string, entityB: string, weight?: number): Promise<void>;
 		/** Get all facts (for full consolidation) */
 		getAll(): Promise<Fact[]>;
+		/** Delete a fact by ID. Returns true if found and deleted. */
+		delete(id: string): Promise<boolean>;
 	};
 
 	/** Procedural memory operations (Basal Ganglia) */

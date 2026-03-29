@@ -263,6 +263,16 @@ export class Mem0Adapter implements MemoryAdapter {
 				sourceEpisodes: [],
 			}));
 		},
+
+		delete: async (id: string): Promise<boolean> => {
+			try {
+				const m = await this.ensureMem0();
+				await m.delete(id);
+				return true;
+			} catch {
+				return false;
+			}
+		},
 	};
 
 	// ─── Procedural Memory ───────────────────────────────────────────────

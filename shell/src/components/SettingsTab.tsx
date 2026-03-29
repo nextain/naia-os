@@ -26,7 +26,7 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
-import { type Fact, deleteFact, getAllFacts } from "../lib/db";
+import { type AgentFact, deleteAgentFact, getAllAgentFacts } from "../lib/db";
 import { resetGatewaySession } from "../lib/gateway-sessions";
 import { type Locale, getLocale, setLocale, t } from "../lib/i18n";
 import { parseLabCredits } from "../lib/lab-balance";
@@ -844,7 +844,7 @@ export function SettingsTab() {
 	const [dynamicTtsVoices, setDynamicTtsVoices] = useState<
 		{ id: string; label: string; gender?: string }[]
 	>([]);
-	const [facts, setFacts] = useState<Fact[]>([]);
+	const [facts, setFacts] = useState<AgentFact[]>([]);
 	const [allowedToolsCount, setAllowedToolsCount] = useState(
 		existing?.allowedTools?.length ?? 0,
 	);
@@ -1373,10 +1373,10 @@ export function SettingsTab() {
 	}, [fetchVoiceWake, fetchDiscordBotStatus]);
 
 	useEffect(() => {
-		getAllFacts()
-			.then((result) => setFacts(result ?? []))
-			.catch((err) => {
-				Logger.warn("SettingsTab", "Failed to load facts", {
+		getAllAgentFacts()
+			.then((result: AgentFact[]) => setFacts(result ?? []))
+			.catch((err: unknown) => {
+				Logger.warn("SettingsTab", "Failed to load agent memory facts", {
 					error: String(err),
 				});
 			});
@@ -3648,18 +3648,22 @@ export function SettingsTab() {
 					{facts.map((f) => (
 						<div key={f.id} className="fact-item">
 							<div className="fact-content">
-								<span className="fact-key">{f.key}</span>
-								<span className="fact-value">{f.value}</span>
+								<span className="fact-key">{f.content}</span>
+								{f.entities.length > 0 && (
+									<span className="fact-value">
+										{f.entities.join(", ")}
+									</span>
+								)}
 							</div>
 							<button
 								type="button"
 								className="fact-delete-btn"
 								onClick={async () => {
 									try {
-										await deleteFact(f.id);
+										await deleteAgentFact(f.id);
 										setFacts((prev) => prev.filter((x) => x.id !== f.id));
 									} catch (err) {
-										Logger.warn("SettingsTab", "Failed to delete fact", {
+										Logger.warn("SettingsTab", "Failed to delete memory", {
 											error: String(err),
 										});
 									}

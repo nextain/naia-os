@@ -32,11 +32,9 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
-import { getAllFacts, upsertFact } from "../lib/db";
 import {
 	discoverAndPersistDiscordDmChannel,
 	getGatewayHistory,
-	patchGatewaySession,
 	resetGatewaySession,
 } from "../lib/gateway-sessions";
 import { startDiscordRelay, stopDiscordRelay } from "../lib/discord-relay";
@@ -48,8 +46,6 @@ import {
 	isApiKeyOptional,
 } from "../lib/llm";
 import { Logger } from "../lib/logger";
-import { extractFacts, summarizeSession } from "../lib/memory-processor";
-import { startMemorySync } from "../lib/memory-sync";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
@@ -66,7 +62,6 @@ import type {
 	AgentResponseChunk,
 	AuditEvent,
 	AuditFilter,
-	ChatMessage,
 	ProviderId,
 } from "../lib/types";
 import { AudioQueue } from "../lib/voice/audio-queue";
@@ -202,96 +197,9 @@ const mdComponents: Components = {
 	},
 };
 
-/** Summarize a previous session and extract facts (fire-and-forget). */
-async function summarizePreviousSession(
-	messages: ChatMessage[],
-	apiKey: string,
-	provider: ProviderId,
-) {
-	try {
-		const rows = messages.map((m) => ({
-			id: m.id,
-			session_id: "",
-			role: m.role,
-			content: m.content,
-			timestamp: m.timestamp,
-			cost_json: null,
-			tool_calls_json: null,
-		}));
-		const summary = await summarizeSession(rows, apiKey, provider);
-		if (summary) {
-			// Save summary to Gateway session metadata
-			await patchGatewaySession("agent:main:main", { summary });
-			Logger.info("ChatPanel", "Session summarized via Gateway");
-
-			// Extract facts from summary
-			const rawFacts = await extractFacts(rows, summary, apiKey, provider);
-			for (const f of rawFacts) {
-				const now = Date.now();
-				await upsertFact({
-					id: `fact-${f.key}-${now}`,
-					key: f.key,
-					value: f.value,
-					source_session: null,
-					created_at: now,
-					updated_at: now,
-				});
-			}
-			// Sync updated facts to SOUL.md so OpenClaw channels see them
-			if (rawFacts.length > 0) {
-				const cfg = loadConfig();
-				if (cfg) {
-					syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
-				}
-			}
-		}
-	} catch (err) {
-		Logger.warn("ChatPanel", "Background summarization failed", {
-			error: String(err),
-		});
-	}
-}
-
-/** Extract facts from recent messages without full summarization (lightweight). */
-async function extractRecentFacts(
-	messages: ChatMessage[],
-	apiKey: string,
-	provider: ProviderId,
-) {
-	try {
-		const rows = messages.map((m) => ({
-			role: m.role,
-			content: m.content,
-		}));
-		const rawFacts = await extractFacts(rows, "", apiKey, provider);
-		for (const f of rawFacts) {
-			const now = Date.now();
-			await upsertFact({
-				id: `fact-${f.key}-${now}`,
-				key: f.key,
-				value: f.value,
-				source_session: null,
-				created_at: now,
-				updated_at: now,
-			});
-		}
-		if (rawFacts.length > 0) {
-			const cfg = loadConfig();
-			if (cfg) {
-				syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
-			}
-			Logger.info("ChatPanel", "Auto-extracted facts from conversation", {
-				count: rawFacts.length,
-			});
-		}
-	} catch (err) {
-		Logger.warn("ChatPanel", "Auto fact extraction failed", {
-			error: String(err),
-		});
-	}
-}
-
-/** Build MemoryContext for system prompt injection. */
+/** Build MemoryContext for system prompt injection.
+ *  Note: User facts are now handled by Agent MemorySystem (sessionRecall).
+ *  Shell only provides persona/locale/panel context. */
 async function buildMemoryContext(): Promise<MemoryContext> {
 	const ctx: MemoryContext = {};
 	try {
@@ -303,11 +211,6 @@ async function buildMemoryContext(): Promise<MemoryContext> {
 		ctx.speechStyle = cfg?.speechStyle;
 		ctx.discordDefaultUserId = cfg?.discordDefaultUserId;
 		ctx.discordDmChannelId = cfg?.discordDmChannelId;
-
-		const facts = await getAllFacts();
-		if (facts && facts.length > 0) {
-			ctx.facts = facts;
-		}
 
 		const panelCtx = usePanelStore.getState().activePanelContext;
 		if (panelCtx) {
@@ -400,7 +303,7 @@ export function ChatPanel() {
 	const micStreamRef = useRef<MicStream | null>(null);
 	const audioPlayerRef = useRef<AudioPlayer | null>(null);
 	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
-	const lastExtractedIdx = useRef(0);
+
 
 	// ── Input history (↑↓ arrow key recall) ──────────────────────────────
 	const inputHistoryRef = useRef<string[]>([]);
@@ -488,14 +391,11 @@ export function ChatPanel() {
 			discoverAndPersistDiscordDmChannel().catch(() => {});
 		}
 
-		// Startup sync: ensure SOUL.md has latest facts for OpenClaw channels
+		// Startup sync: ensure SOUL.md has latest config for OpenClaw channels
 		const cfg = loadConfig();
 		if (cfg) {
 			syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
 		}
-
-		// Start periodic reverse sync: OpenClaw memory → Shell facts
-		startMemorySync();
 
 		// Start Discord relay polling (if Discord is linked)
 		startDiscordRelay().catch((err) => {
@@ -570,20 +470,7 @@ export function ChatPanel() {
 
 	async function handleNewConversation() {
 		const store = useChatStore.getState();
-		const prevMessages = store.messages;
 		store.newConversation();
-
-		// Summarize previous session in background + extract facts
-		if (prevMessages.length >= 2) {
-			const config = loadConfig();
-			if (config?.apiKey) {
-				summarizePreviousSession(
-					prevMessages,
-					config.apiKey,
-					config.provider || "gemini",
-				);
-			}
-		}
 
 		// Reset Gateway session and set local session ID
 		try {
@@ -913,20 +800,6 @@ export function ChatPanel() {
 					provider: activeProvider,
 					model: chunk.model,
 				});
-				// Auto-extract facts every 10 new messages
-				const allMsgs = useChatStore.getState().messages;
-				const unextracted = allMsgs.length - lastExtractedIdx.current;
-				if (unextracted >= 10) {
-					lastExtractedIdx.current = allMsgs.length;
-					const config = loadConfig();
-					if (config?.apiKey) {
-						extractRecentFacts(
-							allMsgs.slice(-unextracted),
-							config.apiKey,
-							config.provider || "gemini",
-						);
-					}
-				}
 				break;
 			}
 			case "finish":
@@ -1041,27 +914,7 @@ export function ChatPanel() {
 		};
 	}, []);
 
-	// Extract facts when app goes to background or closes
-	useEffect(() => {
-		function onVisibilityChange() {
-			if (document.visibilityState !== "hidden") return;
-			const allMsgs = useChatStore.getState().messages;
-			const unextracted = allMsgs.length - lastExtractedIdx.current;
-			if (unextracted < 3) return;
-			lastExtractedIdx.current = allMsgs.length;
-			const config = loadConfig();
-			if (config?.apiKey) {
-				extractRecentFacts(
-					allMsgs.slice(-unextracted),
-					config.apiKey,
-					config.provider || "gemini",
-				);
-			}
-		}
-		document.addEventListener("visibilitychange", onVisibilityChange);
-		return () =>
-			document.removeEventListener("visibilitychange", onVisibilityChange);
-	}, []);
+
 
 	function showVoiceCostSummary() {
 		const info = voiceStartRef.current;

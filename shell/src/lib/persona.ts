@@ -1,5 +1,3 @@
-import type { Fact } from "./db";
-
 /** Default Naia persona — editable by user in settings */
 export const DEFAULT_PERSONA = `You are Naia (낸), a friendly AI companion living inside Naia.
 
@@ -117,15 +115,15 @@ Emotion tags (for Shell avatar only):
 - IMPORTANT: Emotion tags are for the Shell avatar's facial expression only. They are automatically stripped from Discord messages.`;
 }
 
-/** Memory context injected into system prompt (Phase 4.4b/c) */
+/** Memory context injected into system prompt.
+ *  Note: User facts are now handled by Agent MemorySystem (sessionRecall),
+ *  not by Shell. Shell only provides persona/locale/panel context here. */
 export interface MemoryContext {
 	userName?: string;
 	agentName?: string;
 	honorific?: string;
 	speechStyle?: string;
 	locale?: string;
-	recentSummaries?: string[];
-	facts?: Fact[];
 	discordDefaultUserId?: string;
 	discordDmChannelId?: string;
 	/** Active panel context — pushed by the current panel via NaiaContextBridge */
@@ -182,20 +180,6 @@ export function buildSystemPrompt(
 			contextLines.push(
 				getSpeechStyleInstruction(context.locale || "ko", context.speechStyle),
 			);
-		}
-
-		if (context.recentSummaries && context.recentSummaries.length > 0) {
-			contextLines.push("Recent conversation summaries:");
-			for (const s of context.recentSummaries) {
-				contextLines.push(`- ${s}`);
-			}
-		}
-
-		if (context.facts && context.facts.length > 0) {
-			contextLines.push("Known facts about the user:");
-			for (const f of context.facts) {
-				contextLines.push(`- ${f.key}: ${f.value}`);
-			}
 		}
 
 		if (context.discordDefaultUserId || context.discordDmChannelId) {
