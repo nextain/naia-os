@@ -78,7 +78,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPIMAGE_EXTRACT_AND_RUN: 1
-        run: pnpm run tauri build
+          NO_STRIP: true
+        run: pnpm run tauri build --bundles deb,rpm
 
       - name: List build artifacts
         run: |
@@ -91,7 +92,7 @@ jobs:
 
       - name: Normalize artifact filenames (remove version for stable download URLs)
         run: |
-          cp shell/src-tauri/target/release/bundle/appimage/*.AppImage Naia-Shell-x86_64.AppImage
+          cp shell/src-tauri/target/release/bundle/appimage/*.AppImage Naia-Shell-x86_64.AppImage 2>/dev/null || true
           cp shell/src-tauri/target/release/bundle/appimage/*.AppImage.sig Naia-Shell-x86_64.AppImage.sig 2>/dev/null || true
           cp shell/src-tauri/target/release/bundle/deb/*.deb Naia-Shell-x86_64.deb
           cp shell/src-tauri/target/release/bundle/rpm/*.rpm Naia-Shell-x86_64.rpm
@@ -105,7 +106,7 @@ jobs:
             Naia-Shell-x86_64.AppImage.sig
             Naia-Shell-x86_64.deb
             Naia-Shell-x86_64.rpm
-          if-no-files-found: error
+          if-no-files-found: warn
 
   build-flatpak:
     name: Build Flatpak (x86_64)
