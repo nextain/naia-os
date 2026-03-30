@@ -368,10 +368,29 @@ async function main() {
 			const details: TestDetail[] = [];
 			let testNum = 0;
 
-			for (const [capName, cap] of Object.entries(templates.capabilities) as [
-				string,
-				any,
-			][]) {
+			// Explicit execution order — do NOT rely on JSON key order.
+			// Pre-update tests first, then contradiction (which mutates), then post-update tests.
+			const CAPABILITY_ORDER = [
+				"direct_recall",
+				"semantic_search",
+				"proactive_recall",
+				"abstention",
+				"irrelevant_isolation",
+				"multi_fact_synthesis",
+				"entity_disambiguation",
+				"noise_resilience",
+				// === Mutation boundary: updates happen below ===
+				"contradiction_direct",
+				"contradiction_indirect",
+				// === Post-mutation tests ===
+				"unchanged_persistence",
+				"temporal_history",
+			];
+			const capEntries = CAPABILITY_ORDER.filter(
+				(name) => templates.capabilities[name],
+			).map((name) => [name, templates.capabilities[name]] as [string, any]);
+
+			for (const [capName, cap] of capEntries) {
 				if (!cap.queries) continue;
 				if (config.categories && !config.categories.includes(capName)) continue;
 

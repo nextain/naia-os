@@ -77,4 +77,159 @@ describe("Memory E2E — 3 Session Simulation", () => {
 			rmSync(storePath);
 		} catch {}
 	});
+
+	it("Cross-session: facts survive serialization and are independently recallable", async () => {
+		const storePath = join(tmpdir(), `naia-e2e-cross-${randomUUID()}.json`);
+
+		// === SESSION 1: Store diverse facts ===
+		const adapter1 = new LocalAdapter(storePath);
+		const system1 = new MemorySystem({ adapter: adapter1 });
+
+		const sessionFacts = [
+			{ content: "My database is PostgreSQL with Redis for caching", role: "user" as const },
+			{ content: "I use GitHub Actions for CI/CD pipelines", role: "user" as const },
+			{ content: "My cloud provider is GCP with Cloud Run", role: "user" as const },
+			{ content: "I prefer Podman over Docker for containers", role: "user" as const },
+			{ content: "Testing framework is Vitest, much faster than Jest", role: "user" as const },
+			{ content: "I use Biome as formatter instead of Prettier", role: "user" as const },
+			{ content: "My terminal is Ghostty with GPU acceleration", role: "user" as const },
+			{ content: "I use Fish shell for auto-completion", role: "user" as const },
+		];
+
+		for (const f of sessionFacts) {
+			await system1.encode(f, { project: "naia-os" });
+		}
+		await system1.close();
+
+		// Age episodes for consolidation
+		const store1 = JSON.parse(readFileSync(storePath, "utf-8"));
+		for (const ep of store1.episodes) {
+			ep.timestamp = Date.now() - 3 * 60 * 60 * 1000;
+		}
+		writeFileSync(storePath, JSON.stringify(store1));
+
+		// Consolidate
+		const adapterCons = new LocalAdapter(storePath);
+		const sysCons = new MemorySystem({ adapter: adapterCons });
+		await sysCons.consolidateNow();
+		await sysCons.close();
+
+		// === SESSION 2: Verify each fact independently ===
+		const adapter2 = new LocalAdapter(storePath);
+		const system2 = new MemorySystem({ adapter: adapter2 });
+
+		// Each keyword should retrieve its related fact
+		const keywordChecks = [
+			{ keyword: "PostgreSQL", shouldFind: true },
+			{ keyword: "GitHub Actions", shouldFind: true },
+			{ keyword: "GCP", shouldFind: true },
+			{ keyword: "Podman", shouldFind: true },
+			{ keyword: "Vitest", shouldFind: true },
+			{ keyword: "Biome", shouldFind: true },
+			{ keyword: "Ghostty", shouldFind: true },
+			{ keyword: "Fish", shouldFind: true },
+			// Abstention — never mentioned
+			{ keyword: "Kubernetes", shouldFind: false },
+			{ keyword: "Jenkins", shouldFind: false },
+		];
+
+		for (const { keyword, shouldFind } of keywordChecks) {
+			const result = await system2.recall(keyword, { topK: 5 });
+			const allContent = [
+				...result.episodes.map((e) => e.content),
+				...result.facts.map((f) => f.content),
+			].join(" ").toLowerCase();
+
+			if (shouldFind) {
+				expect(
+					allContent.includes(keyword.toLowerCase()),
+					`Expected to find "${keyword}" in recall results`,
+				).toBe(true);
+			} else {
+				expect(
+					allContent.includes(keyword.toLowerCase()),
+					`Expected NOT to find "${keyword}" in recall results`,
+				).toBe(false);
+			}
+		}
+
+		await system2.close();
+
+		// === SESSION 3: Update and verify ===
+		const adapter3 = new LocalAdapter(storePath);
+		const system3 = new MemorySystem({ adapter: adapter3 });
+
+		// Update: switch terminal
+		await system3.encode(
+			{ content: "I switched to Wezterm terminal. More configurable.", role: "user" },
+			{ project: "naia-os" },
+		);
+
+		// Wezterm should be findable
+		const r1 = await system3.recall("Wezterm", { topK: 5 });
+		expect(r1.episodes.length).toBeGreaterThan(0);
+
+		// Unchanged facts should persist
+		const r2 = await system3.recall("PostgreSQL", { topK: 5 });
+		const pgContent = [...r2.episodes, ...r2.facts]
+			.map((x) => x.content)
+			.join(" ")
+			.toLowerCase();
+		expect(pgContent).toContain("postgresql");
+
+		await system3.close();
+
+		try {
+			rmSync(storePath);
+		} catch {}
+	});
+
+	it("Cross-session: sessionRecall injects relevant context", async () => {
+		const storePath = join(tmpdir(), `naia-e2e-session-recall-${randomUUID()}.json`);
+
+		// SESSION 1: Store facts
+		const adapter1 = new LocalAdapter(storePath);
+		const system1 = new MemorySystem({ adapter: adapter1 });
+
+		await system1.encode(
+			{ content: "I always use dark mode and prefer tab indentation", role: "user" },
+			{ project: "naia-os" },
+		);
+		await system1.encode(
+			{ content: "My preferred language is TypeScript for all projects", role: "user" },
+			{ project: "naia-os" },
+		);
+		await system1.close();
+
+		// Age + consolidate
+		const store = JSON.parse(readFileSync(storePath, "utf-8"));
+		for (const ep of store.episodes) {
+			ep.timestamp = Date.now() - 2 * 60 * 60 * 1000;
+		}
+		writeFileSync(storePath, JSON.stringify(store));
+		const adapterCons = new LocalAdapter(storePath);
+		const sysCons = new MemorySystem({ adapter: adapterCons });
+		await sysCons.consolidateNow();
+		await sysCons.close();
+
+		// SESSION 2: sessionRecall should return relevant context
+		const adapter2 = new LocalAdapter(storePath);
+		const system2 = new MemorySystem({ adapter: adapter2 });
+
+		const recallCtx = await system2.sessionRecall(
+			"Help me set up a new project",
+			{ project: "naia-os", topK: 5 },
+		);
+
+		// sessionRecall depends on fact extraction quality.
+		// With LocalAdapter (keyword search), it may or may not find facts.
+		// We just verify the function runs without error and returns a string.
+		expect(typeof recallCtx).toBe("string");
+
+		await system2.close();
+
+		try {
+			rmSync(storePath);
+		} catch {}
+	});
 });

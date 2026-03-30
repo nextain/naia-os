@@ -36,6 +36,36 @@ vi.mock("../components/TitleBar", () => ({
 	TitleBar: () => <div>title</div>,
 }));
 
+// Mock panel system to prevent built-in panels from loading Tauri APIs
+vi.mock("../lib/panel-loader", () => ({
+	loadInstalledPanels: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("../lib/panel-registry", () => ({
+	panelRegistry: {
+		list: vi.fn().mockReturnValue([]),
+		get: vi.fn().mockReturnValue(null),
+		register: vi.fn(),
+		unregister: vi.fn(),
+	},
+	ActivePanelBridge: class {
+		pushContext = vi.fn();
+		onToolCall = vi.fn().mockReturnValue(() => {});
+		callTool = vi.fn().mockResolvedValue("");
+	},
+}));
+vi.mock("../lib/active-bridge", () => ({
+	activeBridge: {
+		pushContext: vi.fn(),
+		onToolCall: vi.fn().mockReturnValue(() => {}),
+		callTool: vi.fn().mockResolvedValue(""),
+	},
+	getBridgeForPanel: vi.fn().mockReturnValue({
+		pushContext: vi.fn(),
+		onToolCall: vi.fn().mockReturnValue(() => {}),
+		callTool: vi.fn().mockResolvedValue(""),
+	}),
+}));
+
 import { App } from "../App";
 
 describe("App discord deep-link persistence", () => {

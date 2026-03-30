@@ -46,13 +46,13 @@ describe("OnboardingWizard", () => {
 		expect(screen.getByText("Naia")).toBeDefined();
 	});
 
-	it("shows all 5 providers", () => {
+	it("shows all onboarding providers", () => {
 		render(<OnboardingWizard onComplete={onComplete} />);
 		expect(screen.getByText("Google Gemini")).toBeDefined();
 		expect(screen.getByText(/OpenAI/)).toBeDefined();
 		expect(screen.getByText(/Anthropic/)).toBeDefined();
 		expect(screen.getByText(/xAI/)).toBeDefined();
-		expect(screen.getByText(/zAI/)).toBeDefined();
+		expect(screen.getByText(/Zhipu AI/)).toBeDefined();
 	});
 
 	it("progresses through steps: provider → apiKey → agentName → ...", () => {

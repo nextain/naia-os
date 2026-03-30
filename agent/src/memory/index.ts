@@ -421,13 +421,16 @@ export class MemorySystem {
 	/**
 	 * Check new information against existing facts for contradictions.
 	 * Automatically updates facts when contradictions are detected (reconsolidation).
+	 *
+	 * Uses vector search instead of getAll() — O(topK) instead of O(N).
 	 */
 	private async checkAndReconsolidate(
 		newInfo: string,
 		now: number,
 	): Promise<void> {
-		const allFacts = await this.adapter.semantic.getAll();
-		const contradictions = findContradictions(allFacts, newInfo);
+		// Search for semantically similar facts instead of loading all
+		const candidates = await this.adapter.semantic.search(newInfo, 10);
+		const contradictions = findContradictions(candidates, newInfo);
 
 		// Update only the first contradicted fact to avoid creating semantic duplicates
 		const firstUpdate = contradictions.find(
@@ -592,8 +595,8 @@ export class MemorySystem {
 
 				// 3. For each extracted fact, check contradictions and upsert
 				for (const ef of extracted) {
-					// Re-fetch existing facts each iteration to avoid stale cache
-					const existingFacts = await this.adapter.semantic.getAll();
+					// Search for semantically similar facts instead of getAll() — O(topK) not O(N)
+					const existingFacts = await this.adapter.semantic.search(ef.content, 10);
 					const contradictions = findContradictions(existingFacts, ef.content);
 
 					if (contradictions.length > 0) {

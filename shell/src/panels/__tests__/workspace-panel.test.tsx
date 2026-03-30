@@ -21,7 +21,12 @@ import type { SessionInfo } from "../workspace/SessionCard";
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock("@tauri-apps/api/core", () => ({
-	invoke: vi.fn().mockResolvedValue([]),
+	invoke: vi.fn().mockImplementation(async (cmd: string, args?: any) => {
+		if (cmd === "workspace_set_root") return args?.root ?? "/tmp/test-workspace";
+		if (cmd === "workspace_get_sessions") return [];
+		if (cmd === "read_file_text") return "";
+		return [];
+	}),
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -38,7 +43,12 @@ vi.mock("../../lib/logger", () => ({
 }));
 
 vi.mock("../../lib/config", () => ({
-	loadConfig: vi.fn().mockReturnValue(null),
+	loadConfig: vi.fn().mockReturnValue({
+		workspaceRoot: "/tmp/test-workspace",
+		provider: "gemini",
+		model: "gemini-2.5-flash",
+		apiKey: "",
+	}),
 	saveConfig: vi.fn(),
 }));
 

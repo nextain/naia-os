@@ -700,6 +700,80 @@ function ranks(arr: number[]): number[] {
 	return result;
 }
 
+// ─── Consolidation Recall Impact ────────────────────────────────────────────
+
+async function benchConsolidationRecallImpact(): Promise<BenchmarkResult> {
+	const storePath = join(tmpdir(), `naia-bench-consol-${Date.now()}.json`);
+	const adapter = new LocalAdapter(storePath);
+	const system = new MemorySystem({ adapter });
+
+	// Store episodes with known facts
+	const knownFacts = [
+		"Kim Haneul prefers dark mode and tab indentation",
+		"The company uses PostgreSQL as the primary database",
+		"Weekend hobby is running along the Han river",
+		"Editor of choice is Neovim with custom config",
+		"Cloud provider is GCP with Cloud Run",
+	];
+
+	for (const content of knownFacts) {
+		await system.encode(
+			{ content, role: "user" },
+			{ project: "benchmark" },
+		);
+	}
+
+	// Fast-forward episodes to be old enough for consolidation (>1 hour)
+	const { readFileSync, writeFileSync } = await import("node:fs");
+	const store = JSON.parse(readFileSync(storePath, "utf-8"));
+	for (const ep of store.episodes) {
+		ep.timestamp = Date.now() - 2 * HOUR;
+	}
+	writeFileSync(storePath, JSON.stringify(store));
+
+	// Reload adapter and consolidate
+	const adapter2 = new LocalAdapter(storePath);
+	const system2 = new MemorySystem({ adapter: adapter2 });
+	await system2.consolidateNow();
+
+	// Try to recall each known fact
+	let recalled = 0;
+	for (const content of knownFacts) {
+		const result = await system2.recall(content, { topK: 5 });
+		const allContent = [
+			...result.facts.map((f) => f.content),
+			...result.episodes.map((e) => e.content),
+		].join(" ");
+		// Check if any key term from the fact appears in recall
+		const keyTerms = content.split(/\s+/).filter((t) => t.length > 3);
+		const found = keyTerms.some((term) =>
+			allContent.toLowerCase().includes(term.toLowerCase()),
+		);
+		if (found) recalled++;
+	}
+
+	await system2.close();
+	try {
+		const { rmSync } = await import("node:fs");
+		rmSync(storePath);
+	} catch {}
+
+	const rate = recalled / knownFacts.length;
+	const target = ALPHA_CRITERIA.consolidationRecallImpact.target;
+	const minimum = ALPHA_CRITERIA.consolidationRecallImpact.minimum;
+
+	return {
+		criterion: "consolidationRecallImpact",
+		category: "alpha-original",
+		metric: "recall_rate",
+		value: { rate, recalled, total: knownFacts.length },
+		target,
+		minimum,
+		passed: rate >= target,
+		grade: grade(rate, target, minimum),
+	};
+}
+
 // ─── Main Runner ────────────────────────────────────────────────────────────
 
 async function runBenchmarks(): Promise<BenchmarkReport> {
@@ -715,6 +789,7 @@ async function runBenchmarks(): Promise<BenchmarkReport> {
 	results.push(await benchContextDependentRetrieval());
 	results.push(await benchImportanceRetention());
 	results.push(await benchConsolidationCompression());
+	results.push(await benchConsolidationRecallImpact());
 
 	// Adopted criteria
 	results.push(await benchImportanceGating());

@@ -12,6 +12,7 @@ export default defineConfig(async () => ({
 			"node_modules/**",
 			"src-tauri/target/**",
 		],
+		setupFiles: ["./vitest.setup.ts"],
 	},
 	clearScreen: false,
 	server: {
