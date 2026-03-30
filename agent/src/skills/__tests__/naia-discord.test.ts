@@ -250,7 +250,7 @@ describe("skill_naia_discord", () => {
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
 	});
 
-	it("strips emotion tags from Discord messages before sending", async () => {
+	it("replaces emotion tags with emoji in Discord messages", async () => {
 		const gateway = {
 			isConnected: () => true,
 			availableMethods: ["send"],
@@ -272,11 +272,11 @@ describe("skill_naia_discord", () => {
 
 		expect(result.success).toBe(true);
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"음, 생각해볼게요...",
+			"🤔음, 생각해볼게요...",
 		);
 	});
 
-	it("strips multiple emotion tags from message", async () => {
+	it("replaces multiple emotion tags in message", async () => {
 		const gateway = {
 			isConnected: () => true,
 			availableMethods: ["send"],
@@ -298,7 +298,7 @@ describe("skill_naia_discord", () => {
 
 		expect(result.success).toBe(true);
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"좋은 아침! 오늘 날씨 좋네요",
+			"😊좋은 아침! 오늘 날씨 좋네요",
 		);
 	});
 
@@ -324,7 +324,7 @@ describe("skill_naia_discord", () => {
 
 		expect(result.success).toBe(true);
 		expect(gateway.request.mock.calls[0][1].message).toBe(
-			"좋은 아침이에요! 😊 오늘도 화이팅! ✨",
+			"😊좋은 아침이에요! 😊 오늘도 화이팅! ✨",
 		);
 	});
 
