@@ -58,14 +58,16 @@ describe("skill_naia_discord", () => {
 	});
 
 	it("returns error when send target is missing", async () => {
-		const prevToken = process.env.DISCORD_BOT_TOKEN;
-		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
-		const prevChannelId = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		const prevUserId = process.env.DISCORD_DEFAULT_USER_ID;
-		process.env.DISCORD_BOT_TOKEN = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
+		const saved = {
+			token: process.env.DISCORD_BOT_TOKEN,
+			target: process.env.DISCORD_DEFAULT_TARGET,
+			channelId: process.env.DISCORD_DEFAULT_CHANNEL_ID,
+			userId: process.env.DISCORD_DEFAULT_USER_ID,
+		};
+		delete process.env.DISCORD_BOT_TOKEN;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -80,13 +82,12 @@ describe("skill_naia_discord", () => {
 		expect(result.success).toBe(false);
 		expect(result.error).toContain("target is required");
 
-		if (prevToken !== undefined) process.env.DISCORD_BOT_TOKEN = prevToken;
-		if (prevTarget !== undefined)
-			process.env.DISCORD_DEFAULT_TARGET = prevTarget;
-		if (prevChannelId !== undefined)
-			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannelId;
-		if (prevUserId !== undefined)
-			process.env.DISCORD_DEFAULT_USER_ID = prevUserId;
+		// Restore
+		for (const [k, v] of Object.entries(saved)) {
+			const envKey = `DISCORD_${k === "token" ? "BOT_TOKEN" : k === "target" ? "DEFAULT_TARGET" : k === "channelId" ? "DEFAULT_CHANNEL_ID" : "DEFAULT_USER_ID"}`;
+			if (v !== undefined) process.env[envKey] = v;
+			else delete process.env[envKey];
+		}
 	});
 
 	it("uses DISCORD_DEFAULT_USER_ID when target args are omitted", async () => {
@@ -120,16 +121,16 @@ describe("skill_naia_discord", () => {
 		});
 
 		if (prev !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prev;
-		else process.env.DISCORD_DEFAULT_USER_ID = undefined;
+		else delete process.env.DISCORD_DEFAULT_USER_ID;
 	});
 
 	it("derives user target from connected numeric discord accountId", async () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -180,19 +181,22 @@ describe("skill_naia_discord", () => {
 		);
 
 		if (prevUser !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prevUser;
+		else delete process.env.DISCORD_DEFAULT_USER_ID;
 		if (prevTarget !== undefined)
 			process.env.DISCORD_DEFAULT_TARGET = prevTarget;
+		else delete process.env.DISCORD_DEFAULT_TARGET;
 		if (prevChannel !== undefined)
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
+		else delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 	});
 
 	it("derives user target from discord userId field even when accountId is non-numeric", async () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		process.env.DISCORD_DEFAULT_USER_ID = undefined;
-		process.env.DISCORD_DEFAULT_TARGET = undefined;
-		process.env.DISCORD_DEFAULT_CHANNEL_ID = undefined;
+		delete process.env.DISCORD_DEFAULT_USER_ID;
+		delete process.env.DISCORD_DEFAULT_TARGET;
+		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 
 		const gateway = {
 			isConnected: () => true,
@@ -244,10 +248,13 @@ describe("skill_naia_discord", () => {
 		);
 
 		if (prevUser !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prevUser;
+		else delete process.env.DISCORD_DEFAULT_USER_ID;
 		if (prevTarget !== undefined)
 			process.env.DISCORD_DEFAULT_TARGET = prevTarget;
+		else delete process.env.DISCORD_DEFAULT_TARGET;
 		if (prevChannel !== undefined)
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
+		else delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
 	});
 
 	it("replaces emotion tags with emoji in Discord messages", async () => {

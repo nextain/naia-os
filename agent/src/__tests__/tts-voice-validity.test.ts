@@ -16,8 +16,8 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 const TEST_TEXT = "안녕하세요.";
 
 describe("Voice Validity — verify voices produce audio", () => {
-	// ── Edge TTS voices ──
-	describe("Edge TTS", () => {
+	// ── Edge TTS voices (requires external Microsoft service — skip in CI) ──
+	describe.skipIf(!!process.env.CI)("Edge TTS", () => {
 		const edgeVoices = [
 			"ko-KR-SunHiNeural",
 			"ko-KR-InJoonNeural",
