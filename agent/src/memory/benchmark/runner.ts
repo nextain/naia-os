@@ -717,10 +717,7 @@ async function benchConsolidationRecallImpact(): Promise<BenchmarkResult> {
 	];
 
 	for (const content of knownFacts) {
-		await system.encode(
-			{ content, role: "user" },
-			{ project: "benchmark" },
-		);
+		await system.encode({ content, role: "user" }, { project: "benchmark" });
 	}
 
 	// Close system before manipulating the store file directly
@@ -1062,11 +1059,31 @@ async function benchKnowledgeRetention(): Promise<BenchmarkResult> {
 
 	// Store multiple facts, then have many filler turns, then check retention
 	const retentionFacts = [
-		{ content: "I prefer dark mode and tab indentation always", query: "dark mode", keywords: ["dark mode", "tab"] },
-		{ content: "My favorite coffee is Americano only", query: "Americano", keywords: ["americano"] },
-		{ content: "I graduated from KAIST computer science", query: "KAIST", keywords: ["kaist"] },
-		{ content: "I use Fedora as my operating system always", query: "Fedora", keywords: ["fedora"] },
-		{ content: "My hobby is running along the Han river", query: "running", keywords: ["running", "han river"] },
+		{
+			content: "I prefer dark mode and tab indentation always",
+			query: "dark mode",
+			keywords: ["dark mode", "tab"],
+		},
+		{
+			content: "My favorite coffee is Americano only",
+			query: "Americano",
+			keywords: ["americano"],
+		},
+		{
+			content: "I graduated from KAIST computer science",
+			query: "KAIST",
+			keywords: ["kaist"],
+		},
+		{
+			content: "I use Fedora as my operating system always",
+			query: "Fedora",
+			keywords: ["fedora"],
+		},
+		{
+			content: "My hobby is running along the Han river",
+			query: "running",
+			keywords: ["running", "han river"],
+		},
 	];
 
 	for (const f of retentionFacts) {
@@ -1090,10 +1107,7 @@ async function benchKnowledgeRetention(): Promise<BenchmarkResult> {
 		"Explain container networking",
 	];
 	for (const f of fillers) {
-		await system.encode(
-			{ content: f, role: "user" },
-			{ project: "test" },
-		);
+		await system.encode({ content: f, role: "user" }, { project: "test" });
 	}
 
 	// Check if original facts are still retrievable after many turns

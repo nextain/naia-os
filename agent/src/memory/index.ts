@@ -596,7 +596,10 @@ export class MemorySystem {
 				// 3. For each extracted fact, check contradictions and upsert
 				for (const ef of extracted) {
 					// Search for semantically similar facts instead of getAll() — O(topK) not O(N)
-					const existingFacts = await this.adapter.semantic.search(ef.content, 10);
+					const existingFacts = await this.adapter.semantic.search(
+						ef.content,
+						10,
+					);
 					const contradictions = findContradictions(existingFacts, ef.content);
 
 					if (contradictions.length > 0) {

@@ -86,14 +86,38 @@ describe("Memory E2E — 3 Session Simulation", () => {
 		const system1 = new MemorySystem({ adapter: adapter1 });
 
 		const sessionFacts = [
-			{ content: "My database is PostgreSQL with Redis for caching", role: "user" as const },
-			{ content: "I use GitHub Actions for CI/CD pipelines", role: "user" as const },
-			{ content: "My cloud provider is GCP with Cloud Run", role: "user" as const },
-			{ content: "I prefer Podman over Docker for containers", role: "user" as const },
-			{ content: "Testing framework is Vitest, much faster than Jest", role: "user" as const },
-			{ content: "I use Biome as formatter instead of Prettier", role: "user" as const },
-			{ content: "My terminal is Ghostty with GPU acceleration", role: "user" as const },
-			{ content: "I use Fish shell for auto-completion", role: "user" as const },
+			{
+				content: "My database is PostgreSQL with Redis for caching",
+				role: "user" as const,
+			},
+			{
+				content: "I use GitHub Actions for CI/CD pipelines",
+				role: "user" as const,
+			},
+			{
+				content: "My cloud provider is GCP with Cloud Run",
+				role: "user" as const,
+			},
+			{
+				content: "I prefer Podman over Docker for containers",
+				role: "user" as const,
+			},
+			{
+				content: "Testing framework is Vitest, much faster than Jest",
+				role: "user" as const,
+			},
+			{
+				content: "I use Biome as formatter instead of Prettier",
+				role: "user" as const,
+			},
+			{
+				content: "My terminal is Ghostty with GPU acceleration",
+				role: "user" as const,
+			},
+			{
+				content: "I use Fish shell for auto-completion",
+				role: "user" as const,
+			},
 		];
 
 		for (const f of sessionFacts) {
@@ -138,7 +162,9 @@ describe("Memory E2E — 3 Session Simulation", () => {
 			const allContent = [
 				...result.episodes.map((e) => e.content),
 				...result.facts.map((f) => f.content),
-			].join(" ").toLowerCase();
+			]
+				.join(" ")
+				.toLowerCase();
 
 			if (shouldFind) {
 				expect(
@@ -161,7 +187,10 @@ describe("Memory E2E — 3 Session Simulation", () => {
 
 		// Update: switch terminal
 		await system3.encode(
-			{ content: "I switched to Wezterm terminal. More configurable.", role: "user" },
+			{
+				content: "I switched to Wezterm terminal. More configurable.",
+				role: "user",
+			},
 			{ project: "naia-os" },
 		);
 
@@ -185,18 +214,27 @@ describe("Memory E2E — 3 Session Simulation", () => {
 	});
 
 	it("Cross-session: sessionRecall injects relevant context", async () => {
-		const storePath = join(tmpdir(), `naia-e2e-session-recall-${randomUUID()}.json`);
+		const storePath = join(
+			tmpdir(),
+			`naia-e2e-session-recall-${randomUUID()}.json`,
+		);
 
 		// SESSION 1: Store facts
 		const adapter1 = new LocalAdapter(storePath);
 		const system1 = new MemorySystem({ adapter: adapter1 });
 
 		await system1.encode(
-			{ content: "I always use dark mode and prefer tab indentation", role: "user" },
+			{
+				content: "I always use dark mode and prefer tab indentation",
+				role: "user",
+			},
 			{ project: "naia-os" },
 		);
 		await system1.encode(
-			{ content: "My preferred language is TypeScript for all projects", role: "user" },
+			{
+				content: "My preferred language is TypeScript for all projects",
+				role: "user",
+			},
 			{ project: "naia-os" },
 		);
 		await system1.close();
