@@ -20,7 +20,7 @@ const MANUAL_BASE = path.resolve(
 	import.meta.dirname,
 	"../../../naia.nextain.io/public/manual",
 );
-const CAPTURE_VIEWPORT = { width: 400, height: 768 };
+const CAPTURE_VIEWPORT = { width: 1366, height: 768 };
 
 test.setTimeout(120_000);
 test.use({ viewport: CAPTURE_VIEWPORT });
@@ -840,6 +840,240 @@ async function captureMainApp(page: Page, dir: string, locale: string) {
 	// await capture(page, dir, "tabs-layout");
 }
 
+// ---- Workspace / Browser Panel mock data ----
+
+const FAKE_ROOT = "/var/home/luke/dev";
+
+const FAKE_WS_SESSIONS = [
+	{
+		dir: "naia-os-issue-79",
+		path: `${FAKE_ROOT}/naia-os-issue-79`,
+		branch: "issue-79-qwen3-asr",
+		origin_path: null,
+		status: "active",
+		progress: { issue: "#79", phase: "build", title: "Qwen3 ASR integration" },
+		recent_file: "shell/src/lib/stt/registry.ts",
+		last_change: Math.floor(Date.now() / 1000) - 10,
+	},
+	{
+		dir: "naia.nextain.io",
+		path: `${FAKE_ROOT}/naia.nextain.io`,
+		branch: "main",
+		origin_path: null,
+		status: "idle",
+		progress: { issue: "#8", phase: "e2e", title: null },
+		recent_file: null,
+		last_change: Math.floor(Date.now() / 1000) - 150,
+	},
+	{
+		dir: "vllm",
+		path: `${FAKE_ROOT}/vllm`,
+		branch: "main",
+		origin_path: null,
+		status: "stopped",
+		progress: null,
+		recent_file: null,
+		last_change: Math.floor(Date.now() / 1000) - 7200,
+	},
+];
+
+const FAKE_WS_DIRS: Record<string, Array<{ name: string; path: string; is_dir: boolean; children: null }>> = {
+	[FAKE_ROOT]: [
+		{ name: "naia-os", path: `${FAKE_ROOT}/naia-os`, is_dir: true, children: null },
+		{ name: "naia.nextain.io", path: `${FAKE_ROOT}/naia.nextain.io`, is_dir: true, children: null },
+		{ name: "vllm", path: `${FAKE_ROOT}/vllm`, is_dir: true, children: null },
+		{ name: "CLAUDE.md", path: `${FAKE_ROOT}/CLAUDE.md`, is_dir: false, children: null },
+	],
+	[`${FAKE_ROOT}/naia-os`]: [
+		{ name: "shell", path: `${FAKE_ROOT}/naia-os/shell`, is_dir: true, children: null },
+		{ name: "agent", path: `${FAKE_ROOT}/naia-os/agent`, is_dir: true, children: null },
+		{ name: "voice-server", path: `${FAKE_ROOT}/naia-os/voice-server`, is_dir: true, children: null },
+		{ name: "AGENTS.md", path: `${FAKE_ROOT}/naia-os/AGENTS.md`, is_dir: false, children: null },
+		{ name: "CHANGELOG.md", path: `${FAKE_ROOT}/naia-os/CHANGELOG.md`, is_dir: false, children: null },
+	],
+	[`${FAKE_ROOT}/naia-os/shell`]: [
+		{ name: "src", path: `${FAKE_ROOT}/naia-os/shell/src`, is_dir: true, children: null },
+		{ name: "e2e", path: `${FAKE_ROOT}/naia-os/shell/e2e`, is_dir: true, children: null },
+		{ name: "package.json", path: `${FAKE_ROOT}/naia-os/shell/package.json`, is_dir: false, children: null },
+	],
+	[`${FAKE_ROOT}/naia-os/shell/src`]: [
+		{ name: "App.tsx", path: `${FAKE_ROOT}/naia-os/shell/src/App.tsx`, is_dir: false, children: null },
+		{ name: "components", path: `${FAKE_ROOT}/naia-os/shell/src/components`, is_dir: true, children: null },
+		{ name: "lib", path: `${FAKE_ROOT}/naia-os/shell/src/lib`, is_dir: true, children: null },
+		{ name: "panels", path: `${FAKE_ROOT}/naia-os/shell/src/panels`, is_dir: true, children: null },
+	],
+};
+
+const FAKE_FILE_CONTENTS: Record<string, string> = {
+	"App.tsx": `import { useState, useEffect } from "react";
+import { TitleBar } from "./components/TitleBar";
+import { ChatPanel } from "./components/ChatPanel";
+import { AvatarCanvas } from "./components/AvatarCanvas";
+import { ModeBar } from "./components/ModeBar";
+
+export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    initializeApp().then(() => setReady(true));
+  }, []);
+
+  if (!ready) return <LoadingScreen />;
+
+  return (
+    <div className="app-layout">
+      <div className="naia-panel">
+        <AvatarCanvas />
+        <ChatPanel />
+      </div>
+      <ModeBar />
+      <div className="right-content" />
+    </div>
+  );
+}`,
+	"AGENTS.md": `# Naia OS
+
+Bazzite-based AI OS — desktop AI companion.
+
+## Project Structure
+
+- \`shell/\` — Tauri + React frontend
+- \`agent/\` — Node.js AI agent (LLM, tools, skills)
+- \`voice-server/\` — MiniCPM-o bridge server
+
+## Key Commands
+
+\`\`\`bash
+cd shell && pnpm run dev       # Shell dev server
+cd agent && pnpm test           # Agent tests
+\`\`\``,
+	"CHANGELOG.md": `# Changelog
+
+## v0.1.3 (2026-03-23)
+
+- Workspace panel with session dashboard
+- Browser panel (Chrome embed)
+- Panel install via git/zip
+- Gemini 3.1 Flash Live omni support
+- vllm-omni MiniCPM-o 4.5 integration
+- STT/TTS provider registry`,
+	"CLAUDE.md": `# Naia OS
+
+Luke's development workspace.
+
+## Project Structure
+
+| Project | Purpose |
+|---------|---------|
+| naia-os | Naia OS desktop app (Tauri 2 + React) |
+| about.nextain.io | Nextain corporate site |
+| naia.nextain.io | Naia web app / Lab portal |
+| aiedu.nextain.io | AI education platform |
+
+## Key Commands
+
+\`\`\`bash
+cd naia-os/shell && pnpm run dev    # Shell dev server
+cd naia-os/agent && pnpm test       # Agent tests
+\`\`\`
+
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| merge-worktree | Worktree → main squash merge |
+| review-pass | Adversarial iterative review |
+| verify-implementation | Run all verify-* skills |
+| manage-skills | Analyze changes, create verify-* |`,
+};
+
+function buildPanelMockOverrides(): string {
+	return `
+	var fakeSessions = ${JSON.stringify(FAKE_WS_SESSIONS)};
+	var fakeDirMap = ${JSON.stringify(FAKE_WS_DIRS)};
+	var fakeFiles = ${JSON.stringify(FAKE_FILE_CONTENTS)};
+	var origInvoke = window.__TAURI_INTERNALS__.invoke;
+	window.__TAURI_INTERNALS__.invoke = async function(cmd, args) {
+		// Workspace commands
+		if (cmd === "workspace_set_root") return (args && args.root) || "${FAKE_ROOT}";
+		if (cmd === "workspace_get_sessions") return fakeSessions;
+		if (cmd === "workspace_list_dirs") {
+			var dir = (args && args.path) || "${FAKE_ROOT}";
+			return fakeDirMap[dir] || [];
+		}
+		if (cmd === "workspace_get_git_info") return { branch: "main" };
+		if (cmd === "workspace_get_progress") return null;
+		if (cmd === "workspace_start_watch") return;
+		if (cmd === "workspace_stop_watch") return;
+		if (cmd === "workspace_classify_dirs") return [];
+		if (cmd === "workspace_read_file") {
+			var p = (args && args.path) || "";
+			var basename = p.split("/").pop() || "";
+			if (fakeFiles[basename]) return fakeFiles[basename];
+			return "// " + basename;
+		}
+		if (cmd === "workspace_write_file") return;
+
+		// Browser commands
+		if (cmd === "browser_embed_init") return;
+		if (cmd === "browser_embed_hide") return;
+		if (cmd === "browser_embed_show") return;
+		if (cmd === "browser_embed_close") return;
+		if (cmd === "browser_embed_navigate") return;
+		if (cmd === "browser_embed_focus") return;
+		if (cmd === "browser_embed_resize") return;
+		if (cmd === "browser_check") return true;
+		if (cmd === "browser_set_permission") return;
+
+		return origInvoke(cmd, args);
+	};
+`;
+}
+
+// ---- Panel Screenshots (workspace + browser) ----
+async function capturePanelScreenshots(page: Page, dir: string, locale: string) {
+	await page.addInitScript(getTauriMock(locale));
+	await page.addInitScript(buildPanelMockOverrides());
+	await page.addInitScript(
+		(configJson: string) => {
+			localStorage.setItem("naia-config", configJson);
+			localStorage.removeItem("workspace-classified-dirs");
+		},
+		JSON.stringify(makeConfig(locale)),
+	);
+
+	await page.goto("/");
+	await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 15_000 });
+	await ensureIconsLoaded(page);
+
+	// ---- Workspace Panel ----
+	const workspaceTab = page.locator('button[data-panel-id="workspace"]');
+	if (await workspaceTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
+		await workspaceTab.click();
+		await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 5_000 });
+		await page.waitForTimeout(2000);
+
+		// 1. Session dashboard
+		await capture(page, dir, "workspace-dashboard");
+
+		// 2. Click CLAUDE.md in the root tree (already visible, no expansion needed)
+		const claudeFile = page.locator(".workspace-tree__node--file").filter({ hasText: "CLAUDE.md" });
+		if (await claudeFile.isVisible({ timeout: 3_000 }).catch(() => false)) {
+			await claudeFile.click();
+			await page.waitForTimeout(2000);
+			await capture(page, dir, "workspace-editor");
+		}
+	}
+
+	// ---- Browser Panel ----
+	const browserTab = page.locator('button[data-panel-id="browser"]');
+	if (await browserTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
+		await browserTab.click();
+		await page.waitForTimeout(2000);
+		await capture(page, dir, "browser-panel");
+	}
+}
+
 // ---- Test Suites ----
 
 for (const locale of ["ko", "en"] as const) {
@@ -853,6 +1087,10 @@ for (const locale of ["ko", "en"] as const) {
 
 		test(`main app screens (${locale})`, async ({ page }) => {
 			await captureMainApp(page, dir, locale);
+		});
+
+		test(`panel screens (${locale})`, async ({ page }) => {
+			await capturePanelScreenshots(page, dir, locale);
 		});
 	});
 }
