@@ -198,6 +198,24 @@ jobs:
         working-directory: agent
         run: pnpm install --frozen-lockfile && pnpm run build
 
+      - name: Prune agent node_modules for NSIS path limit
+        shell: bash
+        run: |
+          cd agent/node_modules
+          find . -name "*.d.ts" -delete
+          find . -name "*.d.mts" -delete
+          find . -name "*.d.ts.map" -delete
+          find . -name "*.js.map" -path "*/.pnpm/*" -delete
+          find . -name "*.ts" -not -name "*.d.ts" -path "*/.pnpm/*/src/*" -delete
+          find . -name "CHANGELOG*" -delete
+          # Remove files whose full bundled path exceeds 254 chars
+          prefix="shell/src-tauri/../../agent/node_modules/"
+          prefix_len=${#prefix}
+          find . -type f | while read f; do
+            total=$((prefix_len + ${#f}))
+            if [ $total -gt 254 ]; then rm -f "$f"; fi
+          done
+
       - name: Build Tauri app (Windows)
         working-directory: shell
         env:

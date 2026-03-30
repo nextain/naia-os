@@ -86,7 +86,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		});
 		if (selected && typeof selected === "string") {
 			const cfg = loadConfig();
-			saveConfig({ ...cfg, workspaceRoot: selected } as AppConfig);
+			if (cfg) saveConfig({ ...cfg, workspaceRoot: selected });
 			setActiveWorkspaceRoot(selected);
 		}
 	}, []);
