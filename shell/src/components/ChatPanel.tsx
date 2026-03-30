@@ -166,7 +166,7 @@ function openFileInWorkspace(path: string): void {
 /** Split a text string on file paths and return an array of strings / buttons. */
 function processFilePaths(text: string): ReactNode[] {
 	const parts = text.split(FILE_PATH_RE);
-	return parts.map((part, i) =>
+	return parts.map((part) =>
 		FILE_PATH_RE.test(part) ? (
 			<button
 				key={`file-${part}`}

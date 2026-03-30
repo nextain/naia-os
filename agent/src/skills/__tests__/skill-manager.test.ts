@@ -323,7 +323,7 @@ describe("skill_skill_manager", () => {
 			};
 			const ctx = makeCtx({ gateway: mockGateway as never });
 			const result = await skill.execute(
-				{ action: "install", skillName: "web-search" },
+				{ action: "install", skillName: "web-search", installId: "test-123" },
 				ctx,
 			);
 			expect(result.success).toBe(true);
@@ -343,7 +343,7 @@ describe("skill_skill_manager", () => {
 		it("fails when gateway not connected", async () => {
 			const ctx = makeCtx();
 			const result = await skill.execute(
-				{ action: "install", skillName: "web-search" },
+				{ action: "install", skillName: "web-search", installId: "test-123" },
 				ctx,
 			);
 			expect(result.success).toBe(false);
