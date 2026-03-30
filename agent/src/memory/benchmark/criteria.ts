@@ -201,6 +201,22 @@ export const ALPHA_CRITERIA = {
 	 * Target: point-biserial correlation r ≥ 0.5
 	 */
 	importanceRetention: { target: 0.5, minimum: 0.3, metric: "correlation" },
+
+	/**
+	 * Consolidation recall impact.
+	 * NO EXISTING STANDARD — Alpha-original criterion.
+	 *
+	 * After consolidateNow(), facts extracted from episodes should be
+	 * retrievable via semantic search. Measures the pipeline:
+	 * episode → consolidation → fact extraction → recall.
+	 *
+	 * Target: ≥70% of consolidated facts are retrievable
+	 */
+	consolidationRecallImpact: {
+		target: 0.7,
+		minimum: 0.5,
+		metric: "recall_rate",
+	},
 } as const;
 
 // ─── Report Types ───────────────────────────────────────────────────────────

@@ -5,152 +5,62 @@
 			"description": "직접 질문으로 저장된 사실을 인출",
 			"weight": 1,
 			"queries": [
-				{
-					"fact": "F01",
-					"query": "내 이름이 뭐야?",
-					"expected_contains": ["김하늘"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F01",
-					"query": "나 뭐하는 사람이야?",
-					"expected_contains": ["대표", "개발자"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F03",
-					"query": "내 에디터 뭐야?",
-					"expected_contains": ["Neovim"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F06",
-					"query": "나 어디 살아?",
-					"expected_contains": ["성수동"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F07",
-					"query": "내가 좋아하는 커피가 뭐야?",
-					"expected_contains": ["아메리카노"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F08",
-					"query": "내 동생 이름이 뭐야?",
-					"expected_contains": ["김바다"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F11",
-					"query": "내 OS가 뭐야?",
-					"expected_contains": ["Fedora"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F12",
-					"query": "내 취미가 뭐야?",
-					"expected_contains": ["러닝"],
-					"expected_not_contains": []
-				},
-				{
-					"fact": "F15",
-					"query": "나 Git 어떻게 써?",
-					"expected_contains": ["CLI"],
-					"expected_not_contains": []
-				}
+				{"fact": "F01", "query": "내 이름이 뭐야?", "expected_contains": ["김하늘"], "expected_not_contains": []},
+				{"fact": "F01", "query": "나 뭐하는 사람이야?", "expected_contains": ["대표", "개발자"], "expected_not_contains": []},
+				{"fact": "F03", "query": "내 에디터 뭐야?", "expected_contains": ["Neovim"], "expected_not_contains": []},
+				{"fact": "F06", "query": "나 어디 살아?", "expected_contains": ["성수동"], "expected_not_contains": []},
+				{"fact": "F07", "query": "내가 좋아하는 커피가 뭐야?", "expected_contains": ["아메리카노"], "expected_not_contains": []},
+				{"fact": "F08", "query": "내 동생 이름이 뭐야?", "expected_contains": ["김바다"], "expected_not_contains": []},
+				{"fact": "F11", "query": "내 OS가 뭐야?", "expected_contains": ["Fedora"], "expected_not_contains": []},
+				{"fact": "F12", "query": "내 취미가 뭐야?", "expected_contains": ["러닝"], "expected_not_contains": []},
+				{"fact": "F15", "query": "나 Git 어떻게 써?", "expected_contains": ["CLI"], "expected_not_contains": []},
+				{"fact": "F16", "query": "내가 쓰는 데이터베이스가 뭐야?", "expected_contains": ["PostgreSQL"], "expected_not_contains": []},
+				{"fact": "F25", "query": "내 키보드 뭐야?", "expected_contains": ["해피해킹"], "expected_not_contains": []},
+				{"fact": "F28", "query": "나 대학 어디 나왔어?", "expected_contains": ["카이스트"], "expected_not_contains": []},
+				{"fact": "F32", "query": "내 반려견 이름이 뭐야?", "expected_contains": ["뭉치"], "expected_not_contains": []},
+				{"fact": "F35", "query": "내 MBTI가 뭐야?", "expected_contains": ["INTJ"], "expected_not_contains": []},
+				{"fact": "F54", "query": "내가 알레르기 있는 거 뭐야?", "expected_contains": ["견과류"], "expected_not_contains": []},
+				{"fact": "F59", "query": "내 제일 친한 친구 이름이 뭐야?", "expected_contains": ["박준서"], "expected_not_contains": []},
+				{"fact": "F89", "query": "내 고향이 어디야?", "expected_contains": ["부산"], "expected_not_contains": []},
+				{"fact": "F96", "query": "내가 배우고 있는 악기가 뭐야?", "expected_contains": ["피아노"], "expected_not_contains": []}
 			]
 		},
 		"semantic_search": {
 			"description": "직접 언급하지 않은 표현으로 시맨틱 매칭 검색",
 			"weight": 2,
 			"min_expected": 1,
-			"note": "min_expected=1: 의미 검색이 1개라도 연결하면 성공. 2개 이상 연결은 가산점.",
+			"note": "min_expected=1: 의미 검색이 1개라도 연결하면 성공.",
 			"queries": [
-				{
-					"facts": ["F02", "F03", "F04"],
-					"query": "내 개발 환경 어떻게 되지?",
-					"expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"],
-					"min_expected": 2
-				},
-				{
-					"facts": ["F02", "F03", "F04"],
-					"query": "내 기술 스택 알려줘",
-					"expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"],
-					"min_expected": 2
-				},
-				{
-					"facts": ["F02", "F03", "F04"],
-					"query": "나 뭘로 코딩해?",
-					"expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"],
-					"min_expected": 2
-				},
-				{
-					"facts": ["F02", "F04"],
-					"query": "내 로컬 셋업 어때?",
-					"expected_any": ["TypeScript", "Next.js", "FastAPI", "Fedora"]
-				},
-				{
-					"facts": ["F05", "F14"],
-					"query": "내 작업 스타일이 어때?",
-					"expected_any": ["다크모드", "탭", "오전", "오후", "코딩"]
-				},
-				{
-					"facts": ["F07", "F10"],
-					"query": "나 음식 취향이 어때?",
-					"expected_any": ["아메리카노", "매운", "순한"]
-				},
-				{
-					"facts": ["F06", "F12"],
-					"query": "주말에 뭐 하지?",
-					"expected_any": ["러닝", "한강"]
-				},
-				{
-					"facts": ["F04"],
-					"query": "내가 백엔드로 뭘 쓰지?",
-					"expected_any": ["FastAPI", "Python"]
-				},
-				{
-					"facts": ["F13"],
-					"query": "우리 회사가 뭐 만들어?",
-					"expected_any": ["AI", "앱"]
-				}
+				{"facts": ["F02", "F03", "F04"], "query": "내 개발 환경 어떻게 되지?", "expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"], "min_expected": 2},
+				{"facts": ["F02", "F03", "F04"], "query": "내 기술 스택 알려줘", "expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"], "min_expected": 2},
+				{"facts": ["F02", "F03", "F04"], "query": "나 뭘로 코딩해?", "expected_any": ["TypeScript", "Neovim", "Next.js", "FastAPI"], "min_expected": 2},
+				{"facts": ["F02", "F04"], "query": "내 로컬 셋업 어때?", "expected_any": ["TypeScript", "Next.js", "FastAPI", "Fedora"]},
+				{"facts": ["F05", "F14"], "query": "내 작업 스타일이 어때?", "expected_any": ["다크모드", "탭", "오전", "오후", "코딩"]},
+				{"facts": ["F07", "F10"], "query": "나 음식 취향이 어때?", "expected_any": ["아메리카노", "매운", "순한"]},
+				{"facts": ["F06", "F12"], "query": "주말에 뭐 하지?", "expected_any": ["러닝", "한강"]},
+				{"facts": ["F04"], "query": "내가 백엔드로 뭘 쓰지?", "expected_any": ["FastAPI", "Python"]},
+				{"facts": ["F13"], "query": "우리 회사가 뭐 만들어?", "expected_any": ["AI", "앱"]},
+				{"facts": ["F16", "F18", "F83"], "query": "우리 인프라 스택이 뭐야?", "expected_any": ["PostgreSQL", "GCP", "Cloud Run", "Sentry"], "min_expected": 2},
+				{"facts": ["F51", "F56", "F12"], "query": "내 운동 루틴이 어때?", "expected_any": ["스트레칭", "헬스장", "러닝", "한강"], "min_expected": 2},
+				{"facts": ["F37", "F39", "F72"], "query": "내 취향이 어때? 문화 생활 관련으로", "expected_any": ["재즈", "놀란", "인터스텔라", "넷플릭스", "다큐멘터리"], "min_expected": 2},
+				{"facts": ["F64", "F65", "F67"], "query": "우리 회사 재정 상황이 어때?", "expected_any": ["400만원", "3억", "50만원"], "min_expected": 1},
+				{"facts": ["F69", "F70", "F71"], "query": "내 주말 취미 활동들 알려줘", "expected_any": ["사진", "요리", "보드게임", "러닝"], "min_expected": 2}
 			]
 		},
 		"proactive_recall": {
 			"description": "기억을 묻지 않았는데 자연스럽게 적용하는지",
 			"weight": 2,
 			"queries": [
-				{
-					"fact": "F03",
-					"query": "에디터 설정 좀 도와줘",
-					"expected_contains": ["Neovim"],
-					"fail_signal": ["VS Code", "어떤 에디터"]
-				},
-				{
-					"fact": "F04",
-					"query": "새 API 서버 만들어볼까",
-					"expected_contains": ["FastAPI"],
-					"fail_signal": ["어떤 프레임워크", "뭘 쓰실"]
-				},
-				{
-					"fact": "F02",
-					"query": "이 코드 리팩토링 좀 해줘: function hello() { return 'hi' }",
-					"expected_contains": ["TypeScript"],
-					"fail_signal": []
-				},
-				{
-					"fact": "F05",
-					"query": "새 프로젝트 설정 파일 만들어줘",
-					"expected_contains": ["탭"],
-					"fail_signal": ["space", "2칸"]
-				},
-				{
-					"fact": "F11",
-					"query": "패키지 설치 어떻게 해?",
-					"expected_contains": ["Fedora"],
-					"fail_signal": ["apt", "Ubuntu"]
-				}
+				{"fact": "F03", "query": "에디터 설정 좀 도와줘", "expected_contains": ["Neovim"], "fail_signal": ["VS Code", "어떤 에디터"]},
+				{"fact": "F04", "query": "새 API 서버 만들어볼까", "expected_contains": ["FastAPI"], "fail_signal": ["어떤 프레임워크", "뭘 쓰실"]},
+				{"fact": "F02", "query": "이 코드 리팩토링 좀 해줘: function hello() { return 'hi' }", "expected_contains": ["TypeScript"], "fail_signal": []},
+				{"fact": "F05", "query": "새 프로젝트 설정 파일 만들어줘", "expected_contains": ["탭"], "fail_signal": ["space", "2칸"]},
+				{"fact": "F11", "query": "패키지 설치 어떻게 해?", "expected_contains": ["Fedora"], "fail_signal": ["apt", "Ubuntu"]},
+				{"fact": "F16", "query": "데이터 저장할 스키마 설계해줘", "expected_contains": ["PostgreSQL"], "fail_signal": ["MySQL", "어떤 DB"]},
+				{"fact": "F19", "query": "컨테이너 이미지 만들어줘", "expected_contains": ["Podman"], "fail_signal": ["Docker", "docker"]},
+				{"fact": "F17", "query": "배포 파이프라인 만들어줘", "expected_contains": ["GitHub Actions"], "fail_signal": ["Jenkins", "어떤 CI"]},
+				{"fact": "F23", "query": "셸 스크립트 하나 만들어줘", "expected_contains": ["Fish"], "fail_signal": ["bash", "zsh"]},
+				{"fact": "F81", "query": "클라우드 리소스 세팅해줘", "expected_contains": ["Terraform"], "fail_signal": ["어떤 도구", "CloudFormation"]}
 			]
 		},
 		"abstention": {
@@ -158,72 +68,32 @@
 			"weight": 2,
 			"mandatory_pass": true,
 			"queries": [
-				{
-					"query": "내가 Docker 관련해서 뭐라고 했었지?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": ["Docker Compose", "컨테이너", "Kubernetes"]
-				},
-				{
-					"query": "내가 좋아하는 게임이 뭐였지?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": []
-				},
-				{
-					"query": "내가 AWS 쓴다고 했나?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": ["EC2", "Lambda", "S3"]
-				},
-				{
-					"query": "내 차가 뭐였지?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": []
-				},
-				{
-					"query": "내가 일본어 할 줄 안다고 했었나?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": []
-				},
-				{
-					"query": "나 고양이 키운다고 했지?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": []
-				},
-				{
-					"query": "내가 Nuxt.js 쓴다고 했었나?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": ["Nuxt"],
-					"note": "Next.js는 씀, Nuxt.js는 안 씀 — 유사한 이름 구분"
-				},
-				{
-					"query": "내가 차 좋아한다고 했지? 녹차?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": ["녹차", "차"],
-					"note": "커피는 말했지만 차는 안 말함"
-				},
-				{
-					"query": "나 수영 한다고 했었나?",
-					"expected_pattern": "없|모르|말씀하신 적|기억에|언급하신",
-					"hallucination_keywords": ["수영"],
-					"note": "러닝은 말했지만 수영은 안 말함"
-				}
+				{"query": "내가 Kubernetes 관련해서 뭐라고 했었지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["Kubernetes", "k8s", "클러스터"]},
+				{"query": "내가 좋아하는 게임이 뭐였지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": []},
+				{"query": "내가 AWS 쓴다고 했나?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["EC2", "Lambda", "S3"]},
+				{"query": "내 차가 뭐였지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": []},
+				{"query": "내가 일본어 할 줄 안다고 했었나?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": []},
+				{"query": "나 고양이 키운다고 했지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": []},
+				{"query": "내가 Nuxt.js 쓴다고 했었나?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["Nuxt"], "note": "Next.js는 씀, Nuxt.js는 안 씀 — 유사한 이름 구분"},
+				{"query": "내가 차 좋아한다고 했지? 녹차?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["녹차", "차"], "note": "커피는 말했지만 차는 안 말함"},
+				{"query": "나 수영 한다고 했었나?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["수영"], "note": "러닝은 말했지만 수영은 안 말함"},
+				{"query": "내가 Ruby on Rails 쓴다고 했었지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["Rails", "Ruby"]},
+				{"query": "나 기타 친다고 했었나?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["기타"], "note": "피아노는 말했지만 기타는 안 말함"},
+				{"query": "내가 유튜브 채널 운영한다고 했지?", "expected_pattern": "없|모르|말씀하신 적|기억에|언급하신", "hallucination_keywords": ["유튜브", "채널"]}
 			]
 		},
 		"irrelevant_isolation": {
 			"description": "무관한 질문에 기억을 불필요하게 꺼내지 않는지",
 			"weight": 1,
 			"queries": [
-				{
-					"query": "오늘 날씨 어때?",
-					"expected_not_contains": ["김하늘", "성수동", "Neovim", "TypeScript"]
-				},
-				{
-					"query": "파이썬에서 리스트 컴프리헨션 문법이 뭐야?",
-					"expected_not_contains": ["김하늘", "Neovim", "FastAPI"]
-				},
-				{
-					"query": "HTTP 상태코드 404가 뭐야?",
-					"expected_not_contains": ["김하늘", "성수동", "아메리카노"]
-				}
+				{"query": "오늘 날씨 어때?", "expected_not_contains": ["김하늘", "성수동", "Neovim", "TypeScript"]},
+				{"query": "파이썬에서 리스트 컴프리헨션 문법이 뭐야?", "expected_not_contains": ["김하늘", "Neovim", "FastAPI"]},
+				{"query": "HTTP 상태코드 404가 뭐야?", "expected_not_contains": ["김하늘", "성수동", "아메리카노"]},
+				{"query": "자바스크립트에서 Promise.all 사용법 알려줘", "expected_not_contains": ["김하늘", "Neovim", "넥스테인"]},
+				{"query": "2024년 올림픽 어디서 열려?", "expected_not_contains": ["김하늘", "성수동", "AI 스타트업"]},
+				{"query": "TCP와 UDP의 차이가 뭐야?", "expected_not_contains": ["김하늘", "TypeScript", "FastAPI"]},
+				{"query": "세계에서 가장 높은 산이 뭐야?", "expected_not_contains": ["김하늘", "부산", "성수동"]},
+				{"query": "CSS flexbox 사용법 알려줘", "expected_not_contains": ["김하늘", "다크모드", "탭"]}
 			]
 		},
 		"multi_fact_synthesis": {
@@ -231,75 +101,41 @@
 			"weight": 2,
 			"min_facts": 3,
 			"queries": [
-				{
-					"facts": ["F02", "F04", "F05"],
-					"query": "새 프로젝트 하나 세팅해줘",
-					"expected_any": ["TypeScript", "Next.js", "다크모드", "탭"]
-				},
-				{
-					"facts": ["F03", "F05", "F11"],
-					"query": "내 개발 머신 세팅 가이드 만들어줘",
-					"expected_any": ["Neovim", "다크모드", "탭", "Fedora"]
-				},
-				{
-					"facts": ["F01", "F13", "F04"],
-					"query": "내 소개 한 줄로 써줘",
-					"expected_any": ["김하늘", "AI", "개발자", "스타트업"]
-				}
+				{"facts": ["F02", "F04", "F05"], "query": "새 프로젝트 하나 세팅해줘", "expected_any": ["TypeScript", "Next.js", "다크모드", "탭"]},
+				{"facts": ["F03", "F05", "F11"], "query": "내 개발 머신 세팅 가이드 만들어줘", "expected_any": ["Neovim", "다크모드", "탭", "Fedora"]},
+				{"facts": ["F01", "F13", "F04"], "query": "내 소개 한 줄로 써줘", "expected_any": ["김하늘", "AI", "개발자", "스타트업"]},
+				{"facts": ["F16", "F17", "F18"], "query": "우리 백엔드 아키텍처 정리해줘", "expected_any": ["PostgreSQL", "GitHub Actions", "GCP", "Cloud Run"]},
+				{"facts": ["F41", "F42", "F47"], "query": "이번 분기 주요 업무 요약해줘", "expected_any": ["Naia OS", "베타", "4월", "OKR"]},
+				{"facts": ["F26", "F27", "F65"], "query": "우리 회사 소개서 초안 써줘", "expected_any": ["넥스테인", "5명", "3억", "AI"]},
+				{"facts": ["F12", "F56", "F51"], "query": "내 건강 관리 루틴 정리해줘", "expected_any": ["러닝", "헬스장", "스트레칭", "한강"]},
+				{"facts": ["F37", "F38", "F39"], "query": "내 문화 취향 프로필 만들어줘", "expected_any": ["재즈", "SF", "놀란", "인터스텔라"]}
 			]
 		},
 		"entity_disambiguation": {
 			"description": "타인 정보와 사용자 정보를 혼동하지 않는지",
 			"weight": 2,
 			"queries": [
-				{
-					"setup": "내 동료는 Vim을 쓰거든.",
-					"query": "근데 내 에디터는 뭐야?",
-					"expected_contains": ["Neovim"],
-					"expected_not_contains": ["Vim을 쓰"]
-				},
-				{
-					"setup": "친구가 React Native로 앱 만들고 있대.",
-					"query": "나는 뭘로 프론트 만들어?",
-					"expected_contains": ["Next.js"],
-					"expected_not_contains": ["React Native"]
-				},
-				{
-					"setup": "동생 김바다는 디자이너잖아.",
-					"query": "나는 뭐하는 사람이야?",
-					"expected_contains": ["개발자"],
-					"expected_not_contains": ["디자이너"]
-				},
-				{
-					"setup": "우리 팀원이 spaces 쓰자고 하던데.",
-					"query": "내 인덴트 스타일은?",
-					"expected_contains": ["탭"],
-					"expected_not_contains": []
-				}
+				{"setup": "내 동료는 Vim을 쓰거든.", "query": "근데 내 에디터는 뭐야?", "expected_contains": ["Neovim"], "expected_not_contains": ["Vim을 쓰"]},
+				{"setup": "친구가 React Native로 앱 만들고 있대.", "query": "나는 뭘로 프론트 만들어?", "expected_contains": ["Next.js"], "expected_not_contains": ["React Native"]},
+				{"setup": "동생 김바다는 디자이너잖아.", "query": "나는 뭐하는 사람이야?", "expected_contains": ["개발자"], "expected_not_contains": ["디자이너"]},
+				{"setup": "우리 팀원이 spaces 쓰자고 하던데.", "query": "내 인덴트 스타일은?", "expected_contains": ["탭"], "expected_not_contains": []},
+				{"setup": "친구는 MySQL 쓴대.", "query": "내 DB는 뭐야?", "expected_contains": ["PostgreSQL"], "expected_not_contains": ["MySQL"]},
+				{"setup": "동료가 Ubuntu 써. 나랑 달라.", "query": "내 OS 뭐야?", "expected_contains": ["Fedora"], "expected_not_contains": ["Ubuntu"]},
+				{"setup": "멘토님은 Emacs 유저야.", "query": "내 에디터는?", "expected_contains": ["Neovim"], "expected_not_contains": ["Emacs"]},
+				{"setup": "박준서는 서울대 나왔어.", "query": "나는 어디 나왔어?", "expected_contains": ["카이스트"], "expected_not_contains": ["서울대"]}
 			]
 		},
 		"contradiction_direct": {
 			"description": "명시적 변경 (부정어/전환어 포함)을 감지하고 업데이트하는지",
 			"weight": 2,
 			"queries": [
-				{
-					"update": "아 참, 에디터 Cursor로 바꿨어",
-					"verify": "내가 쓰는 에디터 뭐야?",
-					"expected_contains": ["Cursor"],
-					"expected_not_contains": ["Neovim"]
-				},
-				{
-					"update": "이번 달에 판교로 이사해",
-					"verify": "나 어디 살아?",
-					"expected_contains": ["판교"],
-					"expected_not_contains": ["성수동"]
-				},
-				{
-					"update": "Git은 이제 GitKraken 쓰기로 했어",
-					"verify": "나 Git 뭘로 써?",
-					"expected_contains": ["GitKraken"],
-					"expected_not_contains": ["CLI만"]
-				}
+				{"update": "아 참, 에디터 Cursor로 바꿨어", "verify": "내가 쓰는 에디터 뭐야?", "expected_contains": ["Cursor"], "expected_not_contains": ["Neovim"]},
+				{"update": "이번 달에 판교로 이사해", "verify": "나 어디 살아?", "expected_contains": ["판교"], "expected_not_contains": ["성수동"]},
+				{"update": "Git은 이제 GitKraken 쓰기로 했어", "verify": "나 Git 뭘로 써?", "expected_contains": ["GitKraken"], "expected_not_contains": ["CLI만"]},
+				{"update": "터미널 Wezterm으로 바꿨어. 설정이 더 자유로워서", "verify": "내 터미널 뭐야?", "expected_contains": ["Wezterm"], "expected_not_contains": ["Ghostty"]},
+				{"update": "문서화를 Notion에서 Linear로 옮겼어", "verify": "문서화 뭘로 해?", "expected_contains": ["Linear"], "expected_not_contains": ["Notion"]},
+				{"update": "다음 달부터 월급 500만원으로 올려", "verify": "내 월급 얼마야?", "expected_contains": ["500"], "expected_not_contains": ["400"]},
+				{"update": "맥주 끊었어. 건강 때문에", "verify": "나 맥주 마셔?", "expected_contains": ["끊", "안"], "expected_not_contains": ["IPA"]}
 			]
 		},
 		"contradiction_indirect": {
@@ -307,37 +143,23 @@
 			"weight": 0,
 			"is_bonus": true,
 			"queries": [
-				{
-					"update": "요즘 Python이 다시 재밌더라. FastAPI 말고 Django로 하나 해보려고",
-					"verify": "내가 요즘 관심 있는 거 뭐야?",
-					"expected_any": ["Python", "Django"]
-				},
-				{
-					"update": "VS Code가 생각보다 편하네",
-					"verify": "에디터 관련해서 요즘 어때?",
-					"expected_any": ["VS Code", "편하"]
-				}
+				{"update": "요즘 Python이 다시 재밌더라. FastAPI 말고 Django로 하나 해보려고", "verify": "내가 요즘 관심 있는 거 뭐야?", "expected_any": ["Python", "Django"]},
+				{"update": "VS Code가 생각보다 편하네", "verify": "에디터 관련해서 요즘 어때?", "expected_any": ["VS Code", "편하"]},
+				{"update": "요즘 헬스장 안 가고 홈트 하고 있어. 시간이 없어서", "verify": "요즘 운동 어떻게 해?", "expected_any": ["홈트", "집에서"]},
+				{"update": "요즘 11시에 자고 6시에 일어나. 일찍 자기로 했어", "verify": "수면 패턴이 어때?", "expected_any": ["11시", "6시", "일찍"]}
 			]
 		},
 		"unchanged_persistence": {
 			"description": "변경하지 않은 사실은 그대로 유지되는지",
 			"weight": 1,
 			"queries": [
-				{
-					"query": "내 인덴트 스타일은?",
-					"expected_contains": ["탭"],
-					"context": "에디터를 바꿨지만 인덴트는 안 바꿈"
-				},
-				{
-					"query": "내가 좋아하는 커피는?",
-					"expected_contains": ["아메리카노"],
-					"context": "다른 것들이 바뀌었지만 커피 취향은 그대로"
-				},
-				{
-					"query": "내 취미가 뭐야?",
-					"expected_contains": ["러닝"],
-					"context": "러닝은 언급한 적 없이 유지"
-				}
+				{"query": "내 인덴트 스타일은?", "expected_contains": ["탭"], "context": "에디터를 바꿨지만 인덴트는 안 바꿈"},
+				{"query": "내가 좋아하는 커피는?", "expected_contains": ["아메리카노"], "context": "다른 것들이 바뀌었지만 커피 취향은 그대로"},
+				{"query": "내 취미가 뭐야?", "expected_contains": ["러닝"], "context": "러닝은 언급한 적 없이 유지"},
+				{"query": "내 OS는?", "expected_contains": ["Fedora"], "context": "다른 툴은 바꿨지만 OS는 유지"},
+				{"query": "내 동생 이름은?", "expected_contains": ["김바다"], "context": "가족 정보는 변경되지 않음"},
+				{"query": "내 알레르기 뭐야?", "expected_contains": ["견과류"], "context": "건강 정보는 변경되지 않음"},
+				{"query": "내 반려견 이름은?", "expected_contains": ["뭉치"], "context": "개인 정보는 변경되지 않음"}
 			]
 		},
 		"temporal_history": {
@@ -345,32 +167,22 @@
 			"weight": 0,
 			"is_bonus": true,
 			"queries": [
-				{
-					"query": "내가 에디터 뭐 쓰다가 바꿨지?",
-					"expected_contains": ["Neovim", "Cursor"]
-				},
-				{ "query": "나 원래 어디 살았어?", "expected_contains": ["성수동"] }
+				{"query": "내가 에디터 뭐 쓰다가 바꿨지?", "expected_contains": ["Neovim", "Cursor"]},
+				{"query": "나 원래 어디 살았어?", "expected_contains": ["성수동"]},
+				{"query": "나 Git 원래 어떻게 썼어?", "expected_contains": ["CLI"]},
+				{"query": "터미널 뭐 쓰다가 바꿨지?", "expected_contains": ["Ghostty", "Wezterm"]}
 			]
 		},
 		"noise_resilience": {
 			"description": "잡담 속에 묻힌 사실을 추출하는지",
 			"weight": 2,
 			"queries": [
-				{
-					"noisy_input": "아 오늘 진짜 피곤하다. 점심에 순대국 먹었는데 괜찮더라. 아 맞다, 모니터를 울트라와이드로 바꿨어. 34인치. 근데 배송이 좀 늦었어.",
-					"query": "내 모니터 뭐야?",
-					"expected_contains": ["울트라와이드", "34인치"]
-				},
-				{
-					"noisy_input": "ㅋㅋ 어제 유튜브에서 웃긴 거 봤어. 그나저나 이번 주 금요일에 팀 회식이야. 치킨 먹기로 했어. 아 그리고 코드리뷰 해야 하는데.",
-					"query": "이번 주 일정에 뭐가 있어?",
-					"expected_contains": ["금요일", "회식"]
-				},
-				{
-					"noisy_input": "응 알겠어. 잠깐만. 흠.. 아 맞다 나 알레르기가 있어. 새우 알레르기. 그래그래.",
-					"query": "내가 알레르기 있는 거 뭐야?",
-					"expected_contains": ["새우"]
-				}
+				{"noisy_input": "아 오늘 진짜 피곤하다. 점심에 순대국 먹었는데 괜찮더라. 아 맞다, 모니터를 울트라와이드로 바꿨어. 34인치. 근데 배송이 좀 늦었어.", "query": "내 모니터 뭐야?", "expected_contains": ["울트라와이드", "34인치"]},
+				{"noisy_input": "ㅋㅋ 어제 유튜브에서 웃긴 거 봤어. 그나저나 이번 주 금요일에 팀 회식이야. 치킨 먹기로 했어. 아 그리고 코드리뷰 해야 하는데.", "query": "이번 주 일정에 뭐가 있어?", "expected_contains": ["금요일", "회식"]},
+				{"noisy_input": "응 알겠어. 잠깐만. 흠.. 아 맞다 나 알레르기가 있어. 새우 알레르기. 그래그래.", "query": "내가 알레르기 있는 거 뭐야?", "expected_contains": ["새우"]},
+				{"noisy_input": "아 배고프다. 점심에 뭐 먹지. 아 참 그리고 내일 오전에 발표 리허설이야. 10시에. 근데 PPT 아직 안 만들었어 ㅋㅋ", "query": "내일 일정 뭐 있어?", "expected_contains": ["리허설", "10시"]},
+				{"noisy_input": "와 대박 이거 진짜 맛있다. 근데 나 요즘 영어 공부 시작했어. 토익 900 목표야. 아 몰라 어렵다.", "query": "요즘 공부하는 거 있어?", "expected_contains": ["영어", "토익"]},
+				{"noisy_input": "ㅎㅎ 좋다. 아 맞다 차 사려고 알아보고 있어. 테슬라 모델3 괜찮더라. 근데 비싸긴 해. 좀 이따 할게.", "query": "차 살 생각 있어?", "expected_contains": ["테슬라", "모델3"]}
 			]
 		}
 	},
@@ -388,30 +200,14 @@
 		"before_after": {
 			"description": "구현 전(baseline)과 구현 후를 동일 테스트셋으로 측정하여 개선을 지표로 증명",
 			"runs": [
-				{
-					"id": "baseline",
-					"label": "v1 (현재 키워드 매칭 + JSON)",
-					"when": "#148 (mem0 MemoryAdapter 구현) 착수 전",
-					"note": "현재 시스템의 실제 성능을 기록. 벤치마크 80%가 허수였음을 수치로 확인."
-				},
-				{
-					"id": "after_mem0",
-					"label": "v2 (mem0 통합 후)",
-					"when": "#150 (Agent 와이어링) 완료 후",
-					"note": "mem0 적용 효과를 baseline 대비 정량 비교."
-				},
-				{
-					"id": "after_fixes",
-					"label": "v2.1 (약점 개선 후)",
-					"when": "#151 (체감 검증 + 약점 개선) 각 라운드 후",
-					"note": "개선 라운드별 변화 추적."
-				}
+				{"id": "baseline", "label": "v1 (현재 키워드 매칭 + JSON)", "when": "#148 (mem0 MemoryAdapter 구현) 착수 전"},
+				{"id": "after_mem0", "label": "v2 (mem0 통합 후)", "when": "#150 (Agent 와이어링) 완료 후"},
+				{"id": "after_p2", "label": "v2.1 (P2 스케일 확대 후)", "when": "#173 (P2) 완료 후"}
 			]
 		},
 		"report_format": {
 			"per_capability": "각 능력별 PASS/TOTAL 비율",
-			"comparison": "baseline vs after_mem0 vs after_fixes 변화율",
-			"example": "semantic_search: baseline 0/9 → after_mem0 7/9 → after_fixes 8/9"
+			"comparison": "baseline vs after_mem0 vs after_p2 변화율"
 		}
 	}
 }
