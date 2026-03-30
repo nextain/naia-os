@@ -160,7 +160,7 @@ gh workflow run iso.yml
 
 ### Required SDKs (Flatpak local build)
 - `flatpak-builder`
-- `org.gnome.Platform//49` + `org.gnome.Sdk//49`
+- `org.gnome.Platform//50` + `org.gnome.Sdk//50`
 - `org.freedesktop.Sdk.Extension.rust-stable`
 - `org.freedesktop.Sdk.Extension.node22`
 

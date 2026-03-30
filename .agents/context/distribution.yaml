@@ -8,7 +8,7 @@ formats:
     metainfo: flatpak/io.nextain.naia.metainfo.xml
     desktop: flatpak/io.nextain.naia.desktop
     shared_modules: flatpak/shared-modules/ (git submodule from flathub/shared-modules)
-    runtime: org.gnome.Platform//49
+    runtime: org.gnome.Platform//50
     sdk_extensions:
       - org.freedesktop.Sdk.Extension.rust-stable
       - org.freedesktop.Sdk.Extension.node22
@@ -306,7 +306,7 @@ local_build:
   flatpak:
     prerequisites:
       - flatpak-builder installed
-      - "org.gnome.Platform//49 + Sdk//49"
+      - "org.gnome.Platform//50 + Sdk//50"
       - org.freedesktop.Sdk.Extension.rust-stable
       - org.freedesktop.Sdk.Extension.node22
     commands:
@@ -433,7 +433,7 @@ os_image:
   deployed_files:
     - config/files/usr/etc/xdg/autostart/naia-shell.desktop (login autostart → flatpak run)
   iso_hook:
-    - installer/hook-post-rootfs.sh (installs Flatpak + GNOME Platform 49 for live session)
+    - installer/hook-post-rootfs.sh (installs Flatpak + GNOME Platform 50 for live session)
   registry: ghcr.io/nextain/naia-os
   tags: [latest, YYYYMMDD, fedora-version, YYYYMMDD-fedora-version]
   status: working
