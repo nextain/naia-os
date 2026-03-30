@@ -96,7 +96,10 @@ describe("syncLinkedChannels", () => {
 		// 2 fetch calls: bot-token restore + linked-channels
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 		// No discord_api invoke should happen (Logger may call invoke for frontend_log)
-		expect(mockedInvoke).not.toHaveBeenCalledWith("discord_api", expect.anything());
+		expect(mockedInvoke).not.toHaveBeenCalledWith(
+			"discord_api",
+			expect.anything(),
+		);
 		fetchSpy.mockRestore();
 	});
 
@@ -110,7 +113,10 @@ describe("syncLinkedChannels", () => {
 
 		await syncLinkedChannels();
 
-		expect(mockedInvoke).not.toHaveBeenCalledWith("discord_api", expect.anything());
+		expect(mockedInvoke).not.toHaveBeenCalledWith(
+			"discord_api",
+			expect.anything(),
+		);
 		fetchSpy.mockRestore();
 	});
 
@@ -263,7 +269,10 @@ describe("syncLinkedChannels", () => {
 		await syncLinkedChannels();
 
 		// No discord_api invoke should happen (Logger may call invoke for frontend_log)
-		expect(mockedInvoke).not.toHaveBeenCalledWith("discord_api", expect.anything());
+		expect(mockedInvoke).not.toHaveBeenCalledWith(
+			"discord_api",
+			expect.anything(),
+		);
 
 		fetchSpy.mockRestore();
 	});

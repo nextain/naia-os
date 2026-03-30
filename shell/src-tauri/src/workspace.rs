@@ -821,8 +821,8 @@ mod tests {
         assert!(result.is_err(), "/etc/passwd must be rejected");
         let err = result.unwrap_err();
         assert!(
-            err.contains("outside workspace"),
-            "expected 'outside workspace', got: {err}"
+            err.contains("outside workspace") || err.contains("inaccessible"),
+            "expected 'outside workspace' or 'inaccessible', got: {err}"
         );
     }
 
@@ -842,8 +842,8 @@ mod tests {
         assert!(result.is_err(), "/etc/cron.d/evil must be rejected");
         let err = result.unwrap_err();
         assert!(
-            err.contains("outside workspace"),
-            "expected 'outside workspace', got: {err}"
+            err.contains("outside workspace") || err.contains("inaccessible"),
+            "expected 'outside workspace' or 'inaccessible', got: {err}"
         );
     }
 

@@ -22,7 +22,8 @@ import type { SessionInfo } from "../workspace/SessionCard";
 
 vi.mock("@tauri-apps/api/core", () => ({
 	invoke: vi.fn().mockImplementation(async (cmd: string, args?: any) => {
-		if (cmd === "workspace_set_root") return args?.root ?? "/tmp/test-workspace";
+		if (cmd === "workspace_set_root")
+			return args?.root ?? "/tmp/test-workspace";
 		if (cmd === "workspace_get_sessions") return [];
 		if (cmd === "read_file_text") return "";
 		return [];
