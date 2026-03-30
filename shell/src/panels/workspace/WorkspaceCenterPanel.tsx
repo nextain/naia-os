@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type AppConfig, loadConfig, saveConfig } from "../../lib/config";
+import { loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
 import { panelRegistry } from "../../lib/panel-registry";
 import type { PanelCenterProps } from "../../lib/panel-registry";
