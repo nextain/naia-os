@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { usePanelStore } from "../../stores/panel";
 import { loadInstalledPanels, removeInstalledPanel } from "../panel-loader";
 import { panelRegistry } from "../panel-registry";
-import { usePanelStore } from "../../stores/panel";
 
 // Mock Tauri invoke
 const mockInvoke = vi.fn();

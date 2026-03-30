@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
-import { WORKSPACE_ROOT } from "./constants";
 import { SessionCard, type SessionInfo } from "./SessionCard";
 import { WorktreeGroup } from "./WorktreeGroup";
+import { WORKSPACE_ROOT } from "./constants";
 
 interface SessionDashboardProps {
 	onSessionClick: (session: SessionInfo) => void;

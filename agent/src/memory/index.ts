@@ -55,7 +55,9 @@ export interface MemorySystemOptions {
  * Extracts "facts" by finding sentences with decision/preference keywords,
  * then merges facts that share entities (consolidation compression).
  */
-async function heuristicFactExtractor(episodes: Episode[]): Promise<ExtractedFact[]> {
+async function heuristicFactExtractor(
+	episodes: Episode[],
+): Promise<ExtractedFact[]> {
 	const rawFacts: ExtractedFact[] = [];
 	const FACT_PATTERNS = [
 		/(?:decided|decision|chose|prefer|always|never|must|use|switched)/i,
@@ -63,11 +65,45 @@ async function heuristicFactExtractor(episodes: Episode[]): Promise<ExtractedFac
 	];
 
 	const STOP_WORDS = new Set([
-		"The", "This", "That", "What", "When", "How", "But", "And", "For",
-		"We", "They", "You", "He", "She", "Its", "Our", "My", "Your",
-		"Never", "Always", "Also", "Just", "Only", "Not", "All", "Any",
-		"Team", "Some", "Each", "Every", "Most", "Many", "Much",
-		"New", "Old", "First", "Last", "Next", "Other",
+		"The",
+		"This",
+		"That",
+		"What",
+		"When",
+		"How",
+		"But",
+		"And",
+		"For",
+		"We",
+		"They",
+		"You",
+		"He",
+		"She",
+		"Its",
+		"Our",
+		"My",
+		"Your",
+		"Never",
+		"Always",
+		"Also",
+		"Just",
+		"Only",
+		"Not",
+		"All",
+		"Any",
+		"Team",
+		"Some",
+		"Each",
+		"Every",
+		"Most",
+		"Many",
+		"Much",
+		"New",
+		"Old",
+		"First",
+		"Last",
+		"Next",
+		"Other",
 	]);
 
 	for (const ep of episodes) {
@@ -103,15 +139,66 @@ async function heuristicFactExtractor(episodes: Episode[]): Promise<ExtractedFac
 /** Tokenize content for similarity comparison */
 function contentTokens(text: string): Set<string> {
 	const COMMON_WORDS = new Set([
-		"the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-		"have", "has", "had", "do", "does", "did", "will", "would", "could",
-		"should", "may", "might", "shall", "can", "to", "of", "in", "for",
-		"on", "with", "at", "by", "from", "as", "into", "about", "like",
-		"we", "they", "it", "our", "its", "all", "no", "not", "but", "or",
-		"if", "so", "up", "out", "just", "use", "over", "going", "forward",
+		"the",
+		"a",
+		"an",
+		"is",
+		"are",
+		"was",
+		"were",
+		"be",
+		"been",
+		"being",
+		"have",
+		"has",
+		"had",
+		"do",
+		"does",
+		"did",
+		"will",
+		"would",
+		"could",
+		"should",
+		"may",
+		"might",
+		"shall",
+		"can",
+		"to",
+		"of",
+		"in",
+		"for",
+		"on",
+		"with",
+		"at",
+		"by",
+		"from",
+		"as",
+		"into",
+		"about",
+		"like",
+		"we",
+		"they",
+		"it",
+		"our",
+		"its",
+		"all",
+		"no",
+		"not",
+		"but",
+		"or",
+		"if",
+		"so",
+		"up",
+		"out",
+		"just",
+		"use",
+		"over",
+		"going",
+		"forward",
 	]);
 	return new Set(
-		text.toLowerCase()
+		text
+			.toLowerCase()
 			.replace(/[^\p{L}\p{N}\s]/gu, " ")
 			.split(/\s+/)
 			.filter((t) => t.length > 2 && !COMMON_WORDS.has(t)),
@@ -136,17 +223,21 @@ const TEMPORAL_GROUP_WINDOW_MS = 30 * 60 * 1000;
  * originate from temporally close episodes in the same project.
  * Uses union-find to group related facts, then combines each group into one.
  */
-function mergeRelatedFacts(facts: ExtractedFact[], sourceEpisodes?: Episode[]): ExtractedFact[] {
+function mergeRelatedFacts(
+	facts: ExtractedFact[],
+	sourceEpisodes?: Episode[],
+): ExtractedFact[] {
 	if (facts.length <= 1) return facts;
 
 	// Union-find parent array
 	const parent = facts.map((_, i) => i);
-	function find(i: number): number {
-		while (parent[i] !== i) {
-			parent[i] = parent[parent[i]];
-			i = parent[i];
+	function find(idx: number): number {
+		let cur = idx;
+		while (parent[cur] !== cur) {
+			parent[cur] = parent[parent[cur]];
+			cur = parent[cur];
 		}
-		return i;
+		return cur;
 	}
 	function union(a: number, b: number): void {
 		const ra = find(a);
@@ -194,16 +285,21 @@ function mergeRelatedFacts(facts: ExtractedFact[], sourceEpisodes?: Episode[]): 
 				if (find(i) === find(j)) continue;
 
 				// Get representative episodes for each fact
-				const epI = facts[i].sourceEpisodeIds.map((id) => epMap.get(id)).filter(Boolean) as Episode[];
-				const epJ = facts[j].sourceEpisodeIds.map((id) => epMap.get(id)).filter(Boolean) as Episode[];
+				const epI = facts[i].sourceEpisodeIds
+					.map((id) => epMap.get(id))
+					.filter(Boolean) as Episode[];
+				const epJ = facts[j].sourceEpisodeIds
+					.map((id) => epMap.get(id))
+					.filter(Boolean) as Episode[];
 				if (epI.length === 0 || epJ.length === 0) continue;
 
 				// Check if same project and within time window
 				const sameProject = epI.some((a) =>
-					epJ.some((b) =>
-						a.encodingContext.project &&
-						a.encodingContext.project === b.encodingContext.project &&
-						Math.abs(a.timestamp - b.timestamp) < TEMPORAL_GROUP_WINDOW_MS,
+					epJ.some(
+						(b) =>
+							a.encodingContext.project &&
+							a.encodingContext.project === b.encodingContext.project &&
+							Math.abs(a.timestamp - b.timestamp) < TEMPORAL_GROUP_WINDOW_MS,
 					),
 				);
 				if (sameProject) {
@@ -262,7 +358,8 @@ export class MemorySystem {
 
 	constructor(options: MemorySystemOptions) {
 		this.adapter = options.adapter;
-		this.consolidationIntervalMs = options.consolidationIntervalMs ?? 30 * 60 * 1000;
+		this.consolidationIntervalMs =
+			options.consolidationIntervalMs ?? 30 * 60 * 1000;
 		this.factExtractor = options.factExtractor ?? heuristicFactExtractor;
 	}
 
@@ -312,7 +409,10 @@ export class MemorySystem {
 
 		// Strengthen associations between entities in the encoding context
 		if (context.project && context.activeFile) {
-			await this.adapter.semantic.associate(context.project, context.activeFile);
+			await this.adapter.semantic.associate(
+				context.project,
+				context.activeFile,
+			);
 		}
 
 		return episode;
@@ -322,7 +422,10 @@ export class MemorySystem {
 	 * Check new information against existing facts for contradictions.
 	 * Automatically updates facts when contradictions are detected (reconsolidation).
 	 */
-	private async checkAndReconsolidate(newInfo: string, now: number): Promise<void> {
+	private async checkAndReconsolidate(
+		newInfo: string,
+		now: number,
+	): Promise<void> {
 		const allFacts = await this.adapter.semantic.getAll();
 		const contradictions = findContradictions(allFacts, newInfo);
 
@@ -462,7 +565,13 @@ export class MemorySystem {
 	 */
 	async consolidateNow(): Promise<ConsolidationResult> {
 		if (this._isConsolidating) {
-			return { episodesProcessed: 0, factsCreated: 0, factsUpdated: 0, memoriesPruned: 0, associationsUpdated: 0 };
+			return {
+				episodesProcessed: 0,
+				factsCreated: 0,
+				factsUpdated: 0,
+				memoriesPruned: 0,
+				associationsUpdated: 0,
+			};
 		}
 		this._isConsolidating = true;
 
@@ -489,14 +598,24 @@ export class MemorySystem {
 
 					if (contradictions.length > 0) {
 						// Update only the first contradicted fact to avoid duplicates
-						const firstUpdate = contradictions.find(({ result }) => result.action === "update");
+						const firstUpdate = contradictions.find(
+							({ result }) => result.action === "update",
+						);
 						if (firstUpdate) {
 							await this.adapter.semantic.upsert({
 								...firstUpdate.fact,
 								content: ef.content,
 								updatedAt: now,
-								importance: Math.max(firstUpdate.fact.importance, ef.importance),
-								sourceEpisodes: [...new Set([...firstUpdate.fact.sourceEpisodes, ...ef.sourceEpisodeIds])],
+								importance: Math.max(
+									firstUpdate.fact.importance,
+									ef.importance,
+								),
+								sourceEpisodes: [
+									...new Set([
+										...firstUpdate.fact.sourceEpisodes,
+										...ef.sourceEpisodeIds,
+									]),
+								],
 							});
 							factsUpdated++;
 						}
@@ -522,7 +641,11 @@ export class MemorySystem {
 					// Strengthen associations between extracted entities
 					for (let i = 0; i < ef.entities.length; i++) {
 						for (let j = i + 1; j < ef.entities.length; j++) {
-							await this.adapter.semantic.associate(ef.entities[i], ef.entities[j], 0.05);
+							await this.adapter.semantic.associate(
+								ef.entities[i],
+								ef.entities[j],
+								0.05,
+							);
 						}
 					}
 				}

@@ -1,10 +1,10 @@
+import { randomUUID } from "node:crypto";
 /**
  * mem0 benchmark runner — measures performance with mem0 OSS backend.
  * Requires GEMINI_API_KEY environment variable.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 
 async function main() {
 	const apiKey = process.env.GEMINI_API_KEY;
@@ -27,7 +27,11 @@ async function main() {
 		},
 		vectorStore: {
 			provider: "memory",
-			config: { collectionName: "bench", dimension: 3072, dbPath: `${dbPath}-vec.db` },
+			config: {
+				collectionName: "bench",
+				dimension: 3072,
+				dbPath: `${dbPath}-vec.db`,
+			},
 		},
 		llm: {
 			provider: "openai",
@@ -49,10 +53,9 @@ async function main() {
 	console.log("=== Phase 1: Encoding facts via mem0 ===");
 	for (const fact of factBank.facts) {
 		try {
-			await m.add(
-				[{ role: "user", content: fact.statement }],
-				{ userId: "bench-user" },
-			);
+			await m.add([{ role: "user", content: fact.statement }], {
+				userId: "bench-user",
+			});
 			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}...`);
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
@@ -65,7 +68,10 @@ async function main() {
 	let totalPass = 0;
 	let totalTests = 0;
 
-	for (const [capName, cap] of Object.entries(templates.capabilities) as [string, any][]) {
+	for (const [capName, cap] of Object.entries(templates.capabilities) as [
+		string,
+		any,
+	][]) {
 		if (!cap.queries) continue;
 		let capPass = 0;
 		let capTotal = 0;
@@ -77,17 +83,23 @@ async function main() {
 			// Handle updates
 			if (q.update) {
 				try {
-					await m.add([{ role: "user", content: q.update }], { userId: "bench-user" });
+					await m.add([{ role: "user", content: q.update }], {
+						userId: "bench-user",
+					});
 				} catch {}
 			}
 			if (q.setup) {
 				try {
-					await m.add([{ role: "user", content: q.setup }], { userId: "bench-user" });
+					await m.add([{ role: "user", content: q.setup }], {
+						userId: "bench-user",
+					});
 				} catch {}
 			}
 			if (q.noisy_input) {
 				try {
-					await m.add([{ role: "user", content: q.noisy_input }], { userId: "bench-user" });
+					await m.add([{ role: "user", content: q.noisy_input }], {
+						userId: "bench-user",
+					});
 				} catch {}
 			}
 
@@ -102,28 +114,39 @@ async function main() {
 				const raw = await m.search(query, { userId: "bench-user", limit: 5 });
 				const rawResults = raw?.results ?? raw ?? [];
 				// Filter by similarity score — prevents abstention failures
-				searchResults = rawResults.filter((r: any) => (r.score ?? 1) >= SIMILARITY_THRESHOLD);
+				searchResults = rawResults.filter(
+					(r: any) => (r.score ?? 1) >= SIMILARITY_THRESHOLD,
+				);
 			} catch {}
 
-			const allContent = searchResults.map((r: any) => r.memory ?? r.text ?? "").join(" ").toLowerCase();
+			const allContent = searchResults
+				.map((r: any) => r.memory ?? r.text ?? "")
+				.join(" ")
+				.toLowerCase();
 
 			let pass = false;
 			let detail = "";
 
 			if (q.expected_contains) {
-				const found = q.expected_contains.filter((e: string) => allContent.includes(e.toLowerCase()));
+				const found = q.expected_contains.filter((e: string) =>
+					allContent.includes(e.toLowerCase()),
+				);
 				pass = found.length >= 1;
 				detail = `found: [${found.join(", ")}] / expected: [${q.expected_contains.join(", ")}]`;
 			} else if (q.expected_any) {
 				const minExpected = cap.min_expected || cap.min_facts || 2;
-				const found = q.expected_any.filter((e: string) => allContent.includes(e.toLowerCase()));
+				const found = q.expected_any.filter((e: string) =>
+					allContent.includes(e.toLowerCase()),
+				);
 				pass = found.length >= minExpected;
 				detail = `found ${found.length}/${q.expected_any.length} (min: ${minExpected}): [${found.join(", ")}]`;
 			} else if (q.expected_pattern) {
 				pass = searchResults.length === 0;
 				detail = `results: ${searchResults.length} (0 = pass for abstention)`;
 			} else if (q.expected_not_contains) {
-				const bad = q.expected_not_contains.filter((e: string) => allContent.includes(e.toLowerCase()));
+				const bad = q.expected_not_contains.filter((e: string) =>
+					allContent.includes(e.toLowerCase()),
+				);
 				pass = bad.length === 0;
 				detail = `unwanted: [${bad.join(", ")}]`;
 			}
@@ -134,7 +157,9 @@ async function main() {
 			if (pass) totalPass++;
 
 			const icon = pass ? "✅" : "❌";
-			console.log(`  ${icon} [${capName}] "${query.slice(0, 40)}..." — ${detail}`);
+			console.log(
+				`  ${icon} [${capName}] "${query.slice(0, 40)}..." — ${detail}`,
+			);
 
 			results.push({ capability: capName, query, pass, detail });
 		}
@@ -143,12 +168,13 @@ async function main() {
 
 	// Report
 	const passRate = Math.round((totalPass / totalTests) * 100);
-	console.log(`\n=== MEM0 RESULTS ===`);
+	console.log("\n=== MEM0 RESULTS ===");
 	console.log(`Total: ${totalPass}/${totalTests} (${passRate}%)`);
 
 	const byCapability: any = {};
 	for (const r of results) {
-		if (!byCapability[r.capability]) byCapability[r.capability] = { pass: 0, total: 0 };
+		if (!byCapability[r.capability])
+			byCapability[r.capability] = { pass: 0, total: 0 };
 		byCapability[r.capability].total++;
 		if (r.pass) byCapability[r.capability].pass++;
 	}
@@ -159,14 +185,26 @@ async function main() {
 
 	const reportDir = join(import.meta.dirname, "../../..", "reports");
 	mkdirSync(reportDir, { recursive: true });
-	const reportPath = join(reportDir, `memory-mem0-${new Date().toISOString().slice(0, 10)}.json`);
-	writeFileSync(reportPath, JSON.stringify({
-		timestamp: new Date().toISOString(),
-		label: "mem0 OSS (Gemini embeddings + Gemini LLM)",
-		total: totalTests, passed: totalPass, passRate,
-		byCapability,
-		details: results,
-	}, null, 2));
+	const reportPath = join(
+		reportDir,
+		`memory-mem0-${new Date().toISOString().slice(0, 10)}.json`,
+	);
+	writeFileSync(
+		reportPath,
+		JSON.stringify(
+			{
+				timestamp: new Date().toISOString(),
+				label: "mem0 OSS (Gemini embeddings + Gemini LLM)",
+				total: totalTests,
+				passed: totalPass,
+				passRate,
+				byCapability,
+				details: results,
+			},
+			null,
+			2,
+		),
+	);
 	console.log(`\nReport saved: ${reportPath}`);
 }
 

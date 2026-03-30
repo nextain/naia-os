@@ -29,21 +29,39 @@ describe("Voice Validity — verify voices produce audio", () => {
 			it(`${voice} produces audio`, async () => {
 				const result = await synthesizeEdgeSpeech(TEST_TEXT, voice);
 				expect(result).not.toBeNull();
-				expect(result!.audio.length).toBeGreaterThan(100);
+				expect(result?.audio.length).toBeGreaterThan(100);
 			}, 15000);
 		}
 	});
 
 	// ── OpenAI TTS voices (tts-1 compatible) ──
 	describe("OpenAI TTS", () => {
-		const tts1Voices = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
+		const tts1Voices = [
+			"alloy",
+			"ash",
+			"coral",
+			"echo",
+			"fable",
+			"nova",
+			"onyx",
+			"sage",
+			"shimmer",
+		];
 
 		for (const voice of tts1Voices) {
-			it.skipIf(!OPENAI_API_KEY)(`${voice} produces audio`, async () => {
-				const result = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
-				expect(result).not.toBeNull();
-				expect(result!.audio.length).toBeGreaterThan(100);
-			}, 30000);
+			it.skipIf(!OPENAI_API_KEY)(
+				`${voice} produces audio`,
+				async () => {
+					const result = await synthesizeOpenAISpeech(
+						TEST_TEXT,
+						OPENAI_API_KEY,
+						voice,
+					);
+					expect(result).not.toBeNull();
+					expect(result?.audio.length).toBeGreaterThan(100);
+				},
+				30000,
+			);
 		}
 	});
 
@@ -52,11 +70,19 @@ describe("Voice Validity — verify voices produce audio", () => {
 		const miniVoices = ["ballad", "verse", "marin", "cedar"];
 
 		for (const voice of miniVoices) {
-			it.skipIf(!OPENAI_API_KEY)(`${voice} produces audio (gpt-4o-mini-tts)`, async () => {
-				const result = await synthesizeOpenAISpeech(TEST_TEXT, OPENAI_API_KEY, voice);
-				expect(result).not.toBeNull();
-				expect(result!.audio.length).toBeGreaterThan(100);
-			}, 30000);
+			it.skipIf(!OPENAI_API_KEY)(
+				`${voice} produces audio (gpt-4o-mini-tts)`,
+				async () => {
+					const result = await synthesizeOpenAISpeech(
+						TEST_TEXT,
+						OPENAI_API_KEY,
+						voice,
+					);
+					expect(result).not.toBeNull();
+					expect(result?.audio.length).toBeGreaterThan(100);
+				},
+				30000,
+			);
 		}
 	});
 
@@ -65,30 +91,40 @@ describe("Voice Validity — verify voices produce audio", () => {
 
 	// ── ElevenLabs voices ──
 	describe("ElevenLabs", () => {
-		it.skipIf(!ELEVENLABS_API_KEY)("default voice produces audio", async () => {
-			// ElevenLabs requires a voice_id, test with API to fetch first available
-			const resp = await fetch("https://api.elevenlabs.io/v1/voices?page_size=1", {
-				headers: { "xi-api-key": ELEVENLABS_API_KEY },
-			});
-			if (!resp.ok) return;
-			const data = await resp.json();
-			const voiceId = data.voices?.[0]?.voice_id;
-			if (!voiceId) return;
+		it.skipIf(!ELEVENLABS_API_KEY)(
+			"default voice produces audio",
+			async () => {
+				// ElevenLabs requires a voice_id, test with API to fetch first available
+				const resp = await fetch(
+					"https://api.elevenlabs.io/v1/voices?page_size=1",
+					{
+						headers: { "xi-api-key": ELEVENLABS_API_KEY },
+					},
+				);
+				if (!resp.ok) return;
+				const data = await resp.json();
+				const voiceId = data.voices?.[0]?.voice_id;
+				if (!voiceId) return;
 
-			const ttsResp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-				method: "POST",
-				headers: {
-					"xi-api-key": ELEVENLABS_API_KEY,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					text: TEST_TEXT,
-					model_id: "eleven_multilingual_v2",
-				}),
-			});
-			expect(ttsResp.ok).toBe(true);
-			const buf = await ttsResp.arrayBuffer();
-			expect(buf.byteLength).toBeGreaterThan(100);
-		}, 30000);
+				const ttsResp = await fetch(
+					`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+					{
+						method: "POST",
+						headers: {
+							"xi-api-key": ELEVENLABS_API_KEY,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							text: TEST_TEXT,
+							model_id: "eleven_multilingual_v2",
+						}),
+					},
+				);
+				expect(ttsResp.ok).toBe(true);
+				const buf = await ttsResp.arrayBuffer();
+				expect(buf.byteLength).toBeGreaterThan(100);
+			},
+			30000,
+		);
 	});
 });

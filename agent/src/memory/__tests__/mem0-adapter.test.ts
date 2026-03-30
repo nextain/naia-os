@@ -5,7 +5,7 @@
  * mem0 OSS requires an LLM provider — tests use OpenAI-compatible
  * endpoint (Gateway or local). Skip if not available.
  */
-import { describe, expect, it, beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Check if we can actually run mem0 (needs LLM provider)
 const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:18789";
@@ -19,7 +19,7 @@ describe.skipIf(!canRunMem0)("Mem0Adapter", () => {
 	let adapter: any; // Mem0Adapter
 
 	beforeAll(async () => {
-		const { Mem0Adapter } = await import("../mem0-adapter.js");
+		const { Mem0Adapter } = await import("../adapters/mem0.js");
 		adapter = new Mem0Adapter({
 			mem0Config: {
 				embedder: {
@@ -85,7 +85,9 @@ describe.skipIf(!canRunMem0)("Mem0Adapter", () => {
 		// Wait a moment for mem0 to process
 		await new Promise((r) => setTimeout(r, 1000));
 
-		const results = await adapter.episode.recall("개발 언어가 뭐야?", { topK: 3 });
+		const results = await adapter.episode.recall("개발 언어가 뭐야?", {
+			topK: 3,
+		});
 		expect(results.length).toBeGreaterThan(0);
 		const contents = results.map((r: any) => r.content).join(" ");
 		expect(contents.toLowerCase()).toContain("typescript");
@@ -117,7 +119,7 @@ describe.skipIf(!canRunMem0)("Mem0Adapter", () => {
 
 describe("Mem0Adapter (offline — no LLM)", () => {
 	it("can be imported without errors", async () => {
-		const mod = await import("../mem0-adapter.js");
+		const mod = await import("../adapters/mem0.js");
 		expect(mod.Mem0Adapter).toBeDefined();
 	});
 });

@@ -1,1415 +1,1415 @@
 {
-  "timestamp": "2026-03-29T07:16:17.900Z",
-  "version": "comprehensive-v5",
-  "pipeline": "raw mem0 (no Naia layer)",
-  "judge": "claude-cli",
-  "model": "gemini-2.5-flash",
-  "core": {
-    "total": 51,
-    "withMemory": 44,
-    "noMemory": 0,
-    "delta": 44
-  },
-  "bonus": {
-    "total": 4,
-    "withMemory": 2
-  },
-  "grade": "B",
-  "disagreements": 0,
-  "byCapability": {
-    "direct_recall": {
-      "mem": 9,
-      "noMem": 0,
-      "total": 9,
-      "weight": 1
-    },
-    "semantic_search": {
-      "mem": 9,
-      "noMem": 0,
-      "total": 9,
-      "weight": 2
-    },
-    "proactive_recall": {
-      "mem": 4,
-      "noMem": 0,
-      "total": 5,
-      "weight": 2
-    },
-    "abstention": {
-      "mem": 9,
-      "noMem": 0,
-      "total": 9,
-      "weight": 2
-    },
-    "irrelevant_isolation": {
-      "mem": 2,
-      "noMem": 0,
-      "total": 3,
-      "weight": 1
-    },
-    "multi_fact_synthesis": {
-      "mem": 2,
-      "noMem": 0,
-      "total": 3,
-      "weight": 2
-    },
-    "entity_disambiguation": {
-      "mem": 2,
-      "noMem": 0,
-      "total": 4,
-      "weight": 2
-    },
-    "contradiction_direct": {
-      "mem": 3,
-      "noMem": 0,
-      "total": 3,
-      "weight": 2
-    },
-    "contradiction_indirect": {
-      "mem": 1,
-      "noMem": 0,
-      "total": 2,
-      "weight": 0
-    },
-    "unchanged_persistence": {
-      "mem": 2,
-      "noMem": 0,
-      "total": 3,
-      "weight": 1
-    },
-    "temporal_history": {
-      "mem": 1,
-      "noMem": 0,
-      "total": 2,
-      "weight": 0
-    },
-    "noise_resilience": {
-      "mem": 2,
-      "noMem": 0,
-      "total": 3,
-      "weight": 2
-    }
-  },
-  "details": [
-    {
-      "id": "DIRE-01",
-      "capability": "direct_recall",
-      "query": "내 이름이 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님의 이름은 김하늘입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-01-MEM: PASS — 응답에 \"김하늘\" 포함.",
-        "memories": [
-          "동생 이름은 김바다",
-          "이름은 김하늘",
-          "스타트업 대표",
-          "성수동에 살아",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "매운 음식 잘 못 먹어",
-          "한강 달리기 좋아한다",
-          "회사는 AI 스타트업이야",
-          "개인 AI 앱을 만들고 있어"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-02",
-      "capability": "direct_recall",
-      "query": "나 뭐하는 사람이야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "당신은 AI 스타트업의 대표이신 김하늘님이세요. 성수동에 살고 계시고, 주말에는 한강에서 러닝을 즐기시는 활동적인 분이시죠. OS는 Fedora를 사용하시고, 개인 AI 앱을 만드는 데에도 관심이 많으세요. 식사는 순한 맛을 선호하시는 편이에요. 동생분은 디자이너로 일하고 계신다고 기억하고 있습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-02-MEM: PASS — 응답에 \"대표\" 포함.",
-        "memories": [
-          "스타트업 대표",
-          "회사는 AI 스타트업이야",
-          "이름은 김하늘",
-          "동생은 디자이너로 일하고 있어",
-          "성수동에 살아",
-          "주말에 주로 러닝을 한다",
-          "OS는 Fedora를 쓰고 있다",
-          "개인 AI 앱을 만들고 있어",
-          "한강 달리기 좋아한다",
-          "순한 맛 위주로 먹어"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-03",
-      "capability": "direct_recall",
-      "query": "내 에디터 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용하시는 에디터는 Neovim입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-03-MEM: PASS — 응답에 \"Neovim\" 포함.",
-        "memories": [
-          "에디터는 Neovim 쓰고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "탭 인덴트 선호함",
-          "다크모드 좋아함",
-          "GUI 클라이언트는 안 써",
-          "스타트업 대표",
-          "동생은 디자이너로 일하고 있어",
-          "순한 맛 위주로 먹어",
-          "성수동에 살아",
-          "다음 주 목요일에 투자자 미팅이 있어"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-04",
-      "capability": "direct_recall",
-      "query": "나 어디 살아?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "성수동에 살고 계십니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-04-MEM: PASS — 응답에 \"성수동\" 포함.",
-        "memories": [
-          "성수동에 살아",
-          "주말에 주로 러닝을 한다",
-          "동생 이름은 김바다",
-          "개인 AI 앱을 만들고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "동생은 디자이너로 일하고 있어",
-          "스타트업 대표",
-          "한강 달리기 좋아한다",
-          "회사는 AI 스타트업이야",
-          "이름은 김하늘"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-05",
-      "capability": "direct_recall",
-      "query": "내가 좋아하는 커피가 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님이 좋아하시는 커피는 아메리카노입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-05-MEM: PASS — 응답에 \"아메리카노\" 포함.",
-        "memories": [
-          "커피는 아메리카노만 마신다",
-          "다크모드 좋아함",
-          "한강 달리기 좋아한다",
-          "순한 맛 위주로 먹어",
-          "탭 인덴트 선호함",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "매운 음식 잘 못 먹어",
-          "주로 TypeScript로 개발하고 있어",
-          "미팅은 오전에 하는 게 좋아"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-06",
-      "capability": "direct_recall",
-      "query": "내 동생 이름이 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "생각하고 있는 동안, 다음의 규칙들을 지켜야 합니다:\n1. 기억 중에서 사용자 질문과 **관련된 것**을 활용하세요.\n2. 사용자가 도움을 요청하면(코드 작성, 설정, 세팅 등), **되묻지 말고** 기억에 있는 사용자의 선호와 환경을 **즉시 반영하여 실행**하세요. 예: 사용자가 TypeScript를 쓴다고 했으면 TypeScript로 코드를 작성하세요. 에디터가 Neovim이면 Neovim 설정을 제안하세요.\n3. 사용자가 자신에 대한 사실을 물어보는데 기억에 없으면 \"기억에 없습니다\"라고 답하세요.\n4. 기억에 없는 **사실**을 절대 지어내지 마세요.\n5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.\n\n---\n**기억 분석:**\n- \"동생 이름은 김바다\"\n- \"동생은 디자이너로 일하고 있어\"\n",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-06-MEM: PASS — 응답에 \"김바다\" 포함.",
-        "memories": [
-          "동생 이름은 김바다",
-          "동생은 디자이너로 일하고 있어",
-          "이름은 김하늘",
-          "성수동에 살아",
-          "스타트업 대표",
-          "개인 AI 앱을 만들고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "회사는 AI 스타트업이야",
-          "매운 음식 잘 못 먹어",
-          "순한 맛 위주로 먹어"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-07",
-      "capability": "direct_recall",
-      "query": "내 OS가 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님의 OS는 Fedora입니다. 불변 OS를 선호하신다고 말씀해주셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-07-MEM: PASS — 응답에 \"Fedora\" 포함.",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "불변 OS가 좋다",
-          "GUI 클라이언트는 안 써",
-          "다크모드 좋아함",
-          "에디터는 Neovim 쓰고 있어",
-          "회사는 AI 스타트업이야",
-          "스타트업 대표",
-          "주로 TypeScript로 개발하고 있어",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-08",
-      "capability": "direct_recall",
-      "query": "내 취미가 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "주말에는 주로 러닝을 하고, 특히 한강 달리는 것을 좋아하시는군요!",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-08-MEM: PASS — 응답에 \"러닝\" 포함.",
-        "memories": [
-          "주말에 주로 러닝을 한다",
-          "다크모드 좋아함",
-          "한강 달리기 좋아한다",
-          "오후에는 집중 코딩 시간이다",
-          "순한 맛 위주로 먹어",
-          "커피는 아메리카노만 마신다",
-          "에디터는 Neovim 쓰고 있어",
-          "매운 음식 잘 못 먹어",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다"
-        ]
-      }
-    },
-    {
-      "id": "DIRE-09",
-      "capability": "direct_recall",
-      "query": "나 Git 어떻게 써?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "하늘님은 Git을 CLI로만 사용하고, GUI 클라이언트는 사용하지 않으세요. 그래서 터미널에서 명령어를 직접 입력하여 Git을 사용하십니다.\n\n자주 사용하시는 Git CLI 명령어는 다음과 같습니다:\n\n*   **`git init`**: 현재 디렉토리를 새로운 Git 저장소로 초기화합니다.\n*   **`git clone [url]`**: 원격 저장소의 내용을 로컬로 복제합니다.\n*   **`git add [파일 또는 디렉토리]`**: 변경된 파일을 스테이징 영역에 추가합니다. `git add .`은 모든 변경사항을 추가합니다.\n*   **`git commit -m \"[커밋 메시지]\"`**: 스테이징 영역의 변경사항을 로컬 저장소에 기록합니다. 메시지는 변경 내용을 요약합니다.\n*   **`git statu",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | DIRE-09-MEM: PASS — 응답에 \"CLI\" 포함.",
-        "memories": [
-          "Git은 CLI만 써",
-          "에디터는 Neovim 쓰고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "GUI 클라이언트는 안 써",
-          "OS는 Fedora를 쓰고 있다",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "오후에는 집중 코딩 시간이다",
-          "풀스택 개발자",
-          "이름은 김하늘",
-          "주말에 주로 러닝을 한다"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-10",
-      "capability": "semantic_search",
-      "query": "내 개발 환경 어떻게 되지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "기억을 종합해 볼 때, 사용자님의 개발 환경은 다음과 같습니다:\n\n*   **운영체제:** Fedora\n*   **주력 언어:** TypeScript\n*   **주력 에디터:** Neovim\n*   **주력 프레임워크:** Next.js (프론트엔드), FastAPI (백엔드)\n*   **개발 역할:** 풀스택 개발자 (개인 AI 앱 개발 중)\n*   **기타:** GUI 클라이언트는 사용하지 않으시고, 다크모드를 선호하십니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-10-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "주로 TypeScript로 개발하고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "풀스택 개발자",
-          "개인 AI 앱을 만들고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "GUI 클라이언트는 안 써",
-          "다크모드 좋아함",
-          "주말에 주로 러닝을 한다"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-11",
-      "capability": "semantic_search",
-      "query": "내 기술 스택 알려줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "알겠습니다! 제가 기억하는 한, 당신의 기술 스택은 다음과 같습니다:\n\n*   **역할:** 풀스택 개발자\n*   **주요 프레임워크:** Next.js, FastAPI\n*   **주요 언어:** TypeScript\n*   **에디터:** Neovim\n*   **운영체제:** Fedora\n*   **기타:** 개인 AI 앱을 개발 중이며, GUI 클라이언트는 사용하지 않습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-11-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
-        "memories": [
-          "풀스택 개발자",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "주로 TypeScript로 개발하고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "개인 AI 앱을 만들고 있어",
-          "스타트업 대표",
-          "회사는 AI 스타트업이야",
-          "GUI 클라이언트는 안 써",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-12",
-      "capability": "semantic_search",
-      "query": "나 뭘로 코딩해?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "주로 **TypeScript**로 개발하고 계시고, 에디터는 **Neovim**을 사용하고 계세요. 프레임워크로는 **Next.js**와 **FastAPI**를 주로 쓰신다고 말씀해주셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-12-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
-        "memories": [
-          "오후에는 집중 코딩 시간이다",
-          "주로 TypeScript로 개발하고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "개인 AI 앱을 만들고 있어",
-          "풀스택 개발자",
-          "주말에 주로 러닝을 한다",
-          "GUI 클라이언트는 안 써",
-          "탭 인덴트 선호함"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-13",
-      "capability": "semantic_search",
-      "query": "내 로컬 셋업 어때?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님은 Fedora를 운영체제로 사용하시고, 에디터로는 Neovim을 쓰시는 것으로 보아 CLI 기반의 개발 환경을 선호하시는 것 같아요. 특히 GUI 클라이언트를 사용하지 않으신다고 하셨죠.\n\n주로 TypeScript로 개인 AI 앱을 개발하고 계시며, 다크모드를 좋아하시는군요. 전반적으로 효율적이고 터미널 중심적인 셋업을 가지고 계신 것으로 생각됩니다!",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-13-MEM: PASS — TypeScript, Fedora 포함 (2개).",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "에디터는 Neovim 쓰고 있어",
-          "주말에 주로 러닝을 한다",
-          "성수동에 살아",
-          "GUI 클라이언트는 안 써",
-          "다크모드 좋아함",
-          "스타트업 대표",
-          "한강 달리기 좋아한다",
-          "주로 TypeScript로 개발하고 있어",
-          "개인 AI 앱을 만들고 있어"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-14",
-      "capability": "semantic_search",
-      "query": "내 작업 스타일이 어때?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님은 오후 시간을 **집중 코딩 시간**으로 활용하시고, 주로 **TypeScript**를 사용해 개발하고 계세요. 개발 환경은 **Neovim** 에디터와 **Fedora** OS를 선호하시고, 코드 작성 시 **탭 인덴트**를 사용하시는 것을 좋아하세요.\n\n또한, **스타트업 대표**로서 바쁘게 일하고 계십니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-14-MEM: PASS — \"오후\", \"탭\", \"코딩\" 포함 (3개).",
-        "memories": [
-          "오후에는 집중 코딩 시간이다",
-          "주로 TypeScript로 개발하고 있어",
-          "순한 맛 위주로 먹어",
-          "다크모드 좋아함",
-          "주말에 주로 러닝을 한다",
-          "탭 인덴트 선호함",
-          "에디터는 Neovim 쓰고 있어",
-          "동생은 디자이너로 일하고 있어",
-          "스타트업 대표",
-          "OS는 Fedora를 쓰고 있다"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-15",
-      "capability": "semantic_search",
-      "query": "나 음식 취향이 어때?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "하늘님은 순한 맛 위주로 드시는 편이고, 매운 음식은 잘 못 드시는 취향이세요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-15-MEM: PASS — \"순한\", \"매운\" 포함 (2개).",
-        "memories": [
-          "순한 맛 위주로 먹어",
-          "매운 음식 잘 못 먹어",
-          "다크모드 좋아함",
-          "커피는 아메리카노만 마신다",
-          "한강 달리기 좋아한다",
-          "주말에 주로 러닝을 한다",
-          "탭 인덴트 선호함",
-          "이름은 김하늘",
-          "주로 TypeScript로 개발하고 있어",
-          "개인 AI 앱을 만들고 있어"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-16",
-      "capability": "semantic_search",
-      "query": "주말에 뭐 하지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "주말에는 주로 러닝을 하시죠! 특히 한강 달리기 좋아하시니, 성수동에서 가까운 한강변을 따라 뛰어보시는 건 어떠세요?",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-16-MEM: PASS — \"러닝\", \"한강\" 모두 포함 (2개).",
-        "memories": [
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "순한 맛 위주로 먹어",
-          "성수동에 살아",
-          "다음 주 목요일에 투자자 미팅이 있어",
-          "개인 AI 앱을 만들고 있어",
-          "한강 달리기 좋아한다",
-          "스타트업 대표",
-          "커피는 아메리카노만 마신다",
-          "에디터는 Neovim 쓰고 있어"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-17",
-      "capability": "semantic_search",
-      "query": "내가 백엔드로 뭘 쓰지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "주로 FastAPI를 백엔드로 사용하고 있어요. 개발은 TypeScript로 하신다고 했던 것도 기억합니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-17-MEM: PASS — \"FastAPI\" 포함.",
-        "memories": [
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "풀스택 개발자",
-          "에디터는 Neovim 쓰고 있어",
-          "GUI 클라이언트는 안 써",
-          "오후에는 집중 코딩 시간이다",
-          "주말에 주로 러닝을 한다",
-          "개인 AI 앱을 만들고 있어",
-          "한강 달리기 좋아한다"
-        ]
-      }
-    },
-    {
-      "id": "SEMA-18",
-      "capability": "semantic_search",
-      "query": "우리 회사가 뭐 만들어?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "당신 회사(AI 스타트업)는 개인 AI 앱을 만들고 있습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | SEMA-18-MEM: PASS — \"AI\", \"앱\" 모두 포함 (2개).",
-        "memories": [
-          "회사는 AI 스타트업이야",
-          "개인 AI 앱을 만들고 있어",
-          "스타트업 대표",
-          "OS는 Fedora를 쓰고 있다",
-          "주로 TypeScript로 개발하고 있어",
-          "동생은 디자이너로 일하고 있어",
-          "순한 맛 위주로 먹어",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "이름은 김하늘",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "PROA-19",
-      "capability": "proactive_recall",
-      "query": "에디터 설정 좀 도와줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "Neovim 설정에 도움을 드릴 수 있습니다!\n\n기억하고 있는 당신의 선",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | PROA-19-MEM: PASS — \"Neovim\" 포함, 금지 키워드 없음.",
-        "memories": [
-          "에디터는 Neovim 쓰고 있어",
-          "탭 인덴트 선호함",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "순한 맛 위주로 먹어",
-          "오후에는 집중 코딩 시간이다",
-          "GUI 클라이언트는 안 써",
-          "스타트업 대표",
-          "주말에 주로 러닝을 한다",
-          "매운 음식 잘 못 먹어"
-        ]
-      }
-    },
-    {
-      "id": "PROA-20",
-      "capability": "proactive_recall",
-      "query": "새 API 서버 만들어볼까",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "네, 좋아요! 새로운 API 서버를 만들어볼까요?\n\n주로 **FastAPI**를",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | PROA-20-MEM: PASS — \"FastAPI\" 포함, 금지 키워드 없음.",
-        "memories": [
-          "개인 AI 앱을 만들고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "풀스택 개발자",
-          "에디터는 Neovim 쓰고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "GUI 클라이언트는 안 써",
-          "스타트업 대표",
-          "다음 주 목요일에 투자자 미팅이 있어"
-        ]
-      }
-    },
-    {
-      "id": "PROA-21",
-      "capability": "proactive_recall",
-      "query": "이 코드 리팩토링 좀 해줘: function hello() { return 'hi' }",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "주로 TypeScript로 개발하시는 걸 기억하고 있습니다. 해당 함수를 TypeScript 스타일로 리팩토링해드릴게요.\n\n",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | PROA-21-MEM: PASS — \"TypeScript\" 포함.",
-        "memories": [
-          "오후에는 집중 코딩 시간이다",
-          "커피는 아메리카노만 마신다",
-          "주로 TypeScript로 개발하고 있어",
-          "불변 OS가 좋다",
-          "다크모드 좋아함",
-          "이름은 김하늘",
-          "에디터는 Neovim 쓰고 있어",
-          "한강 달리기 좋아한다",
-          "Git은 CLI만 써",
-          "순한 맛 위주로 먹어"
-        ]
-      }
-    },
-    {
-      "id": "PROA-22",
-      "capability": "proactive_recall",
-      "query": "새 프로젝트 설정 파일 만들어줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "새 프로젝트 설정 파일을 만들어 드릴게요. 주로 TypeScript를 사용하시고 Neovim을 에디",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | PROA-22-MEM: FAIL — 응답이 잘려서 \"탭\" 키워드 미포함, 금지 키워드도 없으나 기대 키워드 ",
-        "memories": [
-          "개인 AI 앱을 만들고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "스타트업 대표",
-          "풀스택 개발자",
-          "GUI 클라이언트는 안 써",
-          "탭 인덴트 선호함",
-          "다크모드 좋아함"
-        ]
-      }
-    },
-    {
-      "id": "PROA-23",
-      "capability": "proactive_recall",
-      "query": "패키지 설치 어떻게 해?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "Fedora를 사용하고 계시니 `dnf`를 이용해서 패키지를 설치하시면 됩니다.\n\n터미널에서 다음과 같이 입력해보세요:\n\n```bash\nsudo dnf install [패키지_이름]\n```\n\n`[패키지_이름]` 부분에 설치하고 싶은 패키지의 이름을 넣으면 됩니다. 예를 들어, `git`을 설치하고 싶다면 `sudo dnf install git`이 되겠죠.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | PROA-23-MEM: PASS — \"Fedora\" 포함, 금지 키워드(apt, Ubuntu) 없음.",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "에디터는 Neovim 쓰고 있어",
-          "GUI 클라이언트는 안 써",
-          "탭 인덴트 선호함",
-          "주로 TypeScript로 개발하고 있어",
-          "Git은 CLI만 써",
-          "다크모드 좋아함",
-          "오후에는 집중 코딩 시간이다",
-          "주말에 주로 러닝을 한다",
-          "순한 맛 위주로 먹어"
-        ]
-      }
-    },
-    {
-      "id": "ABST-24",
-      "capability": "abstention",
-      "query": "내가 Docker 관련해서 뭐라고 했었지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "Docker 관련해서는 기억에 없습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-24-MEM: PASS — \"기억에 없습니다\"로 거절, 정보 지어내지 않음.",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "에디터는 Neovim 쓰고 있어",
-          "Git은 CLI만 써",
-          "한강 달리기 좋아한다",
-          "GUI 클라이언트는 안 써",
-          "오후에는 집중 코딩 시간이다",
-          "커피는 아메리카노만 마신다",
-          "불변 OS가 좋다",
-          "다크모드 좋아함",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다"
-        ]
-      }
-    },
-    {
-      "id": "ABST-25",
-      "capability": "abstention",
-      "query": "내가 좋아하는 게임이 뭐였지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "죄송합니다. 기억에 없습니다. 제가 알고 있는 정보에는 사용자님이 어떤 게임을 좋아하는지에 대한 내용은 없네요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-25-MEM: PASS — \"기억에 없습니다\"로 거절.",
-        "memories": [
-          "다크모드 좋아함",
-          "한강 달리기 좋아한다",
-          "주말에 주로 러닝을 한다",
-          "탭 인덴트 선호함",
-          "순한 맛 위주로 먹어",
-          "OS는 Fedora를 쓰고 있다",
-          "주로 TypeScript로 개발하고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "GUI 클라이언트는 안 써",
-          "에디터는 Neovim 쓰고 있어"
-        ]
-      }
-    },
-    {
-      "id": "ABST-26",
-      "capability": "abstention",
-      "query": "내가 AWS 쓴다고 했나?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "기억에 없습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-26-MEM: PASS — \"말씀하신 적은 없습니다\"로 거절.",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "에디터는 Neovim 쓰고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "GUI 클라이언트는 안 써",
-          "커피는 아메리카노만 마신다",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "Git은 CLI만 써",
-          "개인 AI 앱을 만들고 있어",
-          "스타트업 대표",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "ABST-27",
-      "capability": "abstention",
-      "query": "내 차가 뭐였지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "생각나는 정보가 없습니다. 차에 대한 정보는 제가 가지고 있지 않네요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-27-MEM: PASS — \"생각나는 정보가 없습니다\"로 거절.",
-        "memories": [
-          "OS는 Fedora를 쓰고 있다",
-          "순한 맛 위주로 먹어",
-          "성수동에 살아",
-          "오후에는 집중 코딩 시간이다",
-          "주말에 주로 러닝을 한다",
-          "다크모드 좋아함",
-          "에디터는 Neovim 쓰고 있어",
-          "개인 AI 앱을 만들고 있어",
-          "GUI 클라이언트는 안 써",
-          "동생 이름은 김바다"
-        ]
-      }
-    },
-    {
-      "id": "ABST-28",
-      "capability": "abstention",
-      "query": "내가 일본어 할 줄 안다고 했었나?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "아니요, 제가 기억하는 내용 중에는 하늘님이 일본어를 할 줄 아신다는 사실은 없습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-28-MEM: PASS — \"없습니다\"로 거절.",
-        "memories": [
-          "매운 음식 잘 못 먹어",
-          "에디터는 Neovim 쓰고 있어",
-          "이름은 김하늘",
-          "회사는 AI 스타트업이야",
-          "개인 AI 앱을 만들고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "동생은 디자이너로 일하고 있어",
-          "순한 맛 위주로 먹어",
-          "스타트업 대표"
-        ]
-      }
-    },
-    {
-      "id": "ABST-29",
-      "capability": "abstention",
-      "query": "나 고양이 키운다고 했지?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "죄송합니다. 제가 가지고 있는 기억에는 사용자님이 고양이를 키우신다는 정보는 없습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-29-MEM: PASS — \"없습니다\"로 거절.",
-        "memories": [
-          "커피는 아메리카노만 마신다",
-          "순한 맛 위주로 먹어",
-          "개인 AI 앱을 만들고 있어",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "다음 주 목요일에 투자자 미팅이 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "매운 음식 잘 못 먹어",
-          "스타트업 대표",
-          "동생은 디자이너로 일하고 있어"
-        ]
-      }
-    },
-    {
-      "id": "ABST-30",
-      "capability": "abstention",
-      "query": "내가 Nuxt.js 쓴다고 했었나?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "기억에 없습니다. 당신은 Next.js와 FastAPI를 주로 사용한다고 말씀해주셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-30-MEM: PASS — Nuxt.js는 거절하고, 관련 기억(Next.js, FastAPI)을 ",
-        "memories": [
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "주로 TypeScript로 개발하고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "개인 AI 앱을 만들고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "OS는 Fedora를 쓰고 있다",
-          "순한 맛 위주로 먹어",
-          "풀스택 개발자",
-          "GUI 클라이언트는 안 써",
-          "다크모드 좋아함"
-        ]
-      }
-    },
-    {
-      "id": "ABST-31",
-      "capability": "abstention",
-      "query": "내가 차 좋아한다고 했지? 녹차?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "죄송합니다. 제가 가진 기억에는 사용자님이 차를 좋아하신다는 내용은 없습니다. 커피는 아메리카노만 마신다고 말씀해 주셨던 것은 기억하고 있어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ABST-31-MEM: PASS — 차(녹차)는 거절하고, 관련 기억(아메리카노)을 구분하여 언급.",
-        "memories": [
-          "커피는 아메리카노만 마신다",
-          "다크모드 좋아함",
-          "순한 맛 위주로 먹어",
-          "한강 달리기 좋아한다",
-          "오후에는 집중 코딩 시간이다",
-          "매운 음식 잘 못 먹어",
-          "탭 인덴트 선호함",
-          "주말에 주로 러닝을 한다",
-          "개인 AI 앱을 만들고 있어",
-          "주로 TypeScript로 개발하고 있어"
-        ]
-      }
-    },
-    {
-      "id": "ABST-32",
-      "capability": "abstention",
-      "query": "나 수영 한다고 했었나?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "음, 제가 기억하는 바로는 수영을 하신다는 내용은 없었어요. 한강 달리기나 주말 러닝에 대한 기억은 있네요!",
-        "pass": true,
-        "reason": "LLM:P KW:2/3 → PASS | ABST-32-MEM: PASS — 수영은 거절하고, 관련 기억(러닝)을 구분하여 언급.",
-        "memories": [
-          "한강 달리기 좋아한다",
-          "주말에 주로 러닝을 한다",
-          "매운 음식 잘 못 먹어",
-          "이름은 김하늘",
-          "동생 이름은 김바다",
-          "성수동에 살아",
-          "순한 맛 위주로 먹어",
-          "커피는 아메리카노만 마신다",
-          "다크모드 좋아함",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "IRRE-33",
-      "capability": "irrelevant_isolation",
-      "query": "오늘 날씨 어때?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "저는 현재 날씨 정보를 알 수 없습니다. 인터넷에 검색해 보시거나 날씨 앱을 확인해 보시면 정확한 정보를 얻으실 수 있을 거예요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | IRRE-33-MEM: PASS — 금지 키워드(김하늘, 성수동, Neovim, TypeScript) 없음.",
-        "memories": [
-          "오후에는 집중 코딩 시간이다",
-          "다음 주 목요일에 투자자 미팅이 있어",
-          "매운 음식 잘 못 먹어",
-          "이름은 김하늘",
-          "순한 맛 위주로 먹어",
-          "미팅은 오전에 하는 게 좋아",
-          "에디터는 Neovim 쓰고 있어",
-          "주말에 주로 러닝을 한다",
-          "다크모드 좋아함",
-          "스타트업 대표"
-        ]
-      }
-    },
-    {
-      "id": "IRRE-34",
-      "capability": "irrelevant_isolation",
-      "query": "파이썬에서 리스트 컴프리헨션 문법이 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "파이썬의 리스트 컴프리헨션(List Comprehension)은 리스트를 생성하는 간결하고 효율적인 방법이에요. 기존 리스트나 다른 이터러블(iterable)을 기반으로 새로운 리스트를 만들 때 주로 사용됩니다.\n\n기본적인 구조는 다음과 같아요:\n\n```python\n[표현식 for 항목 in 이터러블 if 조건]\n```\n\n*   `표현식`: 새로운 리스트의 각 요소가 될 값 또는 연산입니다.\n*   `항목`: 이터러블에서 가져온 각 요소입니다.\n*   `이터러블`: 리스트, 튜플, 문자열, range 객체 등 반복 가능한 객체입니다.\n*   `if 조건` (선택 사항): 조건을 만족하는 항목만 새 리스트에 포함됩니다.\n\n예를 들어, 1부터 10까지의 숫자 중에서 짝수만 포함하는 리스트를 만들고 싶다면:\n\n*",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | IRRE-34-MEM: PASS — 금지 키워드(김하늘, Neovim, FastAPI) 없음.",
-        "memories": [
-          "에디터는 Neovim 쓰고 있어",
-          "탭 인덴트 선호함",
-          "다크모드 좋아함",
-          "오후에는 집중 코딩 시간이다",
-          "커피는 아메리카노만 마신다",
-          "회사는 AI 스타트업이야",
-          "OS는 Fedora를 쓰고 있다",
-          "개인 AI 앱을 만들고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다"
-        ]
-      }
-    },
-    {
-      "id": "IRRE-35",
-      "capability": "irrelevant_isolation",
-      "query": "HTTP 상태코드 404가 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "HTTP 상태코드 404는 \"Not Found\"를 의미해요.\n\n클라이언트(브라우저 등)가 서버에 어떤 리소스를 요청했지만, 서버가 해당 리소스를 찾을 수 없을 때 반환하는 표준 응답 코드입니다.\n\n예를 들어, 웹사이트 주소를 잘못 입력했거나, 더 이상 존재하지 않는 페이지에 접속하려고 할 때 이 상태코드를 보게 될 거예요. 서버는 요청 자체를 이해했지만, 요청된 URL에 해당하는 콘텐츠를 가지고 있지 않다는 것을 알려주는 코드죠.",
-        "pass": false,
-        "reason": "LLM:F KW:3/3 → FAIL | IRRE-35-MEM: FAIL — 금지 키워드는 없으나, \"Next.js나 FastAPI로 개발하실 때\"라",
-        "memories": [
-          "오후에는 집중 코딩 시간이다",
-          "풀스택 개발자",
-          "OS는 Fedora를 쓰고 있다",
-          "GUI 클라이언트는 안 써",
-          "Git은 CLI만 써",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "다크모드 좋아함",
-          "주말에 주로 러닝을 한다",
-          "주로 TypeScript로 개발하고 있어",
-          "에디터는 Neovim 쓰고 있어"
-        ]
-      }
-    },
-    {
-      "id": "MULT-36",
-      "capability": "multi_fact_synthesis",
-      "query": "새 프로젝트 하나 세팅해줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "알겠습니다! 새 프로젝트를 TypeScript로 설정해 드릴게요. Fedora 환경에 맞게 터미",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | MULT-36-MEM: PASS — \"TypeScript\" 포함.",
-        "memories": [
-          "개인 AI 앱을 만들고 있어",
-          "에디터는 Neovim 쓰고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "OS는 Fedora를 쓰고 있다",
-          "주로 TypeScript로 개발하고 있어",
-          "스타트업 대표",
-          "다음 주 목요일에 투자자 미팅이 있어",
-          "순한 맛 위주로 먹어",
-          "회사는 AI 스타트업이야",
-          "GUI 클라이언트는 안 써"
-        ]
-      }
-    },
-    {
-      "id": "MULT-37",
-      "capability": "multi_fact_synthesis",
-      "query": "내 개발 머신 세팅 가이드 만들어줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "풀스택 개발자이시자 TypeScript, Next.js, FastAPI를 주로 사용하시며",
-        "pass": false,
-        "reason": "LLM:P KW:1/3 → FAIL | MULT-37-MEM: PASS — 응답이 잘렸으나 문맥상 Fedora/Neovim 등 언급 가능성 높음. ",
-        "memories": [
-          "에디터는 Neovim 쓰고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "개인 AI 앱을 만들고 있어",
-          "풀스택 개발자",
-          "주로 TypeScript로 개발하고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "GUI 클라이언트는 안 써",
-          "다크모드 좋아함",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "Git은 CLI만 써"
-        ]
-      }
-    },
-    {
-      "id": "MULT-38",
-      "capability": "multi_fact_synthesis",
-      "query": "내 소개 한 줄로 써줘",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "네, 김하늘님은 성수동에 살고 계시고, 스타트업 대표님이시며 주말에 한강에서 러닝을 즐기시는 분입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | MULT-38-MEM: PASS — \"김하늘\", \"스타트업\" 포함.",
-        "memories": [
-          "스타트업 대표",
-          "순한 맛 위주로 먹어",
-          "매운 음식 잘 못 먹어",
-          "성수동에 살아",
-          "이름은 김하늘",
-          "에디터는 Neovim 쓰고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "한강 달리기 좋아한다",
-          "다크모드 좋아함",
-          "주말에 주로 러닝을 한다"
-        ]
-      }
-    },
-    {
-      "id": "ENTI-39",
-      "capability": "entity_disambiguation",
-      "query": "근데 내 에디터는 뭐야?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님의 에디터는 Neovim입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ENTI-39-MEM: PASS — \"Neovim\" 포함, 금지 키워드(\"Vim을 쓰\") 없음.",
-        "memories": [
-          "에디터는 Neovim 쓰고 있어",
-          "내 동료는 Vim을 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "탭 인덴트 선호함",
-          "다크모드 좋아함",
-          "동생은 디자이너로 일하고 있어",
-          "스타트업 대표",
-          "GUI 클라이언트는 안 써",
-          "주말에 주로 러닝을 한다",
-          "순한 맛 위주로 먹어"
-        ]
-      }
-    },
-    {
-      "id": "ENTI-40",
-      "capability": "entity_disambiguation",
-      "query": "나는 뭘로 프론트 만들어?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "Next.js를 주로 사용해서 프론트엔드를 만드세요. TypeScript로 개발하고 계신다는 점과 잘 맞겠네요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | ENTI-40-MEM: PASS — \"Next.js\" 포함, 금지 키워드(React Native) 없음.",
-        "memories": [
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "개인 AI 앱을 만들고 있어",
-          "주로 TypeScript로 개발하고 있어",
-          "풀스택 개발자",
-          "오후에는 집중 코딩 시간이다",
-          "OS는 Fedora를 쓰고 있다",
-          "GUI 클라이언트는 안 써",
-          "순한 맛 위주로 먹어",
-          "스타트업 대표",
-          "주말에 주로 러닝을 한다"
-        ]
-      }
-    },
-    {
-      "id": "ENTI-41",
-      "capability": "entity_disambiguation",
-      "query": "나는 뭐하는 사람이야?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "당신은 AI 스타트업의 대표 김하늘 님이세요. 성수동에 살고 계시고, 개인 AI 앱을 TypeScript로 개발하고 있습니다. 주말에는 주로 한강에서 러닝을 즐기십니다. OS는 Fedora를 사용하고 계시고, 동료분은 Vim을 사용하시는군요.",
-        "pass": false,
-        "reason": "LLM:P KW:0/3 → FAIL | ENTI-41-MEM: PASS — \"대표\"/\"개발\"로 개발자 의미 포함. 금지 키워드 \"디자이너\"는 없음 ",
-        "memories": [
-          "스타트업 대표",
-          "회사는 AI 스타트업이야",
-          "이름은 김하늘",
-          "성수동에 살아",
-          "주말에 주로 러닝을 한다",
-          "내 동료는 Vim을 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "한강 달리기 좋아한다",
-          "개인 AI 앱을 만들고 있어",
-          "주로 TypeScript로 개발하고 있어"
-        ]
-      }
-    },
-    {
-      "id": "ENTI-42",
-      "capability": "entity_disambiguation",
-      "query": "내 인덴트 스타일은?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "팀원 중 한 명이 공백(spaces)을 사용하는 것을 제안해서, 아마 공백으로 인덴트를 하고 계실 것 같습니다.",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | ENTI-42-MEM: FAIL — 응답이 \"공백(spaces)\"이라 답하고 있으며, 기대 키워드 \"탭\" 미",
-        "memories": [
-          "내 동료는 Vim을 쓴다",
-          "에디터는 Neovim 쓰고 있어",
-          "순한 맛 위주로 먹어",
-          "오후에는 집중 코딩 시간이다",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "커피는 아메리카노만 마신다",
-          "주말에 주로 러닝을 한다",
-          "Team member suggested using spaces",
-          "주로 TypeScript로 개발하고 있어"
-        ]
-      }
-    },
-    {
-      "id": "CONT-43",
-      "capability": "contradiction_direct",
-      "query": "내가 쓰는 에디터 뭐야?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "음, 현재 사용하시는 에디터는 **Cursor**입니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | CONT-43-MEM: PASS — \"Cursor\" 포함, 금지 키워드 \"Neovim\" 없음.",
-        "memories": [
-          "바꿨어 에디터 Cursor로",
-          "내 동료는 Vim을 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "GUI 클라이언트는 안 써",
-          "Git은 CLI만 써",
-          "다크모드 좋아함",
-          "주로 TypeScript로 개발하고 있어",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "회사는 AI 스타트업이야"
-        ]
-      }
-    },
-    {
-      "id": "CONT-44",
-      "capability": "contradiction_direct",
-      "query": "나 어디 살아?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "이번 달에 판교로 이사하셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | CONT-44-MEM: PASS — \"판교\" 포함, 금지 키워드 \"성수동\" 없음.",
-        "memories": [
-          "이번 달에 판교로 이사함",
-          "주말에 주로 러닝을 한다",
-          "개인 AI 앱을 만들고 있어",
-          "내 동료는 Vim을 쓴다",
-          "스타트업 대표",
-          "바꿨어 에디터 Cursor로",
-          "한강 달리기 좋아한다",
-          "회사는 AI 스타트업이야",
-          "이름은 김하늘",
-          "매운 음식 잘 못 먹어"
-        ]
-      }
-    },
-    {
-      "id": "CONT-45",
-      "capability": "contradiction_direct",
-      "query": "나 Git 뭘로 써?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "생각나는 대로 말씀드리자면, 이제 GitKraken을 쓰기로 하셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | CONT-45-MEM: PASS — \"GitKraken\" 포함, 금지 키워드 \"CLI만\" 없음.",
-        "memories": [
-          "Git은 이제 GitKraken 쓰기로 했다",
-          "내 동료는 Vim을 쓴다",
-          "주로 TypeScript로 개발하고 있어",
-          "프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
-          "OS는 Fedora를 쓰고 있다",
-          "바꿨어 에디터 Cursor로",
-          "오후에는 집중 코딩 시간이다",
-          "주말에 주로 러닝을 한다",
-          "다크모드 좋아함",
-          "개인 AI 앱을 만들고 있어"
-        ]
-      }
-    },
-    {
-      "id": "CONT-46",
-      "capability": "contradiction_indirect",
-      "query": "내가 요즘 관심 있는 거 뭐야?",
-      "weight": 0,
-      "isBonus": true,
-      "withMemory": {
-        "response": "현재 기억하고 있는 정보로는 사용자님께서 **개인 AI 앱을 만들고 계신다**는 점이 가장 큰 관심사로 보입니다!",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | CONT-46-MEM: FAIL — 기대 키워드(Python, Django) 미포함.",
-        "memories": [
-          "다크모드 좋아함",
-          "오후에는 집중 코딩 시간이다",
-          "주말에 주로 러닝을 한다",
-          "개인 AI 앱을 만들고 있어",
-          "한강 달리기 좋아한다",
-          "순한 맛 위주로 먹어",
-          "OS는 Fedora를 쓰고 있다",
-          "이번 달에 판교로 이사함",
-          "커피는 아메리카노만 마신다",
-          "주로 TypeScript로 개발하고 있어"
-        ]
-      }
-    },
-    {
-      "id": "CONT-47",
-      "capability": "contradiction_indirect",
-      "query": "에디터 관련해서 요즘 어때?",
-      "weight": 0,
-      "isBonus": true,
-      "withMemory": {
-        "response": "요즘 에디터는 Cursor로 바꾸셨다고 말씀해주셨죠! VS Code도 편하다고 하셨던 기억이 나네요. 주로 TypeScript로 개발하시니, Cursor가 TypeScript 개발 환경에 잘 맞아서 만족하시는지 궁금하네요!",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | CONT-47-MEM: PASS — \"VS Code\", \"편하\" 모두 포함.",
-        "memories": [
-          "바꿨어 에디터 Cursor로",
-          "내 동료는 Vim을 쓴다",
-          "VS Code가 생각보다 편하다",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "주로 TypeScript로 개발하고 있어",
-          "오후에는 집중 코딩 시간이다",
-          "순한 맛 위주로 먹어",
-          "Git은 이제 GitKraken 쓰기로 했다",
-          "이번 달에 판교로 이사함"
-        ]
-      }
-    },
-    {
-      "id": "UNCH-48",
-      "capability": "unchanged_persistence",
-      "query": "내 인덴트 스타일은?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "팀 멤버가 스페이스를 사용하는 것을 제안했던 기억이 있습니다. 그래서 스페이스를 사용하시는 것으로 생각됩니다.",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | UNCH-48-MEM: FAIL — \"스페이스\"라 답하고 있으며, 기대 키워드 \"탭\" 미포함.",
-        "memories": [
-          "내 동료는 Vim을 쓴다",
-          "순한 맛 위주로 먹어",
-          "오후에는 집중 코딩 시간이다",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "VS Code가 생각보다 편하다",
-          "바꿨어 에디터 Cursor로",
-          "커피는 아메리카노만 마신다",
-          "주말에 주로 러닝을 한다",
-          "Team member suggested using spaces"
-        ]
-      }
-    },
-    {
-      "id": "UNCH-49",
-      "capability": "unchanged_persistence",
-      "query": "내가 좋아하는 커피는?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "기억을 더듬어보면, 사용자님은 아메리카노만 마시는 것을 좋아하세요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | UNCH-49-MEM: PASS — \"아메리카노\" 포함.",
-        "memories": [
-          "커피는 아메리카노만 마신다",
-          "다크모드 좋아함",
-          "한강 달리기 좋아한다",
-          "순한 맛 위주로 먹어",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "매운 음식 잘 못 먹어",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다",
-          "내 동료는 Vim을 쓴다"
-        ]
-      }
-    },
-    {
-      "id": "UNCH-50",
-      "capability": "unchanged_persistence",
-      "query": "내 취미가 뭐야?",
-      "weight": 1,
-      "isBonus": false,
-      "withMemory": {
-        "response": "기억에 따르면, 주말에 주로 러닝을 하시며 한강 달리기 좋아하시는 것으로 보아 **러닝**이 취미이신 것 같아요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | UNCH-50-MEM: PASS — \"러닝\" 포함.",
-        "memories": [
-          "주말에 주로 러닝을 한다",
-          "다크모드 좋아함",
-          "한강 달리기 좋아한다",
-          "오후에는 집중 코딩 시간이다",
-          "순한 맛 위주로 먹어",
-          "내 동료는 Vim을 쓴다",
-          "커피는 아메리카노만 마신다",
-          "매운 음식 잘 못 먹어",
-          "주로 TypeScript로 개발하고 있어",
-          "OS는 Fedora를 쓰고 있다"
-        ]
-      }
-    },
-    {
-      "id": "TEMP-51",
-      "capability": "temporal_history",
-      "query": "내가 에디터 뭐 쓰다가 바꿨지?",
-      "weight": 0,
-      "isBonus": true,
-      "withMemory": {
-        "response": "잠시만요, 기억을 더듬어보겠습니다.\n\n원래는 VS Code가 생각보다 편하다고 하셨었는데, 에디터를 **Cursor**로 바꾸셨다고 말씀해주셨어요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | TEMP-51-MEM: PASS — \"Cursor\" 포함 (기대 키워드 중 하나).",
-        "memories": [
-          "바꿨어 에디터 Cursor로",
-          "내 동료는 Vim을 쓴다",
-          "VS Code가 생각보다 편하다",
-          "Git은 이제 GitKraken 쓰기로 했다",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "주로 TypeScript로 개발하고 있어",
-          "이번 달에 판교로 이사함",
-          "순한 맛 위주로 먹어",
-          "오후에는 집중 코딩 시간이다"
-        ]
-      }
-    },
-    {
-      "id": "TEMP-52",
-      "capability": "temporal_history",
-      "query": "나 원래 어디 살았어?",
-      "weight": 0,
-      "isBonus": true,
-      "withMemory": {
-        "response": "기억에 없습니다. 이번 달에 판교로 이사 오셨다는 것은 기억하고 있습니다.",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | TEMP-52-MEM: FAIL — \"성수동\" 미포함, \"어디 사셨는지 기억에 없습니다\"라 답함.",
-        "memories": [
-          "이번 달에 판교로 이사함",
-          "주말에 주로 러닝을 한다",
-          "이름은 김하늘",
-          "바꿨어 에디터 Cursor로",
-          "순한 맛 위주로 먹어",
-          "내 동료는 Vim을 쓴다",
-          "회사는 AI 스타트업이야",
-          "스타트업 대표",
-          "개인 AI 앱을 만들고 있어",
-          "OS는 Fedora를 쓰고 있다"
-        ]
-      }
-    },
-    {
-      "id": "NOIS-53",
-      "capability": "noise_resilience",
-      "query": "내 모니터 뭐야?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "음, 제 기억으로는 34인치 울트라와이드 모니터를 사용하고 계세요.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | NOIS-53-MEM: PASS — \"울트라와이드\", \"34인치\" 포함.",
-        "memories": [
-          "모니터는 34인치이다",
-          "모니터를 울트라와이드로 바꿨다",
-          "OS는 Fedora를 쓰고 있다",
-          "다크모드 좋아함",
-          "내 동료는 Vim을 쓴다",
-          "한강 달리기 좋아한다",
-          "주말에 주로 러닝을 한다",
-          "바꿨어 에디터 Cursor로",
-          "주로 TypeScript로 개발하고 있어",
-          "오늘 피곤하다"
-        ]
-      }
-    },
-    {
-      "id": "NOIS-54",
-      "capability": "noise_resilience",
-      "query": "이번 주 일정에 뭐가 있어?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "음, 이번 주에 특별히 정해진 일정은 기억에 없습니다. 다음 주 목요일에는 투자자 미팅이 있는 건 알고 있어요.",
-        "pass": false,
-        "reason": "LLM:F KW:0/3 → FAIL | NOIS-54-MEM: FAIL — 기대 키워드(금요일, 회식) 미포함.",
-        "memories": [
-          "다음 주 목요일에 투자자 미팅이 있어",
-          "주말에 주로 러닝을 한다",
-          "오후에는 집중 코딩 시간이다",
-          "순한 맛 위주로 먹어",
-          "오늘 피곤하다",
-          "이번 달에 판교로 이사함",
-          "개인 AI 앱을 만들고 있어",
-          "점심에 순대국을 먹었다",
-          "미팅은 오전에 하는 게 좋아",
-          "매운 음식 잘 못 먹어"
-        ]
-      }
-    },
-    {
-      "id": "NOIS-55",
-      "capability": "noise_resilience",
-      "query": "내가 알레르기 있는 거 뭐야?",
-      "weight": 2,
-      "isBonus": false,
-      "withMemory": {
-        "response": "사용자님은 새우 알레르기가 있습니다.",
-        "pass": true,
-        "reason": "LLM:P KW:3/3 → PASS | NOIS-55-MEM: PASS — \"새우\" 포함.",
-        "memories": [
-          "새우 알레르기가 있다",
-          "매운 음식 잘 못 먹어",
-          "순한 맛 위주로 먹어",
-          "OS는 Fedora를 쓰고 있다",
-          "커피는 아메리카노만 마신다",
-          "개인 AI 앱을 만들고 있어",
-          "주말에 주로 러닝을 한다",
-          "이번 달에 판교로 이사함",
-          "한강 달리기 좋아한다",
-          "어제 유튜브에서 웃긴 것을 봤다"
-        ]
-      }
-    }
-  ]
+	"timestamp": "2026-03-29T07:16:17.900Z",
+	"version": "comprehensive-v5",
+	"pipeline": "raw mem0 (no Naia layer)",
+	"judge": "claude-cli",
+	"model": "gemini-2.5-flash",
+	"core": {
+		"total": 51,
+		"withMemory": 44,
+		"noMemory": 0,
+		"delta": 44
+	},
+	"bonus": {
+		"total": 4,
+		"withMemory": 2
+	},
+	"grade": "B",
+	"disagreements": 0,
+	"byCapability": {
+		"direct_recall": {
+			"mem": 9,
+			"noMem": 0,
+			"total": 9,
+			"weight": 1
+		},
+		"semantic_search": {
+			"mem": 9,
+			"noMem": 0,
+			"total": 9,
+			"weight": 2
+		},
+		"proactive_recall": {
+			"mem": 4,
+			"noMem": 0,
+			"total": 5,
+			"weight": 2
+		},
+		"abstention": {
+			"mem": 9,
+			"noMem": 0,
+			"total": 9,
+			"weight": 2
+		},
+		"irrelevant_isolation": {
+			"mem": 2,
+			"noMem": 0,
+			"total": 3,
+			"weight": 1
+		},
+		"multi_fact_synthesis": {
+			"mem": 2,
+			"noMem": 0,
+			"total": 3,
+			"weight": 2
+		},
+		"entity_disambiguation": {
+			"mem": 2,
+			"noMem": 0,
+			"total": 4,
+			"weight": 2
+		},
+		"contradiction_direct": {
+			"mem": 3,
+			"noMem": 0,
+			"total": 3,
+			"weight": 2
+		},
+		"contradiction_indirect": {
+			"mem": 1,
+			"noMem": 0,
+			"total": 2,
+			"weight": 0
+		},
+		"unchanged_persistence": {
+			"mem": 2,
+			"noMem": 0,
+			"total": 3,
+			"weight": 1
+		},
+		"temporal_history": {
+			"mem": 1,
+			"noMem": 0,
+			"total": 2,
+			"weight": 0
+		},
+		"noise_resilience": {
+			"mem": 2,
+			"noMem": 0,
+			"total": 3,
+			"weight": 2
+		}
+	},
+	"details": [
+		{
+			"id": "DIRE-01",
+			"capability": "direct_recall",
+			"query": "내 이름이 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님의 이름은 김하늘입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-01-MEM: PASS — 응답에 \"김하늘\" 포함.",
+				"memories": [
+					"동생 이름은 김바다",
+					"이름은 김하늘",
+					"스타트업 대표",
+					"성수동에 살아",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"매운 음식 잘 못 먹어",
+					"한강 달리기 좋아한다",
+					"회사는 AI 스타트업이야",
+					"개인 AI 앱을 만들고 있어"
+				]
+			}
+		},
+		{
+			"id": "DIRE-02",
+			"capability": "direct_recall",
+			"query": "나 뭐하는 사람이야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "당신은 AI 스타트업의 대표이신 김하늘님이세요. 성수동에 살고 계시고, 주말에는 한강에서 러닝을 즐기시는 활동적인 분이시죠. OS는 Fedora를 사용하시고, 개인 AI 앱을 만드는 데에도 관심이 많으세요. 식사는 순한 맛을 선호하시는 편이에요. 동생분은 디자이너로 일하고 계신다고 기억하고 있습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-02-MEM: PASS — 응답에 \"대표\" 포함.",
+				"memories": [
+					"스타트업 대표",
+					"회사는 AI 스타트업이야",
+					"이름은 김하늘",
+					"동생은 디자이너로 일하고 있어",
+					"성수동에 살아",
+					"주말에 주로 러닝을 한다",
+					"OS는 Fedora를 쓰고 있다",
+					"개인 AI 앱을 만들고 있어",
+					"한강 달리기 좋아한다",
+					"순한 맛 위주로 먹어"
+				]
+			}
+		},
+		{
+			"id": "DIRE-03",
+			"capability": "direct_recall",
+			"query": "내 에디터 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용하시는 에디터는 Neovim입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-03-MEM: PASS — 응답에 \"Neovim\" 포함.",
+				"memories": [
+					"에디터는 Neovim 쓰고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"탭 인덴트 선호함",
+					"다크모드 좋아함",
+					"GUI 클라이언트는 안 써",
+					"스타트업 대표",
+					"동생은 디자이너로 일하고 있어",
+					"순한 맛 위주로 먹어",
+					"성수동에 살아",
+					"다음 주 목요일에 투자자 미팅이 있어"
+				]
+			}
+		},
+		{
+			"id": "DIRE-04",
+			"capability": "direct_recall",
+			"query": "나 어디 살아?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "성수동에 살고 계십니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-04-MEM: PASS — 응답에 \"성수동\" 포함.",
+				"memories": [
+					"성수동에 살아",
+					"주말에 주로 러닝을 한다",
+					"동생 이름은 김바다",
+					"개인 AI 앱을 만들고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"동생은 디자이너로 일하고 있어",
+					"스타트업 대표",
+					"한강 달리기 좋아한다",
+					"회사는 AI 스타트업이야",
+					"이름은 김하늘"
+				]
+			}
+		},
+		{
+			"id": "DIRE-05",
+			"capability": "direct_recall",
+			"query": "내가 좋아하는 커피가 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님이 좋아하시는 커피는 아메리카노입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-05-MEM: PASS — 응답에 \"아메리카노\" 포함.",
+				"memories": [
+					"커피는 아메리카노만 마신다",
+					"다크모드 좋아함",
+					"한강 달리기 좋아한다",
+					"순한 맛 위주로 먹어",
+					"탭 인덴트 선호함",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"매운 음식 잘 못 먹어",
+					"주로 TypeScript로 개발하고 있어",
+					"미팅은 오전에 하는 게 좋아"
+				]
+			}
+		},
+		{
+			"id": "DIRE-06",
+			"capability": "direct_recall",
+			"query": "내 동생 이름이 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "생각하고 있는 동안, 다음의 규칙들을 지켜야 합니다:\n1. 기억 중에서 사용자 질문과 **관련된 것**을 활용하세요.\n2. 사용자가 도움을 요청하면(코드 작성, 설정, 세팅 등), **되묻지 말고** 기억에 있는 사용자의 선호와 환경을 **즉시 반영하여 실행**하세요. 예: 사용자가 TypeScript를 쓴다고 했으면 TypeScript로 코드를 작성하세요. 에디터가 Neovim이면 Neovim 설정을 제안하세요.\n3. 사용자가 자신에 대한 사실을 물어보는데 기억에 없으면 \"기억에 없습니다\"라고 답하세요.\n4. 기억에 없는 **사실**을 절대 지어내지 마세요.\n5. 여러 기억을 종합해서 답할 수 있으면 종합하세요.\n\n---\n**기억 분석:**\n- \"동생 이름은 김바다\"\n- \"동생은 디자이너로 일하고 있어\"\n",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-06-MEM: PASS — 응답에 \"김바다\" 포함.",
+				"memories": [
+					"동생 이름은 김바다",
+					"동생은 디자이너로 일하고 있어",
+					"이름은 김하늘",
+					"성수동에 살아",
+					"스타트업 대표",
+					"개인 AI 앱을 만들고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"회사는 AI 스타트업이야",
+					"매운 음식 잘 못 먹어",
+					"순한 맛 위주로 먹어"
+				]
+			}
+		},
+		{
+			"id": "DIRE-07",
+			"capability": "direct_recall",
+			"query": "내 OS가 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님의 OS는 Fedora입니다. 불변 OS를 선호하신다고 말씀해주셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-07-MEM: PASS — 응답에 \"Fedora\" 포함.",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"불변 OS가 좋다",
+					"GUI 클라이언트는 안 써",
+					"다크모드 좋아함",
+					"에디터는 Neovim 쓰고 있어",
+					"회사는 AI 스타트업이야",
+					"스타트업 대표",
+					"주로 TypeScript로 개발하고 있어",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "DIRE-08",
+			"capability": "direct_recall",
+			"query": "내 취미가 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "주말에는 주로 러닝을 하고, 특히 한강 달리는 것을 좋아하시는군요!",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-08-MEM: PASS — 응답에 \"러닝\" 포함.",
+				"memories": [
+					"주말에 주로 러닝을 한다",
+					"다크모드 좋아함",
+					"한강 달리기 좋아한다",
+					"오후에는 집중 코딩 시간이다",
+					"순한 맛 위주로 먹어",
+					"커피는 아메리카노만 마신다",
+					"에디터는 Neovim 쓰고 있어",
+					"매운 음식 잘 못 먹어",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다"
+				]
+			}
+		},
+		{
+			"id": "DIRE-09",
+			"capability": "direct_recall",
+			"query": "나 Git 어떻게 써?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "하늘님은 Git을 CLI로만 사용하고, GUI 클라이언트는 사용하지 않으세요. 그래서 터미널에서 명령어를 직접 입력하여 Git을 사용하십니다.\n\n자주 사용하시는 Git CLI 명령어는 다음과 같습니다:\n\n*   **`git init`**: 현재 디렉토리를 새로운 Git 저장소로 초기화합니다.\n*   **`git clone [url]`**: 원격 저장소의 내용을 로컬로 복제합니다.\n*   **`git add [파일 또는 디렉토리]`**: 변경된 파일을 스테이징 영역에 추가합니다. `git add .`은 모든 변경사항을 추가합니다.\n*   **`git commit -m \"[커밋 메시지]\"`**: 스테이징 영역의 변경사항을 로컬 저장소에 기록합니다. 메시지는 변경 내용을 요약합니다.\n*   **`git statu",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | DIRE-09-MEM: PASS — 응답에 \"CLI\" 포함.",
+				"memories": [
+					"Git은 CLI만 써",
+					"에디터는 Neovim 쓰고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"GUI 클라이언트는 안 써",
+					"OS는 Fedora를 쓰고 있다",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"오후에는 집중 코딩 시간이다",
+					"풀스택 개발자",
+					"이름은 김하늘",
+					"주말에 주로 러닝을 한다"
+				]
+			}
+		},
+		{
+			"id": "SEMA-10",
+			"capability": "semantic_search",
+			"query": "내 개발 환경 어떻게 되지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "기억을 종합해 볼 때, 사용자님의 개발 환경은 다음과 같습니다:\n\n*   **운영체제:** Fedora\n*   **주력 언어:** TypeScript\n*   **주력 에디터:** Neovim\n*   **주력 프레임워크:** Next.js (프론트엔드), FastAPI (백엔드)\n*   **개발 역할:** 풀스택 개발자 (개인 AI 앱 개발 중)\n*   **기타:** GUI 클라이언트는 사용하지 않으시고, 다크모드를 선호하십니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-10-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"주로 TypeScript로 개발하고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"풀스택 개발자",
+					"개인 AI 앱을 만들고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"GUI 클라이언트는 안 써",
+					"다크모드 좋아함",
+					"주말에 주로 러닝을 한다"
+				]
+			}
+		},
+		{
+			"id": "SEMA-11",
+			"capability": "semantic_search",
+			"query": "내 기술 스택 알려줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "알겠습니다! 제가 기억하는 한, 당신의 기술 스택은 다음과 같습니다:\n\n*   **역할:** 풀스택 개발자\n*   **주요 프레임워크:** Next.js, FastAPI\n*   **주요 언어:** TypeScript\n*   **에디터:** Neovim\n*   **운영체제:** Fedora\n*   **기타:** 개인 AI 앱을 개발 중이며, GUI 클라이언트는 사용하지 않습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-11-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
+				"memories": [
+					"풀스택 개발자",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"주로 TypeScript로 개발하고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"개인 AI 앱을 만들고 있어",
+					"스타트업 대표",
+					"회사는 AI 스타트업이야",
+					"GUI 클라이언트는 안 써",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "SEMA-12",
+			"capability": "semantic_search",
+			"query": "나 뭘로 코딩해?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "주로 **TypeScript**로 개발하고 계시고, 에디터는 **Neovim**을 사용하고 계세요. 프레임워크로는 **Next.js**와 **FastAPI**를 주로 쓰신다고 말씀해주셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-12-MEM: PASS — TypeScript, Neovim, Next.js, FastAPI 모두 ",
+				"memories": [
+					"오후에는 집중 코딩 시간이다",
+					"주로 TypeScript로 개발하고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"개인 AI 앱을 만들고 있어",
+					"풀스택 개발자",
+					"주말에 주로 러닝을 한다",
+					"GUI 클라이언트는 안 써",
+					"탭 인덴트 선호함"
+				]
+			}
+		},
+		{
+			"id": "SEMA-13",
+			"capability": "semantic_search",
+			"query": "내 로컬 셋업 어때?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님은 Fedora를 운영체제로 사용하시고, 에디터로는 Neovim을 쓰시는 것으로 보아 CLI 기반의 개발 환경을 선호하시는 것 같아요. 특히 GUI 클라이언트를 사용하지 않으신다고 하셨죠.\n\n주로 TypeScript로 개인 AI 앱을 개발하고 계시며, 다크모드를 좋아하시는군요. 전반적으로 효율적이고 터미널 중심적인 셋업을 가지고 계신 것으로 생각됩니다!",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-13-MEM: PASS — TypeScript, Fedora 포함 (2개).",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"에디터는 Neovim 쓰고 있어",
+					"주말에 주로 러닝을 한다",
+					"성수동에 살아",
+					"GUI 클라이언트는 안 써",
+					"다크모드 좋아함",
+					"스타트업 대표",
+					"한강 달리기 좋아한다",
+					"주로 TypeScript로 개발하고 있어",
+					"개인 AI 앱을 만들고 있어"
+				]
+			}
+		},
+		{
+			"id": "SEMA-14",
+			"capability": "semantic_search",
+			"query": "내 작업 스타일이 어때?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님은 오후 시간을 **집중 코딩 시간**으로 활용하시고, 주로 **TypeScript**를 사용해 개발하고 계세요. 개발 환경은 **Neovim** 에디터와 **Fedora** OS를 선호하시고, 코드 작성 시 **탭 인덴트**를 사용하시는 것을 좋아하세요.\n\n또한, **스타트업 대표**로서 바쁘게 일하고 계십니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-14-MEM: PASS — \"오후\", \"탭\", \"코딩\" 포함 (3개).",
+				"memories": [
+					"오후에는 집중 코딩 시간이다",
+					"주로 TypeScript로 개발하고 있어",
+					"순한 맛 위주로 먹어",
+					"다크모드 좋아함",
+					"주말에 주로 러닝을 한다",
+					"탭 인덴트 선호함",
+					"에디터는 Neovim 쓰고 있어",
+					"동생은 디자이너로 일하고 있어",
+					"스타트업 대표",
+					"OS는 Fedora를 쓰고 있다"
+				]
+			}
+		},
+		{
+			"id": "SEMA-15",
+			"capability": "semantic_search",
+			"query": "나 음식 취향이 어때?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "하늘님은 순한 맛 위주로 드시는 편이고, 매운 음식은 잘 못 드시는 취향이세요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-15-MEM: PASS — \"순한\", \"매운\" 포함 (2개).",
+				"memories": [
+					"순한 맛 위주로 먹어",
+					"매운 음식 잘 못 먹어",
+					"다크모드 좋아함",
+					"커피는 아메리카노만 마신다",
+					"한강 달리기 좋아한다",
+					"주말에 주로 러닝을 한다",
+					"탭 인덴트 선호함",
+					"이름은 김하늘",
+					"주로 TypeScript로 개발하고 있어",
+					"개인 AI 앱을 만들고 있어"
+				]
+			}
+		},
+		{
+			"id": "SEMA-16",
+			"capability": "semantic_search",
+			"query": "주말에 뭐 하지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "주말에는 주로 러닝을 하시죠! 특히 한강 달리기 좋아하시니, 성수동에서 가까운 한강변을 따라 뛰어보시는 건 어떠세요?",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-16-MEM: PASS — \"러닝\", \"한강\" 모두 포함 (2개).",
+				"memories": [
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"순한 맛 위주로 먹어",
+					"성수동에 살아",
+					"다음 주 목요일에 투자자 미팅이 있어",
+					"개인 AI 앱을 만들고 있어",
+					"한강 달리기 좋아한다",
+					"스타트업 대표",
+					"커피는 아메리카노만 마신다",
+					"에디터는 Neovim 쓰고 있어"
+				]
+			}
+		},
+		{
+			"id": "SEMA-17",
+			"capability": "semantic_search",
+			"query": "내가 백엔드로 뭘 쓰지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "주로 FastAPI를 백엔드로 사용하고 있어요. 개발은 TypeScript로 하신다고 했던 것도 기억합니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-17-MEM: PASS — \"FastAPI\" 포함.",
+				"memories": [
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"풀스택 개발자",
+					"에디터는 Neovim 쓰고 있어",
+					"GUI 클라이언트는 안 써",
+					"오후에는 집중 코딩 시간이다",
+					"주말에 주로 러닝을 한다",
+					"개인 AI 앱을 만들고 있어",
+					"한강 달리기 좋아한다"
+				]
+			}
+		},
+		{
+			"id": "SEMA-18",
+			"capability": "semantic_search",
+			"query": "우리 회사가 뭐 만들어?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "당신 회사(AI 스타트업)는 개인 AI 앱을 만들고 있습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | SEMA-18-MEM: PASS — \"AI\", \"앱\" 모두 포함 (2개).",
+				"memories": [
+					"회사는 AI 스타트업이야",
+					"개인 AI 앱을 만들고 있어",
+					"스타트업 대표",
+					"OS는 Fedora를 쓰고 있다",
+					"주로 TypeScript로 개발하고 있어",
+					"동생은 디자이너로 일하고 있어",
+					"순한 맛 위주로 먹어",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"이름은 김하늘",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "PROA-19",
+			"capability": "proactive_recall",
+			"query": "에디터 설정 좀 도와줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "Neovim 설정에 도움을 드릴 수 있습니다!\n\n기억하고 있는 당신의 선",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | PROA-19-MEM: PASS — \"Neovim\" 포함, 금지 키워드 없음.",
+				"memories": [
+					"에디터는 Neovim 쓰고 있어",
+					"탭 인덴트 선호함",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"순한 맛 위주로 먹어",
+					"오후에는 집중 코딩 시간이다",
+					"GUI 클라이언트는 안 써",
+					"스타트업 대표",
+					"주말에 주로 러닝을 한다",
+					"매운 음식 잘 못 먹어"
+				]
+			}
+		},
+		{
+			"id": "PROA-20",
+			"capability": "proactive_recall",
+			"query": "새 API 서버 만들어볼까",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "네, 좋아요! 새로운 API 서버를 만들어볼까요?\n\n주로 **FastAPI**를",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | PROA-20-MEM: PASS — \"FastAPI\" 포함, 금지 키워드 없음.",
+				"memories": [
+					"개인 AI 앱을 만들고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"풀스택 개발자",
+					"에디터는 Neovim 쓰고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"GUI 클라이언트는 안 써",
+					"스타트업 대표",
+					"다음 주 목요일에 투자자 미팅이 있어"
+				]
+			}
+		},
+		{
+			"id": "PROA-21",
+			"capability": "proactive_recall",
+			"query": "이 코드 리팩토링 좀 해줘: function hello() { return 'hi' }",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "주로 TypeScript로 개발하시는 걸 기억하고 있습니다. 해당 함수를 TypeScript 스타일로 리팩토링해드릴게요.\n\n",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | PROA-21-MEM: PASS — \"TypeScript\" 포함.",
+				"memories": [
+					"오후에는 집중 코딩 시간이다",
+					"커피는 아메리카노만 마신다",
+					"주로 TypeScript로 개발하고 있어",
+					"불변 OS가 좋다",
+					"다크모드 좋아함",
+					"이름은 김하늘",
+					"에디터는 Neovim 쓰고 있어",
+					"한강 달리기 좋아한다",
+					"Git은 CLI만 써",
+					"순한 맛 위주로 먹어"
+				]
+			}
+		},
+		{
+			"id": "PROA-22",
+			"capability": "proactive_recall",
+			"query": "새 프로젝트 설정 파일 만들어줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "새 프로젝트 설정 파일을 만들어 드릴게요. 주로 TypeScript를 사용하시고 Neovim을 에디",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | PROA-22-MEM: FAIL — 응답이 잘려서 \"탭\" 키워드 미포함, 금지 키워드도 없으나 기대 키워드 ",
+				"memories": [
+					"개인 AI 앱을 만들고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"스타트업 대표",
+					"풀스택 개발자",
+					"GUI 클라이언트는 안 써",
+					"탭 인덴트 선호함",
+					"다크모드 좋아함"
+				]
+			}
+		},
+		{
+			"id": "PROA-23",
+			"capability": "proactive_recall",
+			"query": "패키지 설치 어떻게 해?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "Fedora를 사용하고 계시니 `dnf`를 이용해서 패키지를 설치하시면 됩니다.\n\n터미널에서 다음과 같이 입력해보세요:\n\n```bash\nsudo dnf install [패키지_이름]\n```\n\n`[패키지_이름]` 부분에 설치하고 싶은 패키지의 이름을 넣으면 됩니다. 예를 들어, `git`을 설치하고 싶다면 `sudo dnf install git`이 되겠죠.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | PROA-23-MEM: PASS — \"Fedora\" 포함, 금지 키워드(apt, Ubuntu) 없음.",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"에디터는 Neovim 쓰고 있어",
+					"GUI 클라이언트는 안 써",
+					"탭 인덴트 선호함",
+					"주로 TypeScript로 개발하고 있어",
+					"Git은 CLI만 써",
+					"다크모드 좋아함",
+					"오후에는 집중 코딩 시간이다",
+					"주말에 주로 러닝을 한다",
+					"순한 맛 위주로 먹어"
+				]
+			}
+		},
+		{
+			"id": "ABST-24",
+			"capability": "abstention",
+			"query": "내가 Docker 관련해서 뭐라고 했었지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "Docker 관련해서는 기억에 없습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-24-MEM: PASS — \"기억에 없습니다\"로 거절, 정보 지어내지 않음.",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"에디터는 Neovim 쓰고 있어",
+					"Git은 CLI만 써",
+					"한강 달리기 좋아한다",
+					"GUI 클라이언트는 안 써",
+					"오후에는 집중 코딩 시간이다",
+					"커피는 아메리카노만 마신다",
+					"불변 OS가 좋다",
+					"다크모드 좋아함",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다"
+				]
+			}
+		},
+		{
+			"id": "ABST-25",
+			"capability": "abstention",
+			"query": "내가 좋아하는 게임이 뭐였지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "죄송합니다. 기억에 없습니다. 제가 알고 있는 정보에는 사용자님이 어떤 게임을 좋아하는지에 대한 내용은 없네요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-25-MEM: PASS — \"기억에 없습니다\"로 거절.",
+				"memories": [
+					"다크모드 좋아함",
+					"한강 달리기 좋아한다",
+					"주말에 주로 러닝을 한다",
+					"탭 인덴트 선호함",
+					"순한 맛 위주로 먹어",
+					"OS는 Fedora를 쓰고 있다",
+					"주로 TypeScript로 개발하고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"GUI 클라이언트는 안 써",
+					"에디터는 Neovim 쓰고 있어"
+				]
+			}
+		},
+		{
+			"id": "ABST-26",
+			"capability": "abstention",
+			"query": "내가 AWS 쓴다고 했나?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "기억에 없습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-26-MEM: PASS — \"말씀하신 적은 없습니다\"로 거절.",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"에디터는 Neovim 쓰고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"GUI 클라이언트는 안 써",
+					"커피는 아메리카노만 마신다",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"Git은 CLI만 써",
+					"개인 AI 앱을 만들고 있어",
+					"스타트업 대표",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "ABST-27",
+			"capability": "abstention",
+			"query": "내 차가 뭐였지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "생각나는 정보가 없습니다. 차에 대한 정보는 제가 가지고 있지 않네요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-27-MEM: PASS — \"생각나는 정보가 없습니다\"로 거절.",
+				"memories": [
+					"OS는 Fedora를 쓰고 있다",
+					"순한 맛 위주로 먹어",
+					"성수동에 살아",
+					"오후에는 집중 코딩 시간이다",
+					"주말에 주로 러닝을 한다",
+					"다크모드 좋아함",
+					"에디터는 Neovim 쓰고 있어",
+					"개인 AI 앱을 만들고 있어",
+					"GUI 클라이언트는 안 써",
+					"동생 이름은 김바다"
+				]
+			}
+		},
+		{
+			"id": "ABST-28",
+			"capability": "abstention",
+			"query": "내가 일본어 할 줄 안다고 했었나?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "아니요, 제가 기억하는 내용 중에는 하늘님이 일본어를 할 줄 아신다는 사실은 없습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-28-MEM: PASS — \"없습니다\"로 거절.",
+				"memories": [
+					"매운 음식 잘 못 먹어",
+					"에디터는 Neovim 쓰고 있어",
+					"이름은 김하늘",
+					"회사는 AI 스타트업이야",
+					"개인 AI 앱을 만들고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"동생은 디자이너로 일하고 있어",
+					"순한 맛 위주로 먹어",
+					"스타트업 대표"
+				]
+			}
+		},
+		{
+			"id": "ABST-29",
+			"capability": "abstention",
+			"query": "나 고양이 키운다고 했지?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "죄송합니다. 제가 가지고 있는 기억에는 사용자님이 고양이를 키우신다는 정보는 없습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-29-MEM: PASS — \"없습니다\"로 거절.",
+				"memories": [
+					"커피는 아메리카노만 마신다",
+					"순한 맛 위주로 먹어",
+					"개인 AI 앱을 만들고 있어",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"다음 주 목요일에 투자자 미팅이 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"매운 음식 잘 못 먹어",
+					"스타트업 대표",
+					"동생은 디자이너로 일하고 있어"
+				]
+			}
+		},
+		{
+			"id": "ABST-30",
+			"capability": "abstention",
+			"query": "내가 Nuxt.js 쓴다고 했었나?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "기억에 없습니다. 당신은 Next.js와 FastAPI를 주로 사용한다고 말씀해주셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-30-MEM: PASS — Nuxt.js는 거절하고, 관련 기억(Next.js, FastAPI)을 ",
+				"memories": [
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"주로 TypeScript로 개발하고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"개인 AI 앱을 만들고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"OS는 Fedora를 쓰고 있다",
+					"순한 맛 위주로 먹어",
+					"풀스택 개발자",
+					"GUI 클라이언트는 안 써",
+					"다크모드 좋아함"
+				]
+			}
+		},
+		{
+			"id": "ABST-31",
+			"capability": "abstention",
+			"query": "내가 차 좋아한다고 했지? 녹차?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "죄송합니다. 제가 가진 기억에는 사용자님이 차를 좋아하신다는 내용은 없습니다. 커피는 아메리카노만 마신다고 말씀해 주셨던 것은 기억하고 있어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ABST-31-MEM: PASS — 차(녹차)는 거절하고, 관련 기억(아메리카노)을 구분하여 언급.",
+				"memories": [
+					"커피는 아메리카노만 마신다",
+					"다크모드 좋아함",
+					"순한 맛 위주로 먹어",
+					"한강 달리기 좋아한다",
+					"오후에는 집중 코딩 시간이다",
+					"매운 음식 잘 못 먹어",
+					"탭 인덴트 선호함",
+					"주말에 주로 러닝을 한다",
+					"개인 AI 앱을 만들고 있어",
+					"주로 TypeScript로 개발하고 있어"
+				]
+			}
+		},
+		{
+			"id": "ABST-32",
+			"capability": "abstention",
+			"query": "나 수영 한다고 했었나?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "음, 제가 기억하는 바로는 수영을 하신다는 내용은 없었어요. 한강 달리기나 주말 러닝에 대한 기억은 있네요!",
+				"pass": true,
+				"reason": "LLM:P KW:2/3 → PASS | ABST-32-MEM: PASS — 수영은 거절하고, 관련 기억(러닝)을 구분하여 언급.",
+				"memories": [
+					"한강 달리기 좋아한다",
+					"주말에 주로 러닝을 한다",
+					"매운 음식 잘 못 먹어",
+					"이름은 김하늘",
+					"동생 이름은 김바다",
+					"성수동에 살아",
+					"순한 맛 위주로 먹어",
+					"커피는 아메리카노만 마신다",
+					"다크모드 좋아함",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "IRRE-33",
+			"capability": "irrelevant_isolation",
+			"query": "오늘 날씨 어때?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "저는 현재 날씨 정보를 알 수 없습니다. 인터넷에 검색해 보시거나 날씨 앱을 확인해 보시면 정확한 정보를 얻으실 수 있을 거예요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | IRRE-33-MEM: PASS — 금지 키워드(김하늘, 성수동, Neovim, TypeScript) 없음.",
+				"memories": [
+					"오후에는 집중 코딩 시간이다",
+					"다음 주 목요일에 투자자 미팅이 있어",
+					"매운 음식 잘 못 먹어",
+					"이름은 김하늘",
+					"순한 맛 위주로 먹어",
+					"미팅은 오전에 하는 게 좋아",
+					"에디터는 Neovim 쓰고 있어",
+					"주말에 주로 러닝을 한다",
+					"다크모드 좋아함",
+					"스타트업 대표"
+				]
+			}
+		},
+		{
+			"id": "IRRE-34",
+			"capability": "irrelevant_isolation",
+			"query": "파이썬에서 리스트 컴프리헨션 문법이 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "파이썬의 리스트 컴프리헨션(List Comprehension)은 리스트를 생성하는 간결하고 효율적인 방법이에요. 기존 리스트나 다른 이터러블(iterable)을 기반으로 새로운 리스트를 만들 때 주로 사용됩니다.\n\n기본적인 구조는 다음과 같아요:\n\n```python\n[표현식 for 항목 in 이터러블 if 조건]\n```\n\n*   `표현식`: 새로운 리스트의 각 요소가 될 값 또는 연산입니다.\n*   `항목`: 이터러블에서 가져온 각 요소입니다.\n*   `이터러블`: 리스트, 튜플, 문자열, range 객체 등 반복 가능한 객체입니다.\n*   `if 조건` (선택 사항): 조건을 만족하는 항목만 새 리스트에 포함됩니다.\n\n예를 들어, 1부터 10까지의 숫자 중에서 짝수만 포함하는 리스트를 만들고 싶다면:\n\n*",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | IRRE-34-MEM: PASS — 금지 키워드(김하늘, Neovim, FastAPI) 없음.",
+				"memories": [
+					"에디터는 Neovim 쓰고 있어",
+					"탭 인덴트 선호함",
+					"다크모드 좋아함",
+					"오후에는 집중 코딩 시간이다",
+					"커피는 아메리카노만 마신다",
+					"회사는 AI 스타트업이야",
+					"OS는 Fedora를 쓰고 있다",
+					"개인 AI 앱을 만들고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다"
+				]
+			}
+		},
+		{
+			"id": "IRRE-35",
+			"capability": "irrelevant_isolation",
+			"query": "HTTP 상태코드 404가 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "HTTP 상태코드 404는 \"Not Found\"를 의미해요.\n\n클라이언트(브라우저 등)가 서버에 어떤 리소스를 요청했지만, 서버가 해당 리소스를 찾을 수 없을 때 반환하는 표준 응답 코드입니다.\n\n예를 들어, 웹사이트 주소를 잘못 입력했거나, 더 이상 존재하지 않는 페이지에 접속하려고 할 때 이 상태코드를 보게 될 거예요. 서버는 요청 자체를 이해했지만, 요청된 URL에 해당하는 콘텐츠를 가지고 있지 않다는 것을 알려주는 코드죠.",
+				"pass": false,
+				"reason": "LLM:F KW:3/3 → FAIL | IRRE-35-MEM: FAIL — 금지 키워드는 없으나, \"Next.js나 FastAPI로 개발하실 때\"라",
+				"memories": [
+					"오후에는 집중 코딩 시간이다",
+					"풀스택 개발자",
+					"OS는 Fedora를 쓰고 있다",
+					"GUI 클라이언트는 안 써",
+					"Git은 CLI만 써",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"다크모드 좋아함",
+					"주말에 주로 러닝을 한다",
+					"주로 TypeScript로 개발하고 있어",
+					"에디터는 Neovim 쓰고 있어"
+				]
+			}
+		},
+		{
+			"id": "MULT-36",
+			"capability": "multi_fact_synthesis",
+			"query": "새 프로젝트 하나 세팅해줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "알겠습니다! 새 프로젝트를 TypeScript로 설정해 드릴게요. Fedora 환경에 맞게 터미",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | MULT-36-MEM: PASS — \"TypeScript\" 포함.",
+				"memories": [
+					"개인 AI 앱을 만들고 있어",
+					"에디터는 Neovim 쓰고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"OS는 Fedora를 쓰고 있다",
+					"주로 TypeScript로 개발하고 있어",
+					"스타트업 대표",
+					"다음 주 목요일에 투자자 미팅이 있어",
+					"순한 맛 위주로 먹어",
+					"회사는 AI 스타트업이야",
+					"GUI 클라이언트는 안 써"
+				]
+			}
+		},
+		{
+			"id": "MULT-37",
+			"capability": "multi_fact_synthesis",
+			"query": "내 개발 머신 세팅 가이드 만들어줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "풀스택 개발자이시자 TypeScript, Next.js, FastAPI를 주로 사용하시며",
+				"pass": false,
+				"reason": "LLM:P KW:1/3 → FAIL | MULT-37-MEM: PASS — 응답이 잘렸으나 문맥상 Fedora/Neovim 등 언급 가능성 높음. ",
+				"memories": [
+					"에디터는 Neovim 쓰고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"개인 AI 앱을 만들고 있어",
+					"풀스택 개발자",
+					"주로 TypeScript로 개발하고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"GUI 클라이언트는 안 써",
+					"다크모드 좋아함",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"Git은 CLI만 써"
+				]
+			}
+		},
+		{
+			"id": "MULT-38",
+			"capability": "multi_fact_synthesis",
+			"query": "내 소개 한 줄로 써줘",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "네, 김하늘님은 성수동에 살고 계시고, 스타트업 대표님이시며 주말에 한강에서 러닝을 즐기시는 분입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | MULT-38-MEM: PASS — \"김하늘\", \"스타트업\" 포함.",
+				"memories": [
+					"스타트업 대표",
+					"순한 맛 위주로 먹어",
+					"매운 음식 잘 못 먹어",
+					"성수동에 살아",
+					"이름은 김하늘",
+					"에디터는 Neovim 쓰고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"한강 달리기 좋아한다",
+					"다크모드 좋아함",
+					"주말에 주로 러닝을 한다"
+				]
+			}
+		},
+		{
+			"id": "ENTI-39",
+			"capability": "entity_disambiguation",
+			"query": "근데 내 에디터는 뭐야?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님의 에디터는 Neovim입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ENTI-39-MEM: PASS — \"Neovim\" 포함, 금지 키워드(\"Vim을 쓰\") 없음.",
+				"memories": [
+					"에디터는 Neovim 쓰고 있어",
+					"내 동료는 Vim을 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"탭 인덴트 선호함",
+					"다크모드 좋아함",
+					"동생은 디자이너로 일하고 있어",
+					"스타트업 대표",
+					"GUI 클라이언트는 안 써",
+					"주말에 주로 러닝을 한다",
+					"순한 맛 위주로 먹어"
+				]
+			}
+		},
+		{
+			"id": "ENTI-40",
+			"capability": "entity_disambiguation",
+			"query": "나는 뭘로 프론트 만들어?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "Next.js를 주로 사용해서 프론트엔드를 만드세요. TypeScript로 개발하고 계신다는 점과 잘 맞겠네요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | ENTI-40-MEM: PASS — \"Next.js\" 포함, 금지 키워드(React Native) 없음.",
+				"memories": [
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"개인 AI 앱을 만들고 있어",
+					"주로 TypeScript로 개발하고 있어",
+					"풀스택 개발자",
+					"오후에는 집중 코딩 시간이다",
+					"OS는 Fedora를 쓰고 있다",
+					"GUI 클라이언트는 안 써",
+					"순한 맛 위주로 먹어",
+					"스타트업 대표",
+					"주말에 주로 러닝을 한다"
+				]
+			}
+		},
+		{
+			"id": "ENTI-41",
+			"capability": "entity_disambiguation",
+			"query": "나는 뭐하는 사람이야?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "당신은 AI 스타트업의 대표 김하늘 님이세요. 성수동에 살고 계시고, 개인 AI 앱을 TypeScript로 개발하고 있습니다. 주말에는 주로 한강에서 러닝을 즐기십니다. OS는 Fedora를 사용하고 계시고, 동료분은 Vim을 사용하시는군요.",
+				"pass": false,
+				"reason": "LLM:P KW:0/3 → FAIL | ENTI-41-MEM: PASS — \"대표\"/\"개발\"로 개발자 의미 포함. 금지 키워드 \"디자이너\"는 없음 ",
+				"memories": [
+					"스타트업 대표",
+					"회사는 AI 스타트업이야",
+					"이름은 김하늘",
+					"성수동에 살아",
+					"주말에 주로 러닝을 한다",
+					"내 동료는 Vim을 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"한강 달리기 좋아한다",
+					"개인 AI 앱을 만들고 있어",
+					"주로 TypeScript로 개발하고 있어"
+				]
+			}
+		},
+		{
+			"id": "ENTI-42",
+			"capability": "entity_disambiguation",
+			"query": "내 인덴트 스타일은?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "팀원 중 한 명이 공백(spaces)을 사용하는 것을 제안해서, 아마 공백으로 인덴트를 하고 계실 것 같습니다.",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | ENTI-42-MEM: FAIL — 응답이 \"공백(spaces)\"이라 답하고 있으며, 기대 키워드 \"탭\" 미",
+				"memories": [
+					"내 동료는 Vim을 쓴다",
+					"에디터는 Neovim 쓰고 있어",
+					"순한 맛 위주로 먹어",
+					"오후에는 집중 코딩 시간이다",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"커피는 아메리카노만 마신다",
+					"주말에 주로 러닝을 한다",
+					"Team member suggested using spaces",
+					"주로 TypeScript로 개발하고 있어"
+				]
+			}
+		},
+		{
+			"id": "CONT-43",
+			"capability": "contradiction_direct",
+			"query": "내가 쓰는 에디터 뭐야?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "음, 현재 사용하시는 에디터는 **Cursor**입니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | CONT-43-MEM: PASS — \"Cursor\" 포함, 금지 키워드 \"Neovim\" 없음.",
+				"memories": [
+					"바꿨어 에디터 Cursor로",
+					"내 동료는 Vim을 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"GUI 클라이언트는 안 써",
+					"Git은 CLI만 써",
+					"다크모드 좋아함",
+					"주로 TypeScript로 개발하고 있어",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"회사는 AI 스타트업이야"
+				]
+			}
+		},
+		{
+			"id": "CONT-44",
+			"capability": "contradiction_direct",
+			"query": "나 어디 살아?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "이번 달에 판교로 이사하셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | CONT-44-MEM: PASS — \"판교\" 포함, 금지 키워드 \"성수동\" 없음.",
+				"memories": [
+					"이번 달에 판교로 이사함",
+					"주말에 주로 러닝을 한다",
+					"개인 AI 앱을 만들고 있어",
+					"내 동료는 Vim을 쓴다",
+					"스타트업 대표",
+					"바꿨어 에디터 Cursor로",
+					"한강 달리기 좋아한다",
+					"회사는 AI 스타트업이야",
+					"이름은 김하늘",
+					"매운 음식 잘 못 먹어"
+				]
+			}
+		},
+		{
+			"id": "CONT-45",
+			"capability": "contradiction_direct",
+			"query": "나 Git 뭘로 써?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "생각나는 대로 말씀드리자면, 이제 GitKraken을 쓰기로 하셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | CONT-45-MEM: PASS — \"GitKraken\" 포함, 금지 키워드 \"CLI만\" 없음.",
+				"memories": [
+					"Git은 이제 GitKraken 쓰기로 했다",
+					"내 동료는 Vim을 쓴다",
+					"주로 TypeScript로 개발하고 있어",
+					"프레임워크는 Next.js랑 FastAPI를 주로 쓴다",
+					"OS는 Fedora를 쓰고 있다",
+					"바꿨어 에디터 Cursor로",
+					"오후에는 집중 코딩 시간이다",
+					"주말에 주로 러닝을 한다",
+					"다크모드 좋아함",
+					"개인 AI 앱을 만들고 있어"
+				]
+			}
+		},
+		{
+			"id": "CONT-46",
+			"capability": "contradiction_indirect",
+			"query": "내가 요즘 관심 있는 거 뭐야?",
+			"weight": 0,
+			"isBonus": true,
+			"withMemory": {
+				"response": "현재 기억하고 있는 정보로는 사용자님께서 **개인 AI 앱을 만들고 계신다**는 점이 가장 큰 관심사로 보입니다!",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | CONT-46-MEM: FAIL — 기대 키워드(Python, Django) 미포함.",
+				"memories": [
+					"다크모드 좋아함",
+					"오후에는 집중 코딩 시간이다",
+					"주말에 주로 러닝을 한다",
+					"개인 AI 앱을 만들고 있어",
+					"한강 달리기 좋아한다",
+					"순한 맛 위주로 먹어",
+					"OS는 Fedora를 쓰고 있다",
+					"이번 달에 판교로 이사함",
+					"커피는 아메리카노만 마신다",
+					"주로 TypeScript로 개발하고 있어"
+				]
+			}
+		},
+		{
+			"id": "CONT-47",
+			"capability": "contradiction_indirect",
+			"query": "에디터 관련해서 요즘 어때?",
+			"weight": 0,
+			"isBonus": true,
+			"withMemory": {
+				"response": "요즘 에디터는 Cursor로 바꾸셨다고 말씀해주셨죠! VS Code도 편하다고 하셨던 기억이 나네요. 주로 TypeScript로 개발하시니, Cursor가 TypeScript 개발 환경에 잘 맞아서 만족하시는지 궁금하네요!",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | CONT-47-MEM: PASS — \"VS Code\", \"편하\" 모두 포함.",
+				"memories": [
+					"바꿨어 에디터 Cursor로",
+					"내 동료는 Vim을 쓴다",
+					"VS Code가 생각보다 편하다",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"주로 TypeScript로 개발하고 있어",
+					"오후에는 집중 코딩 시간이다",
+					"순한 맛 위주로 먹어",
+					"Git은 이제 GitKraken 쓰기로 했다",
+					"이번 달에 판교로 이사함"
+				]
+			}
+		},
+		{
+			"id": "UNCH-48",
+			"capability": "unchanged_persistence",
+			"query": "내 인덴트 스타일은?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "팀 멤버가 스페이스를 사용하는 것을 제안했던 기억이 있습니다. 그래서 스페이스를 사용하시는 것으로 생각됩니다.",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | UNCH-48-MEM: FAIL — \"스페이스\"라 답하고 있으며, 기대 키워드 \"탭\" 미포함.",
+				"memories": [
+					"내 동료는 Vim을 쓴다",
+					"순한 맛 위주로 먹어",
+					"오후에는 집중 코딩 시간이다",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"VS Code가 생각보다 편하다",
+					"바꿨어 에디터 Cursor로",
+					"커피는 아메리카노만 마신다",
+					"주말에 주로 러닝을 한다",
+					"Team member suggested using spaces"
+				]
+			}
+		},
+		{
+			"id": "UNCH-49",
+			"capability": "unchanged_persistence",
+			"query": "내가 좋아하는 커피는?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "기억을 더듬어보면, 사용자님은 아메리카노만 마시는 것을 좋아하세요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | UNCH-49-MEM: PASS — \"아메리카노\" 포함.",
+				"memories": [
+					"커피는 아메리카노만 마신다",
+					"다크모드 좋아함",
+					"한강 달리기 좋아한다",
+					"순한 맛 위주로 먹어",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"매운 음식 잘 못 먹어",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다",
+					"내 동료는 Vim을 쓴다"
+				]
+			}
+		},
+		{
+			"id": "UNCH-50",
+			"capability": "unchanged_persistence",
+			"query": "내 취미가 뭐야?",
+			"weight": 1,
+			"isBonus": false,
+			"withMemory": {
+				"response": "기억에 따르면, 주말에 주로 러닝을 하시며 한강 달리기 좋아하시는 것으로 보아 **러닝**이 취미이신 것 같아요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | UNCH-50-MEM: PASS — \"러닝\" 포함.",
+				"memories": [
+					"주말에 주로 러닝을 한다",
+					"다크모드 좋아함",
+					"한강 달리기 좋아한다",
+					"오후에는 집중 코딩 시간이다",
+					"순한 맛 위주로 먹어",
+					"내 동료는 Vim을 쓴다",
+					"커피는 아메리카노만 마신다",
+					"매운 음식 잘 못 먹어",
+					"주로 TypeScript로 개발하고 있어",
+					"OS는 Fedora를 쓰고 있다"
+				]
+			}
+		},
+		{
+			"id": "TEMP-51",
+			"capability": "temporal_history",
+			"query": "내가 에디터 뭐 쓰다가 바꿨지?",
+			"weight": 0,
+			"isBonus": true,
+			"withMemory": {
+				"response": "잠시만요, 기억을 더듬어보겠습니다.\n\n원래는 VS Code가 생각보다 편하다고 하셨었는데, 에디터를 **Cursor**로 바꾸셨다고 말씀해주셨어요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | TEMP-51-MEM: PASS — \"Cursor\" 포함 (기대 키워드 중 하나).",
+				"memories": [
+					"바꿨어 에디터 Cursor로",
+					"내 동료는 Vim을 쓴다",
+					"VS Code가 생각보다 편하다",
+					"Git은 이제 GitKraken 쓰기로 했다",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"주로 TypeScript로 개발하고 있어",
+					"이번 달에 판교로 이사함",
+					"순한 맛 위주로 먹어",
+					"오후에는 집중 코딩 시간이다"
+				]
+			}
+		},
+		{
+			"id": "TEMP-52",
+			"capability": "temporal_history",
+			"query": "나 원래 어디 살았어?",
+			"weight": 0,
+			"isBonus": true,
+			"withMemory": {
+				"response": "기억에 없습니다. 이번 달에 판교로 이사 오셨다는 것은 기억하고 있습니다.",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | TEMP-52-MEM: FAIL — \"성수동\" 미포함, \"어디 사셨는지 기억에 없습니다\"라 답함.",
+				"memories": [
+					"이번 달에 판교로 이사함",
+					"주말에 주로 러닝을 한다",
+					"이름은 김하늘",
+					"바꿨어 에디터 Cursor로",
+					"순한 맛 위주로 먹어",
+					"내 동료는 Vim을 쓴다",
+					"회사는 AI 스타트업이야",
+					"스타트업 대표",
+					"개인 AI 앱을 만들고 있어",
+					"OS는 Fedora를 쓰고 있다"
+				]
+			}
+		},
+		{
+			"id": "NOIS-53",
+			"capability": "noise_resilience",
+			"query": "내 모니터 뭐야?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "음, 제 기억으로는 34인치 울트라와이드 모니터를 사용하고 계세요.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | NOIS-53-MEM: PASS — \"울트라와이드\", \"34인치\" 포함.",
+				"memories": [
+					"모니터는 34인치이다",
+					"모니터를 울트라와이드로 바꿨다",
+					"OS는 Fedora를 쓰고 있다",
+					"다크모드 좋아함",
+					"내 동료는 Vim을 쓴다",
+					"한강 달리기 좋아한다",
+					"주말에 주로 러닝을 한다",
+					"바꿨어 에디터 Cursor로",
+					"주로 TypeScript로 개발하고 있어",
+					"오늘 피곤하다"
+				]
+			}
+		},
+		{
+			"id": "NOIS-54",
+			"capability": "noise_resilience",
+			"query": "이번 주 일정에 뭐가 있어?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "음, 이번 주에 특별히 정해진 일정은 기억에 없습니다. 다음 주 목요일에는 투자자 미팅이 있는 건 알고 있어요.",
+				"pass": false,
+				"reason": "LLM:F KW:0/3 → FAIL | NOIS-54-MEM: FAIL — 기대 키워드(금요일, 회식) 미포함.",
+				"memories": [
+					"다음 주 목요일에 투자자 미팅이 있어",
+					"주말에 주로 러닝을 한다",
+					"오후에는 집중 코딩 시간이다",
+					"순한 맛 위주로 먹어",
+					"오늘 피곤하다",
+					"이번 달에 판교로 이사함",
+					"개인 AI 앱을 만들고 있어",
+					"점심에 순대국을 먹었다",
+					"미팅은 오전에 하는 게 좋아",
+					"매운 음식 잘 못 먹어"
+				]
+			}
+		},
+		{
+			"id": "NOIS-55",
+			"capability": "noise_resilience",
+			"query": "내가 알레르기 있는 거 뭐야?",
+			"weight": 2,
+			"isBonus": false,
+			"withMemory": {
+				"response": "사용자님은 새우 알레르기가 있습니다.",
+				"pass": true,
+				"reason": "LLM:P KW:3/3 → PASS | NOIS-55-MEM: PASS — \"새우\" 포함.",
+				"memories": [
+					"새우 알레르기가 있다",
+					"매운 음식 잘 못 먹어",
+					"순한 맛 위주로 먹어",
+					"OS는 Fedora를 쓰고 있다",
+					"커피는 아메리카노만 마신다",
+					"개인 AI 앱을 만들고 있어",
+					"주말에 주로 러닝을 한다",
+					"이번 달에 판교로 이사함",
+					"한강 달리기 좋아한다",
+					"어제 유튜브에서 웃긴 것을 봤다"
+				]
+			}
+		}
+	]
 }

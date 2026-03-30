@@ -1,13 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import { Logger } from "../lib/logger";
-import { usePanelStore } from "./panel";
 import type {
 	ChatMessage,
 	CostEntry,
 	ProviderId,
 	ToolCall,
 } from "../lib/types";
+import { usePanelStore } from "./panel";
 
 export interface PendingApproval {
 	requestId: string;
@@ -261,7 +261,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
 	clearPendingApproval: () => {
 		// browser panel 활성 중이고 실제 approval이 있었을 때만 show — setPendingApproval의 hide와 대칭
-		if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") {
+		if (
+			get().pendingApproval &&
+			usePanelStore.getState().activePanel === "browser"
+		) {
 			invoke("browser_embed_show").catch(() => {});
 		}
 		set({ pendingApproval: null });
@@ -269,7 +272,10 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
 	newConversation: () => {
 		// If approval was pending and browser is active, re-show Chrome before clearing
-		if (get().pendingApproval && usePanelStore.getState().activePanel === "browser") {
+		if (
+			get().pendingApproval &&
+			usePanelStore.getState().activePanel === "browser"
+		) {
 			invoke("browser_embed_show").catch(() => {});
 		}
 		set({

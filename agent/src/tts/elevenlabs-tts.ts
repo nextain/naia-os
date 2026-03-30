@@ -82,5 +82,6 @@ registerTtsProvider({
 	id: "elevenlabs",
 	name: "ElevenLabs",
 	requiresApiKey: true,
-	synthesize: (opts) => synthesizeElevenLabsSpeech(opts.text, opts.apiKey!, opts.voice),
+	synthesize: (opts) =>
+		synthesizeElevenLabsSpeech(opts.text, opts.apiKey!, opts.voice),
 });

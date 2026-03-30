@@ -7,7 +7,8 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
-import React, { useEffect } from "react";
+import type React from "react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { panelRegistry } from "../../lib/panel-registry";
 import type {
@@ -45,7 +46,6 @@ vi.mock("../../lib/config", () => ({
 
 vi.mock("@codemirror/view", () => ({
 	EditorView: class {
-		constructor() {}
 		destroy() {}
 		state = { doc: { toString: () => "" } };
 		dispatch() {}
@@ -82,7 +82,9 @@ vi.mock("@codemirror/theme-one-dark", () => ({
 }));
 
 vi.mock("react-markdown", () => ({
-	default: ({ children }: { children: string }) => <div data-testid="md-preview">{children}</div>,
+	default: ({ children }: { children: string }) => (
+		<div data-testid="md-preview">{children}</div>
+	),
 }));
 
 // ─── Mock SessionDashboard — removes dependency on SessionDashboard internals ─
@@ -150,7 +152,10 @@ class MockBridge implements NaiaContextBridge {
 	readFile(_path: string): Promise<string> {
 		return Promise.resolve("");
 	}
-	runShell(_cmd: string, _args?: string[]): Promise<import("../../lib/panel-registry").ShellResult> {
+	runShell(
+		_cmd: string,
+		_args?: string[],
+	): Promise<import("../../lib/panel-registry").ShellResult> {
 		return Promise.resolve({ stdout: "", stderr: "", code: 0 });
 	}
 }
@@ -222,7 +227,9 @@ describe("WorkspaceCenterPanel", () => {
 
 		render(<WorkspaceCenterPanel naia={bridge} />);
 
-		await waitFor(() => expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true));
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true),
+		);
 
 		const result = await bridge.callTool("skill_workspace_get_sessions", {});
 		// Returns { sessions: SessionInfo[], summary: { total, active, idle, stopped, error, description } }
@@ -249,17 +256,25 @@ describe("WorkspaceCenterPanel", () => {
 		// reference — the default mock's effect cannot re-fire and overwrite sessionsRef.
 		const { SessionDashboard } = await import("../workspace/SessionDashboard");
 		const testSessions: SessionInfo[] = [
-			{ dir: "naia-os", path: "/dev/naia-os", status: "active", branch: "main", progress: { issue: "#79", phase: "build" } },
+			{
+				dir: "naia-os",
+				path: "/dev/naia-os",
+				status: "active",
+				branch: "main",
+				progress: { issue: "#79", phase: "build" },
+			},
 			{ dir: "vllm", path: "/dev/vllm", status: "idle" },
 			{ dir: "test", path: "/dev/test", status: "stopped" },
 			{ dir: "broken", path: "/dev/broken", status: "error" },
 		];
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				onSessionsUpdate?.(testSessions);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					onSessionsUpdate?.(testSessions);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -268,7 +283,9 @@ describe("WorkspaceCenterPanel", () => {
 
 		render(<WorkspaceCenterPanel naia={bridge} />);
 
-		await waitFor(() => expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true));
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_get_sessions")).toBe(true),
+		);
 
 		// callTool reads sessionsRef (no state mutation) so retries in waitFor are safe.
 		// waitFor retries until onSessionsUpdate has been called with testSessions.
@@ -281,7 +298,9 @@ describe("WorkspaceCenterPanel", () => {
 			expect(p.summary.stopped).toBe(1);
 			expect(p.summary.error).toBe(1);
 			// Counts must always add up to total
-			expect(p.summary.active + p.summary.idle + p.summary.stopped + p.summary.error).toBe(p.summary.total);
+			expect(
+				p.summary.active + p.summary.idle + p.summary.stopped + p.summary.error,
+			).toBe(p.summary.total);
 			// Description should mention each status group and active session details
 			expect(p.summary.description).toContain("active 1개");
 			expect(p.summary.description).toContain("idle 1개");
@@ -369,12 +388,14 @@ describe("WorkspaceCenterPanel", () => {
 		const testSessions: SessionInfo[] = [
 			{ dir: "naia-os", path: "/dev/naia-os", status: "active" },
 		];
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				onSessionsUpdate?.(testSessions);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					onSessionsUpdate?.(testSessions);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -412,12 +433,14 @@ describe("WorkspaceCenterPanel", () => {
 				progress: { issue: "#117", phase: "build" },
 			},
 		];
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				onSessionsUpdate?.(testSessions);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					onSessionsUpdate?.(testSessions);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -435,7 +458,9 @@ describe("WorkspaceCenterPanel", () => {
 				dir: "naia-os",
 				open_recent_file: true,
 			});
-			expect(result).toBe("Focused: naia-os, opened: /dev/naia-os/shell/src/App.tsx");
+			expect(result).toBe(
+				"Focused: naia-os, opened: /dev/naia-os/shell/src/App.tsx",
+			);
 		});
 	});
 
@@ -449,12 +474,14 @@ describe("WorkspaceCenterPanel", () => {
 				recent_file: "shell/src/App.tsx",
 			},
 		];
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				onSessionsUpdate?.(testSessions);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					onSessionsUpdate?.(testSessions);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -488,12 +515,14 @@ describe("WorkspaceCenterPanel", () => {
 				status: "active",
 			},
 		];
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				onSessionsUpdate?.(testSessions);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					onSessionsUpdate?.(testSessions);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -523,7 +552,9 @@ describe("WorkspaceCenterPanel", () => {
 
 		render(<WorkspaceCenterPanel naia={bridge} />);
 
-		await waitFor(() => expect(bridge.hasHandler("skill_workspace_open_file")).toBe(true));
+		await waitFor(() =>
+			expect(bridge.hasHandler("skill_workspace_open_file")).toBe(true),
+		);
 
 		// Open a file via tool
 		const result = await bridge.callTool("skill_workspace_open_file", {
@@ -540,14 +571,16 @@ describe("WorkspaceCenterPanel", () => {
 			path: "/dev/broken",
 			status: "error",
 		};
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				// Fire twice with same data — should push errorAlert only once
-				onSessionsUpdate?.([errorSession]);
-				onSessionsUpdate?.([errorSession]);
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					// Fire twice with same data — should push errorAlert only once
+					onSessionsUpdate?.([errorSession]);
+					onSessionsUpdate?.([errorSession]);
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -563,7 +596,8 @@ describe("WorkspaceCenterPanel", () => {
 			);
 			// Exactly one errorAlert despite two identical updates
 			expect(errorAlerts).toHaveLength(1);
-			const alert = (errorAlerts[0].data as Record<string, unknown>).errorAlert as Record<string, unknown>;
+			const alert = (errorAlerts[0].data as Record<string, unknown>)
+				.errorAlert as Record<string, unknown>;
 			expect(alert.dir).toBe("broken");
 			expect(typeof alert.message).toBe("string");
 		});
@@ -572,12 +606,14 @@ describe("WorkspaceCenterPanel", () => {
 	it("re-arms errorAlert after session recovers to idle/active", async () => {
 		const { SessionDashboard } = await import("../workspace/SessionDashboard");
 		let emit: ((sessions: SessionInfo[]) => void) | undefined;
-		vi.mocked(SessionDashboard).mockImplementationOnce(({ onSessionsUpdate }) => {
-			useEffect(() => {
-				emit = onSessionsUpdate ?? undefined;
-			}, [onSessionsUpdate]);
-			return null as unknown as React.ReactElement;
-		});
+		vi.mocked(SessionDashboard).mockImplementationOnce(
+			({ onSessionsUpdate }) => {
+				useEffect(() => {
+					emit = onSessionsUpdate ?? undefined;
+				}, [onSessionsUpdate]);
+				return null as unknown as React.ReactElement;
+			},
+		);
 
 		const { WorkspaceCenterPanel } = await import(
 			"../workspace/WorkspaceCenterPanel"
@@ -587,13 +623,19 @@ describe("WorkspaceCenterPanel", () => {
 
 		await waitFor(() => emit !== undefined);
 
-		const session = { dir: "broken", path: "/dev/broken", status: "error" } satisfies SessionInfo;
+		const session = {
+			dir: "broken",
+			path: "/dev/broken",
+			status: "error",
+		} satisfies SessionInfo;
 
 		// First error
 		emit?.([session]);
 		await waitFor(() => {
 			const alerts = bridge.contexts.filter(
-				(c) => c.type === "workspace" && (c.data as Record<string, unknown>)?.errorAlert != null,
+				(c) =>
+					c.type === "workspace" &&
+					(c.data as Record<string, unknown>)?.errorAlert != null,
 			);
 			expect(alerts).toHaveLength(1);
 		});
@@ -604,7 +646,9 @@ describe("WorkspaceCenterPanel", () => {
 		emit?.([session]);
 		await waitFor(() => {
 			const alerts = bridge.contexts.filter(
-				(c) => c.type === "workspace" && (c.data as Record<string, unknown>)?.errorAlert != null,
+				(c) =>
+					c.type === "workspace" &&
+					(c.data as Record<string, unknown>)?.errorAlert != null,
 			);
 			expect(alerts).toHaveLength(2);
 		});

@@ -36,7 +36,11 @@ const SKIP = !process.env.CAFE_LIVE_LLM_E2E;
 const PROVIDERS = [
 	{ provider: "gemini", model: "gemini-2.5-flash", keyEnv: "GEMINI_API_KEY" },
 	{ provider: "openai", model: "gpt-4o", keyEnv: "OPENAI_API_KEY" },
-	{ provider: "anthropic", model: "claude-haiku-4-5-20251001", keyEnv: "ANTHROPIC_API_KEY" },
+	{
+		provider: "anthropic",
+		model: "claude-haiku-4-5-20251001",
+		keyEnv: "ANTHROPIC_API_KEY",
+	},
 	{ provider: "xai", model: "grok-3-mini", keyEnv: "XAI_API_KEY" },
 	{ provider: "zai", model: "glm-4.7", keyEnv: "ZHIPU_API_KEY" },
 ] as const;
@@ -58,7 +62,7 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 			let fullText = "";
 
 			console.log(`\n[nextain] Sending: "Say hello in one word."`);
-			console.log(`[nextain] Model: gemini-2.5-flash (via lab-proxy)`);
+			console.log("[nextain] Model: gemini-2.5-flash (via lab-proxy)");
 			console.log(`[nextain] NaiaKey: ${naiaKey.slice(0, 8)}...`);
 
 			try {
@@ -77,14 +81,18 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 			}
 
 			console.log(`[nextain] Response text: "${fullText}"`);
-			console.log(`[nextain] Chunks: ${chunks.length} (types: ${chunks.map(c => c.type).join(", ")})`);
-			const usage = chunks.find(c => c.type === "usage");
+			console.log(
+				`[nextain] Chunks: ${chunks.length} (types: ${chunks.map((c) => c.type).join(", ")})`,
+			);
+			const usage = chunks.find((c) => c.type === "usage");
 			if (usage && usage.type === "usage") {
-				console.log(`[nextain] Tokens: in=${usage.inputTokens} out=${usage.outputTokens}`);
+				console.log(
+					`[nextain] Tokens: in=${usage.inputTokens} out=${usage.outputTokens}`,
+				);
 			}
 
 			expect(fullText.length).toBeGreaterThan(0);
-			expect(chunks.some(c => c.type === "finish")).toBe(true);
+			expect(chunks.some((c) => c.type === "finish")).toBe(true);
 		}, 60_000);
 	});
 
@@ -94,7 +102,9 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 			// Known behavior: lab-proxy gateway supports vertexai:gemini only.
 			// Anthropic models require a separate API key not configured on the gateway.
 			// This test verifies the error is explicit (not a silent empty response).
-			console.log("\n[nextain+claude] Testing: nextain provider with claude-sonnet-4-6");
+			console.log(
+				"\n[nextain+claude] Testing: nextain provider with claude-sonnet-4-6",
+			);
 			const provider = buildProvider({
 				provider: "nextain",
 				model: "claude-sonnet-4-6",
@@ -118,8 +128,12 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 				caughtError = err instanceof Error ? err : new Error(String(err));
 			}
 
-			console.log(`[nextain+claude] Error: ${caughtError?.message ?? "(none)"}`);
-			console.log(`[nextain+claude] Chunks before error: ${chunks.map(c => c.type).join(", ")}`);
+			console.log(
+				`[nextain+claude] Error: ${caughtError?.message ?? "(none)"}`,
+			);
+			console.log(
+				`[nextain+claude] Chunks before error: ${chunks.map((c) => c.type).join(", ")}`,
+			);
 
 			// Must fail with an explicit error (not silently succeed with empty text)
 			expect(caughtError).toBeDefined();
@@ -166,15 +180,19 @@ describe.skipIf(SKIP)("LLM Provider Live Verification", () => {
 
 				// Log the full flow
 				console.log(`[${p.provider}] Response text: "${fullText}"`);
-				console.log(`[${p.provider}] Chunks: ${chunks.length} (types: ${chunks.map(c => c.type).join(", ")})`);
+				console.log(
+					`[${p.provider}] Chunks: ${chunks.length} (types: ${chunks.map((c) => c.type).join(", ")})`,
+				);
 
-				const usage = chunks.find(c => c.type === "usage");
+				const usage = chunks.find((c) => c.type === "usage");
 				if (usage && usage.type === "usage") {
-					console.log(`[${p.provider}] Tokens: in=${usage.inputTokens} out=${usage.outputTokens}`);
+					console.log(
+						`[${p.provider}] Tokens: in=${usage.inputTokens} out=${usage.outputTokens}`,
+					);
 				}
 
 				expect(fullText.length).toBeGreaterThan(0);
-				expect(chunks.some(c => c.type === "finish")).toBe(true);
+				expect(chunks.some((c) => c.type === "finish")).toBe(true);
 			}, 60_000);
 		});
 	}

@@ -1,8 +1,18 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-import type { SkillDefinition, SkillExecutionContext, SkillResult } from "../types.js";
+import type {
+	SkillDefinition,
+	SkillExecutionContext,
+	SkillResult,
+} from "../types.js";
 
 const PANELS_DIR = join(homedir(), ".naia", "panels");
 
@@ -53,7 +63,10 @@ async function actionList(): Promise<SkillResult> {
 		`## Installed panels (${PANELS_DIR})`,
 		...(installed.length === 0
 			? ["  (none)"]
-			: installed.map((m) => `- ${m.id}: ${m.name}${m.description ? ` — ${m.description}` : ""}`)),
+			: installed.map(
+					(m) =>
+						`- ${m.id}: ${m.name}${m.description ? ` — ${m.description}` : ""}`,
+				)),
 	];
 	return { success: true, output: lines.join("\n") };
 }
@@ -63,7 +76,11 @@ async function actionSwitch(
 	ctx: SkillExecutionContext,
 ): Promise<SkillResult> {
 	if (!panelId) {
-		return { success: false, output: "", error: "panelId is required for switch" };
+		return {
+			success: false,
+			output: "",
+			error: "panelId is required for switch",
+		};
 	}
 	ctx.writeLine?.({
 		type: "panel_control",
@@ -79,7 +96,11 @@ export async function actionInstall(
 	ctx: SkillExecutionContext,
 ): Promise<SkillResult> {
 	if (!source) {
-		return { success: false, output: "", error: "source is required for install (git URL or file path)" };
+		return {
+			success: false,
+			output: "",
+			error: "source is required for install (git URL or file path)",
+		};
 	}
 
 	mkdirSync(PANELS_DIR, { recursive: true });
@@ -97,15 +118,23 @@ export async function actionInstall(
 	try {
 		const isGit = /^https?:\/\/|^git@|^file:\/\//.test(source);
 		if (isGit) {
-			const result = spawnSync("git", ["clone", "--depth", "1", source, destDir], { encoding: "utf-8" });
+			const result = spawnSync(
+				"git",
+				["clone", "--depth", "1", source, destDir],
+				{ encoding: "utf-8" },
+			);
 			if (result.status !== 0) {
 				throw new Error(result.stderr || "git clone failed");
 			}
 		} else {
 			// File-based: unzip to destDir (path must not escape PANELS_DIR)
-			const absSource = source.startsWith("/") ? source : join(PANELS_DIR, source);
+			const absSource = source.startsWith("/")
+				? source
+				: join(PANELS_DIR, source);
 			mkdirSync(destDir, { recursive: true });
-			const result = spawnSync("unzip", ["-o", absSource, "-d", destDir], { encoding: "utf-8" });
+			const result = spawnSync("unzip", ["-o", absSource, "-d", destDir], {
+				encoding: "utf-8",
+			});
 			if (result.status !== 0) {
 				throw new Error(result.stderr || "unzip failed");
 			}
@@ -137,7 +166,7 @@ export async function actionInstall(
 		return {
 			success: false,
 			output: "",
-			error: `Installed package has no panel.json manifest — removed.`,
+			error: "Installed package has no panel.json manifest — removed.",
 		};
 	}
 
@@ -159,12 +188,20 @@ async function actionRemove(
 	ctx: SkillExecutionContext,
 ): Promise<SkillResult> {
 	if (!panelId) {
-		return { success: false, output: "", error: "panelId is required for remove" };
+		return {
+			success: false,
+			output: "",
+			error: "panelId is required for remove",
+		};
 	}
 
 	// Find panel directory by id (match panel.json id field)
 	if (!existsSync(PANELS_DIR)) {
-		return { success: false, output: "", error: `Panel "${panelId}" not found` };
+		return {
+			success: false,
+			output: "",
+			error: `Panel "${panelId}" not found`,
+		};
 	}
 
 	let found = false;
@@ -180,7 +217,11 @@ async function actionRemove(
 	}
 
 	if (!found) {
-		return { success: false, output: "", error: `Panel "${panelId}" not found in ${PANELS_DIR}` };
+		return {
+			success: false,
+			output: "",
+			error: `Panel "${panelId}" not found in ${PANELS_DIR}`,
+		};
 	}
 
 	ctx.writeLine?.({
@@ -231,7 +272,11 @@ export function createPanelSkill(): SkillDefinition {
 				case "remove":
 					return actionRemove(args.panelId as string | undefined, ctx);
 				default:
-					return { success: false, output: "", error: `Unknown action: ${action}` };
+					return {
+						success: false,
+						output: "",
+						error: `Unknown action: ${action}`,
+					};
 			}
 		},
 	};

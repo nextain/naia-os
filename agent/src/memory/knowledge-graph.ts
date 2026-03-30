@@ -84,7 +84,12 @@ export class KnowledgeGraph {
 	 * Uses NPMI-inspired normalization to prevent high-frequency entities
 	 * from dominating associations.
 	 */
-	strengthen(entityA: string, entityB: string, boost = 0.1, now = Date.now()): void {
+	strengthen(
+		entityA: string,
+		entityB: string,
+		boost = 0.1,
+		now = Date.now(),
+	): void {
 		const a = normalize(entityA);
 		const b = normalize(entityB);
 		if (a === b) return;
@@ -207,7 +212,9 @@ export class KnowledgeGraph {
 	/**
 	 * Get the top-N most connected entities.
 	 */
-	getHubs(topN = 10): Array<{ entity: string; connectionCount: number; totalWeight: number }> {
+	getHubs(
+		topN = 10,
+	): Array<{ entity: string; connectionCount: number; totalWeight: number }> {
 		const entityWeights = new Map<string, { count: number; weight: number }>();
 
 		for (const edge of Object.values(this.state.edges)) {

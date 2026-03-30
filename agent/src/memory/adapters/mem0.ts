@@ -15,7 +15,11 @@
 
 import { randomUUID } from "node:crypto";
 import { calculateStrength, shouldPrune } from "../decay.js";
-import { KnowledgeGraph, emptyKGState, type KGState } from "../knowledge-graph.js";
+import {
+	type KGState,
+	KnowledgeGraph,
+	emptyKGState,
+} from "../knowledge-graph.js";
 import type {
 	ConsolidationResult,
 	Episode,
@@ -89,21 +93,21 @@ export class Mem0Adapter implements MemoryAdapter {
 
 			// Also store in mem0 for vector search
 			const m = await this.ensureMem0();
-			await m.add(
-				[{ role: "user", content: event.content }],
-				{
-					userId: this.userId,
-					metadata: {
-						type: "episode",
-						episodeId: event.id,
-						project: event.encodingContext.project,
-						timestamp: event.timestamp,
-					},
+			await m.add([{ role: "user", content: event.content }], {
+				userId: this.userId,
+				metadata: {
+					type: "episode",
+					episodeId: event.id,
+					project: event.encodingContext.project,
+					timestamp: event.timestamp,
 				},
-			);
+			});
 		},
 
-		recall: async (query: string, context: RecallContext): Promise<Episode[]> => {
+		recall: async (
+			query: string,
+			context: RecallContext,
+		): Promise<Episode[]> => {
 			const topK = context.topK ?? 5;
 
 			// Use mem0 vector search instead of keyword matching
@@ -121,7 +125,8 @@ export class Mem0Adapter implements MemoryAdapter {
 				const memoryText = r.memory ?? r.text ?? r.content ?? "";
 				// Find matching episode by content similarity
 				const match = this.episodes.find(
-					(ep) => ep.content === memoryText ||
+					(ep) =>
+						ep.content === memoryText ||
 						memoryText.includes(ep.content.slice(0, 50)) ||
 						ep.content.includes(memoryText.slice(0, 50)),
 				);
@@ -130,21 +135,31 @@ export class Mem0Adapter implements MemoryAdapter {
 					match.recallCount++;
 					match.lastAccessed = now;
 					match.strength = calculateStrength(
-						match.importance.utility, match.timestamp,
-						match.recallCount, match.lastAccessed, now,
+						match.importance.utility,
+						match.timestamp,
+						match.recallCount,
+						match.lastAccessed,
+						now,
 					);
 					matchedEpisodes.push(match);
 				} else {
 					// mem0 returned a memory not in our episode list
 					// (could be from a previous session). Create a synthetic episode.
-					const createdAt = r.created_at ? new Date(r.created_at).getTime() : now;
+					const createdAt = r.created_at
+						? new Date(r.created_at).getTime()
+						: now;
 					const strength = calculateStrength(0.5, createdAt, 1, now, now);
 					matchedEpisodes.push({
 						id: r.id ?? randomUUID(),
 						content: memoryText,
 						summary: memoryText.slice(0, 200),
 						timestamp: createdAt,
-						importance: { importance: 0.5, surprise: 0, emotion: 0.5, utility: 0.5 },
+						importance: {
+							importance: 0.5,
+							surprise: 0,
+							emotion: 0.5,
+							utility: 0.5,
+						},
 						encodingContext: { project: r.metadata?.project },
 						consolidated: true,
 						recallCount: 1,
@@ -166,10 +181,17 @@ export class Mem0Adapter implements MemoryAdapter {
 
 			// Sort by: decay strength × (1 + context boost + KG boost)
 			matchedEpisodes.sort((a, b) => {
-				const aCtx = context.project && a.encodingContext.project === context.project ? 0.3 : 0;
-				const bCtx = context.project && b.encodingContext.project === context.project ? 0.3 : 0;
+				const aCtx =
+					context.project && a.encodingContext.project === context.project
+						? 0.3
+						: 0;
+				const bCtx =
+					context.project && b.encodingContext.project === context.project
+						? 0.3
+						: 0;
 				// KG boost from content token overlap with activated entities
-				let aKg = 0, bKg = 0;
+				let aKg = 0;
+				let bKg = 0;
 				for (const [entity, act] of activated) {
 					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.1;
 					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.1;
@@ -180,9 +202,7 @@ export class Mem0Adapter implements MemoryAdapter {
 			});
 
 			// Filter decayed episodes
-			return matchedEpisodes
-				.filter((ep) => ep.strength > 0.05)
-				.slice(0, topK);
+			return matchedEpisodes.filter((ep) => ep.strength > 0.05).slice(0, topK);
 		},
 
 		getRecent: async (n: number): Promise<Episode[]> => {
@@ -209,18 +229,15 @@ export class Mem0Adapter implements MemoryAdapter {
 		upsert: async (fact: Fact): Promise<void> => {
 			// Store/update in mem0
 			const m = await this.ensureMem0();
-			await m.add(
-				[{ role: "user", content: fact.content }],
-				{
-					userId: this.userId,
-					metadata: {
-						type: "fact",
-						factId: fact.id,
-						entities: fact.entities,
-						topics: fact.topics,
-					},
+			await m.add([{ role: "user", content: fact.content }], {
+				userId: this.userId,
+				metadata: {
+					type: "fact",
+					factId: fact.id,
+					entities: fact.entities,
+					topics: fact.topics,
 				},
-			);
+			});
 		},
 
 		search: async (query: string, topK: number): Promise<Fact[]> => {
@@ -243,40 +260,46 @@ export class Mem0Adapter implements MemoryAdapter {
 				}
 			} catch {}
 
-			const facts: Array<Fact & { _score: number }> = resultItems.map((r: any, idx: number) => {
-				const createdAt = r.created_at ? new Date(r.created_at).getTime() : now;
-				const updatedAt = r.updated_at ? new Date(r.updated_at).getTime() : now;
-				const entities: string[] = r.metadata?.entities ?? [];
+			const facts: Array<Fact & { _score: number }> = resultItems.map(
+				(r: any, idx: number) => {
+					const createdAt = r.created_at
+						? new Date(r.created_at).getTime()
+						: now;
+					const updatedAt = r.updated_at
+						? new Date(r.updated_at).getTime()
+						: now;
+					const entities: string[] = r.metadata?.entities ?? [];
 
-				// Decay-based strength
-				const strength = calculateStrength(0.5, createdAt, 1, now, now);
+					// Decay-based strength
+					const strength = calculateStrength(0.5, createdAt, 1, now, now);
 
-				// KG activation bonus
-				let kgBoost = 0;
-				for (const entity of entities) {
-					const act = activated.get(entity.toLowerCase());
-					if (act) kgBoost += act;
-				}
+					// KG activation bonus
+					let kgBoost = 0;
+					for (const entity of entities) {
+						const act = activated.get(entity.toLowerCase());
+						if (act) kgBoost += act;
+					}
 
-				// Combined score: mem0 rank position + KG boost, modulated by decay
-				const positionScore = 1 - (idx / resultItems.length);
-				const _score = (positionScore + kgBoost * 0.1) * strength;
+					// Combined score: mem0 rank position + KG boost, modulated by decay
+					const positionScore = 1 - idx / resultItems.length;
+					const _score = (positionScore + kgBoost * 0.1) * strength;
 
-				return {
-					id: r.id ?? randomUUID(),
-					content: r.memory ?? r.text ?? r.content ?? "",
-					entities,
-					topics: r.metadata?.topics ?? [],
-					createdAt,
-					updatedAt,
-					importance: 0.5,
-					recallCount: 1,
-					lastAccessed: now,
-					strength,
-					sourceEpisodes: [],
-					_score,
-				};
-			});
+					return {
+						id: r.id ?? randomUUID(),
+						content: r.memory ?? r.text ?? r.content ?? "",
+						entities,
+						topics: r.metadata?.topics ?? [],
+						createdAt,
+						updatedAt,
+						importance: 0.5,
+						recallCount: 1,
+						lastAccessed: now,
+						strength,
+						sourceEpisodes: [],
+						_score,
+					};
+				},
+			);
 
 			// Filter decayed + sort by combined score
 			return facts
@@ -307,7 +330,11 @@ export class Mem0Adapter implements MemoryAdapter {
 			return pruned;
 		},
 
-		associate: async (entityA: string, entityB: string, weight?: number): Promise<void> => {
+		associate: async (
+			entityA: string,
+			entityB: string,
+			weight?: number,
+		): Promise<void> => {
 			this.kg.strengthen(entityA, entityB, weight);
 		},
 
@@ -328,6 +355,16 @@ export class Mem0Adapter implements MemoryAdapter {
 				strength: 0.5,
 				sourceEpisodes: [],
 			}));
+		},
+
+		delete: async (id: string): Promise<boolean> => {
+			try {
+				const m = await this.ensureMem0();
+				await m.delete(id);
+				return true;
+			} catch {
+				return false;
+			}
 		},
 	};
 
@@ -354,7 +391,8 @@ export class Mem0Adapter implements MemoryAdapter {
 			}
 			if (success) skill.successCount++;
 			else skill.failureCount++;
-			skill.confidence = skill.successCount / (skill.successCount + skill.failureCount);
+			skill.confidence =
+				skill.successCount / (skill.successCount + skill.failureCount);
 		},
 
 		learnFromFailure: async (reflection: Reflection): Promise<void> => {
@@ -363,7 +401,12 @@ export class Mem0Adapter implements MemoryAdapter {
 			// Also store in mem0 for semantic retrieval
 			const m = await this.ensureMem0();
 			await m.add(
-				[{ role: "user", content: `Task: ${reflection.task}. Failure: ${reflection.failure}. Correction: ${reflection.correction}` }],
+				[
+					{
+						role: "user",
+						content: `Task: ${reflection.task}. Failure: ${reflection.failure}. Correction: ${reflection.correction}`,
+					},
+				],
 				{
 					userId: this.userId,
 					metadata: { type: "reflection" },
@@ -371,7 +414,10 @@ export class Mem0Adapter implements MemoryAdapter {
 			);
 		},
 
-		getReflections: async (task: string, topK: number): Promise<Reflection[]> => {
+		getReflections: async (
+			task: string,
+			topK: number,
+		): Promise<Reflection[]> => {
 			// Use mem0 semantic search for reflections
 			const m = await this.ensureMem0();
 			const results = await m.search(`task failure: ${task}`, {
@@ -382,8 +428,11 @@ export class Mem0Adapter implements MemoryAdapter {
 			// Also search local reflections by keyword
 			const taskLower = task.toLowerCase();
 			const localMatches = this.reflections
-				.filter((r) => r.task.toLowerCase().includes(taskLower) ||
-					taskLower.includes(r.task.toLowerCase()))
+				.filter(
+					(r) =>
+						r.task.toLowerCase().includes(taskLower) ||
+						taskLower.includes(r.task.toLowerCase()),
+				)
 				.slice(0, topK);
 
 			return localMatches;

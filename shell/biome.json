@@ -22,7 +22,8 @@
 				"useKeyWithClickEvents": "warn",
 				"useValidAriaRole": "warn",
 				"noSvgWithoutTitle": "warn",
-				"noLabelWithoutControl": "warn"
+				"noLabelWithoutControl": "warn",
+				"useButtonType": "warn"
 			},
 			"suspicious": {
 				"noExplicitAny": "warn"
@@ -45,7 +46,8 @@
 			"src-tauri/target",
 			"e2e/demo-output",
 			"test-results",
-			"src-tauri/gen"
+			"src-tauri/gen",
+			".claude"
 		]
 	},
 	"overrides": [
@@ -54,12 +56,16 @@
 				"e2e/**",
 				"e2e-tauri/**",
 				"src/__tests__/**",
-				"src/components/__tests__/**"
+				"src/**/__tests__/**",
+				"scripts/**"
 			],
 			"linter": {
 				"rules": {
 					"suspicious": {
 						"noExplicitAny": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
 					}
 				}
 			}

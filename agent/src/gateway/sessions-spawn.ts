@@ -1,5 +1,5 @@
-import type { GatewayAdapter } from "./types.js";
 import type { ToolResult } from "./tool-bridge.js";
+import type { GatewayAdapter } from "./types.js";
 
 export interface SessionsSpawnArgs {
 	task: string;

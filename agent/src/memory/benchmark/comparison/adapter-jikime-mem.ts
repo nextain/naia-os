@@ -12,14 +12,15 @@ const JIKIME_BASE = "http://127.0.0.1:37888";
 
 export class JikimeMemAdapter implements BenchmarkAdapter {
 	readonly name = "jikime-mem";
-	readonly description = "jikime-mem — SQLite + ChromaDB session memory with hybrid search";
+	readonly description =
+		"jikime-mem — SQLite + ChromaDB session memory with hybrid search";
 
 	private projectId = "";
 	private sessionId = "";
 
 	async init(): Promise<void> {
 		const health = await this.fetchJson("GET", "/api/health");
-		if (!health) throw new Error("jikime-mem not running at " + JIKIME_BASE);
+		if (!health) throw new Error(`jikime-mem not running at ${JIKIME_BASE}`);
 
 		this.projectId = `bench-${Date.now()}`;
 		this.sessionId = `session-${Date.now()}`;
@@ -66,7 +67,11 @@ export class JikimeMemAdapter implements BenchmarkAdapter {
 		}
 	}
 
-	private async fetchJson(method: string, path: string, body?: any): Promise<any> {
+	private async fetchJson(
+		method: string,
+		path: string,
+		body?: any,
+	): Promise<any> {
 		try {
 			const opts: RequestInit = {
 				method,
@@ -76,7 +81,9 @@ export class JikimeMemAdapter implements BenchmarkAdapter {
 			const res = await fetch(`${JIKIME_BASE}${path}`, opts);
 			if (!res.ok) {
 				const text = await res.text();
-				console.error(`  jikime ${method} ${path}: ${res.status} ${text.slice(0, 200)}`);
+				console.error(
+					`  jikime ${method} ${path}: ${res.status} ${text.slice(0, 200)}`,
+				);
 				return null;
 			}
 			return res.json();

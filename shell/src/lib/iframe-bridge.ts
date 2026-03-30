@@ -64,7 +64,10 @@ async function handleMessage(event: MessageEvent): Promise<void> {
 	if (!msg?.type?.startsWith("naia-bridge:") || !msg.id) return;
 
 	const respond = (result?: unknown, error?: string) => {
-		(event.source as Window)?.postMessage({ id: msg.id, result, error }, ALLOWED_ORIGIN);
+		(event.source as Window)?.postMessage(
+			{ id: msg.id, result, error },
+			ALLOWED_ORIGIN,
+		);
 	};
 
 	const panelId = panelIdFromSource(event.source);

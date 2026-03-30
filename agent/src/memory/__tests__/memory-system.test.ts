@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
@@ -26,18 +26,29 @@ describe("MemorySystem", () => {
 
 	afterEach(async () => {
 		await system.close();
-		try { rmSync(storePath); } catch { /* ignore */ }
-		try { rmSync(`${storePath}.tmp`); } catch { /* ignore */ }
+		try {
+			rmSync(storePath);
+		} catch {
+			/* ignore */
+		}
+		try {
+			rmSync(`${storePath}.tmp`);
+		} catch {
+			/* ignore */
+		}
 	});
 
 	describe("encode (importance gating)", () => {
 		it("stores high-importance user messages", async () => {
 			const episode = await system.encode(
-				{ content: "I always want to use TypeScript, never JavaScript", role: "user" },
+				{
+					content: "I always want to use TypeScript, never JavaScript",
+					role: "user",
+				},
 				{ project: "naia-os" },
 			);
 			expect(episode).not.toBeNull();
-			expect(episode!.importance.utility).toBeGreaterThan(0);
+			expect(episode?.importance.utility).toBeGreaterThan(0);
 		});
 
 		it("gates out trivial tool outputs", async () => {
@@ -50,12 +61,15 @@ describe("MemorySystem", () => {
 
 		it("encodes context for later retrieval specificity", async () => {
 			const episode = await system.encode(
-				{ content: "This is an important decision about architecture", role: "user" },
+				{
+					content: "This is an important decision about architecture",
+					role: "user",
+				},
 				{ project: "naia-os", activeFile: "src/index.ts" },
 			);
 			expect(episode).not.toBeNull();
-			expect(episode!.encodingContext.project).toBe("naia-os");
-			expect(episode!.encodingContext.activeFile).toBe("src/index.ts");
+			expect(episode?.encodingContext.project).toBe("naia-os");
+			expect(episode?.encodingContext.activeFile).toBe("src/index.ts");
 		});
 	});
 
@@ -80,7 +94,10 @@ describe("MemorySystem", () => {
 
 			// Encode a message that contradicts the fact
 			await system.encode(
-				{ content: "I no longer use vim, I switched to neovim instead", role: "user" },
+				{
+					content: "I no longer use vim, I switched to neovim instead",
+					role: "user",
+				},
 				{ project: "naia-os" },
 			);
 
@@ -88,7 +105,7 @@ describe("MemorySystem", () => {
 			const facts = await adapter.semantic.getAll();
 			const vimFact = facts.find((f) => f.id === fact.id);
 			expect(vimFact).toBeDefined();
-			expect(vimFact!.content).toContain("neovim");
+			expect(vimFact?.content).toContain("neovim");
 		});
 	});
 
@@ -136,10 +153,15 @@ describe("MemorySystem", () => {
 				sourceEpisodes: [],
 			});
 
-			const context = await system.sessionRecall("What are the user settings?", { topK: 3 });
+			const context = await system.sessionRecall(
+				"What are the user settings?",
+				{ topK: 3 },
+			);
 			// "dark" and "mode" are both keywords, query "settings" won't match.
 			// Need query with overlapping keywords
-			const context2 = await system.sessionRecall("dark mode preference", { topK: 3 });
+			const context2 = await system.sessionRecall("dark mode preference", {
+				topK: 3,
+			});
 			expect(context2).toContain("관련 기억");
 			expect(context2).toContain("dark mode");
 		});
@@ -156,7 +178,9 @@ describe("MemorySystem", () => {
 
 			const result = await system.recall("database migration", { topK: 3 });
 			expect(result.reflections).toHaveLength(1);
-			expect(result.reflections[0].correction).toContain("production-sized dataset");
+			expect(result.reflections[0].correction).toContain(
+				"production-sized dataset",
+			);
 		});
 
 		it("recalls past reflections for similar tasks", async () => {
@@ -173,7 +197,9 @@ describe("MemorySystem", () => {
 				"Use fresh fixtures per test, never share mutable state",
 			);
 
-			const deployResult = await system.recall("deploy staging environment", { topK: 3 });
+			const deployResult = await system.recall("deploy staging environment", {
+				topK: 3,
+			});
 			expect(deployResult.reflections.length).toBeGreaterThan(0);
 			expect(deployResult.reflections[0].task).toContain("Deploy");
 		});
@@ -187,7 +213,12 @@ describe("MemorySystem", () => {
 				content: "We decided to use TypeScript for all new code",
 				summary: "Decided TypeScript",
 				timestamp: Date.now() - 2 * HOUR,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: { project: "naia-os" },
 				consolidated: false,
 				recallCount: 0,
@@ -226,7 +257,12 @@ describe("MemorySystem", () => {
 				content: "We always prefer Vitest over Jest",
 				summary: "Prefer Vitest",
 				timestamp: Date.now() - 2 * HOUR,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: { project: "naia-os" },
 				consolidated: false,
 				recallCount: 0,
@@ -251,7 +287,12 @@ describe("MemorySystem", () => {
 				content: "We must always use ESLint",
 				summary: "Use ESLint",
 				timestamp: Date.now() - 2 * HOUR,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: { project: "naia-os" },
 				consolidated: false,
 				recallCount: 0,
@@ -291,7 +332,12 @@ describe("MemorySystem", () => {
 				content: "Any content here",
 				summary: "Any",
 				timestamp: Date.now() - 2 * HOUR,
-				importance: { importance: 0.5, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.5,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: {},
 				consolidated: false,
 				recallCount: 0,

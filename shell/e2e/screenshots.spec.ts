@@ -877,30 +877,108 @@ const FAKE_WS_SESSIONS = [
 	},
 ];
 
-const FAKE_WS_DIRS: Record<string, Array<{ name: string; path: string; is_dir: boolean; children: null }>> = {
+const FAKE_WS_DIRS: Record<
+	string,
+	Array<{ name: string; path: string; is_dir: boolean; children: null }>
+> = {
 	[FAKE_ROOT]: [
-		{ name: "naia-os", path: `${FAKE_ROOT}/naia-os`, is_dir: true, children: null },
-		{ name: "naia.nextain.io", path: `${FAKE_ROOT}/naia.nextain.io`, is_dir: true, children: null },
+		{
+			name: "naia-os",
+			path: `${FAKE_ROOT}/naia-os`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "naia.nextain.io",
+			path: `${FAKE_ROOT}/naia.nextain.io`,
+			is_dir: true,
+			children: null,
+		},
 		{ name: "vllm", path: `${FAKE_ROOT}/vllm`, is_dir: true, children: null },
-		{ name: "CLAUDE.md", path: `${FAKE_ROOT}/CLAUDE.md`, is_dir: false, children: null },
+		{
+			name: "CLAUDE.md",
+			path: `${FAKE_ROOT}/CLAUDE.md`,
+			is_dir: false,
+			children: null,
+		},
 	],
 	[`${FAKE_ROOT}/naia-os`]: [
-		{ name: "shell", path: `${FAKE_ROOT}/naia-os/shell`, is_dir: true, children: null },
-		{ name: "agent", path: `${FAKE_ROOT}/naia-os/agent`, is_dir: true, children: null },
-		{ name: "voice-server", path: `${FAKE_ROOT}/naia-os/voice-server`, is_dir: true, children: null },
-		{ name: "AGENTS.md", path: `${FAKE_ROOT}/naia-os/AGENTS.md`, is_dir: false, children: null },
-		{ name: "CHANGELOG.md", path: `${FAKE_ROOT}/naia-os/CHANGELOG.md`, is_dir: false, children: null },
+		{
+			name: "shell",
+			path: `${FAKE_ROOT}/naia-os/shell`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "agent",
+			path: `${FAKE_ROOT}/naia-os/agent`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "voice-server",
+			path: `${FAKE_ROOT}/naia-os/voice-server`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "AGENTS.md",
+			path: `${FAKE_ROOT}/naia-os/AGENTS.md`,
+			is_dir: false,
+			children: null,
+		},
+		{
+			name: "CHANGELOG.md",
+			path: `${FAKE_ROOT}/naia-os/CHANGELOG.md`,
+			is_dir: false,
+			children: null,
+		},
 	],
 	[`${FAKE_ROOT}/naia-os/shell`]: [
-		{ name: "src", path: `${FAKE_ROOT}/naia-os/shell/src`, is_dir: true, children: null },
-		{ name: "e2e", path: `${FAKE_ROOT}/naia-os/shell/e2e`, is_dir: true, children: null },
-		{ name: "package.json", path: `${FAKE_ROOT}/naia-os/shell/package.json`, is_dir: false, children: null },
+		{
+			name: "src",
+			path: `${FAKE_ROOT}/naia-os/shell/src`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "e2e",
+			path: `${FAKE_ROOT}/naia-os/shell/e2e`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "package.json",
+			path: `${FAKE_ROOT}/naia-os/shell/package.json`,
+			is_dir: false,
+			children: null,
+		},
 	],
 	[`${FAKE_ROOT}/naia-os/shell/src`]: [
-		{ name: "App.tsx", path: `${FAKE_ROOT}/naia-os/shell/src/App.tsx`, is_dir: false, children: null },
-		{ name: "components", path: `${FAKE_ROOT}/naia-os/shell/src/components`, is_dir: true, children: null },
-		{ name: "lib", path: `${FAKE_ROOT}/naia-os/shell/src/lib`, is_dir: true, children: null },
-		{ name: "panels", path: `${FAKE_ROOT}/naia-os/shell/src/panels`, is_dir: true, children: null },
+		{
+			name: "App.tsx",
+			path: `${FAKE_ROOT}/naia-os/shell/src/App.tsx`,
+			is_dir: false,
+			children: null,
+		},
+		{
+			name: "components",
+			path: `${FAKE_ROOT}/naia-os/shell/src/components`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "lib",
+			path: `${FAKE_ROOT}/naia-os/shell/src/lib`,
+			is_dir: true,
+			children: null,
+		},
+		{
+			name: "panels",
+			path: `${FAKE_ROOT}/naia-os/shell/src/panels`,
+			is_dir: true,
+			children: null,
+		},
 	],
 };
 
@@ -1031,7 +1109,11 @@ function buildPanelMockOverrides(): string {
 }
 
 // ---- Panel Screenshots (workspace + browser) ----
-async function capturePanelScreenshots(page: Page, dir: string, locale: string) {
+async function capturePanelScreenshots(
+	page: Page,
+	dir: string,
+	locale: string,
+) {
 	await page.addInitScript(getTauriMock(locale));
 	await page.addInitScript(buildPanelMockOverrides());
 	await page.addInitScript(
@@ -1050,14 +1132,18 @@ async function capturePanelScreenshots(page: Page, dir: string, locale: string) 
 	const workspaceTab = page.locator('button[data-panel-id="workspace"]');
 	if (await workspaceTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
 		await workspaceTab.click();
-		await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-panel")).toBeVisible({
+			timeout: 5_000,
+		});
 		await page.waitForTimeout(2000);
 
 		// 1. Session dashboard
 		await capture(page, dir, "workspace-dashboard");
 
 		// 2. Click CLAUDE.md in the root tree (already visible, no expansion needed)
-		const claudeFile = page.locator(".workspace-tree__node--file").filter({ hasText: "CLAUDE.md" });
+		const claudeFile = page
+			.locator(".workspace-tree__node--file")
+			.filter({ hasText: "CLAUDE.md" });
 		if (await claudeFile.isVisible({ timeout: 3_000 }).catch(() => false)) {
 			await claudeFile.click();
 			await page.waitForTimeout(2000);

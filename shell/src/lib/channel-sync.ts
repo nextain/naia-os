@@ -9,8 +9,7 @@ import { buildSystemPrompt } from "./persona";
 
 const LINKED_CHANNELS_API =
 	"https://naia.nextain.io/api/gateway/linked-channels";
-const DISCORD_BOT_TOKEN_API =
-	"https://naia.nextain.io/api/discord/bot-token";
+const DISCORD_BOT_TOKEN_API = "https://naia.nextain.io/api/discord/bot-token";
 
 interface LinkedChannel {
 	type: string;

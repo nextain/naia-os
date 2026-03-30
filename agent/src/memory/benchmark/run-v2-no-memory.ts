@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 /**
  * No-memory baseline — same LLM, same tests, NO memory system.
  * Measures what the LLM alone can do without any recalled memories.
@@ -5,8 +6,7 @@
  *
  * Uses Claude CLI as judge (same as main benchmark).
  */
-import { writeFileSync, mkdirSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
@@ -21,29 +21,144 @@ interface TestCase {
 }
 
 const TEST_CASES: TestCase[] = [
-	{ id: "R01", query: "내 이름이 뭐야?", expected_answer: "김하늘", category: "recall" },
-	{ id: "R02", query: "나 뭐하는 사람이야?", expected_answer: "대표, 개발자", category: "recall" },
-	{ id: "R03", query: "내 에디터 뭐야?", expected_answer: "Cursor (변경됨)", category: "recall" },
-	{ id: "R04", query: "나 어디 살아?", expected_answer: "판교 (이사함)", category: "recall" },
-	{ id: "R05", query: "내가 좋아하는 커피가 뭐야?", expected_answer: "아메리카노", category: "recall" },
-	{ id: "R06", query: "내 동생 이름이 뭐야?", expected_answer: "김바다", category: "recall" },
-	{ id: "R07", query: "내 OS가 뭐야?", expected_answer: "Fedora", category: "recall" },
-	{ id: "R08", query: "내 취미가 뭐야?", expected_answer: "러닝", category: "recall" },
-	{ id: "R09", query: "나 Git 어떻게 써?", expected_answer: "CLI", category: "recall" },
-	{ id: "A01", query: "내가 Docker 관련해서 뭐라고 했었지?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A02", query: "내가 좋아하는 게임이 뭐야?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A03", query: "나 고양이 키운다고 했지?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A04", query: "내가 Nuxt.js 쓴다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A05", query: "나 수영 한다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A06", query: "내 차가 뭐야?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A07", query: "내가 일본어 할 줄 안다고 했었나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A08", query: "내가 AWS 쓴다고 했나?", expected_answer: "NONE", category: "abstention" },
-	{ id: "A09", query: "나 피아노 친다고 했지?", expected_answer: "NONE", category: "abstention" },
-	{ id: "S01", query: "내 개발 환경 어떻게 되지?", expected_answer: "TypeScript, Neovim/Cursor, Next.js, FastAPI 중 2개 이상", category: "semantic" },
-	{ id: "S02", query: "나 음식 취향이 어때?", expected_answer: "아메리카노, 매운 음식 못 먹음", category: "semantic" },
-	{ id: "S03", query: "주말에 뭐 하지?", expected_answer: "러닝, 한강", category: "semantic" },
-	{ id: "C01", query: "내가 쓰는 에디터 뭐야?", expected_answer: "Cursor", category: "contradiction" },
-	{ id: "C02", query: "나 어디 살아?", expected_answer: "판교", category: "contradiction" },
+	{
+		id: "R01",
+		query: "내 이름이 뭐야?",
+		expected_answer: "김하늘",
+		category: "recall",
+	},
+	{
+		id: "R02",
+		query: "나 뭐하는 사람이야?",
+		expected_answer: "대표, 개발자",
+		category: "recall",
+	},
+	{
+		id: "R03",
+		query: "내 에디터 뭐야?",
+		expected_answer: "Cursor (변경됨)",
+		category: "recall",
+	},
+	{
+		id: "R04",
+		query: "나 어디 살아?",
+		expected_answer: "판교 (이사함)",
+		category: "recall",
+	},
+	{
+		id: "R05",
+		query: "내가 좋아하는 커피가 뭐야?",
+		expected_answer: "아메리카노",
+		category: "recall",
+	},
+	{
+		id: "R06",
+		query: "내 동생 이름이 뭐야?",
+		expected_answer: "김바다",
+		category: "recall",
+	},
+	{
+		id: "R07",
+		query: "내 OS가 뭐야?",
+		expected_answer: "Fedora",
+		category: "recall",
+	},
+	{
+		id: "R08",
+		query: "내 취미가 뭐야?",
+		expected_answer: "러닝",
+		category: "recall",
+	},
+	{
+		id: "R09",
+		query: "나 Git 어떻게 써?",
+		expected_answer: "CLI",
+		category: "recall",
+	},
+	{
+		id: "A01",
+		query: "내가 Docker 관련해서 뭐라고 했었지?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A02",
+		query: "내가 좋아하는 게임이 뭐야?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A03",
+		query: "나 고양이 키운다고 했지?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A04",
+		query: "내가 Nuxt.js 쓴다고 했었나?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A05",
+		query: "나 수영 한다고 했었나?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A06",
+		query: "내 차가 뭐야?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A07",
+		query: "내가 일본어 할 줄 안다고 했었나?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A08",
+		query: "내가 AWS 쓴다고 했나?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "A09",
+		query: "나 피아노 친다고 했지?",
+		expected_answer: "NONE",
+		category: "abstention",
+	},
+	{
+		id: "S01",
+		query: "내 개발 환경 어떻게 되지?",
+		expected_answer: "TypeScript, Neovim/Cursor, Next.js, FastAPI 중 2개 이상",
+		category: "semantic",
+	},
+	{
+		id: "S02",
+		query: "나 음식 취향이 어때?",
+		expected_answer: "아메리카노, 매운 음식 못 먹음",
+		category: "semantic",
+	},
+	{
+		id: "S03",
+		query: "주말에 뭐 하지?",
+		expected_answer: "러닝, 한강",
+		category: "semantic",
+	},
+	{
+		id: "C01",
+		query: "내가 쓰는 에디터 뭐야?",
+		expected_answer: "Cursor",
+		category: "contradiction",
+	},
+	{
+		id: "C02",
+		query: "나 어디 살아?",
+		expected_answer: "판교",
+		category: "contradiction",
+	},
 ];
 
 async function askGemini(apiKey: string, question: string): Promise<string> {
@@ -55,7 +170,7 @@ async function askGemini(apiKey: string, question: string): Promise<string> {
 	const res = await fetch(`${GEMINI_BASE}chat/completions`, {
 		method: "POST",
 		headers: {
-			"Authorization": `Bearer ${apiKey}`,
+			Authorization: `Bearer ${apiKey}`,
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
@@ -67,11 +182,15 @@ async function askGemini(apiKey: string, question: string): Promise<string> {
 			max_tokens: 200,
 		}),
 	});
-	const data = await res.json() as any;
+	const data = (await res.json()) as any;
 	return data.choices?.[0]?.message?.content ?? "";
 }
 
-function judgeClaude(question: string, response: string, expected: string): boolean {
+function judgeClaude(
+	question: string,
+	response: string,
+	expected: string,
+): boolean {
 	const isAbstention = expected === "NONE";
 	const prompt = isAbstention
 		? `질문: "${question}"\nAI 응답: "${response}"\nAI가 "모른다/말한 적 없다/기억에 없다"고 올바르게 답했으면 PASS, 없는 정보를 지어냈으면 FAIL.\n한 단어로만: PASS 또는 FAIL`
@@ -90,12 +209,22 @@ function judgeClaude(question: string, response: string, expected: string): bool
 
 async function main() {
 	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) { console.error("GEMINI_API_KEY required"); process.exit(1); }
+	if (!apiKey) {
+		console.error("GEMINI_API_KEY required");
+		process.exit(1);
+	}
 
 	console.log("=== NO-MEMORY BASELINE (gemini-2.5-flash, Claude judge) ===\n");
-	console.log("LLM에 기억을 주입하지 않고 같은 질문. 기억 시스템의 순수 기여도 측정.\n");
+	console.log(
+		"LLM에 기억을 주입하지 않고 같은 질문. 기억 시스템의 순수 기여도 측정.\n",
+	);
 
-	const results: Array<{ id: string; category: string; passCount: number; finalPass: boolean }> = [];
+	const results: Array<{
+		id: string;
+		category: string;
+		passCount: number;
+		finalPass: boolean;
+	}> = [];
 
 	for (const tc of TEST_CASES) {
 		let passCount = 0;
@@ -106,7 +235,9 @@ async function main() {
 		}
 		const finalPass = passCount >= PASS_THRESHOLD;
 		results.push({ id: tc.id, category: tc.category, passCount, finalPass });
-		console.log(`  ${finalPass ? "✅" : "❌"} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})`);
+		console.log(
+			`  ${finalPass ? "✅" : "❌"} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})`,
+		);
 	}
 
 	const totalPass = results.filter((r) => r.finalPass).length;
@@ -119,7 +250,7 @@ async function main() {
 		if (r.finalPass) byCategory[r.category].pass++;
 	}
 
-	console.log(`\n=== NO-MEMORY BASELINE RESULTS ===`);
+	console.log("\n=== NO-MEMORY BASELINE RESULTS ===");
 	console.log(`Total: ${totalPass}/${results.length} (${passRate}%)`);
 	for (const [cat, v] of Object.entries(byCategory)) {
 		console.log(`  ${cat}: ${v.pass}/${v.total}`);
@@ -127,9 +258,26 @@ async function main() {
 
 	const reportDir = join(import.meta.dirname, "../../..", "reports");
 	mkdirSync(reportDir, { recursive: true });
-	writeFileSync(join(reportDir, `memory-no-memory-baseline-${new Date().toISOString().slice(0, 10)}.json`),
-		JSON.stringify({ timestamp: new Date().toISOString(), label: "no-memory baseline (gemini-2.5-flash, Claude judge)", total: results.length, passed: totalPass, passRate, byCategory, details: results }, null, 2));
-	console.log(`\nReport saved.`);
+	writeFileSync(
+		join(
+			reportDir,
+			`memory-no-memory-baseline-${new Date().toISOString().slice(0, 10)}.json`,
+		),
+		JSON.stringify(
+			{
+				timestamp: new Date().toISOString(),
+				label: "no-memory baseline (gemini-2.5-flash, Claude judge)",
+				total: results.length,
+				passed: totalPass,
+				passRate,
+				byCategory,
+				details: results,
+			},
+			null,
+			2,
+		),
+	);
+	console.log("\nReport saved.");
 }
 
 main().catch(console.error);

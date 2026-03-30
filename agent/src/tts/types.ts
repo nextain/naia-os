@@ -37,7 +37,9 @@ export interface TtsProviderDefinition {
 	 * Synthesize speech from text.
 	 * @returns audio + optional cost, or null on failure.
 	 */
-	synthesize(options: TtsSynthesizeOptions): Promise<TtsSynthesizeResult | null>;
+	synthesize(
+		options: TtsSynthesizeOptions,
+	): Promise<TtsSynthesizeResult | null>;
 
 	/** Optional: list available voices for this provider. */
 	listVoices?(): TtsVoiceInfo[];

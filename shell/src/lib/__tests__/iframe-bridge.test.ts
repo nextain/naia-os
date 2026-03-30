@@ -57,7 +57,7 @@ async function sendBridgeMessage(
 	);
 	spy.mockRestore();
 
-	if (!call) throw new Error("Bridge did not respond to message " + msg.id);
+	if (!call) throw new Error(`Bridge did not respond to message ${msg.id}`);
 	return call[0] as { id: string; result?: unknown; error?: string };
 }
 
@@ -133,42 +133,67 @@ describe("iframe-bridge __unknown__ panel blocking", () => {
 	it("blocks getSecret when panelId is __unknown__", async () => {
 		const { getSecretKey } = await import("../secure-store");
 		// No iframe in DOM → __unknown__
-		const res = await sendBridgeMessage({ type: "naia-bridge:getSecret", id: "t3", key: "myKey" });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:getSecret",
+			id: "t3",
+			key: "myKey",
+		});
 		expect(getSecretKey).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
 
 	it("blocks setSecret when panelId is __unknown__", async () => {
 		const { saveSecretKey } = await import("../secure-store");
-		const res = await sendBridgeMessage({ type: "naia-bridge:setSecret", id: "t4", key: "k", value: "v" });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:setSecret",
+			id: "t4",
+			key: "k",
+			value: "v",
+		});
 		expect(saveSecretKey).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
 
 	it("blocks queryBehavior when panelId is __unknown__", async () => {
 		const { queryBehavior } = await import("../behavior-log");
-		const res = await sendBridgeMessage({ type: "naia-bridge:queryBehavior", id: "t5" });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:queryBehavior",
+			id: "t5",
+		});
 		expect(queryBehavior).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
 
 	it("blocks logBehavior when panelId is __unknown__", async () => {
 		const { logBehavior } = await import("../behavior-log");
-		const res = await sendBridgeMessage({ type: "naia-bridge:logBehavior", id: "t6", event: "click" });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:logBehavior",
+			id: "t6",
+			event: "click",
+		});
 		expect(logBehavior).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
 
 	it("blocks readFile when panelId is __unknown__", async () => {
 		const { invoke } = await import("@tauri-apps/api/core");
-		const res = await sendBridgeMessage({ type: "naia-bridge:readFile", id: "t7", path: "/home/user/file.txt" });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:readFile",
+			id: "t7",
+			path: "/home/user/file.txt",
+		});
 		expect(invoke).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
 
 	it("blocks runShell when panelId is __unknown__", async () => {
 		const { invoke } = await import("@tauri-apps/api/core");
-		const res = await sendBridgeMessage({ type: "naia-bridge:runShell", id: "t8", cmd: "ls", args: [] });
+		const res = await sendBridgeMessage({
+			type: "naia-bridge:runShell",
+			id: "t8",
+			cmd: "ls",
+			args: [],
+		});
 		expect(invoke).not.toHaveBeenCalled();
 		expect(res.error).toContain("Panel identity could not be resolved");
 	});
@@ -184,7 +209,8 @@ describe("iframe-bridge input validation", () => {
 		vi.resetAllMocks();
 		// Register a fake iframe so panelIdFromSource resolves a panelId
 		iframe = document.createElement("iframe");
-		iframe.src = "http://asset.localhost/home/user/.naia/panels/my-panel/index.html";
+		iframe.src =
+			"http://asset.localhost/home/user/.naia/panels/my-panel/index.html";
 		document.body.appendChild(iframe);
 
 		const { startIframeBridge } = await import("../iframe-bridge");
@@ -240,18 +266,30 @@ describe("panelIdFromSource regex", () => {
 	const re = /\/([^/]+)\/index\.html(?:[?#].*)?$/;
 
 	it("extracts panelId from clean path", () => {
-		expect("http://asset.localhost/.naia/panels/my-panel/index.html".match(re)?.[1]).toBe("my-panel");
+		expect(
+			"http://asset.localhost/.naia/panels/my-panel/index.html".match(re)?.[1],
+		).toBe("my-panel");
 	});
 
 	it("extracts panelId with query string", () => {
-		expect("http://asset.localhost/.naia/panels/my-panel/index.html?v=2".match(re)?.[1]).toBe("my-panel");
+		expect(
+			"http://asset.localhost/.naia/panels/my-panel/index.html?v=2".match(
+				re,
+			)?.[1],
+		).toBe("my-panel");
 	});
 
 	it("extracts panelId with hash", () => {
-		expect("http://asset.localhost/.naia/panels/my-panel/index.html#section".match(re)?.[1]).toBe("my-panel");
+		expect(
+			"http://asset.localhost/.naia/panels/my-panel/index.html#section".match(
+				re,
+			)?.[1],
+		).toBe("my-panel");
 	});
 
 	it("returns null for path without index.html", () => {
-		expect("http://asset.localhost/.naia/panels/my-panel/".match(re)).toBeNull();
+		expect(
+			"http://asset.localhost/.naia/panels/my-panel/".match(re),
+		).toBeNull();
 	});
 });

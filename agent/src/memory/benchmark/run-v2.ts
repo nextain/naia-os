@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 /**
  * Benchmark v2 — LLM response layer measurement.
  *
@@ -9,9 +10,8 @@
  *
  * Requires GEMINI_API_KEY environment variable.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 const RUNS = 3;
@@ -21,7 +21,12 @@ const THROTTLE_MS = 2000;
 interface TestCase {
 	id: string;
 	query: string;
-	category: "recall" | "abstention" | "semantic" | "contradiction" | "synthesis";
+	category:
+		| "recall"
+		| "abstention"
+		| "semantic"
+		| "contradiction"
+		| "synthesis";
 	/** For keyword judge: keywords that MUST appear in response */
 	keywords?: string[];
 	/** For keyword judge: keywords that must NOT appear */
@@ -46,7 +51,7 @@ async function callGemini(
 		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
 			method: "POST",
 			headers: {
-				"Authorization": `Bearer ${apiKey}`,
+				Authorization: `Bearer ${apiKey}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
@@ -62,7 +67,7 @@ async function callGemini(
 			continue;
 		}
 
-		const data = await res.json() as any;
+		const data = (await res.json()) as any;
 		const content = data.choices?.[0]?.message?.content ?? "";
 		if (content.length > 0) return content;
 		await new Promise((r) => setTimeout(r, 2000));
@@ -76,9 +81,10 @@ async function askWithMemory(
 	memories: string[],
 	question: string,
 ): Promise<string> {
-	const memoryContext = memories.length > 0
-		? `<recalled_memories>\n${memories.map((m) => `- ${m}`).join("\n")}\n</recalled_memories>`
-		: "(관련 기억 없음)";
+	const memoryContext =
+		memories.length > 0
+			? `<recalled_memories>\n${memories.map((m) => `- ${m}`).join("\n")}\n</recalled_memories>`
+			: "(관련 기억 없음)";
 
 	const systemPrompt = `당신은 사용자의 개인 AI 동반자입니다. 이전 대화에서 기억한 내용이 아래에 있습니다.
 
@@ -91,10 +97,14 @@ async function askWithMemory(
 
 ${memoryContext}`;
 
-	return callGemini(apiKey, [
-		{ role: "system", content: systemPrompt },
-		{ role: "user", content: question },
-	], 200);
+	return callGemini(
+		apiKey,
+		[
+			{ role: "system", content: systemPrompt },
+			{ role: "user", content: question },
+		],
+		200,
+	);
 }
 
 /**
@@ -111,37 +121,58 @@ function keywordJudge(
 	if (tc.category === "abstention") {
 		// Check for refusal patterns
 		const refusalPatterns = [
-			"말씀하신 적", "기억에 없", "모르", "없는 것 같",
-			"언급하신 적", "관련된 기억", "기억이 없", "알 수 없",
-			"말한 적", "들은 적", "정보가 없",
+			"말씀하신 적",
+			"기억에 없",
+			"모르",
+			"없는 것 같",
+			"언급하신 적",
+			"관련된 기억",
+			"기억이 없",
+			"알 수 없",
+			"말한 적",
+			"들은 적",
+			"정보가 없",
 		];
 		const hasRefusal = refusalPatterns.some((p) => lower.includes(p));
 		// Also check that response doesn't confidently assert something
 		const assertionPatterns = [
-			"네,", "맞아", "그렇습니다", "하셨습니다", "라고 하셨",
+			"네,",
+			"맞아",
+			"그렇습니다",
+			"하셨습니다",
+			"라고 하셨",
 		];
 		const hasAssertion = assertionPatterns.some((p) => lower.includes(p));
 
 		if (hasRefusal && !hasAssertion) {
-			return { pass: true, reason: `PASS(keyword): refusal detected` };
+			return { pass: true, reason: "PASS(keyword): refusal detected" };
 		}
 		if (hasAssertion) {
-			return { pass: false, reason: `FAIL(keyword): assertion found despite no data` };
+			return {
+				pass: false,
+				reason: "FAIL(keyword): assertion found despite no data",
+			};
 		}
 		// Ambiguous — check if antiKeywords present
 		if (tc.antiKeywords?.some((k) => lower.includes(k.toLowerCase()))) {
-			return { pass: false, reason: `FAIL(keyword): antiKeyword found` };
+			return { pass: false, reason: "FAIL(keyword): antiKeyword found" };
 		}
-		return { pass: false, reason: `FAIL(keyword): no clear refusal pattern` };
+		return { pass: false, reason: "FAIL(keyword): no clear refusal pattern" };
 	}
 
 	// recall / contradiction: must contain at least one keyword
 	if (tc.keywords && tc.keywords.length > 0) {
 		const found = tc.keywords.filter((k) => lower.includes(k.toLowerCase()));
 		if (found.length > 0) {
-			return { pass: true, reason: `PASS(keyword): found [${found.join(", ")}]` };
+			return {
+				pass: true,
+				reason: `PASS(keyword): found [${found.join(", ")}]`,
+			};
 		}
-		return { pass: false, reason: `FAIL(keyword): none of [${tc.keywords.join(", ")}] found in "${response.slice(0, 80)}"` };
+		return {
+			pass: false,
+			reason: `FAIL(keyword): none of [${tc.keywords.join(", ")}] found in "${response.slice(0, 80)}"`,
+		};
 	}
 
 	return { pass: false, reason: "FAIL(keyword): no keywords defined" };
@@ -165,7 +196,11 @@ AI 응답: "${response}"
 
 반드시 첫 줄에 PASS 또는 FAIL만 적고, 둘째 줄에 이유를 한 줄로 적으세요.`;
 
-	const verdict = await callGemini(apiKey, [{ role: "user", content: prompt }], 50);
+	const verdict = await callGemini(
+		apiKey,
+		[{ role: "user", content: prompt }],
+		50,
+	);
 	const firstLine = verdict.split("\n")[0].trim().toUpperCase();
 	const pass = firstLine === "PASS" || firstLine.startsWith("PASS");
 	return { pass, reason: verdict.slice(0, 100) || "EMPTY" };
@@ -182,45 +217,146 @@ async function main() {
 
 	const testCases: TestCase[] = [
 		// === recall: keyword judge ===
-		{ id: "R01", query: "내 이름이 뭐야?", category: "recall", keywords: ["김하늘"] },
-		{ id: "R02", query: "나 뭐하는 사람이야?", category: "recall", keywords: ["대표", "개발자", "스타트업"] },
-		{ id: "R03", query: "내 에디터 뭐야?", category: "recall", keywords: ["cursor"] },
-		{ id: "R04", query: "나 어디 살아?", category: "recall", keywords: ["판교"] },
-		{ id: "R05", query: "내가 좋아하는 커피가 뭐야?", category: "recall", keywords: ["아메리카노"] },
-		{ id: "R06", query: "내 동생 이름이 뭐야?", category: "recall", keywords: ["김바다"] },
-		{ id: "R07", query: "내 OS가 뭐야?", category: "recall", keywords: ["fedora"] },
-		{ id: "R08", query: "내 취미가 뭐야?", category: "recall", keywords: ["러닝", "달리기", "running"] },
-		{ id: "R09", query: "나 Git 어떻게 써?", category: "recall", keywords: ["cli"] },
+		{
+			id: "R01",
+			query: "내 이름이 뭐야?",
+			category: "recall",
+			keywords: ["김하늘"],
+		},
+		{
+			id: "R02",
+			query: "나 뭐하는 사람이야?",
+			category: "recall",
+			keywords: ["대표", "개발자", "스타트업"],
+		},
+		{
+			id: "R03",
+			query: "내 에디터 뭐야?",
+			category: "recall",
+			keywords: ["cursor"],
+		},
+		{
+			id: "R04",
+			query: "나 어디 살아?",
+			category: "recall",
+			keywords: ["판교"],
+		},
+		{
+			id: "R05",
+			query: "내가 좋아하는 커피가 뭐야?",
+			category: "recall",
+			keywords: ["아메리카노"],
+		},
+		{
+			id: "R06",
+			query: "내 동생 이름이 뭐야?",
+			category: "recall",
+			keywords: ["김바다"],
+		},
+		{
+			id: "R07",
+			query: "내 OS가 뭐야?",
+			category: "recall",
+			keywords: ["fedora"],
+		},
+		{
+			id: "R08",
+			query: "내 취미가 뭐야?",
+			category: "recall",
+			keywords: ["러닝", "달리기", "running"],
+		},
+		{
+			id: "R09",
+			query: "나 Git 어떻게 써?",
+			category: "recall",
+			keywords: ["cli"],
+		},
 		// === abstention: keyword judge ===
-		{ id: "A01", query: "내가 Docker 관련해서 뭐라고 했었지?", category: "abstention" },
+		{
+			id: "A01",
+			query: "내가 Docker 관련해서 뭐라고 했었지?",
+			category: "abstention",
+		},
 		{ id: "A02", query: "내가 좋아하는 게임이 뭐야?", category: "abstention" },
 		{ id: "A03", query: "나 고양이 키운다고 했지?", category: "abstention" },
 		{ id: "A04", query: "내가 Nuxt.js 쓴다고 했었나?", category: "abstention" },
 		{ id: "A05", query: "나 수영 한다고 했었나?", category: "abstention" },
 		{ id: "A06", query: "내 차가 뭐야?", category: "abstention" },
-		{ id: "A07", query: "내가 일본어 할 줄 안다고 했었나?", category: "abstention" },
+		{
+			id: "A07",
+			query: "내가 일본어 할 줄 안다고 했었나?",
+			category: "abstention",
+		},
 		{ id: "A08", query: "내가 AWS 쓴다고 했나?", category: "abstention" },
 		{ id: "A09", query: "나 피아노 친다고 했지?", category: "abstention" },
 		// === semantic: LLM judge ===
-		{ id: "S01", query: "내 개발 환경 어떻게 되지?", category: "semantic", expectedDescription: "TypeScript, Cursor, Next.js, FastAPI, Django 중 2개 이상 언급" },
-		{ id: "S02", query: "나 음식 취향이 어때?", category: "semantic", expectedDescription: "아메리카노 또는 매운 음식 못 먹는다는 내용 중 1개 이상" },
-		{ id: "S03", query: "주말에 뭐 하지?", category: "semantic", expectedDescription: "러닝 또는 한강 중 1개 이상 언급" },
+		{
+			id: "S01",
+			query: "내 개발 환경 어떻게 되지?",
+			category: "semantic",
+			expectedDescription:
+				"TypeScript, Cursor, Next.js, FastAPI, Django 중 2개 이상 언급",
+		},
+		{
+			id: "S02",
+			query: "나 음식 취향이 어때?",
+			category: "semantic",
+			expectedDescription:
+				"아메리카노 또는 매운 음식 못 먹는다는 내용 중 1개 이상",
+		},
+		{
+			id: "S03",
+			query: "주말에 뭐 하지?",
+			category: "semantic",
+			expectedDescription: "러닝 또는 한강 중 1개 이상 언급",
+		},
 		// === contradiction: keyword judge ===
-		{ id: "C01", query: "내가 쓰는 에디터 뭐야?", category: "contradiction", keywords: ["cursor"] },
-		{ id: "C02", query: "나 어디 살아?", category: "contradiction", keywords: ["판교"] },
+		{
+			id: "C01",
+			query: "내가 쓰는 에디터 뭐야?",
+			category: "contradiction",
+			keywords: ["cursor"],
+		},
+		{
+			id: "C02",
+			query: "나 어디 살아?",
+			category: "contradiction",
+			keywords: ["판교"],
+		},
 		// === synthesis: LLM judge ===
-		{ id: "M01", query: "새 프로젝트 하나 세팅해줘", category: "synthesis", expectedDescription: "TypeScript, Next.js, Cursor, Fedora 등 사용자의 기술 스택 중 2개 이상이 프로젝트 세팅에 반영됨" },
+		{
+			id: "M01",
+			query: "새 프로젝트 하나 세팅해줘",
+			category: "synthesis",
+			expectedDescription:
+				"TypeScript, Next.js, Cursor, Fedora 등 사용자의 기술 스택 중 2개 이상이 프로젝트 세팅에 반영됨",
+		},
 	];
 
 	// === Phase 1: Encode facts ===
 	console.log("=== Phase 1: Encoding facts via mem0 ===\n");
-	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
+	const factBank = JSON.parse(
+		readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"),
+	);
 
 	const dbPath = `/tmp/mem0-v2-${randomUUID()}`;
 	const m = new Memory({
-		embedder: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" } },
-		vectorStore: { provider: "memory", config: { collectionName: "v2", dimension: 3072, dbPath: `${dbPath}-vec.db` } },
-		llm: { provider: "openai", config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" } },
+		embedder: {
+			provider: "openai",
+			config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" },
+		},
+		vectorStore: {
+			provider: "memory",
+			config: {
+				collectionName: "v2",
+				dimension: 3072,
+				dbPath: `${dbPath}-vec.db`,
+			},
+		},
+		llm: {
+			provider: "openai",
+			config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-2.5-flash" },
+		},
 		historyDbPath: `${dbPath}-hist.db`,
 	});
 
@@ -228,9 +364,13 @@ async function main() {
 	for (const fact of factBank.facts) {
 		try {
 			await throttle();
-			const result = await m.add([{ role: "user", content: fact.statement }], { userId: "v2-user" });
+			const result = await m.add([{ role: "user", content: fact.statement }], {
+				userId: "v2-user",
+			});
 			const memCount = result?.results?.length ?? 0;
-			console.log(`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}... (${memCount} memories)`);
+			console.log(
+				`  ✅ ${fact.id}: ${fact.statement.slice(0, 40)}... (${memCount} memories)`,
+			);
 			encodedCount++;
 		} catch (err: any) {
 			console.log(`  ❌ ${fact.id}: ${err.message?.slice(0, 80)}`);
@@ -240,7 +380,9 @@ async function main() {
 	for (const u of factBank.updates ?? []) {
 		try {
 			await throttle();
-			await m.add([{ role: "user", content: u.statement }], { userId: "v2-user" });
+			await m.add([{ role: "user", content: u.statement }], {
+				userId: "v2-user",
+			});
 			console.log(`  🔄 ${u.id}: ${u.statement.slice(0, 40)}...`);
 		} catch (err: any) {
 			console.log(`  ❌ ${u.id}: ${err.message?.slice(0, 80)}`);
@@ -255,7 +397,9 @@ async function main() {
 		const memList = allMems?.results ?? allMems ?? [];
 		console.log(`  Total: ${memList.length}`);
 		for (const mem of memList) {
-			console.log(`    - ${(mem.memory ?? (mem as any).text ?? "").slice(0, 80)}`);
+			console.log(
+				`    - ${(mem.memory ?? (mem as any).text ?? "").slice(0, 80)}`,
+			);
 		}
 	} catch (err: any) {
 		console.log(`  ⚠ getAll failed: ${err.message?.slice(0, 80)}`);
@@ -268,12 +412,22 @@ async function main() {
 		id: string;
 		query: string;
 		category: string;
-		runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }>;
+		runs: Array<{
+			memories: string[];
+			response: string;
+			pass: boolean;
+			reason: string;
+		}>;
 		finalPass: boolean;
 	}> = [];
 
 	for (const tc of testCases) {
-		const runs: Array<{ memories: string[]; response: string; pass: boolean; reason: string }> = [];
+		const runs: Array<{
+			memories: string[];
+			response: string;
+			pass: boolean;
+			reason: string;
+		}> = [];
 
 		for (let run = 0; run < RUNS; run++) {
 			// Search
@@ -281,14 +435,18 @@ async function main() {
 			if (tc.category === "synthesis") {
 				try {
 					const allMems = await m.getAll({ userId: "v2-user" });
-					memories = (allMems?.results ?? allMems ?? []).map((r: any) => r.memory ?? r.text ?? "");
+					memories = (allMems?.results ?? allMems ?? []).map(
+						(r: any) => r.memory ?? r.text ?? "",
+					);
 				} catch {}
 			} else {
 				const limit = tc.category === "semantic" ? 10 : 5;
 				try {
 					await throttle();
 					const raw = await m.search(tc.query, { userId: "v2-user", limit });
-					memories = (raw?.results ?? raw ?? []).map((r: any) => r.memory ?? r.text ?? "");
+					memories = (raw?.results ?? raw ?? []).map(
+						(r: any) => r.memory ?? r.text ?? "",
+					);
 				} catch (err: any) {
 					console.error(`    ⚠ search error: ${err.message?.slice(0, 60)}`);
 				}
@@ -300,14 +458,26 @@ async function main() {
 			// Judge
 			let verdict: { pass: boolean; reason: string };
 			if (tc.category === "semantic" || tc.category === "synthesis") {
-				verdict = await llmJudge(apiKey, tc.query, response, tc.expectedDescription ?? "");
+				verdict = await llmJudge(
+					apiKey,
+					tc.query,
+					response,
+					tc.expectedDescription ?? "",
+				);
 			} else {
 				verdict = keywordJudge(response, tc);
 			}
 
-			runs.push({ memories, response: response.slice(0, 200), pass: verdict.pass, reason: verdict.reason });
+			runs.push({
+				memories,
+				response: response.slice(0, 200),
+				pass: verdict.pass,
+				reason: verdict.reason,
+			});
 			if (run === 0) {
-				console.log(`    🔍 [${memories.length}] ${memories.map((m) => m.slice(0, 40)).join(" | ") || "(empty)"}`);
+				console.log(
+					`    🔍 [${memories.length}] ${memories.map((m) => m.slice(0, 40)).join(" | ") || "(empty)"}`,
+				);
 				console.log(`    💬 ${response.slice(0, 100)}`);
 				console.log(`    📋 ${verdict.reason.slice(0, 80)}`);
 			}
@@ -315,9 +485,17 @@ async function main() {
 
 		const passCount = runs.filter((r) => r.pass).length;
 		const finalPass = passCount >= PASS_THRESHOLD;
-		results.push({ id: tc.id, query: tc.query, category: tc.category, runs, finalPass });
+		results.push({
+			id: tc.id,
+			query: tc.query,
+			category: tc.category,
+			runs,
+			finalPass,
+		});
 
-		console.log(`  ${finalPass ? "✅" : "❌"} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})\n`);
+		console.log(
+			`  ${finalPass ? "✅" : "❌"} [${tc.category}] ${tc.id} "${tc.query.slice(0, 30)}..." (${passCount}/${RUNS})\n`,
+		);
 	}
 
 	// === Report ===
@@ -329,26 +507,39 @@ async function main() {
 		if (r.finalPass) byCategory[r.category].pass++;
 	}
 
-	console.log(`\n=== RESULTS ===`);
-	console.log(`Total: ${totalPass}/${results.length} (${Math.round((totalPass / results.length) * 100)}%)`);
+	console.log("\n=== RESULTS ===");
+	console.log(
+		`Total: ${totalPass}/${results.length} (${Math.round((totalPass / results.length) * 100)}%)`,
+	);
 	for (const [name, cat] of Object.entries(byCategory)) {
 		console.log(`  ${name}: ${cat.pass}/${cat.total}`);
 	}
 
 	const reportDir = join(import.meta.dirname, "../../..", "reports");
 	mkdirSync(reportDir, { recursive: true });
-	const reportPath = join(reportDir, `memory-v2-${new Date().toISOString().slice(0, 10)}.json`);
-	writeFileSync(reportPath, JSON.stringify({
-		timestamp: new Date().toISOString(),
-		version: "v2.1",
-		judge: "keyword(recall/abstention/contradiction) + llm(semantic/synthesis)",
-		model: "gemini-2.5-flash",
-		total: results.length,
-		passed: totalPass,
-		passRate: Math.round((totalPass / results.length) * 100),
-		byCategory,
-		details: results,
-	}, null, 2));
+	const reportPath = join(
+		reportDir,
+		`memory-v2-${new Date().toISOString().slice(0, 10)}.json`,
+	);
+	writeFileSync(
+		reportPath,
+		JSON.stringify(
+			{
+				timestamp: new Date().toISOString(),
+				version: "v2.1",
+				judge:
+					"keyword(recall/abstention/contradiction) + llm(semantic/synthesis)",
+				model: "gemini-2.5-flash",
+				total: results.length,
+				passed: totalPass,
+				passRate: Math.round((totalPass / results.length) * 100),
+				byCategory,
+				details: results,
+			},
+			null,
+			2,
+		),
+	);
 	console.log(`Report: ${reportPath}`);
 }
 

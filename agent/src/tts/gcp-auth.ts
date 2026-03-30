@@ -48,14 +48,18 @@ export async function getGcpAccessToken(
 	}
 
 	const now = Math.floor(Date.now() / 1000);
-	const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
-	const payload = Buffer.from(JSON.stringify({
-		iss: key.client_email,
-		scope: scopes,
-		aud: key.token_uri ?? "https://oauth2.googleapis.com/token",
-		iat: now,
-		exp: now + 3600,
-	})).toString("base64url");
+	const header = Buffer.from(
+		JSON.stringify({ alg: "RS256", typ: "JWT" }),
+	).toString("base64url");
+	const payload = Buffer.from(
+		JSON.stringify({
+			iss: key.client_email,
+			scope: scopes,
+			aud: key.token_uri ?? "https://oauth2.googleapis.com/token",
+			iat: now,
+			exp: now + 3600,
+		}),
+	).toString("base64url");
 
 	const sign = createSign("RSA-SHA256");
 	sign.update(`${header}.${payload}`);
@@ -63,18 +67,28 @@ export async function getGcpAccessToken(
 
 	const jwt = `${header}.${payload}.${signature}`;
 
-	const resp = await fetch(key.token_uri ?? "https://oauth2.googleapis.com/token", {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-	});
+	const resp = await fetch(
+		key.token_uri ?? "https://oauth2.googleapis.com/token",
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+		},
+	);
 
 	if (!resp.ok) {
-		console.error("[gcp-auth] token exchange failed:", resp.status, await resp.text().catch(() => ""));
+		console.error(
+			"[gcp-auth] token exchange failed:",
+			resp.status,
+			await resp.text().catch(() => ""),
+		);
 		return null;
 	}
 
-	const data = await resp.json() as { access_token: string; expires_in: number };
+	const data = (await resp.json()) as {
+		access_token: string;
+		expires_in: number;
+	};
 	cachedToken = {
 		token: data.access_token,
 		expiresAt: Date.now() + data.expires_in * 1000,

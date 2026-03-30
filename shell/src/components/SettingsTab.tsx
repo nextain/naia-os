@@ -587,7 +587,11 @@ const BG_SAMPLES: { path: string; label: string }[] = [
 ];
 
 const THEMES: { id: ThemeId; label: string; preview: string }[] = [
-	{ id: "system", label: "System", preview: "linear-gradient(to right, #ffffff 50%, #1a1a2e 50%)" },
+	{
+		id: "system",
+		label: "System",
+		preview: "linear-gradient(to right, #ffffff 50%, #1a1a2e 50%)",
+	},
 	{ id: "espresso", label: "Light", preview: "#ffffff" },
 	{ id: "midnight", label: "Dark", preview: "#1a1a2e" },
 	{ id: "ocean", label: "Ocean", preview: "#1b2838" },
@@ -2150,7 +2154,6 @@ export function SettingsTab() {
 				</div>
 			</div>
 
-
 			<div className="settings-section-divider">
 				<span>{t("settings.avatarSection")}</span>
 			</div>
@@ -3650,9 +3653,7 @@ export function SettingsTab() {
 							<div className="fact-content">
 								<span className="fact-key">{f.content}</span>
 								{f.entities.length > 0 && (
-									<span className="fact-value">
-										{f.entities.join(", ")}
-									</span>
+									<span className="fact-value">{f.entities.join(", ")}</span>
 								)}
 							</div>
 							<button

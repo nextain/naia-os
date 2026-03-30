@@ -12,7 +12,8 @@ const ZEP_BASE = "http://localhost:8000";
 
 export class ZepAdapter implements BenchmarkAdapter {
 	readonly name = "zep";
-	readonly description = "Zep CE — session-based chat memory with vector + graph search";
+	readonly description =
+		"Zep CE — session-based chat memory with vector + graph search";
 
 	private sessionId = "";
 	private userId = "";
@@ -20,7 +21,7 @@ export class ZepAdapter implements BenchmarkAdapter {
 	async init(): Promise<void> {
 		// Check Zep is running
 		const health = await this.fetchJson("GET", "/healthz");
-		if (!health) throw new Error("Zep not running at " + ZEP_BASE);
+		if (!health) throw new Error(`Zep not running at ${ZEP_BASE}`);
 
 		// Create user and session
 		this.userId = `bench-user-${Date.now()}`;
@@ -75,7 +76,11 @@ export class ZepAdapter implements BenchmarkAdapter {
 		// Zep CE doesn't have delete endpoints for cleanup
 	}
 
-	private async fetchJson(method: string, path: string, body?: any): Promise<any> {
+	private async fetchJson(
+		method: string,
+		path: string,
+		body?: any,
+	): Promise<any> {
 		try {
 			const opts: RequestInit = {
 				method,
@@ -85,7 +90,9 @@ export class ZepAdapter implements BenchmarkAdapter {
 			const res = await fetch(`${ZEP_BASE}${path}`, opts);
 			if (!res.ok) {
 				const text = await res.text();
-				console.error(`  Zep ${method} ${path}: ${res.status} ${text.slice(0, 200)}`);
+				console.error(
+					`  Zep ${method} ${path}: ${res.status} ${text.slice(0, 200)}`,
+				);
 				return null;
 			}
 			return res.json();

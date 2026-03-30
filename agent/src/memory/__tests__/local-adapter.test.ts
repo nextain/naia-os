@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
 import type { Episode, Fact, ImportanceScore } from "../types.js";
@@ -80,8 +80,12 @@ describe("LocalAdapter", () => {
 		});
 
 		it("recalls episodes by keyword match", async () => {
-			await adapter.episode.store(makeEpisode({ content: "Fixed React rendering bug" }));
-			await adapter.episode.store(makeEpisode({ content: "Updated Python dependencies" }));
+			await adapter.episode.store(
+				makeEpisode({ content: "Fixed React rendering bug" }),
+			);
+			await adapter.episode.store(
+				makeEpisode({ content: "Updated Python dependencies" }),
+			);
 
 			const results = await adapter.episode.recall("React bug", { topK: 5 });
 			expect(results).toHaveLength(1);
@@ -197,8 +201,18 @@ describe("LocalAdapter", () => {
 		});
 
 		it("searches facts by keyword", async () => {
-			await adapter.semantic.upsert(makeFact({ content: "User prefers TypeScript", entities: ["TypeScript"] }));
-			await adapter.semantic.upsert(makeFact({ content: "Meeting scheduled for Friday", entities: ["calendar"] }));
+			await adapter.semantic.upsert(
+				makeFact({
+					content: "User prefers TypeScript",
+					entities: ["TypeScript"],
+				}),
+			);
+			await adapter.semantic.upsert(
+				makeFact({
+					content: "Meeting scheduled for Friday",
+					entities: ["calendar"],
+				}),
+			);
 
 			const results = await adapter.semantic.search("TypeScript", 5);
 			expect(results).toHaveLength(1);
@@ -274,9 +288,9 @@ describe("LocalAdapter", () => {
 
 			const skill = await adapter.procedural.getSkill("git-rebase");
 			expect(skill).not.toBeNull();
-			expect(skill!.successCount).toBe(2);
-			expect(skill!.failureCount).toBe(1);
-			expect(skill!.confidence).toBeCloseTo(2 / 3);
+			expect(skill?.successCount).toBe(2);
+			expect(skill?.failureCount).toBe(1);
+			expect(skill?.confidence).toBeCloseTo(2 / 3);
 		});
 
 		it("stores and retrieves reflections", async () => {
@@ -288,7 +302,10 @@ describe("LocalAdapter", () => {
 				timestamp: Date.now(),
 			});
 
-			const results = await adapter.procedural.getReflections("deploy production", 5);
+			const results = await adapter.procedural.getReflections(
+				"deploy production",
+				5,
+			);
 			expect(results).toHaveLength(1);
 			expect(results[0].correction).toContain("validate env vars");
 		});
@@ -302,7 +319,10 @@ describe("LocalAdapter", () => {
 				timestamp: Date.now(),
 			});
 
-			const results = await adapter.procedural.getReflections("cooking recipe", 5);
+			const results = await adapter.procedural.getReflections(
+				"cooking recipe",
+				5,
+			);
 			expect(results).toHaveLength(0);
 		});
 	});
@@ -332,7 +352,9 @@ describe("LocalAdapter", () => {
 
 	describe("persistence", () => {
 		it("persists data across adapter instances", async () => {
-			await adapter.episode.store(makeEpisode({ content: "Persistent memory" }));
+			await adapter.episode.store(
+				makeEpisode({ content: "Persistent memory" }),
+			);
 			await adapter.semantic.upsert(makeFact({ content: "Persistent fact" }));
 			await adapter.close();
 

@@ -9,9 +9,9 @@ import {
 	startListening as sttStart,
 	stopListening as sttStop,
 } from "tauri-plugin-stt-api";
+import { activeBridge, getBridgeForPanel } from "../lib/active-bridge";
 import { type AudioPlayer, createAudioPlayer } from "../lib/audio-player";
 import { getDefaultVoiceForAvatar } from "../lib/avatar-presets";
-import { activeBridge, getBridgeForPanel } from "../lib/active-bridge";
 import {
 	cancelChat,
 	directToolCall,
@@ -32,12 +32,12 @@ import {
 	resolveGatewayUrl,
 	saveConfig,
 } from "../lib/config";
+import { startDiscordRelay, stopDiscordRelay } from "../lib/discord-relay";
 import {
 	discoverAndPersistDiscordDmChannel,
 	getGatewayHistory,
 	resetGatewaySession,
 } from "../lib/gateway-sessions";
-import { startDiscordRelay, stopDiscordRelay } from "../lib/discord-relay";
 import { getLocale, t } from "../lib/i18n";
 import {
 	getDefaultLlmModel,
@@ -48,9 +48,8 @@ import {
 import { Logger } from "../lib/logger";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
 import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
-import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import { panelRegistry } from "../lib/panel-registry";
-import { usePanelStore } from "../stores/panel";
+import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import {
 	createApiSttSession,
 	createWebSpeechSttSession,
@@ -75,6 +74,7 @@ import { parseEmotion } from "../lib/vrm/expression";
 import { useAvatarStore } from "../stores/avatar";
 import { useChatStore } from "../stores/chat";
 import { useLogsStore } from "../stores/logs";
+import { usePanelStore } from "../stores/panel";
 import { useProgressStore } from "../stores/progress";
 import { useSkillsStore } from "../stores/skills";
 import { AgentsTab } from "./AgentsTab";
@@ -169,7 +169,7 @@ function processFilePaths(text: string): ReactNode[] {
 	return parts.map((part, i) =>
 		FILE_PATH_RE.test(part) ? (
 			<button
-				key={i}
+				key={`file-${part}`}
 				type="button"
 				className="chat-file-deeplink"
 				onClick={() => openFileInWorkspace(part)}
@@ -303,7 +303,6 @@ export function ChatPanel() {
 	const micStreamRef = useRef<MicStream | null>(null);
 	const audioPlayerRef = useRef<AudioPlayer | null>(null);
 	const voiceStartRef = useRef<{ time: number; provider: string } | null>(null);
-
 
 	// ── Input history (↑↓ arrow key recall) ──────────────────────────────
 	const inputHistoryRef = useRef<string[]>([]);
@@ -649,15 +648,12 @@ export function ChatPanel() {
 				gatewayUrl: config.enableTools
 					? config.gatewayUrl || "ws://localhost:18789"
 					: undefined,
-				gatewayToken: config.enableTools
-					? config.gatewayToken
-					: undefined,
+				gatewayToken: config.enableTools ? config.gatewayToken : undefined,
 				disabledSkills: config.enableTools
 					? [...(sanitizeDisabledSkills(config.disabledSkills) ?? [])]
 					: undefined,
 				routeViaGateway:
-					config.enableTools &&
-					(config.chatRouting ?? "auto") !== "direct"
+					config.enableTools && (config.chatRouting ?? "auto") !== "direct"
 						? true
 						: undefined,
 				slackWebhookUrl: config.slackWebhookUrl,
@@ -762,7 +758,12 @@ export function ChatPanel() {
 				bridge
 					.callTool(chunk.toolName, chunk.args)
 					.then((result) =>
-						sendPanelToolResult(chunk.requestId, chunk.toolCallId, result, true),
+						sendPanelToolResult(
+							chunk.requestId,
+							chunk.toolCallId,
+							result,
+							true,
+						),
 					)
 					.catch((err) =>
 						sendPanelToolResult(
@@ -913,8 +914,6 @@ export function ChatPanel() {
 			audioPlayerRef.current?.destroy();
 		};
 	}, []);
-
-
 
 	function showVoiceCostSummary() {
 		const info = voiceStartRef.current;
@@ -1264,7 +1263,11 @@ export function ChatPanel() {
 							setSttState("idle");
 							pipelineActiveRef.current = false;
 							setVoiceMode("off");
-							if (globalThis.confirm("STT API key is required.\n\nGo to Settings?")) {
+							if (
+								globalThis.confirm(
+									"STT API key is required.\n\nGo to Settings?",
+								)
+							) {
 								setActiveTab("settings");
 							}
 							return;
@@ -1482,12 +1485,15 @@ export function ChatPanel() {
 			// Collect active panel tools to pass to the voice session
 			const activePanelId = usePanelStore.getState().activePanel;
 			const panelTools = activePanelId
-				? panelRegistry.get(activePanelId)?.tools ?? []
+				? (panelRegistry.get(activePanelId)?.tools ?? [])
 				: [];
 			const panelToolDefs = panelTools.map((tool) => ({
 				name: tool.name,
 				description: tool.description,
-				parameters: tool.parameters ?? { type: "object" as const, properties: {} },
+				parameters: tool.parameters ?? {
+					type: "object" as const,
+					properties: {},
+				},
 			}));
 
 			// Fetch built-in + custom skills from Agent registry
@@ -1804,7 +1810,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("progress")}
 						title={t("progress.tabProgress")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.progress}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.progress}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -1812,7 +1820,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("skills")}
 						title={t("skills.tabSkills")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.skills}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.skills}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -1820,7 +1830,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("channels")}
 						title={t("channels.tabChannels")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.channels}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.channels}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -1828,7 +1840,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("agents")}
 						title={t("agents.tabAgents")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.agents}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.agents}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -1836,7 +1850,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("diagnostics")}
 						title={t("diagnostics.tabDiagnostics")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.diagnostics}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.diagnostics}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -1844,7 +1860,9 @@ export function ChatPanel() {
 						onClick={() => handleTabChange("settings")}
 						title={t("settings.title")}
 					>
-						<span className="chat-tab-icon" aria-hidden="true">{TAB_ICONS.settings}</span>
+						<span className="chat-tab-icon" aria-hidden="true">
+							{TAB_ICONS.settings}
+						</span>
 					</button>
 				</div>
 				<div className="chat-header-right">
@@ -1928,37 +1946,49 @@ export function ChatPanel() {
 				className="chat-messages"
 				style={{ display: activeTab === "chat" ? "flex" : "none" }}
 			>
-				{messages.filter((msg) => {
-					if (msg.role === "user" && msg.content.startsWith("Read HEARTBEAT.md if it exists")) return false;
-					if (msg.role === "assistant" && /^HEARTBEAT_OK\b/.test(msg.content.trim())) return false;
-					return true;
-				}).map((msg) => (
-					<div key={msg.id} className={`chat-message ${msg.role}`}>
-						{msg.thinking && (
-							<details className="thinking-block">
-								<summary>{t("chat.thinking") || "Thinking..."}</summary>
-								<div className="thinking-content">{msg.thinking}</div>
-							</details>
-						)}
-						{msg.toolCalls?.map((tc) => (
-							<ToolActivity key={tc.toolCallId} tool={tc} />
-						))}
-						<div className="message-content">
-							{msg.role === "assistant" ? (
-								<Markdown components={mdComponents}>{parseEmotion(msg.content).cleanText}</Markdown>
-							) : (
-								msg.content
+				{messages
+					.filter((msg) => {
+						if (
+							msg.role === "user" &&
+							msg.content.startsWith("Read HEARTBEAT.md if it exists")
+						)
+							return false;
+						if (
+							msg.role === "assistant" &&
+							/^HEARTBEAT_OK\b/.test(msg.content.trim())
+						)
+							return false;
+						return true;
+					})
+					.map((msg) => (
+						<div key={msg.id} className={`chat-message ${msg.role}`}>
+							{msg.thinking && (
+								<details className="thinking-block">
+									<summary>{t("chat.thinking") || "Thinking..."}</summary>
+									<div className="thinking-content">{msg.thinking}</div>
+								</details>
+							)}
+							{msg.toolCalls?.map((tc) => (
+								<ToolActivity key={tc.toolCallId} tool={tc} />
+							))}
+							<div className="message-content">
+								{msg.role === "assistant" ? (
+									<Markdown components={mdComponents}>
+										{parseEmotion(msg.content).cleanText}
+									</Markdown>
+								) : (
+									msg.content
+								)}
+							</div>
+							{msg.cost && (
+								<span className="cost-badge">
+									{formatCost(msg.cost.cost)} ·{" "}
+									{msg.cost.inputTokens + msg.cost.outputTokens}{" "}
+									{t("chat.tokens")}
+								</span>
 							)}
 						</div>
-						{msg.cost && (
-							<span className="cost-badge">
-								{formatCost(msg.cost.cost)} ·{" "}
-								{msg.cost.inputTokens + msg.cost.outputTokens}{" "}
-								{t("chat.tokens")}
-							</span>
-						)}
-					</div>
-				))}
+					))}
 
 				{/* Streaming content */}
 				{isStreaming && (
@@ -1974,7 +2004,9 @@ export function ChatPanel() {
 						))}
 						<div className="message-content">
 							{streamingContent ? (
-								<Markdown components={mdComponents}>{parseEmotion(streamingContent).cleanText}</Markdown>
+								<Markdown components={mdComponents}>
+									{parseEmotion(streamingContent).cleanText}
+								</Markdown>
 							) : null}
 							<span className="cursor-blink">▌</span>
 						</div>

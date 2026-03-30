@@ -46,7 +46,10 @@ export function calculateStrength(
 	now: number,
 ): number {
 	// Use time since last access (not creation) — each recall resets the decay clock
-	const daysSinceAccess = Math.max(0, (now - lastAccessed) / (1000 * 60 * 60 * 24));
+	const daysSinceAccess = Math.max(
+		0,
+		(now - lastAccessed) / (1000 * 60 * 60 * 24),
+	);
 
 	// Effective decay rate: high importance → slower decay
 	const lambdaEff = BASE_DECAY * (1 - importance * IMPORTANCE_DAMPING);
@@ -68,7 +71,10 @@ export function calculateStrength(
  * @param hoursSince - Hours since the item was created
  * @returns Prune priority score (higher = prune first)
  */
-export function calculatePruneScore(tokenSize: number, hoursSince: number): number {
+export function calculatePruneScore(
+	tokenSize: number,
+	hoursSince: number,
+): number {
 	const ageWeight = 1 + Math.log(Math.max(1, hoursSince));
 	return tokenSize * ageWeight;
 }

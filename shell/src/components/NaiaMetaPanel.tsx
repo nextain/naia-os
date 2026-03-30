@@ -6,7 +6,13 @@ import { SettingsTab } from "./SettingsTab";
 import { SkillsTab } from "./SkillsTab";
 import { WorkProgressPanel } from "./WorkProgressPanel";
 
-type MetaTabId = "progress" | "skills" | "channels" | "agents" | "diagnostics" | "settings";
+type MetaTabId =
+	| "progress"
+	| "skills"
+	| "channels"
+	| "agents"
+	| "diagnostics"
+	| "settings";
 
 const TABS: { id: MetaTabId; icon: string; label: string }[] = [
 	{ id: "progress", icon: "📊", label: "Progress" },

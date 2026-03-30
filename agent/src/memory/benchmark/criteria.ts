@@ -103,7 +103,11 @@ export const ALPHA_CRITERIA = {
 	 *
 	 * Target: ≥30% strength increase after 3 recalls
 	 */
-	recallStrengthening: { target: 0.3, minimum: 0.15, metric: "relative_increase" },
+	recallStrengthening: {
+		target: 0.3,
+		minimum: 0.15,
+		metric: "relative_increase",
+	},
 
 	/**
 	 * Spreading activation precision@k.

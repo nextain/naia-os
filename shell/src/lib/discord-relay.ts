@@ -7,18 +7,25 @@
  * See: .agents/context/channels-discord.yaml
  */
 
-import { type DiscordMessage, fetchDiscordMessages, getBotUserId } from "./discord-api";
 import { sendChatMessage } from "./chat-service";
 import { loadConfig, resolveGatewayUrl, saveConfig } from "./config";
-import { buildSystemPrompt } from "./persona";
+import {
+	type DiscordMessage,
+	fetchDiscordMessages,
+	getBotUserId,
+} from "./discord-api";
 import { getLocale } from "./i18n";
 import { Logger } from "./logger";
+import { buildSystemPrompt } from "./persona";
 import type { AgentResponseChunk } from "./types";
 
 const POLL_INTERVAL_MS = 5_000;
 
 /** Per-channel conversation history for LLM context */
-const channelHistories = new Map<string, { role: "user" | "assistant"; content: string }[]>();
+const channelHistories = new Map<
+	string,
+	{ role: "user" | "assistant"; content: string }[]
+>();
 
 /** Subscribers for new messages (used by ChannelsTab) */
 type MessageCallback = (messages: DiscordMessage[]) => void;
@@ -138,7 +145,11 @@ async function processMessage(
 					} else if (chunk.type === "finish") {
 						resolve();
 					} else if (chunk.type === "error") {
-						reject(new Error(("message" in chunk ? chunk.message : "LLM error") as string));
+						reject(
+							new Error(
+								("message" in chunk ? chunk.message : "LLM error") as string,
+							),
+						);
 					}
 				},
 				requestId,

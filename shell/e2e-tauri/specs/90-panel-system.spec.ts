@@ -113,9 +113,7 @@ describe("90 — Panel System (ModeBar + sample-note AI interaction)", () => {
 	});
 
 	it("07 — AI can read note from sample-note panel", async () => {
-		await sendMessage(
-			"방금 sample-note 메모장에 뭐가 적혀있어?",
-		);
+		await sendMessage("방금 sample-note 메모장에 뭐가 적혀있어?");
 		await waitForToolSuccess();
 
 		const text = await getLastAssistantMessage();

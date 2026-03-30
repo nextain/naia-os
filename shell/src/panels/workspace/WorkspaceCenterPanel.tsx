@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { loadConfig, saveConfig } from "../../lib/config";
+import { type AppConfig, loadConfig, saveConfig } from "../../lib/config";
 import { Logger } from "../../lib/logger";
 import { panelRegistry } from "../../lib/panel-registry";
 import type { PanelCenterProps } from "../../lib/panel-registry";
@@ -80,10 +80,13 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 
 	// Folder picker when no workspace root is configured
 	const pickWorkspaceFolder = useCallback(async () => {
-		const selected = await open({ directory: true, title: "Select Workspace Folder" });
+		const selected = await open({
+			directory: true,
+			title: "Select Workspace Folder",
+		});
 		if (selected && typeof selected === "string") {
-			const cfg = loadConfig() ?? {};
-			saveConfig({ ...cfg, workspaceRoot: selected });
+			const cfg = loadConfig();
+			saveConfig({ ...cfg, workspaceRoot: selected } as AppConfig);
 			setActiveWorkspaceRoot(selected);
 		}
 	}, []);
@@ -582,7 +585,8 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				// Normalize trailing slash so "/path/" and "/path" map to the same openDirsRef key.
 				const dir = String(args.dir ?? "").replace(/\/+$/, "");
 				if (!dir) return "Error: dir is required";
-				if (!dir.startsWith("/") && !/^[a-zA-Z]:[/\\]/.test(dir)) return "Error: dir must be an absolute path";
+				if (!dir.startsWith("/") && !/^[a-zA-Z]:[/\\]/.test(dir))
+					return "Error: dir must be an absolute path";
 				// openDirsRef tracks both committed AND in-flight dirs. Add BEFORE the
 				// await so concurrent calls for the same dir are blocked immediately —
 				// before any state update and before React renders. Only delete on
@@ -604,7 +608,14 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				try {
 					const result = await invoke<{ pty_id: string; pid: number }>(
 						"pty_create",
-						{ dir, command: navigator.userAgent.includes("Windows") ? "powershell" : "bash", rows: 24, cols: 80 },
+						{
+							dir,
+							command: navigator.userAgent.includes("Windows")
+								? "powershell"
+								: "bash",
+							rows: 24,
+							cols: 80,
+						},
 					);
 					// React 18 batching: setTerminals + setActiveTab committed in one render
 					// — no intermediate frame where activeTab === pty_id but terminals is
@@ -702,13 +713,28 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	// No workspace root configured — show folder picker
 	if (!activeWorkspaceRoot) {
 		return (
-			<div className="workspace-panel" style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: "1rem" }}>
+			<div
+				className="workspace-panel"
+				style={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					flexDirection: "column",
+					gap: "1rem",
+				}}
+			>
 				<h2 style={{ margin: 0 }}>Workspace</h2>
-				<p style={{ opacity: 0.7, textAlign: "center" }}>Select a folder to use as your workspace root.</p>
+				<p style={{ opacity: 0.7, textAlign: "center" }}>
+					Select a folder to use as your workspace root.
+				</p>
 				<button
 					type="button"
 					onClick={pickWorkspaceFolder}
-					style={{ padding: "0.5rem 1.5rem", fontSize: "1rem", cursor: "pointer" }}
+					style={{
+						padding: "0.5rem 1.5rem",
+						fontSize: "1rem",
+						cursor: "pointer",
+					}}
 				>
 					Select Folder
 				</button>

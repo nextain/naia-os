@@ -4,12 +4,7 @@ import type { TtsSynthesizeResult } from "./types.js";
 const DEFAULT_VOICE = "nova";
 
 // Voices only available on gpt-4o-mini-tts (not tts-1/tts-1-hd)
-const MINI_TTS_ONLY_VOICES = new Set([
-	"ballad",
-	"cedar",
-	"marin",
-	"verse",
-]);
+const MINI_TTS_ONLY_VOICES = new Set(["ballad", "cedar", "marin", "verse"]);
 
 function pickModel(voice: string): string {
 	return MINI_TTS_ONLY_VOICES.has(voice) ? "gpt-4o-mini-tts" : "tts-1";
@@ -57,5 +52,6 @@ registerTtsProvider({
 	id: "openai",
 	name: "OpenAI TTS",
 	requiresApiKey: true,
-	synthesize: (opts) => synthesizeOpenAISpeech(opts.text, opts.apiKey!, opts.voice),
+	synthesize: (opts) =>
+		synthesizeOpenAISpeech(opts.text, opts.apiKey!, opts.voice),
 });

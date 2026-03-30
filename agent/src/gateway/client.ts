@@ -172,8 +172,7 @@ export class GatewayClient implements GatewayAdapter {
 							try {
 								// Sanitize fields to prevent pipe-delimiter
 								// confusion in the signature payload.
-								const sanitize = (s: string) =>
-									s.replace(/\|/g, "");
+								const sanitize = (s: string) => s.replace(/\|/g, "");
 								const payload = [
 									"v2",
 									sanitize(device.id),

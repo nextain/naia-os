@@ -183,7 +183,9 @@ export function createTtsSkill(): SkillDefinition {
 							error: "text is required for preview action",
 						};
 					}
-					let ttsResult: import("../../tts/types.js").TtsSynthesizeResult | null = null;
+					let ttsResult:
+						| import("../../tts/types.js").TtsSynthesizeResult
+						| null = null;
 					if (provider === "openai") {
 						const key = args.apiKey as string;
 						if (!key) {
@@ -232,7 +234,8 @@ export function createTtsSkill(): SkillDefinition {
 							return {
 								success: false,
 								output: "",
-								error: "Naia account login is required for Naia Cloud TTS preview",
+								error:
+									"Naia account login is required for Naia Cloud TTS preview",
 							};
 						}
 						ttsResult = await synthesizeNextainSpeech(

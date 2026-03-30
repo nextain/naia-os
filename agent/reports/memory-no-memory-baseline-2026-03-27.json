@@ -1,165 +1,165 @@
 {
-  "timestamp": "2026-03-27T04:29:39.155Z",
-  "label": "no-memory baseline (gemini-2.5-flash, Claude judge)",
-  "total": 23,
-  "passed": 9,
-  "passRate": 39,
-  "byCategory": {
-    "recall": {
-      "pass": 0,
-      "total": 9
-    },
-    "abstention": {
-      "pass": 9,
-      "total": 9
-    },
-    "semantic": {
-      "pass": 0,
-      "total": 3
-    },
-    "contradiction": {
-      "pass": 0,
-      "total": 2
-    }
-  },
-  "details": [
-    {
-      "id": "R01",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R02",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R03",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R04",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R05",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R06",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R07",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R08",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "R09",
-      "category": "recall",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "A01",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A02",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A03",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A04",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A05",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A06",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A07",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A08",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "A09",
-      "category": "abstention",
-      "passCount": 3,
-      "finalPass": true
-    },
-    {
-      "id": "S01",
-      "category": "semantic",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "S02",
-      "category": "semantic",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "S03",
-      "category": "semantic",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "C01",
-      "category": "contradiction",
-      "passCount": 0,
-      "finalPass": false
-    },
-    {
-      "id": "C02",
-      "category": "contradiction",
-      "passCount": 0,
-      "finalPass": false
-    }
-  ]
+	"timestamp": "2026-03-27T04:29:39.155Z",
+	"label": "no-memory baseline (gemini-2.5-flash, Claude judge)",
+	"total": 23,
+	"passed": 9,
+	"passRate": 39,
+	"byCategory": {
+		"recall": {
+			"pass": 0,
+			"total": 9
+		},
+		"abstention": {
+			"pass": 9,
+			"total": 9
+		},
+		"semantic": {
+			"pass": 0,
+			"total": 3
+		},
+		"contradiction": {
+			"pass": 0,
+			"total": 2
+		}
+	},
+	"details": [
+		{
+			"id": "R01",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R02",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R03",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R04",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R05",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R06",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R07",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R08",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "R09",
+			"category": "recall",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "A01",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A02",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A03",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A04",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A05",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A06",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A07",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A08",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "A09",
+			"category": "abstention",
+			"passCount": 3,
+			"finalPass": true
+		},
+		{
+			"id": "S01",
+			"category": "semantic",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "S02",
+			"category": "semantic",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "S03",
+			"category": "semantic",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "C01",
+			"category": "contradiction",
+			"passCount": 0,
+			"finalPass": false
+		},
+		{
+			"id": "C02",
+			"category": "contradiction",
+			"passCount": 0,
+			"finalPass": false
+		}
+	]
 }

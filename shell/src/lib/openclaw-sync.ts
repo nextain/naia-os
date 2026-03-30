@@ -75,7 +75,7 @@ export async function syncToOpenClaw(
  * If a restart is already in flight, returns the existing promise.
  */
 let restartTimer: ReturnType<typeof setTimeout> | null = null;
-let restartResolvers: Array<() => void> = [];
+const restartResolvers: Array<() => void> = [];
 let inflightRestart: Promise<void> | null = null;
 
 export function restartGateway(): Promise<void> {

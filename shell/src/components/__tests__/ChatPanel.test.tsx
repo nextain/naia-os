@@ -422,7 +422,9 @@ describe("ChatPanel", () => {
 
 	it("recalls previous input with ArrowUp", async () => {
 		render(<ChatPanel />);
-		const input = screen.getByPlaceholderText(/메시지|message/i) as HTMLTextAreaElement;
+		const input = screen.getByPlaceholderText(
+			/메시지|message/i,
+		) as HTMLTextAreaElement;
 
 		// Send two messages
 		fireEvent.change(input, { target: { value: "첫번째" } });
@@ -438,7 +440,10 @@ describe("ChatPanel", () => {
 
 		// ArrowUp should recall "두번째" (most recent)
 		// Set selectionStart/End to 0 for empty input
-		Object.defineProperty(input, "selectionStart", { value: 0, writable: true });
+		Object.defineProperty(input, "selectionStart", {
+			value: 0,
+			writable: true,
+		});
 		Object.defineProperty(input, "selectionEnd", { value: 0, writable: true });
 		fireEvent.keyDown(input, { key: "ArrowUp" });
 		await new Promise((r) => setTimeout(r, 50));

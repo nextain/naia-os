@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { AgentResponseChunk, ProviderConfig } from "./types";
 import type { NaiaTool } from "./panel-registry";
+import type { AgentResponseChunk, ProviderConfig } from "./types";
 
 interface SendChatOptions {
 	message: string;

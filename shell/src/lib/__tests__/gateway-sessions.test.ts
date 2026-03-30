@@ -172,7 +172,12 @@ describe("gateway-sessions", () => {
 					messages: [
 						{
 							role: "user",
-							content: [{ type: "text", text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK. Current time: Saturday, March 21st, 2026" }],
+							content: [
+								{
+									type: "text",
+									text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK. Current time: Saturday, March 21st, 2026",
+								},
+							],
 							timestamp: 1000,
 						},
 						{
@@ -209,12 +214,19 @@ describe("gateway-sessions", () => {
 					messages: [
 						{
 							role: "user",
-							content: [{ type: "text", text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly." }],
+							content: [
+								{
+									type: "text",
+									text: "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly.",
+								},
+							],
 							timestamp: 1000,
 						},
 						{
 							role: "assistant",
-							content: [{ type: "text", text: "HEARTBEAT_OK\n안녕하세요 마스터 루크!" }],
+							content: [
+								{ type: "text", text: "HEARTBEAT_OK\n안녕하세요 마스터 루크!" },
+							],
 							timestamp: 2000,
 						},
 					],

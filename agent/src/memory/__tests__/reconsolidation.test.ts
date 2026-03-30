@@ -24,13 +24,19 @@ describe("Reconsolidation", () => {
 	describe("checkContradiction", () => {
 		it("detects preference change with negation", () => {
 			const fact = makeFact("User prefers vim", ["vim"]);
-			const result = checkContradiction(fact, "I no longer use vim, switched to neovim");
+			const result = checkContradiction(
+				fact,
+				"I no longer use vim, switched to neovim",
+			);
 			expect(result.action).toBe("update");
 		});
 
 		it("detects Korean state change", () => {
 			const fact = makeFact("사용자는 Python을 사용", ["Python"]);
-			const result = checkContradiction(fact, "Python 대신 TypeScript로 변경했어");
+			const result = checkContradiction(
+				fact,
+				"Python 대신 TypeScript로 변경했어",
+			);
 			expect(result.action).not.toBe("keep");
 		});
 

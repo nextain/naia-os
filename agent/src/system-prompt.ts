@@ -58,7 +58,8 @@ export function buildToolStatusPrompt(
 	let status = `\n\n[System Status]\n사용 가능한 도구(${toolNames.length}개): ${toolNames.join(", ")}`;
 
 	if (wantGateway && !gatewayConnected) {
-		status += `\n⚠️ Gateway 연결 실패: Gateway 필요 도구(execute_command, read_file, write_file, search_files, web_search, apply_diff, browser, sessions_spawn 및 커스텀 스킬)를 사용할 수 없습니다. 로컬 스킬(skill_time, skill_weather, skill_memo 등)은 정상 사용 가능합니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.`;
+		status +=
+			"\n⚠️ Gateway 연결 실패: Gateway 필요 도구(execute_command, read_file, write_file, search_files, web_search, apply_diff, browser, sessions_spawn 및 커스텀 스킬)를 사용할 수 없습니다. 로컬 스킬(skill_time, skill_weather, skill_memo 등)은 정상 사용 가능합니다. Gateway가 필요한 도구를 요청받으면, 앱을 재시작하면 Gateway도 자동으로 재시작된다고 안내하세요.";
 	} else if (gatewayConnected) {
 		status += "\nGateway 연결됨 ✓";
 	}

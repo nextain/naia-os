@@ -35,10 +35,7 @@ const IGNORE_DIRS = new Set([
 	"flatpak-repo",
 ]);
 
-async function collectFiles(
-	root: string,
-	depth: number,
-): Promise<string[]> {
+async function collectFiles(root: string, depth: number): Promise<string[]> {
 	if (depth > MAX_DEPTH) return [];
 	try {
 		const entries = await invoke<DirEntry[]>("workspace_list_dirs", {
@@ -63,8 +60,25 @@ async function collectFiles(
 // ── Korean choseong (초성) matching ──────────────────────────────────────────
 
 const CHOSEONG = [
-	"ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ",
-	"ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ",
+	"ㄱ",
+	"ㄲ",
+	"ㄴ",
+	"ㄷ",
+	"ㄸ",
+	"ㄹ",
+	"ㅁ",
+	"ㅂ",
+	"ㅃ",
+	"ㅅ",
+	"ㅆ",
+	"ㅇ",
+	"ㅈ",
+	"ㅉ",
+	"ㅊ",
+	"ㅋ",
+	"ㅌ",
+	"ㅍ",
+	"ㅎ",
 ];
 
 const HANGUL_BASE = 0xac00;
@@ -101,7 +115,8 @@ function choseongMatch(query: string, target: string): boolean {
 function parseExtFilter(query: string): string | null {
 	const trimmed = query.trim().toLowerCase();
 	if (trimmed.startsWith("*.")) return trimmed.slice(2);
-	if (trimmed.startsWith(".") && !trimmed.includes("/")) return trimmed.slice(1);
+	if (trimmed.startsWith(".") && !trimmed.includes("/"))
+		return trimmed.slice(1);
 	return null;
 }
 
@@ -160,7 +175,11 @@ function fuzzyScoreString(query: string, target: string): number {
 	return qi === query.length ? score : -1;
 }
 
-export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) {
+export function QuickOpen({
+	workspaceRoot,
+	onSelect,
+	onClose,
+}: QuickOpenProps) {
 	const [query, setQuery] = useState("");
 	const [files, setFiles] = useState<string[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -200,15 +219,13 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 				.filter((r) => r.score > 0)
 				.sort((a, b) => b.score - a.score)
 				.slice(0, MAX_RESULTS)
-		: files
-				.slice(0, MAX_RESULTS)
-				.map((f) => ({
-					path: f,
-					rel: f.startsWith(workspaceRoot)
-						? f.slice(workspaceRoot.length + 1)
-						: f,
-					score: 0,
-				}));
+		: files.slice(0, MAX_RESULTS).map((f) => ({
+				path: f,
+				rel: f.startsWith(workspaceRoot)
+					? f.slice(workspaceRoot.length + 1)
+					: f,
+				score: 0,
+			}));
 
 	// Reset selection when query changes
 	useEffect(() => {
@@ -252,11 +269,7 @@ export function QuickOpen({ workspaceRoot, onSelect, onClose }: QuickOpenProps) 
 	}
 
 	return (
-		<div
-			className="quick-open-overlay"
-			onClick={onClose}
-			onKeyDown={() => {}}
-		>
+		<div className="quick-open-overlay" onClick={onClose} onKeyDown={() => {}}>
 			<div
 				className="quick-open"
 				onClick={(e) => e.stopPropagation()}

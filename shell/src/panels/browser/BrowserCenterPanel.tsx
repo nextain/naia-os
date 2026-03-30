@@ -195,7 +195,10 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 			const next = { ...p, [key]: on };
 			saveChromePerms(next);
 			invoke("browser_set_permission", { permission: key, granted: on }).catch(
-				(e) => Logger.warn("BrowserCenterPanel", `set_permission ${key} failed`, { error: String(e) }),
+				(e) =>
+					Logger.warn("BrowserCenterPanel", `set_permission ${key} failed`, {
+						error: String(e),
+					}),
 			);
 			return next;
 		});
@@ -343,7 +346,9 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 		const unlisten = listen("browser_closed", () => {
 			Logger.warn("BrowserCenterPanel", "Chrome process exited unexpectedly");
 			setStatus("error");
-			setError("Chrome이 종료되었습니다. 다시 시작하려면 아래 버튼을 누르세요.");
+			setError(
+				"Chrome이 종료되었습니다. 다시 시작하려면 아래 버튼을 누르세요.",
+			);
 		});
 		return () => {
 			unlisten.then((fn) => fn());
@@ -376,8 +381,7 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 			navigate: (url: string) => {
 				invoke("browser_embed_navigate", { url }).catch(() => {});
 			},
-			activatePanel: () =>
-				usePanelStore.getState().setActivePanel("browser"),
+			activatePanel: () => usePanelStore.getState().setActivePanel("browser"),
 			hide: () => invoke("browser_embed_hide").catch(() => {}),
 			show: () => invoke("browser_embed_show").catch(() => {}),
 		} satisfies BrowserPanelApi);
@@ -498,7 +502,9 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 			if (!p.current.getText) return denied("읽기");
 			const ref = String(args.ref ?? args.selector ?? "");
 			try {
-				const text = await invoke<string>("browser_get_text", { selector: ref });
+				const text = await invoke<string>("browser_get_text", {
+					selector: ref,
+				});
 				return text || "(empty)";
 			} catch (e) {
 				return `Get text failed: ${String(e)}`;
@@ -557,7 +563,18 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 
 		return () => {
 			Logger.debug("BrowserCenterPanel", "Unregistering AI tool handlers");
-			u1(); u2(); u3(); u4(); u5(); u6(); u7(); u8(); u9(); u10(); u11(); u12();
+			u1();
+			u2();
+			u3();
+			u4();
+			u5();
+			u6();
+			u7();
+			u8();
+			u9();
+			u10();
+			u11();
+			u12();
 		};
 	}, [naia, refreshPageInfo]);
 
@@ -694,7 +711,10 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 							<span className="browser-panel__ai-sep" />
 
 							{/* Chrome browser-level permissions */}
-							<label className="browser-panel__ai-toggle" title="마이크 접근 허용 (모든 사이트)">
+							<label
+								className="browser-panel__ai-toggle"
+								title="마이크 접근 허용 (모든 사이트)"
+							>
 								<input
 									type="checkbox"
 									className="browser-panel__ai-switch"
@@ -703,21 +723,31 @@ export function BrowserCenterPanel({ naia }: PanelCenterProps) {
 								/>
 								<span className="browser-panel__ai-toggle-label">마이크</span>
 							</label>
-							<label className="browser-panel__ai-toggle" title="카메라 접근 허용 (모든 사이트)">
+							<label
+								className="browser-panel__ai-toggle"
+								title="카메라 접근 허용 (모든 사이트)"
+							>
 								<input
 									type="checkbox"
 									className="browser-panel__ai-switch"
 									checked={chromePerms.camera}
-									onChange={(e) => setChromePermToggle("camera", e.target.checked)}
+									onChange={(e) =>
+										setChromePermToggle("camera", e.target.checked)
+									}
 								/>
 								<span className="browser-panel__ai-toggle-label">카메라</span>
 							</label>
-							<label className="browser-panel__ai-toggle" title="알림 허용 (모든 사이트)">
+							<label
+								className="browser-panel__ai-toggle"
+								title="알림 허용 (모든 사이트)"
+							>
 								<input
 									type="checkbox"
 									className="browser-panel__ai-switch"
 									checked={chromePerms.notifications}
-									onChange={(e) => setChromePermToggle("notifications", e.target.checked)}
+									onChange={(e) =>
+										setChromePermToggle("notifications", e.target.checked)
+									}
 								/>
 								<span className="browser-panel__ai-toggle-label">알림</span>
 							</label>

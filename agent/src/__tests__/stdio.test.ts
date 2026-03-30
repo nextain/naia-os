@@ -269,7 +269,9 @@ describe("handleChatRequest TTS integration", () => {
 		});
 
 		expect(synthesize).not.toHaveBeenCalled();
-		const types = outputs.filter((o: any) => o.type !== "log_entry").map((o: any) => o.type);
+		const types = outputs
+			.filter((o: any) => o.type !== "log_entry")
+			.map((o: any) => o.type);
 		expect(types).toEqual(["text", "usage", "finish"]);
 	});
 
@@ -294,7 +296,9 @@ describe("handleChatRequest TTS integration", () => {
 			messages: [{ role: "user", content: "Test" }],
 		});
 
-		const types = outputs.filter((o: any) => o.type !== "log_entry").map((o: any) => o.type);
+		const types = outputs
+			.filter((o: any) => o.type !== "log_entry")
+			.map((o: any) => o.type);
 		// No audio chunk, but usage + finish still sent
 		expect(types).toEqual(["text", "usage", "finish"]);
 	});

@@ -1,4 +1,8 @@
-import type { TtsProviderDefinition, TtsSynthesizeOptions, TtsSynthesizeResult } from "./types.js";
+import type {
+	TtsProviderDefinition,
+	TtsSynthesizeOptions,
+	TtsSynthesizeResult,
+} from "./types.js";
 
 const providers = new Map<string, TtsProviderDefinition>();
 

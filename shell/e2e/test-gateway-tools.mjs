@@ -23,7 +23,9 @@ function waitForMessage(ws, predicate, timeoutMs = 15000) {
 			timeoutMs,
 		);
 		const handler = (event) => {
-			const frame = JSON.parse(typeof event.data === "string" ? event.data : event.data.toString());
+			const frame = JSON.parse(
+				typeof event.data === "string" ? event.data : event.data.toString(),
+			);
 			if (predicate(frame)) {
 				clearTimeout(timer);
 				ws.removeEventListener("message", handler);
@@ -58,11 +60,20 @@ async function main() {
 	// Debug: log all messages
 	ws.addEventListener("message", (event) => {
 		const frame = JSON.parse(event.data);
-		console.log("  << ", frame.type, frame.id || "", frame.method || "", JSON.stringify(frame).slice(0, 120));
+		console.log(
+			"  << ",
+			frame.type,
+			frame.id || "",
+			frame.method || "",
+			JSON.stringify(frame).slice(0, 120),
+		);
 	});
 
 	// Wait for connect.challenge event (server sends this first)
-	const challenge = await waitForMessage(ws, (f) => f.type === "event" && f.event === "connect.challenge");
+	const challenge = await waitForMessage(
+		ws,
+		(f) => f.type === "event" && f.event === "connect.challenge",
+	);
 	console.log("2. Challenge received");
 
 	// Send connect request with auth token (protocol: challenge → connect → res)
@@ -90,9 +101,7 @@ async function main() {
 		(f) => f.type === "res" && f.id === "e2e-connect",
 	);
 	if (!connectRes.ok) {
-		console.log(
-			`3. Connect: FAIL (${connectRes.error?.message || "unknown"})`,
-		);
+		console.log(`3. Connect: FAIL (${connectRes.error?.message || "unknown"})`);
 		ws.close();
 		process.exit(1);
 	}
@@ -103,12 +112,27 @@ async function main() {
 	console.log(`3. Connect+Auth: PASS (${methodCount} methods)`);
 
 	// Get node list to find connected nodes
-	send(ws, { type: "req", id: "e2e-nodelist", method: "node.list", params: {} });
-	const nodeListRes = await waitForMessage(ws, (f) => f.type === "res" && f.id === "e2e-nodelist");
+	send(ws, {
+		type: "req",
+		id: "e2e-nodelist",
+		method: "node.list",
+		params: {},
+	});
+	const nodeListRes = await waitForMessage(
+		ws,
+		(f) => f.type === "res" && f.id === "e2e-nodelist",
+	);
 	const nodes = nodeListRes.payload?.nodes || [];
-	const connectedNode = nodes.find(n => n.connected);
+	const connectedNode = nodes.find((n) => n.connected);
 	const nodeId = connectedNode?.nodeId || "";
-	console.log(`4. Nodes: ${nodes.length} total, connected: ${nodes.filter(n=>n.connected).map(n=>n.displayName).join(", ") || "none"}, nodeId=${nodeId ? nodeId.slice(0, 12) + "..." : "none"}`);
+	console.log(
+		`4. Nodes: ${nodes.length} total, connected: ${
+			nodes
+				.filter((n) => n.connected)
+				.map((n) => n.displayName)
+				.join(", ") || "none"
+		}, nodeId=${nodeId ? `${nodeId.slice(0, 12)}...` : "none"}`,
+	);
 
 	// 3. Test node.invoke with system.run (echo test)
 	console.log("\n--- Tool Execution Tests ---");

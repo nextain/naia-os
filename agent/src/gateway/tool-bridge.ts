@@ -16,19 +16,19 @@ import { createNaiaDiscordSkill } from "../skills/built-in/naia-discord.js";
 import { createNotifyDiscordSkill } from "../skills/built-in/notify-discord.js";
 import { createNotifyGoogleChatSkill } from "../skills/built-in/notify-google-chat.js";
 import { createNotifySlackSkill } from "../skills/built-in/notify-slack.js";
+import { createPanelSkill } from "../skills/built-in/panel.js";
 import { createSessionsSkill } from "../skills/built-in/sessions.js";
 import { createSkillManagerSkill } from "../skills/built-in/skill-manager.js";
 import { createSystemStatusSkill } from "../skills/built-in/system-status.js";
 import { createTimeSkill } from "../skills/built-in/time.js";
 import { createTtsSkill } from "../skills/built-in/tts.js";
-import { createPanelSkill } from "../skills/built-in/panel.js";
 import { createVoiceWakeSkill } from "../skills/built-in/voicewake.js";
 import { createWeatherSkill } from "../skills/built-in/weather.js";
 import { bootstrapDefaultSkills, loadCustomSkills } from "../skills/loader.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { GatewayRequestError } from "./client.js";
-import type { GatewayAdapter } from "./types.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
+import type { GatewayAdapter } from "./types.js";
 
 export type { ToolDefinition };
 
