@@ -438,5 +438,9 @@ jobs:
           curl -L -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip butler.zip
           chmod +x butler
-          ./butler push artifacts/Naia-Shell-x86_64.AppImage nextain/naia:linux
+          if [[ -f artifacts/Naia-Shell-x86_64.AppImage ]]; then
+            ./butler push artifacts/Naia-Shell-x86_64.AppImage nextain/naia:linux
+          else
+            ./butler push artifacts/Naia-Shell-x86_64.deb nextain/naia:linux-deb
+          fi
           ./butler push artifacts/Naia-Shell-x86_64.flatpak nextain/naia:linux-flatpak
