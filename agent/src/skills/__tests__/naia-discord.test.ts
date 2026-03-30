@@ -64,10 +64,10 @@ describe("skill_naia_discord", () => {
 			channelId: process.env.DISCORD_DEFAULT_CHANNEL_ID,
 			userId: process.env.DISCORD_DEFAULT_USER_ID,
 		};
-		delete process.env.DISCORD_BOT_TOKEN;
-		delete process.env.DISCORD_DEFAULT_TARGET;
-		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		delete process.env.DISCORD_DEFAULT_USER_ID;
+		Reflect.deleteProperty(process.env, "DISCORD_BOT_TOKEN");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_TARGET");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_CHANNEL_ID");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
 
 		const gateway = {
 			isConnected: () => true,
@@ -86,7 +86,7 @@ describe("skill_naia_discord", () => {
 		for (const [k, v] of Object.entries(saved)) {
 			const envKey = `DISCORD_${k === "token" ? "BOT_TOKEN" : k === "target" ? "DEFAULT_TARGET" : k === "channelId" ? "DEFAULT_CHANNEL_ID" : "DEFAULT_USER_ID"}`;
 			if (v !== undefined) process.env[envKey] = v;
-			else delete process.env[envKey];
+			else Reflect.deleteProperty(process.env, envKey);
 		}
 	});
 
@@ -121,16 +121,16 @@ describe("skill_naia_discord", () => {
 		});
 
 		if (prev !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prev;
-		else delete process.env.DISCORD_DEFAULT_USER_ID;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
 	});
 
 	it("derives user target from connected numeric discord accountId", async () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		delete process.env.DISCORD_DEFAULT_USER_ID;
-		delete process.env.DISCORD_DEFAULT_TARGET;
-		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_TARGET");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_CHANNEL_ID");
 
 		const gateway = {
 			isConnected: () => true,
@@ -181,22 +181,22 @@ describe("skill_naia_discord", () => {
 		);
 
 		if (prevUser !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prevUser;
-		else delete process.env.DISCORD_DEFAULT_USER_ID;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
 		if (prevTarget !== undefined)
 			process.env.DISCORD_DEFAULT_TARGET = prevTarget;
-		else delete process.env.DISCORD_DEFAULT_TARGET;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_TARGET");
 		if (prevChannel !== undefined)
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
-		else delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_CHANNEL_ID");
 	});
 
 	it("derives user target from discord userId field even when accountId is non-numeric", async () => {
 		const prevUser = process.env.DISCORD_DEFAULT_USER_ID;
 		const prevTarget = process.env.DISCORD_DEFAULT_TARGET;
 		const prevChannel = process.env.DISCORD_DEFAULT_CHANNEL_ID;
-		delete process.env.DISCORD_DEFAULT_USER_ID;
-		delete process.env.DISCORD_DEFAULT_TARGET;
-		delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_TARGET");
+		Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_CHANNEL_ID");
 
 		const gateway = {
 			isConnected: () => true,
@@ -248,13 +248,13 @@ describe("skill_naia_discord", () => {
 		);
 
 		if (prevUser !== undefined) process.env.DISCORD_DEFAULT_USER_ID = prevUser;
-		else delete process.env.DISCORD_DEFAULT_USER_ID;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_USER_ID");
 		if (prevTarget !== undefined)
 			process.env.DISCORD_DEFAULT_TARGET = prevTarget;
-		else delete process.env.DISCORD_DEFAULT_TARGET;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_TARGET");
 		if (prevChannel !== undefined)
 			process.env.DISCORD_DEFAULT_CHANNEL_ID = prevChannel;
-		else delete process.env.DISCORD_DEFAULT_CHANNEL_ID;
+		else Reflect.deleteProperty(process.env, "DISCORD_DEFAULT_CHANNEL_ID");
 	});
 
 	it("replaces emotion tags with emoji in Discord messages", async () => {

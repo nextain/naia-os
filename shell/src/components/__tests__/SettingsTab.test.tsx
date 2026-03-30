@@ -173,17 +173,22 @@ describe("SettingsTab", () => {
 		mockInvoke.mockResolvedValue([
 			{
 				id: "f1",
-				key: "favorite_lang",
-				value: "Rust",
-				source_session: null,
-				created_at: 1000,
-				updated_at: 1000,
+				content: "favorite_lang is Rust",
+				entities: ["Rust"],
+				topics: ["programming"],
+				createdAt: 1000,
+				updatedAt: 1000,
+				importance: 0.5,
+				recallCount: 0,
+				lastAccessed: 1000,
+				strength: 1.0,
+				sourceEpisodes: [],
 			},
 		]);
 		render(<SettingsTab />);
 
 		await vi.waitFor(() => {
-			expect(screen.getByText("favorite_lang")).toBeDefined();
+			expect(screen.getByText("favorite_lang is Rust")).toBeDefined();
 			expect(screen.getByText("Rust")).toBeDefined();
 		});
 	});
