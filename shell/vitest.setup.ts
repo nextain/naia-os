@@ -13,7 +13,10 @@
  */
 
 const ls = globalThis.localStorage;
-if (typeof ls?.setItem !== "function" && typeof globalThis.document !== "undefined") {
+if (
+	typeof ls?.setItem !== "function" &&
+	typeof globalThis.document !== "undefined"
+) {
 	try {
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const { JSDOM } = require("jsdom");
@@ -44,18 +47,43 @@ if (typeof globalThis.DOMMatrix === "undefined") {
 	// @ts-expect-error — minimal stub sufficient for pdfjs-dist init
 	globalThis.DOMMatrix = class DOMMatrix {
 		constructor() {
+			// biome-ignore lint/correctness/noConstructorReturn: DOMMatrix polyfill needs to return augmented this
 			return Object.assign(this, {
-				a: 1, b: 0, c: 0, d: 1, e: 0, f: 0,
-				m11: 1, m12: 0, m13: 0, m14: 0,
-				m21: 0, m22: 1, m23: 0, m24: 0,
-				m31: 0, m32: 0, m33: 1, m34: 0,
-				m41: 0, m42: 0, m43: 0, m44: 1,
-				is2D: true, isIdentity: true,
+				a: 1,
+				b: 0,
+				c: 0,
+				d: 1,
+				e: 0,
+				f: 0,
+				m11: 1,
+				m12: 0,
+				m13: 0,
+				m14: 0,
+				m21: 0,
+				m22: 1,
+				m23: 0,
+				m24: 0,
+				m31: 0,
+				m32: 0,
+				m33: 1,
+				m34: 0,
+				m41: 0,
+				m42: 0,
+				m43: 0,
+				m44: 1,
+				is2D: true,
+				isIdentity: true,
 			});
 		}
-		static fromMatrix() { return new DOMMatrix(); }
-		static fromFloat32Array() { return new DOMMatrix(); }
-		static fromFloat64Array() { return new DOMMatrix(); }
+		static fromMatrix() {
+			return new DOMMatrix();
+		}
+		static fromFloat32Array() {
+			return new DOMMatrix();
+		}
+		static fromFloat64Array() {
+			return new DOMMatrix();
+		}
 	};
 }
 

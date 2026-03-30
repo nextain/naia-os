@@ -169,6 +169,7 @@ fn x11_connect() -> Result<(x11rb::rust_connection::RustConnection, usize), Stri
 }
 
 fn x11_window_area(conn: &x11rb::rust_connection::RustConnection, xid: u32) -> Option<u32> {
+    use x11rb::protocol::xproto::ConnectionExt;
     let geom = conn.get_geometry(xid).ok()?.reply().ok()?;
     Some(geom.width as u32 * geom.height as u32)
 }
@@ -339,6 +340,7 @@ impl PlatformWindowManager for X11WindowManager {
 
     fn hide(&self, handle: PlatformHandle) -> Result<(), String> {
         use x11rb::connection::Connection;
+        use x11rb::protocol::xproto::ConnectionExt;
         let PlatformHandle::X11(xid) = handle else { return Ok(()); };
         if let Ok((conn, _)) = x11_connect() { let _ = conn.unmap_window(xid); let _ = conn.flush(); }
         Ok(())
