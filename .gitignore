@@ -32,5 +32,6 @@ shell/src-tauri/resources/
 errors/
 iso-download/
 work-logs/
+.jikime/
 *~
 *.pid
