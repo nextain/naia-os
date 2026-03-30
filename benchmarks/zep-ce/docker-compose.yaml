@@ -1,0 +1,95 @@
+# Zep CE for memory benchmarking
+# Usage:
+#   1. Copy .env.example to .env and set your API key
+#   2. podman-compose up -d
+#   3. Wait ~60s for all services to be healthy
+#   4. Test: curl http://localhost:8000/healthz
+#
+# Architecture:
+#   zep (Go, :8000) → graphiti (Python, :8003) → neo4j (:7687)
+#                    → postgres/pgvector (:5432)
+#
+# Graphiti uses OpenAI client — Gemini's OpenAI-compat endpoint works via OPENAI_BASE_URL
+
+name: zep-ce-bench
+
+services:
+  db:
+    image: docker.io/ankane/pgvector:v0.5.1
+    container_name: zep-ce-postgres
+    restart: on-failure
+    shm_size: "128mb"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - zep-db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  neo4j:
+    image: docker.io/neo4j:5.22.0
+    container_name: zep-ce-neo4j
+    healthcheck:
+      test: wget http://localhost:7474 || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    environment:
+      - NEO4J_AUTH=neo4j/zepzepzep
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=512m
+      - NEO4J_server_memory_pagecache_size=256m
+
+  graphiti:
+    image: docker.io/zepai/graphiti:0.3
+    container_name: zep-ce-graphiti
+    ports:
+      - "8003:8003"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - MODEL_NAME=${MODEL_NAME:-gpt-4o-mini}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=zepzepzep
+      - PORT=8003
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthcheck')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  zep:
+    image: docker.io/zepai/zep:latest
+    container_name: zep-ce-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./zep.yaml:/app/zep.yaml
+    environment:
+      - ZEP_CONFIG_FILE=zep.yaml
+    depends_on:
+      graphiti:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+volumes:
+  neo4j_data:
+  zep-db:

@@ -1,149 +1,149 @@
 {
-  "$schema": "Fact Bank for Memory Benchmark — 15 facts across 5 domains. All personas are fictional.",
-  "persona_note": "테스트용 가상 인물. 실제 인물과 무관.",
-  "facts": [
-    {
-      "id": "F01",
-      "domain": "identity",
-      "statement": "나는 김하늘이야. 스타트업 대표고 풀스택 개발자야",
-      "entities": ["김하늘", "풀스택"],
-      "extractable_facts": ["이름: 김하늘", "직책: 대표", "역할: 풀스택 개발자"]
-    },
-    {
-      "id": "F02",
-      "domain": "tech",
-      "statement": "요즘은 주로 TypeScript로 개발하고 있어",
-      "entities": ["TypeScript"],
-      "extractable_facts": ["주 언어: TypeScript"]
-    },
-    {
-      "id": "F03",
-      "domain": "tech",
-      "statement": "에디터는 Neovim 쓰고 있어",
-      "entities": ["Neovim"],
-      "extractable_facts": ["에디터: Neovim"]
-    },
-    {
-      "id": "F04",
-      "domain": "tech",
-      "statement": "프레임워크는 Next.js랑 FastAPI를 주로 써",
-      "entities": ["Next.js", "FastAPI"],
-      "extractable_facts": ["프론트엔드: Next.js", "백엔드: FastAPI"]
-    },
-    {
-      "id": "F05",
-      "domain": "preference",
-      "statement": "다크모드 좋아하고, 탭 인덴트 선호해",
-      "entities": ["다크모드", "탭"],
-      "extractable_facts": ["테마: 다크모드", "인덴트: 탭"]
-    },
-    {
-      "id": "F06",
-      "domain": "personal",
-      "statement": "성수동에 살아",
-      "entities": ["성수동"],
-      "extractable_facts": ["거주지: 성수동"]
-    },
-    {
-      "id": "F07",
-      "domain": "personal",
-      "statement": "커피는 아메리카노만 마셔. 우유 들어간 건 싫어해",
-      "entities": ["아메리카노"],
-      "extractable_facts": ["커피: 아메리카노", "우유 음료: 싫어함"]
-    },
-    {
-      "id": "F08",
-      "domain": "personal",
-      "statement": "동생 이름은 김바다야. 디자이너로 일하고 있어",
-      "entities": ["김바다", "디자이너"],
-      "extractable_facts": ["동생: 김바다", "동생 직업: 디자이너"]
-    },
-    {
-      "id": "F09",
-      "domain": "temporal",
-      "statement": "다음 주 목요일에 투자자 미팅이 있어",
-      "entities": ["투자자 미팅", "다음 주 목요일"],
-      "extractable_facts": ["일정: 다음 주 목요일 투자자 미팅"]
-    },
-    {
-      "id": "F10",
-      "domain": "preference",
-      "statement": "매운 음식 잘 못 먹어. 순한 맛 위주로 먹어",
-      "entities": ["매운 음식"],
-      "extractable_facts": ["매운 음식: 못 먹음", "선호: 순한 맛"]
-    },
-    {
-      "id": "F11",
-      "domain": "tech",
-      "statement": "OS는 Fedora 쓰고 있어. 불변 OS가 좋더라",
-      "entities": ["Fedora"],
-      "extractable_facts": ["OS: Fedora", "선호: 불변 OS"]
-    },
-    {
-      "id": "F12",
-      "domain": "personal",
-      "statement": "주말에는 주로 러닝을 해. 한강 달리기 좋아해",
-      "entities": ["러닝", "한강"],
-      "extractable_facts": ["취미: 러닝", "러닝 장소: 한강"]
-    },
-    {
-      "id": "F13",
-      "domain": "identity",
-      "statement": "회사는 AI 스타트업이야. 개인 AI 앱을 만들고 있어",
-      "entities": ["AI 스타트업", "AI 앱"],
-      "extractable_facts": ["사업: AI 스타트업", "제품: 개인 AI 앱"]
-    },
-    {
-      "id": "F14",
-      "domain": "preference",
-      "statement": "미팅은 오전에 하는 게 좋아. 오후에는 집중 코딩 시간이거든",
-      "entities": ["오전 미팅", "오후 코딩"],
-      "extractable_facts": ["미팅 선호: 오전", "오후: 집중 코딩"]
-    },
-    {
-      "id": "F15",
-      "domain": "tech",
-      "statement": "Git은 CLI만 써. GUI 클라이언트는 안 쓰거든",
-      "entities": ["Git", "CLI"],
-      "extractable_facts": ["Git: CLI only", "GUI: 안 씀"]
-    }
-  ],
-  "noise_messages": [
-    "아 오늘 진짜 피곤하다",
-    "ㅋㅋㅋ 그거 웃기네",
-    "응 알겠어",
-    "잠깐만",
-    "흠.. 그렇구나",
-    "아 맞다 그거 나중에 해야지",
-    "점심 뭐 먹지",
-    "ok",
-    "ㅇㅇ",
-    "그래그래"
-  ],
-  "updates": [
-    {
-      "id": "U01",
-      "target_fact": "F03",
-      "statement": "아 참, 에디터 Cursor로 바꿨어",
-      "type": "direct",
-      "old_value": "Neovim",
-      "new_value": "Cursor"
-    },
-    {
-      "id": "U02",
-      "target_fact": "F02",
-      "statement": "요즘 Python이 다시 재밌더라. FastAPI 말고 Django로 하나 해보려고",
-      "type": "indirect",
-      "old_value": "TypeScript 중심",
-      "new_value": "Python/Django 관심 추가"
-    },
-    {
-      "id": "U03",
-      "target_fact": "F06",
-      "statement": "이번 달에 판교로 이사해",
-      "type": "direct",
-      "old_value": "성수동",
-      "new_value": "판교"
-    }
-  ]
+	"$schema": "Fact Bank for Memory Benchmark — 15 facts across 5 domains. All personas are fictional.",
+	"persona_note": "테스트용 가상 인물. 실제 인물과 무관.",
+	"facts": [
+		{
+			"id": "F01",
+			"domain": "identity",
+			"statement": "나는 김하늘이야. 스타트업 대표고 풀스택 개발자야",
+			"entities": ["김하늘", "풀스택"],
+			"extractable_facts": ["이름: 김하늘", "직책: 대표", "역할: 풀스택 개발자"]
+		},
+		{
+			"id": "F02",
+			"domain": "tech",
+			"statement": "요즘은 주로 TypeScript로 개발하고 있어",
+			"entities": ["TypeScript"],
+			"extractable_facts": ["주 언어: TypeScript"]
+		},
+		{
+			"id": "F03",
+			"domain": "tech",
+			"statement": "에디터는 Neovim 쓰고 있어",
+			"entities": ["Neovim"],
+			"extractable_facts": ["에디터: Neovim"]
+		},
+		{
+			"id": "F04",
+			"domain": "tech",
+			"statement": "프레임워크는 Next.js랑 FastAPI를 주로 써",
+			"entities": ["Next.js", "FastAPI"],
+			"extractable_facts": ["프론트엔드: Next.js", "백엔드: FastAPI"]
+		},
+		{
+			"id": "F05",
+			"domain": "preference",
+			"statement": "다크모드 좋아하고, 탭 인덴트 선호해",
+			"entities": ["다크모드", "탭"],
+			"extractable_facts": ["테마: 다크모드", "인덴트: 탭"]
+		},
+		{
+			"id": "F06",
+			"domain": "personal",
+			"statement": "성수동에 살아",
+			"entities": ["성수동"],
+			"extractable_facts": ["거주지: 성수동"]
+		},
+		{
+			"id": "F07",
+			"domain": "personal",
+			"statement": "커피는 아메리카노만 마셔. 우유 들어간 건 싫어해",
+			"entities": ["아메리카노"],
+			"extractable_facts": ["커피: 아메리카노", "우유 음료: 싫어함"]
+		},
+		{
+			"id": "F08",
+			"domain": "personal",
+			"statement": "동생 이름은 김바다야. 디자이너로 일하고 있어",
+			"entities": ["김바다", "디자이너"],
+			"extractable_facts": ["동생: 김바다", "동생 직업: 디자이너"]
+		},
+		{
+			"id": "F09",
+			"domain": "temporal",
+			"statement": "다음 주 목요일에 투자자 미팅이 있어",
+			"entities": ["투자자 미팅", "다음 주 목요일"],
+			"extractable_facts": ["일정: 다음 주 목요일 투자자 미팅"]
+		},
+		{
+			"id": "F10",
+			"domain": "preference",
+			"statement": "매운 음식 잘 못 먹어. 순한 맛 위주로 먹어",
+			"entities": ["매운 음식"],
+			"extractable_facts": ["매운 음식: 못 먹음", "선호: 순한 맛"]
+		},
+		{
+			"id": "F11",
+			"domain": "tech",
+			"statement": "OS는 Fedora 쓰고 있어. 불변 OS가 좋더라",
+			"entities": ["Fedora"],
+			"extractable_facts": ["OS: Fedora", "선호: 불변 OS"]
+		},
+		{
+			"id": "F12",
+			"domain": "personal",
+			"statement": "주말에는 주로 러닝을 해. 한강 달리기 좋아해",
+			"entities": ["러닝", "한강"],
+			"extractable_facts": ["취미: 러닝", "러닝 장소: 한강"]
+		},
+		{
+			"id": "F13",
+			"domain": "identity",
+			"statement": "회사는 AI 스타트업이야. 개인 AI 앱을 만들고 있어",
+			"entities": ["AI 스타트업", "AI 앱"],
+			"extractable_facts": ["사업: AI 스타트업", "제품: 개인 AI 앱"]
+		},
+		{
+			"id": "F14",
+			"domain": "preference",
+			"statement": "미팅은 오전에 하는 게 좋아. 오후에는 집중 코딩 시간이거든",
+			"entities": ["오전 미팅", "오후 코딩"],
+			"extractable_facts": ["미팅 선호: 오전", "오후: 집중 코딩"]
+		},
+		{
+			"id": "F15",
+			"domain": "tech",
+			"statement": "Git은 CLI만 써. GUI 클라이언트는 안 쓰거든",
+			"entities": ["Git", "CLI"],
+			"extractable_facts": ["Git: CLI only", "GUI: 안 씀"]
+		}
+	],
+	"noise_messages": [
+		"아 오늘 진짜 피곤하다",
+		"ㅋㅋㅋ 그거 웃기네",
+		"응 알겠어",
+		"잠깐만",
+		"흠.. 그렇구나",
+		"아 맞다 그거 나중에 해야지",
+		"점심 뭐 먹지",
+		"ok",
+		"ㅇㅇ",
+		"그래그래"
+	],
+	"updates": [
+		{
+			"id": "U01",
+			"target_fact": "F03",
+			"statement": "아 참, 에디터 Cursor로 바꿨어",
+			"type": "direct",
+			"old_value": "Neovim",
+			"new_value": "Cursor"
+		},
+		{
+			"id": "U02",
+			"target_fact": "F02",
+			"statement": "요즘 Python이 다시 재밌더라. FastAPI 말고 Django로 하나 해보려고",
+			"type": "indirect",
+			"old_value": "TypeScript 중심",
+			"new_value": "Python/Django 관심 추가"
+		},
+		{
+			"id": "U03",
+			"target_fact": "F06",
+			"statement": "이번 달에 판교로 이사해",
+			"type": "direct",
+			"old_value": "성수동",
+			"new_value": "판교"
+		}
+	]
 }

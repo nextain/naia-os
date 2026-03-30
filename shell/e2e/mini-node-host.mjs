@@ -4,13 +4,21 @@
  */
 
 import { spawn } from "node:child_process";
-import { randomUUID, createPrivateKey, sign, generateKeyPairSync, createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import {
+	createHash,
+	createPrivateKey,
+	generateKeyPairSync,
+	randomUUID,
+	sign,
+} from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 const PORT = process.env.OPENCLAW_PORT || 18789;
-const TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || "57e2ad5473652d231cd530a613762be5adb147a022b92215";
+const TOKEN =
+	process.env.OPENCLAW_GATEWAY_TOKEN ||
+	"57e2ad5473652d231cd530a613762be5adb147a022b92215";
 const DISPLAY_NAME = process.env.OPENCLAW_NODE_NAME || "NaiaLocal";
 const WS_URL = `ws://127.0.0.1:${PORT}`;
 
@@ -39,8 +47,16 @@ function loadOrCreateDevice() {
 	const publicKeyPem = publicKey.export({ type: "spki", format: "pem" });
 	const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" });
 	const rawPub = pemToRawBase64Url(publicKeyPem);
-	const deviceId = createHash("sha256").update(Buffer.from(rawPub, "base64url")).digest("hex");
-	const device = { version: 1, deviceId, publicKeyPem, privateKeyPem, createdAtMs: Date.now() };
+	const deviceId = createHash("sha256")
+		.update(Buffer.from(rawPub, "base64url"))
+		.digest("hex");
+	const device = {
+		version: 1,
+		deviceId,
+		publicKeyPem,
+		privateKeyPem,
+		createdAtMs: Date.now(),
+	};
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(path, JSON.stringify(device, null, 2), { mode: 0o600 });
 	return device;
@@ -66,7 +82,9 @@ class MiniNodeHost {
 		});
 
 		this.ws.addEventListener("message", (event) => {
-			const frame = JSON.parse(typeof event.data === "string" ? event.data : event.data.toString());
+			const frame = JSON.parse(
+				typeof event.data === "string" ? event.data : event.data.toString(),
+			);
 			this.handleFrame(frame);
 		});
 
@@ -77,7 +95,7 @@ class MiniNodeHost {
 		});
 
 		this.ws.addEventListener("error", (event) => {
-			console.error(`[mini-node] Error:`, event.message || "unknown");
+			console.error("[mini-node] Error:", event.message || "unknown");
 		});
 	}
 
@@ -108,7 +126,9 @@ class MiniNodeHost {
 		if (frame.type === "event") {
 			console.log(`[mini-node] Event: ${frame.event}`);
 		} else if (frame.type === "res") {
-			console.log(`[mini-node] Response: id=${frame.id} ok=${frame.ok} ${frame.error?.message || ""}`);
+			console.log(
+				`[mini-node] Response: id=${frame.id} ok=${frame.ok} ${frame.error?.message || ""}`,
+			);
 		}
 	}
 
@@ -121,8 +141,8 @@ class MiniNodeHost {
 		const payloadStr = [
 			"v2",
 			this.device.deviceId,
-			"node-host",  // clientId
-			"node",       // clientMode
+			"node-host", // clientId
+			"node", // clientMode
 			role,
 			scopes.join(","),
 			String(signedAt),
@@ -163,18 +183,22 @@ class MiniNodeHost {
 			},
 		};
 
-		this.ws.send(JSON.stringify({
-			type: "req",
-			id: "connect-req",
-			method: "connect",
-			params,
-		}));
+		this.ws.send(
+			JSON.stringify({
+				type: "req",
+				id: "connect-req",
+				method: "connect",
+				params,
+			}),
+		);
 	}
 
 	async handleInvoke(payload) {
 		const { id, command, paramsJSON } = payload;
 		const params = JSON.parse(paramsJSON || "{}");
-		console.log(`[mini-node] Invoke: ${command} ${JSON.stringify(params).slice(0, 100)}`);
+		console.log(
+			`[mini-node] Invoke: ${command} ${JSON.stringify(params).slice(0, 100)}`,
+		);
 
 		if (command === "system.run") {
 			await this.handleSystemRun(id, params);
@@ -201,8 +225,12 @@ class MiniNodeHost {
 
 			let stdout = "";
 			let stderr = "";
-			proc.stdout.on("data", (d) => { stdout += d.toString(); });
-			proc.stderr.on("data", (d) => { stderr += d.toString(); });
+			proc.stdout.on("data", (d) => {
+				stdout += d.toString();
+			});
+			proc.stderr.on("data", (d) => {
+				stderr += d.toString();
+			});
 
 			const exitCode = await new Promise((resolve) => {
 				proc.on("close", (code) => resolve(code ?? 1));
@@ -221,28 +249,39 @@ class MiniNodeHost {
 	async handleSystemWhich(invokeId, params) {
 		const name = params.name || "";
 		try {
-			const proc = spawn("which", [name], { stdio: ["ignore", "pipe", "pipe"] });
+			const proc = spawn("which", [name], {
+				stdio: ["ignore", "pipe", "pipe"],
+			});
 			let stdout = "";
-			proc.stdout.on("data", (d) => { stdout += d.toString(); });
-			const exitCode = await new Promise((r) => proc.on("close", (c) => r(c ?? 1)));
-			this.sendInvokeResult(invokeId, { path: stdout.trim(), found: exitCode === 0 });
+			proc.stdout.on("data", (d) => {
+				stdout += d.toString();
+			});
+			const exitCode = await new Promise((r) =>
+				proc.on("close", (c) => r(c ?? 1)),
+			);
+			this.sendInvokeResult(invokeId, {
+				path: stdout.trim(),
+				found: exitCode === 0,
+			});
 		} catch {
 			this.sendInvokeResult(invokeId, { path: "", found: false });
 		}
 	}
 
 	sendInvokeResult(invokeId, result) {
-		this.ws.send(JSON.stringify({
-			type: "req",
-			id: randomUUID(),
-			method: "node.invoke.result",
-			params: {
-				id: invokeId,
-				nodeId: this.nodeId,
-				ok: true,
-				payloadJSON: JSON.stringify(result),
-			},
-		}));
+		this.ws.send(
+			JSON.stringify({
+				type: "req",
+				id: randomUUID(),
+				method: "node.invoke.result",
+				params: {
+					id: invokeId,
+					nodeId: this.nodeId,
+					ok: true,
+					payloadJSON: JSON.stringify(result),
+				},
+			}),
+		);
 	}
 }
 

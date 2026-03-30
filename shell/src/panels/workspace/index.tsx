@@ -13,13 +13,15 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 	},
 	{
 		name: "skill_workspace_open_file",
-		description: "지정한 파일을 에디터에 연다. 절대 경로 또는 WORKSPACE_ROOT 기준 상대 경로를 받는다.",
+		description:
+			"지정한 파일을 에디터에 연다. 절대 경로 또는 WORKSPACE_ROOT 기준 상대 경로를 받는다.",
 		parameters: {
 			type: "object",
 			properties: {
 				path: {
 					type: "string",
-					description: "열 파일의 절대 경로 (e.g. /var/home/luke/dev/naia-os/shell/src/App.tsx)",
+					description:
+						"열 파일의 절대 경로 (e.g. /var/home/luke/dev/naia-os/shell/src/App.tsx)",
 				},
 			},
 			required: ["path"],
@@ -95,7 +97,8 @@ export const WORKSPACE_TOOLS: NaiaTool[] = [
 			properties: {
 				confirmed: {
 					type: "array",
-					description: "사용자가 확인한 분류 결과 배열 (각 요소: {name, path, category}). 없으면 추천만 반환.",
+					description:
+						"사용자가 확인한 분류 결과 배열 (각 요소: {name, path, category}). 없으면 추천만 반환.",
 					items: {
 						type: "object",
 						properties: {

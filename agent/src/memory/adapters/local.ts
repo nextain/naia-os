@@ -9,12 +9,22 @@
  * becomes a bottleneck. For now, simplicity wins (ChatGPT Memory approach).
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { calculateStrength, shouldPrune } from "../decay.js";
-import { type KGState, KnowledgeGraph, emptyKGState } from "../knowledge-graph.js";
+import {
+	type KGState,
+	KnowledgeGraph,
+	emptyKGState,
+} from "../knowledge-graph.js";
 import type {
 	ConsolidationResult,
 	Episode,
@@ -142,7 +152,10 @@ export class LocalAdapter implements MemoryAdapter {
 			this.save();
 		},
 
-		recall: async (query: string, context: RecallContext): Promise<Episode[]> => {
+		recall: async (
+			query: string,
+			context: RecallContext,
+		): Promise<Episode[]> => {
 			const now = Date.now();
 			const topK = context.topK ?? 5;
 			const minStrength = context.minStrength ?? 0.05;
@@ -165,10 +178,16 @@ export class LocalAdapter implements MemoryAdapter {
 
 					// Context bonus (encoding specificity)
 					let contextBonus = 0;
-					if (context.project && ep.encodingContext.project === context.project) {
+					if (
+						context.project &&
+						ep.encodingContext.project === context.project
+					) {
 						contextBonus += 0.2;
 					}
-					if (context.activeFile && ep.encodingContext.activeFile === context.activeFile) {
+					if (
+						context.activeFile &&
+						ep.encodingContext.activeFile === context.activeFile
+					) {
 						contextBonus += 0.1;
 					}
 
@@ -231,7 +250,9 @@ export class LocalAdapter implements MemoryAdapter {
 			if (existing) {
 				// Reconsolidation: update content, merge entities/topics, refresh timestamp
 				existing.content = fact.content;
-				existing.entities = [...new Set([...existing.entities, ...fact.entities])];
+				existing.entities = [
+					...new Set([...existing.entities, ...fact.entities]),
+				];
 				existing.topics = [...new Set([...existing.topics, ...fact.topics])];
 				existing.updatedAt = fact.updatedAt;
 				existing.importance = Math.max(existing.importance, fact.importance);
@@ -263,7 +284,11 @@ export class LocalAdapter implements MemoryAdapter {
 			const queryTokens = tokenize(query);
 
 			// Spreading activation: find related entities via knowledge graph
-			const activatedEntities = this.kg.spreadingActivation(queryTokens, 2, 0.5);
+			const activatedEntities = this.kg.spreadingActivation(
+				queryTokens,
+				2,
+				0.5,
+			);
 			const activationMap = new Map<string, number>();
 			for (const { entity, activation } of activatedEntities) {
 				activationMap.set(entity, activation);
@@ -302,7 +327,8 @@ export class LocalAdapter implements MemoryAdapter {
 						if (act) activationBonus += act * 0.1;
 					}
 
-					const finalScore = (textScore + entityBonus + activationBonus) * strength;
+					const finalScore =
+						(textScore + entityBonus + activationBonus) * strength;
 					return { fact, score: finalScore, strength };
 				})
 				.filter((x) => x.score > 0)
@@ -367,7 +393,11 @@ export class LocalAdapter implements MemoryAdapter {
 			return totalPruned;
 		},
 
-		associate: async (entityA: string, entityB: string, weight = 0.1): Promise<void> => {
+		associate: async (
+			entityA: string,
+			entityB: string,
+			weight = 0.1,
+		): Promise<void> => {
 			const key = assocKey(entityA, entityB);
 			const current = this.store.associations[key] ?? 0;
 			// Hebbian: strengthen on co-access, cap at 1.0
@@ -427,7 +457,10 @@ export class LocalAdapter implements MemoryAdapter {
 			this.save();
 		},
 
-		getReflections: async (task: string, topK: number): Promise<Reflection[]> => {
+		getReflections: async (
+			task: string,
+			topK: number,
+		): Promise<Reflection[]> => {
 			return this.store.reflections
 				.map((r) => ({
 					reflection: r,

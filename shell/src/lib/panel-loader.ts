@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createGenericInstalledPanel } from "../panels/generic-installed/GenericInstalledPanel";
-import { panelRegistry } from "./panel-registry";
-import { Logger } from "./logger";
 import { usePanelStore } from "../stores/panel";
+import { Logger } from "./logger";
+import { panelRegistry } from "./panel-registry";
 
 interface InstalledPanelManifest {
 	id: string;
@@ -39,7 +39,10 @@ export async function loadInstalledPanels(): Promise<void> {
 
 	for (const manifest of manifests) {
 		if (panelRegistry.get(manifest.id)) {
-			Logger.debug("PanelLoader", `Panel already registered, skipping: ${manifest.id}`);
+			Logger.debug(
+				"PanelLoader",
+				`Panel already registered, skipping: ${manifest.id}`,
+			);
 			continue;
 		}
 

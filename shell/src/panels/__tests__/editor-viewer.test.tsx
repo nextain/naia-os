@@ -69,10 +69,22 @@ vi.mock("react-pdf", () => {
 	}) {
 		// Simulate async load success
 		setTimeout(() => onLoadSuccess?.({ numPages: 2 }), 0);
-		return <div data-testid="pdf-document">{loading}{children}</div>;
+		return (
+			<div data-testid="pdf-document">
+				{loading}
+				{children}
+			</div>
+		);
 	}
-	function Page({ pageNumber, className }: { pageNumber: number; width?: number; className?: string }) {
-		return <div data-testid={`pdf-page-${pageNumber}`} className={className}>PDF Page {pageNumber}</div>;
+	function Page({
+		pageNumber,
+		className,
+	}: { pageNumber: number; width?: number; className?: string }) {
+		return (
+			<div data-testid={`pdf-page-${pageNumber}`} className={className}>
+				PDF Page {pageNumber}
+			</div>
+		);
 	}
 	return {
 		Document,
@@ -84,7 +96,9 @@ vi.mock("react-pdf/dist/Page/AnnotationLayer.css", () => ({}));
 vi.mock("react-pdf/dist/Page/TextLayer.css", () => ({}));
 
 // Mock mermaid — rendering requires DOM APIs not available in jsdom
-const mockRender = vi.fn().mockResolvedValue({ svg: '<svg data-testid="mermaid-svg">mocked</svg>' });
+const mockRender = vi
+	.fn()
+	.mockResolvedValue({ svg: '<svg data-testid="mermaid-svg">mocked</svg>' });
 vi.mock("mermaid", () => ({
 	default: {
 		initialize: vi.fn(),
@@ -106,7 +120,8 @@ afterEach(() => {
 describe("Editor — file type helpers (via render behaviour)", () => {
 	it("renders image viewer for .png", async () => {
 		mockInvoke.mockImplementation((cmd: string) => {
-			if (cmd === "workspace_read_file_bytes") return Promise.resolve([137, 80, 78, 71]);
+			if (cmd === "workspace_read_file_bytes")
+				return Promise.resolve([137, 80, 78, 71]);
 			return Promise.resolve("");
 		});
 		render(<Editor filePath="/dev/project/screenshot.png" />);
@@ -132,7 +147,8 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 
 	it("renders image viewer for .svg (not text editor)", async () => {
 		mockInvoke.mockImplementation((cmd: string) => {
-			if (cmd === "workspace_read_file_bytes") return Promise.resolve([60, 115, 118, 103]);
+			if (cmd === "workspace_read_file_bytes")
+				return Promise.resolve([60, 115, 118, 103]);
 			return Promise.resolve("");
 		});
 		render(<Editor filePath="/assets/icon.svg" />);

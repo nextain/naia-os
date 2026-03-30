@@ -7,19 +7,29 @@
  * - Scaling with many facts
  */
 
-import { describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { calculateStrength, shouldPrune, BASE_DECAY, IMPORTANCE_DAMPING, PRUNE_THRESHOLD } from "../decay.js";
+import { describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
+import {
+	BASE_DECAY,
+	IMPORTANCE_DAMPING,
+	PRUNE_THRESHOLD,
+	calculateStrength,
+	shouldPrune,
+} from "../decay.js";
 import { MemorySystem } from "../index.js";
 import type { Episode, Fact, ImportanceScore } from "../types.js";
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
 
-function makeFact(content: string, entities: string[], overrides?: Partial<Fact>): Fact {
+function makeFact(
+	content: string,
+	entities: string[],
+	overrides?: Partial<Fact>,
+): Fact {
 	const now = Date.now();
 	return {
 		id: randomUUID(),
@@ -58,19 +68,84 @@ function makeEpisode(content: string, overrides?: Partial<Episode>): Episode {
 
 describe("Long-term memory retention", () => {
 	it.each([
-		{ importance: 0.9, days: 30, shouldSurvive: true, label: "very high importance survives 30 days" },
-		{ importance: 0.9, days: 60, shouldSurvive: true, label: "very high importance survives 60 days" },
-		{ importance: 0.9, days: 120, shouldSurvive: true, label: "very high importance survives 120 days" },
-		{ importance: 0.9, days: 150, shouldSurvive: true, label: "very high importance survives ~5 months" },
-		{ importance: 0.9, days: 180, shouldSurvive: false, label: "very high importance fades by 6 months without recall" },
-		{ importance: 0.7, days: 30, shouldSurvive: true, label: "high importance survives 30 days" },
-		{ importance: 0.7, days: 60, shouldSurvive: true, label: "high importance survives 60 days" },
-		{ importance: 0.7, days: 80, shouldSurvive: true, label: "high importance survives ~80 days" },
-		{ importance: 0.5, days: 30, shouldSurvive: true, label: "medium importance survives 30 days" },
-		{ importance: 0.5, days: 60, shouldSurvive: false, label: "medium importance fades by 60 days" },
-		{ importance: 0.15, days: 14, shouldSurvive: true, label: "low importance survives 2 weeks" },
-		{ importance: 0.15, days: 30, shouldSurvive: false, label: "low importance fades by 30 days" },
-		{ importance: 0.05, days: 7, shouldSurvive: false, label: "trivial importance fades within 1 week" },
+		{
+			importance: 0.9,
+			days: 30,
+			shouldSurvive: true,
+			label: "very high importance survives 30 days",
+		},
+		{
+			importance: 0.9,
+			days: 60,
+			shouldSurvive: true,
+			label: "very high importance survives 60 days",
+		},
+		{
+			importance: 0.9,
+			days: 120,
+			shouldSurvive: true,
+			label: "very high importance survives 120 days",
+		},
+		{
+			importance: 0.9,
+			days: 150,
+			shouldSurvive: true,
+			label: "very high importance survives ~5 months",
+		},
+		{
+			importance: 0.9,
+			days: 180,
+			shouldSurvive: false,
+			label: "very high importance fades by 6 months without recall",
+		},
+		{
+			importance: 0.7,
+			days: 30,
+			shouldSurvive: true,
+			label: "high importance survives 30 days",
+		},
+		{
+			importance: 0.7,
+			days: 60,
+			shouldSurvive: true,
+			label: "high importance survives 60 days",
+		},
+		{
+			importance: 0.7,
+			days: 80,
+			shouldSurvive: true,
+			label: "high importance survives ~80 days",
+		},
+		{
+			importance: 0.5,
+			days: 30,
+			shouldSurvive: true,
+			label: "medium importance survives 30 days",
+		},
+		{
+			importance: 0.5,
+			days: 60,
+			shouldSurvive: false,
+			label: "medium importance fades by 60 days",
+		},
+		{
+			importance: 0.15,
+			days: 14,
+			shouldSurvive: true,
+			label: "low importance survives 2 weeks",
+		},
+		{
+			importance: 0.15,
+			days: 30,
+			shouldSurvive: false,
+			label: "low importance fades by 30 days",
+		},
+		{
+			importance: 0.05,
+			days: 7,
+			shouldSurvive: false,
+			label: "trivial importance fades within 1 week",
+		},
 	])("$label", ({ importance, days, shouldSurvive }) => {
 		const now = Date.now();
 		const old = now - days * DAY;
@@ -105,7 +180,13 @@ describe("Long-term memory retention", () => {
 		const now = Date.now();
 		// Recalled once a month for 6 months → lastAccessed = 30 days ago
 		const recentAccess = now - 30 * DAY;
-		const strength = calculateStrength(0.9, now - 180 * DAY, 6, recentAccess, now);
+		const strength = calculateStrength(
+			0.9,
+			now - 180 * DAY,
+			6,
+			recentAccess,
+			now,
+		);
 		expect(shouldPrune(strength)).toBe(false);
 		// Should be quite strong with 6 recalls
 		expect(strength).toBeGreaterThan(0.5);
@@ -127,7 +208,8 @@ describe("Decay parameter correctness", () => {
 
 	it("effective decay rate for max importance is ≤ 25% of base", () => {
 		const maxImportance = 1.0;
-		const effectiveLambda = BASE_DECAY * (1 - maxImportance * IMPORTANCE_DAMPING);
+		const effectiveLambda =
+			BASE_DECAY * (1 - maxImportance * IMPORTANCE_DAMPING);
 		expect(effectiveLambda / BASE_DECAY).toBeLessThanOrEqual(0.25);
 	});
 
@@ -163,7 +245,12 @@ describe("Consolidation compression (fact merging)", () => {
 				makeEpisode(content, {
 					timestamp: recent,
 					lastAccessed: recent,
-					importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+					importance: {
+						importance: 0.6,
+						surprise: 0.1,
+						emotion: 0.5,
+						utility: 0.5,
+					},
 				}),
 			);
 		}
@@ -188,7 +275,12 @@ describe("Consolidation compression (fact merging)", () => {
 			makeEpisode("We decided to use TypeScript", {
 				timestamp: recent,
 				lastAccessed: recent,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: { project: "project-alpha", activeFile: "" },
 			}),
 		);
@@ -196,7 +288,12 @@ describe("Consolidation compression (fact merging)", () => {
 			makeEpisode("Team chose Python for backend", {
 				timestamp: recent,
 				lastAccessed: recent,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 				encodingContext: { project: "project-beta", activeFile: "" },
 			}),
 		);
@@ -218,14 +315,24 @@ describe("Consolidation compression (fact merging)", () => {
 			makeEpisode("We decided to use TypeScript", {
 				timestamp: now - 5 * HOUR, // 5 hours ago
 				lastAccessed: now - 5 * HOUR,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 			}),
 		);
 		await adapter.episode.store(
 			makeEpisode("Team chose React for frontend", {
 				timestamp: now - 2 * HOUR, // 2 hours ago (3 hour gap)
 				lastAccessed: now - 2 * HOUR,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 			}),
 		);
 
@@ -247,9 +354,7 @@ describe("Korean language handling", () => {
 		await adapter.semantic.upsert(
 			makeFact("TypeScript로 개발하고 있어", ["TypeScript"]),
 		);
-		await adapter.semantic.upsert(
-			makeFact("Neovim을 사용해", ["Neovim"]),
-		);
+		await adapter.semantic.upsert(makeFact("Neovim을 사용해", ["Neovim"]));
 
 		// Query without particles
 		const results = await adapter.semantic.search("TypeScript", 5);
@@ -277,7 +382,10 @@ describe("Korean language handling", () => {
 	});
 
 	it("handles Korean contradiction detection keywords", async () => {
-		const storePath = join(tmpdir(), `korean-contradiction-${randomUUID()}.json`);
+		const storePath = join(
+			tmpdir(),
+			`korean-contradiction-${randomUUID()}.json`,
+		);
 		const adapter = new LocalAdapter(storePath);
 		const system = new MemorySystem({ adapter });
 
@@ -389,7 +497,9 @@ describe("Importance-based retention discrimination", () => {
 
 		await adapter.semantic.decay(now);
 		const surviving = await adapter.semantic.getAll();
-		const survivingImportances = surviving.map((f) => f.importance).sort((a, b) => b - a);
+		const survivingImportances = surviving
+			.map((f) => f.importance)
+			.sort((a, b) => b - a);
 
 		// High importance (0.7+) should survive, low (0.3-) should be pruned
 		expect(survivingImportances.every((imp) => imp >= 0.5)).toBe(true);

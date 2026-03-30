@@ -36,7 +36,12 @@ export interface ShellResult {
 // ── Internal message types ────────────────────────────────────────────────────
 
 type BridgeRequest =
-	| { type: "naia-bridge:logBehavior"; id: string; event: string; data?: Record<string, unknown> }
+	| {
+			type: "naia-bridge:logBehavior";
+			id: string;
+			event: string;
+			data?: Record<string, unknown>;
+	  }
 	| { type: "naia-bridge:queryBehavior"; id: string; filter?: BehaviorFilter }
 	| { type: "naia-bridge:getSecret"; id: string; key: string }
 	| { type: "naia-bridge:setSecret"; id: string; key: string; value: string }
@@ -54,7 +59,10 @@ interface BridgeResponse {
 export class NaiaBridgeClient {
 	private static readonly TIMEOUT_MS = 30_000;
 
-	private pending = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+	private pending = new Map<
+		string,
+		{ resolve: (v: unknown) => void; reject: (e: Error) => void }
+	>();
 	private cleanup: (() => void) | null = null;
 
 	constructor() {
@@ -97,8 +105,14 @@ export class NaiaBridgeClient {
 				reject(new Error(`Bridge request timed out: ${req.type}`));
 			}, NaiaBridgeClient.TIMEOUT_MS);
 			this.pending.set(req.id, {
-				resolve: (v) => { clearTimeout(timer); resolve(v as T); },
-				reject: (e) => { clearTimeout(timer); reject(e); },
+				resolve: (v) => {
+					clearTimeout(timer);
+					resolve(v as T);
+				},
+				reject: (e) => {
+					clearTimeout(timer);
+					reject(e);
+				},
 			});
 			// Use "*" targetOrigin: window.parent.origin throws SecurityError across
 			// origins (http://asset.localhost → tauri://localhost). Safe because the
@@ -114,16 +128,22 @@ export class NaiaBridgeClient {
 	// ── API ────────────────────────────────────────────────────────────────────
 
 	/** Log a behavior event. Stored in Shell WebView IndexedDB (30-day retention). */
-	logBehavior(
-		event: string,
-		data?: Record<string, unknown>,
-	): Promise<void> {
-		return this.send({ type: "naia-bridge:logBehavior", id: this.nextId(), event, data });
+	logBehavior(event: string, data?: Record<string, unknown>): Promise<void> {
+		return this.send({
+			type: "naia-bridge:logBehavior",
+			id: this.nextId(),
+			event,
+			data,
+		});
 	}
 
 	/** Query behavior log. Returns newest-first. */
 	queryBehavior(filter?: BehaviorFilter): Promise<BehaviorEntry[]> {
-		return this.send({ type: "naia-bridge:queryBehavior", id: this.nextId(), filter });
+		return this.send({
+			type: "naia-bridge:queryBehavior",
+			id: this.nextId(),
+			filter,
+		});
 	}
 
 	/**
@@ -139,7 +159,12 @@ export class NaiaBridgeClient {
 	 * Keys are namespaced per panel: `panel:{panelId}:{key}`.
 	 */
 	setSecret(key: string, value: string): Promise<void> {
-		return this.send({ type: "naia-bridge:setSecret", id: this.nextId(), key, value });
+		return this.send({
+			type: "naia-bridge:setSecret",
+			id: this.nextId(),
+			key,
+			value,
+		});
 	}
 
 	/**
@@ -155,6 +180,11 @@ export class NaiaBridgeClient {
 	 * The Shell enforces an allowlist — unauthorized commands are rejected.
 	 */
 	runShell(cmd: string, args?: string[]): Promise<ShellResult> {
-		return this.send({ type: "naia-bridge:runShell", id: this.nextId(), cmd, args });
+		return this.send({
+			type: "naia-bridge:runShell",
+			id: this.nextId(),
+			cmd,
+			args,
+		});
 	}
 }

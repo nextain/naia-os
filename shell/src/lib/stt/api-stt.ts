@@ -126,7 +126,7 @@ export function createApiSttSession(options: ApiSttOptions): SttSession {
 				provider,
 				result: result?.slice(0, 50) ?? "(null)",
 			});
-			if (result && result.trim()) {
+			if (result?.trim()) {
 				for (const cb of resultCallbacks) {
 					cb({ transcript: result.trim(), isFinal: true });
 				}

@@ -1,7 +1,7 @@
-import { rmSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
@@ -24,13 +24,17 @@ describe("Memory E2E — 3 Session Simulation", () => {
 			"I run on weekends along the Han river",
 		];
 		for (const f of facts) {
-			const ep = await system1.encode({ content: f, role: "user" }, { project: "naia-os" });
+			const ep = await system1.encode(
+				{ content: f, role: "user" },
+				{ project: "naia-os" },
+			);
 			expect(ep).not.toBeNull();
 		}
 		// Force consolidation
 		await system1.close();
 		const store = JSON.parse(readFileSync(storePath, "utf-8"));
-		for (const ep of store.episodes) ep.timestamp = Date.now() - 2 * 60 * 60 * 1000;
+		for (const ep of store.episodes)
+			ep.timestamp = Date.now() - 2 * 60 * 60 * 1000;
 		writeFileSync(storePath, JSON.stringify(store));
 		const adapterCons = new LocalAdapter(storePath);
 		const sysCons = new MemorySystem({ adapter: adapterCons });
@@ -59,13 +63,18 @@ describe("Memory E2E — 3 Session Simulation", () => {
 		// === SESSION 3: Update ===
 		const adapter3 = new LocalAdapter(storePath);
 		const system3 = new MemorySystem({ adapter: adapter3 });
-		await system3.encode({ content: "I switched to Cursor editor", role: "user" }, { project: "naia-os" });
+		await system3.encode(
+			{ content: "I switched to Cursor editor", role: "user" },
+			{ project: "naia-os" },
+		);
 		const r5 = await system3.recall("Cursor", { topK: 3 });
 		expect(r5.episodes.length).toBeGreaterThan(0);
 		const r6 = await system3.recall("Americano", { topK: 3 });
 		expect(r6.episodes.length + r6.facts.length).toBeGreaterThan(0);
 		await system3.close();
 
-		try { rmSync(storePath); } catch {}
+		try {
+			rmSync(storePath);
+		} catch {}
 	});
 });

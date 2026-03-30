@@ -109,13 +109,16 @@ async function setupPage(page: import("@playwright/test").Page) {
 	await page.addInitScript(TAURI_MOCK_SCRIPT);
 
 	await page.addInitScript(() => {
-		localStorage.setItem("naia-config", JSON.stringify({
-			provider: "gemini",
-			model: "gemini-2.5-flash",
-			apiKey: "e2e-mock-key",
-			locale: "ko",
-			onboardingComplete: true,
-		}));
+		localStorage.setItem(
+			"naia-config",
+			JSON.stringify({
+				provider: "gemini",
+				model: "gemini-2.5-flash",
+				apiKey: "e2e-mock-key",
+				locale: "ko",
+				onboardingComplete: true,
+			}),
+		);
 	});
 
 	await page.goto("/");
@@ -123,23 +126,30 @@ async function setupPage(page: import("@playwright/test").Page) {
 }
 
 test.describe("Browser Panel E2E", () => {
-
 	// ── B1: keepAlive — BrowserCenterPanel DOM survives tab switch ─────────
 
-	test("B1: 다른 패널로 전환해도 .browser-panel DOM이 유지됨 (keepAlive:true)", async ({ page }) => {
+	test("B1: 다른 패널로 전환해도 .browser-panel DOM이 유지됨 (keepAlive:true)", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
 		// Browser panel should be the default active panel
-		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+		await expect(page.locator(".browser-panel")).toBeAttached({
+			timeout: 8_000,
+		});
 
 		// Switch to workspace panel
 		const workspaceTab = page.locator('button[data-panel-id="workspace"]');
-		const hasWorkspaceTab = await workspaceTab.isVisible({ timeout: 3_000 }).catch(() => false);
+		const hasWorkspaceTab = await workspaceTab
+			.isVisible({ timeout: 3_000 })
+			.catch(() => false);
 
 		if (hasWorkspaceTab) {
 			await workspaceTab.click();
 			// browser-panel DOM must still be attached (keepAlive:true prevents unmount)
-			await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 3_000 });
+			await expect(page.locator(".browser-panel")).toBeAttached({
+				timeout: 3_000,
+			});
 		} else {
 			// Fallback: just confirm it's attached on the default view
 			await expect(page.locator(".browser-panel")).toBeAttached();
@@ -148,15 +158,21 @@ test.describe("Browser Panel E2E", () => {
 
 	// ── B2: Tab switch away → browser_embed_hide called ──────────────────
 
-	test("B2: browser 탭에서 다른 탭으로 전환 시 browser_embed_hide 호출됨", async ({ page }) => {
+	test("B2: browser 탭에서 다른 탭으로 전환 시 browser_embed_hide 호출됨", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
 		// Clear invoke log baseline
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Find any non-browser panel tab
 		const workspaceTab = page.locator('button[data-panel-id="workspace"]');
-		const hasWorkspaceTab = await workspaceTab.isVisible({ timeout: 3_000 }).catch(() => false);
+		const hasWorkspaceTab = await workspaceTab
+			.isVisible({ timeout: 3_000 })
+			.catch(() => false);
 
 		if (!hasWorkspaceTab) {
 			test.skip(true, "workspace 탭 없음 — B2 스킵");
@@ -165,7 +181,9 @@ test.describe("Browser Panel E2E", () => {
 
 		// Default activePanel is "browser" — just clear log and switch away
 		// (do NOT click browserTab first — that would toggle it off and break the test)
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Switch away
 		await workspaceTab.click();
@@ -177,14 +195,17 @@ test.describe("Browser Panel E2E", () => {
 
 	// ── B3: Tab switch back → browser_embed_show called ──────────────────
 
-	test("B3: 다른 탭에서 browser 탭으로 돌아올 때 browser_embed_show 호출됨", async ({ page }) => {
+	test("B3: 다른 탭에서 browser 탭으로 돌아올 때 browser_embed_show 호출됨", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
 		const workspaceTab = page.locator('button[data-panel-id="workspace"]');
 		const browserTab = page.locator('button[data-panel-id="browser"]');
 
-		const hasBoth = await workspaceTab.isVisible({ timeout: 3_000 }).catch(() => false)
-			&& await browserTab.isVisible({ timeout: 3_000 }).catch(() => false);
+		const hasBoth =
+			(await workspaceTab.isVisible({ timeout: 3_000 }).catch(() => false)) &&
+			(await browserTab.isVisible({ timeout: 3_000 }).catch(() => false));
 
 		if (!hasBoth) {
 			test.skip(true, "workspace/browser 탭 없음 — B3 스킵");
@@ -195,7 +216,9 @@ test.describe("Browser Panel E2E", () => {
 		await workspaceTab.click();
 
 		// Clear log
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Switch back to browser
 		await browserTab.click();
@@ -206,14 +229,20 @@ test.describe("Browser Panel E2E", () => {
 
 	// ── B4: setPendingApproval → browser_embed_hide called ───────────────
 
-	test("B4: setPendingApproval 호출 시 browser panel 활성 중이면 browser_embed_hide 호출됨", async ({ page }) => {
+	test("B4: setPendingApproval 호출 시 browser panel 활성 중이면 browser_embed_hide 호출됨", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
 		// Ensure browser panel is active (default)
-		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+		await expect(page.locator(".browser-panel")).toBeAttached({
+			timeout: 8_000,
+		});
 
 		// Clear log
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Call setPendingApproval directly via exposed store
 		await page.evaluate(() => {
@@ -236,13 +265,17 @@ test.describe("Browser Panel E2E", () => {
 
 	// ── B5: AI toolbar wraps at narrow viewport ───────────────────────────
 
-	test("B5: 좁은 뷰포트(600px)에서 AI toolbar가 overflow 없이 표시됨", async ({ page }) => {
+	test("B5: 좁은 뷰포트(600px)에서 AI toolbar가 overflow 없이 표시됨", async ({
+		page,
+	}) => {
 		// Set narrow viewport
 		await page.setViewportSize({ width: 600, height: 768 });
 		await setupPage(page);
 
 		// Browser panel must be mounted
-		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+		await expect(page.locator(".browser-panel")).toBeAttached({
+			timeout: 8_000,
+		});
 
 		// The toolbar is only rendered when status === "ready".
 		// In E2E mock, browser_check returns true and browser_embed_init is a no-op,
@@ -261,19 +294,25 @@ test.describe("Browser Panel E2E", () => {
 		}
 
 		// Also verify .browser-panel itself is present and fits viewport
-		const panelFitsViewport = await page.locator(".browser-panel").evaluate((el) => {
-			const rect = el.getBoundingClientRect();
-			return rect.right <= window.innerWidth + 2;
-		});
+		const panelFitsViewport = await page
+			.locator(".browser-panel")
+			.evaluate((el) => {
+				const rect = el.getBoundingClientRect();
+				return rect.right <= window.innerWidth + 2;
+			});
 		expect(panelFitsViewport).toBe(true);
 	});
 
 	// ── B6: clearPendingApproval (modal dismiss) → browser_embed_show ────
 
-	test("B6: pendingApproval 해제 후 browser panel 활성 중이면 browser_embed_show 호출됨", async ({ page }) => {
+	test("B6: pendingApproval 해제 후 browser panel 활성 중이면 browser_embed_show 호출됨", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
-		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+		await expect(page.locator(".browser-panel")).toBeAttached({
+			timeout: 8_000,
+		});
 
 		// Set pending approval first
 		await page.evaluate(() => {
@@ -290,7 +329,9 @@ test.describe("Browser Panel E2E", () => {
 		});
 
 		// Clear log after setting approval
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Now clear the approval (simulate modal dismiss)
 		await page.evaluate(() => {
@@ -305,10 +346,14 @@ test.describe("Browser Panel E2E", () => {
 
 	// ── B7: finishStreaming with pending approval → browser_embed_show ────
 
-	test("B7: pendingApproval 중 finishStreaming 시 browser_embed_show 호출됨", async ({ page }) => {
+	test("B7: pendingApproval 중 finishStreaming 시 browser_embed_show 호출됨", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
-		await expect(page.locator(".browser-panel")).toBeAttached({ timeout: 8_000 });
+		await expect(page.locator(".browser-panel")).toBeAttached({
+			timeout: 8_000,
+		});
 
 		// Set pending approval
 		await page.evaluate(() => {
@@ -331,7 +376,9 @@ test.describe("Browser Panel E2E", () => {
 		});
 
 		// Clear log
-		await page.evaluate(() => { window.__invokeLog = []; });
+		await page.evaluate(() => {
+			window.__invokeLog = [];
+		});
 
 		// Call finishStreaming (e.g. stream error path)
 		await page.evaluate(() => {

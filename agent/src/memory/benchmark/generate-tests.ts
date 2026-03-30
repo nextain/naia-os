@@ -9,18 +9,47 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 
 async function main() {
 	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) { console.error("GEMINI_API_KEY required"); process.exit(1); }
+	if (!apiKey) {
+		console.error("GEMINI_API_KEY required");
+		process.exit(1);
+	}
 
-	const factBank = JSON.parse(readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"));
-	const factsText = factBank.facts.map((f: any) => `${f.id}: ${f.statement}`).join("\n");
-	const updatesText = (factBank.updates || []).map((u: any) => `${u.id}: ${u.statement}`).join("\n");
+	const factBank = JSON.parse(
+		readFileSync(join(import.meta.dirname, "fact-bank.json"), "utf-8"),
+	);
+	const factsText = factBank.facts
+		.map((f: any) => `${f.id}: ${f.statement}`)
+		.join("\n");
+	const updatesText = (factBank.updates || [])
+		.map((u: any) => `${u.id}: ${u.statement}`)
+		.join("\n");
 
 	const categories = [
-		{ name: "recall", count: 10, desc: "사실을 직접 물어보기. 다양한 표현 사용. expected_answer에 정답 키워드. 변경사항 적용 후 기준." },
-		{ name: "abstention", count: 10, desc: "위 사실에 없는 것 물어보기. expected_answer는 \"NONE\". 유사하지만 다른 것 포함 (Nuxt vs Next, 수영 vs 러닝 등)." },
-		{ name: "semantic", count: 10, desc: "사실을 간접적으로 물어보기. 상위 개념 사용. expected_answer에 \"관련 사실 N개 이상 언급\" 형태." },
-		{ name: "contradiction", count: 10, desc: "변경 전/후 확인. 현재값 확인, 변경 전 값이 안 나오는지, 변경 안 한 것 유지 확인. expected_answer에 현재 정답." },
-		{ name: "synthesis", count: 10, desc: "여러 사실을 조합해서 답해야 하는 질문. expected_answer에 \"N개 이상 사실 조합\" 형태." },
+		{
+			name: "recall",
+			count: 10,
+			desc: "사실을 직접 물어보기. 다양한 표현 사용. expected_answer에 정답 키워드. 변경사항 적용 후 기준.",
+		},
+		{
+			name: "abstention",
+			count: 10,
+			desc: '위 사실에 없는 것 물어보기. expected_answer는 "NONE". 유사하지만 다른 것 포함 (Nuxt vs Next, 수영 vs 러닝 등).',
+		},
+		{
+			name: "semantic",
+			count: 10,
+			desc: '사실을 간접적으로 물어보기. 상위 개념 사용. expected_answer에 "관련 사실 N개 이상 언급" 형태.',
+		},
+		{
+			name: "contradiction",
+			count: 10,
+			desc: "변경 전/후 확인. 현재값 확인, 변경 전 값이 안 나오는지, 변경 안 한 것 유지 확인. expected_answer에 현재 정답.",
+		},
+		{
+			name: "synthesis",
+			count: 10,
+			desc: '여러 사실을 조합해서 답해야 하는 질문. expected_answer에 "N개 이상 사실 조합" 형태.',
+		},
 	];
 
 	const allTests: any[] = [];
@@ -48,7 +77,7 @@ ${updatesText}
 		const res = await fetch(`${GEMINI_BASE}chat/completions`, {
 			method: "POST",
 			headers: {
-				"Authorization": `Bearer ${apiKey}`,
+				Authorization: `Bearer ${apiKey}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
@@ -58,20 +87,31 @@ ${updatesText}
 			}),
 		});
 
-		const data = await res.json() as any;
+		const data = (await res.json()) as any;
 		const content = data.choices?.[0]?.message?.content ?? "";
-		const jsonStr = content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+		const jsonStr = content
+			.replace(/```json\n?/g, "")
+			.replace(/```/g, "")
+			.trim();
 
 		let tests: any[];
 		try {
 			tests = JSON.parse(jsonStr);
 		} catch {
-			const fixed = jsonStr.replace(/,\s*$/, "") + "]";
+			const fixed = `${jsonStr.replace(/,\s*$/, "")}]`;
 			try {
 				tests = JSON.parse(fixed);
 			} catch {
 				const matches = jsonStr.match(/\{[^}]+\}/g) || [];
-				tests = matches.map((m: string) => { try { return JSON.parse(m); } catch { return null; } }).filter(Boolean);
+				tests = matches
+					.map((m: string) => {
+						try {
+							return JSON.parse(m);
+						} catch {
+							return null;
+						}
+					})
+					.filter(Boolean);
 			}
 		}
 

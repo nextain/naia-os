@@ -3,10 +3,7 @@ import { createClaudeCodeCliProvider } from "./claude-code-cli.js";
 import { createGeminiProvider } from "./gemini.js";
 import { createLabProxyProvider } from "./lab-proxy.js";
 import { createOpenAIProvider } from "./openai.js";
-import {
-	getLlmProviderDef,
-	registerLlmProvider,
-} from "./registry.js";
+import { getLlmProviderDef, registerLlmProvider } from "./registry.js";
 import type { LLMProvider, ProviderConfig } from "./types.js";
 import { createXAIProvider } from "./xai.js";
 import { createZAIProvider } from "./zai.js";

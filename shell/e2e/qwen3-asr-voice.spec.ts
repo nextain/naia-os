@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync } from "node:fs";
 import { type Page, expect, test } from "@playwright/test";
 
 /**
@@ -158,7 +158,10 @@ test.describe("vLLM STT E2E (Qwen3-ASR-1.7B)", () => {
 				const resp = await fetch(`${host}/v1/models`);
 				if (!resp.ok) return { ok: false, status: resp.status };
 				const data = await resp.json();
-				return { ok: true, models: data.data?.map((m: { id: string }) => m.id) ?? [] };
+				return {
+					ok: true,
+					models: data.data?.map((m: { id: string }) => m.id) ?? [],
+				};
 			} catch (e) {
 				return { ok: false, error: String(e) };
 			}
@@ -169,7 +172,9 @@ test.describe("vLLM STT E2E (Qwen3-ASR-1.7B)", () => {
 		expect(models.some((m) => m.toLowerCase().includes("qwen"))).toBe(true);
 	});
 
-	test("API-based STT: 마이크 캡처 → vLLM 전사 → 채팅 전송", async ({ page }) => {
+	test("API-based STT: 마이크 캡처 → vLLM 전사 → 채팅 전송", async ({
+		page,
+	}) => {
 		await setupPage(page);
 
 		const voiceBtn = page.locator(".chat-voice-btn");
@@ -208,7 +213,9 @@ test.describe("vLLM STT E2E (Qwen3-ASR-1.7B)", () => {
 		expect(lastText).toMatch(/[\uAC00-\uD7A3]/);
 	});
 
-	test("SW gain 적용 확인 — audio chunk rms ≠ peak (비상수 신호)", async ({ page }) => {
+	test("SW gain 적용 확인 — audio chunk rms ≠ peak (비상수 신호)", async ({
+		page,
+	}) => {
 		const audioStats: Array<{ rms: number; peak: number }> = [];
 		page.on("console", (msg) => {
 			const text = msg.text();

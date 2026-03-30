@@ -14,17 +14,48 @@ import { type Page, expect, test } from "@playwright/test";
 
 const FAKE_ROOT = "/var/home/luke/dev";
 
-const FAKE_CSV = "name,score,city\nAlice,95,Seoul\nBob,80,Busan\nCharlie,70,Incheon";
+const FAKE_CSV =
+	"name,score,city\nAlice,95,Seoul\nBob,80,Busan\nCharlie,70,Incheon";
 const FAKE_LOG =
 	"2026-03-22 INFO: server started\n2026-03-22 ERROR: connection refused\n2026-03-22 OK: reconnected";
 
 const FAKE_DIRS = [
-	{ name: "naia-os", path: `${FAKE_ROOT}/naia-os`, is_dir: true, children: null },
-	{ name: "data.csv", path: `${FAKE_ROOT}/data.csv`, is_dir: false, children: null },
-	{ name: "app.log", path: `${FAKE_ROOT}/app.log`, is_dir: false, children: null },
-	{ name: "screenshot.png", path: `${FAKE_ROOT}/screenshot.png`, is_dir: false, children: null },
-	{ name: "report.pdf", path: `${FAKE_ROOT}/report.pdf`, is_dir: false, children: null },
-	{ name: "AGENTS.md", path: `${FAKE_ROOT}/AGENTS.md`, is_dir: false, children: null },
+	{
+		name: "naia-os",
+		path: `${FAKE_ROOT}/naia-os`,
+		is_dir: true,
+		children: null,
+	},
+	{
+		name: "data.csv",
+		path: `${FAKE_ROOT}/data.csv`,
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "app.log",
+		path: `${FAKE_ROOT}/app.log`,
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "screenshot.png",
+		path: `${FAKE_ROOT}/screenshot.png`,
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "report.pdf",
+		path: `${FAKE_ROOT}/report.pdf`,
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "AGENTS.md",
+		path: `${FAKE_ROOT}/AGENTS.md`,
+		is_dir: false,
+		children: null,
+	},
 ];
 
 const FAKE_SESSIONS = [
@@ -143,12 +174,16 @@ async function openWorkspacePanel(page: Page): Promise<void> {
 	const tab = page.locator('button[data-panel-id="workspace"]');
 	await expect(tab).toBeVisible({ timeout: 10_000 });
 	await tab.click();
-	await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 5_000 });
+	await expect(page.locator(".workspace-panel")).toBeVisible({
+		timeout: 5_000,
+	});
 }
 
 async function clickFileInTree(page: Page, name: string): Promise<void> {
 	await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
-	const node = page.locator(".workspace-tree__node--file").filter({ hasText: name });
+	const node = page
+		.locator(".workspace-tree__node--file")
+		.filter({ hasText: name });
 	await expect(node).toBeVisible({ timeout: 5_000 });
 	await node.click();
 }
@@ -182,44 +217,79 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 		await clickFileInTree(page, "data.csv");
 
 		// File header visible
-		await expect(page.locator(".workspace-editor__filename")).toContainText("data.csv", {
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"data.csv",
+			{
+				timeout: 5_000,
+			},
+		);
+
+		// Table renders
+		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({
 			timeout: 5_000,
 		});
 
-		// Table renders
-		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({ timeout: 5_000 });
-
 		// Header row
-		await expect(page.locator(".workspace-editor__csv-th").filter({ hasText: "name" })).toBeVisible();
-		await expect(page.locator(".workspace-editor__csv-th").filter({ hasText: "score" })).toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__csv-th").filter({ hasText: "name" }),
+		).toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__csv-th").filter({ hasText: "score" }),
+		).toBeVisible();
 
 		// Data rows
-		await expect(page.locator(".workspace-editor__csv-td").filter({ hasText: "Alice" })).toBeVisible();
-		await expect(page.locator(".workspace-editor__csv-td").filter({ hasText: "Bob" })).toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__csv-td").filter({ hasText: "Alice" }),
+		).toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__csv-td").filter({ hasText: "Bob" }),
+		).toBeVisible();
 	});
 
 	test("V1-b: CSV 헤더 클릭 시 정렬 표시자 나타남", async ({ page }) => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "data.csv");
-		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// Click name header → ascending sort
-		await page.locator(".workspace-editor__csv-th").filter({ hasText: "name" }).click();
-		await expect(page.locator(".workspace-editor__csv-th").filter({ hasText: "name ▲" })).toBeVisible();
+		await page
+			.locator(".workspace-editor__csv-th")
+			.filter({ hasText: "name" })
+			.click();
+		await expect(
+			page.locator(".workspace-editor__csv-th").filter({ hasText: "name ▲" }),
+		).toBeVisible();
 
 		// Click again → descending
-		await page.locator(".workspace-editor__csv-th").filter({ hasText: "name ▲" }).click();
-		await expect(page.locator(".workspace-editor__csv-th").filter({ hasText: "name ▼" })).toBeVisible();
+		await page
+			.locator(".workspace-editor__csv-th")
+			.filter({ hasText: "name ▲" })
+			.click();
+		await expect(
+			page.locator(".workspace-editor__csv-th").filter({ hasText: "name ▼" }),
+		).toBeVisible();
 	});
 
-	test("V1-c: CSV 파일에 편집/미리보기 버튼 없음 (CodeMirror 미사용)", async ({ page }) => {
+	test("V1-c: CSV 파일에 편집/미리보기 버튼 없음 (CodeMirror 미사용)", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "data.csv");
-		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor__csv-table")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// No markdown view-mode buttons
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).not.toBeVisible();
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "미리보기" })).not.toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }),
+		).not.toBeVisible();
+		await expect(
+			page
+				.locator(".workspace-editor__view-btn")
+				.filter({ hasText: "미리보기" }),
+		).not.toBeVisible();
 	});
 
 	// ── V2: Log 뷰어 ──────────────────────────────────────────────────────
@@ -228,17 +298,28 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "app.log");
 
-		await expect(page.locator(".workspace-editor__filename")).toContainText("app.log", {
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"app.log",
+			{
+				timeout: 5_000,
+			},
+		);
+		await expect(page.locator(".workspace-editor__log-pre")).toBeVisible({
 			timeout: 5_000,
 		});
-		await expect(page.locator(".workspace-editor__log-pre")).toBeVisible({ timeout: 5_000 });
-		await expect(page.locator(".workspace-editor__log-pre")).toContainText("server started");
-		await expect(page.locator(".workspace-editor__log-pre")).toContainText("connection refused");
+		await expect(page.locator(".workspace-editor__log-pre")).toContainText(
+			"server started",
+		);
+		await expect(page.locator(".workspace-editor__log-pre")).toContainText(
+			"connection refused",
+		);
 	});
 
 	// ── V3: 이미지 뷰어 ───────────────────────────────────────────────────
 
-	test("V3: .png 파일 선택 시 이미지 뷰어 표시 (workspace_read_file 미호출)", async ({ page }) => {
+	test("V3: .png 파일 선택 시 이미지 뷰어 표시 (workspace_read_file 미호출)", async ({
+		page,
+	}) => {
 		// Spy on invoke calls to verify workspace_read_file is NOT called for images
 		const invokeCalls: string[] = [];
 		await page.exposeFunction("__recordInvoke__", (cmd: string) => {
@@ -248,13 +329,20 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "screenshot.png");
 
-		await expect(page.locator(".workspace-editor__filename")).toContainText("screenshot.png", {
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"screenshot.png",
+			{
+				timeout: 5_000,
+			},
+		);
+		await expect(page.locator(".workspace-editor__image")).toBeVisible({
 			timeout: 5_000,
 		});
-		await expect(page.locator(".workspace-editor__image")).toBeVisible({ timeout: 5_000 });
 
 		// img src uses asset:// protocol (convertFileSrc)
-		const imgSrc = await page.locator(".workspace-editor__image").getAttribute("src");
+		const imgSrc = await page
+			.locator(".workspace-editor__image")
+			.getAttribute("src");
 		expect(imgSrc).toContain("asset://");
 		expect(imgSrc).toContain("screenshot.png");
 
@@ -265,14 +353,20 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 	test("V3-b: 이미지 파일에 편집/미리보기 버튼 없음", async ({ page }) => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "screenshot.png");
-		await expect(page.locator(".workspace-editor__image")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor__image")).toBeVisible({
+			timeout: 5_000,
+		});
 
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).not.toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }),
+		).not.toBeVisible();
 	});
 
 	// ── V4: PDF 뷰어 ────────────────────────────────────────────────────
 
-	test("V4: .pdf 파일 선택 시 PDF 뷰어 표시 (workspace_read_file 미호출)", async ({ page }) => {
+	test("V4: .pdf 파일 선택 시 PDF 뷰어 표시 (workspace_read_file 미호출)", async ({
+		page,
+	}) => {
 		const invokeCalls: string[] = [];
 		await page.exposeFunction("__recordInvoke__", (cmd: string) => {
 			invokeCalls.push(cmd);
@@ -281,10 +375,15 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "report.pdf");
 
-		await expect(page.locator(".workspace-editor__filename")).toContainText("report.pdf", {
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"report.pdf",
+			{
+				timeout: 5_000,
+			},
+		);
+		await expect(page.locator(".workspace-editor__pdf-viewer")).toBeVisible({
 			timeout: 5_000,
 		});
-		await expect(page.locator(".workspace-editor__pdf-viewer")).toBeVisible({ timeout: 5_000 });
 
 		// workspace_read_file must NOT have been called for a PDF file
 		expect(invokeCalls).not.toContain("workspace_read_file");
@@ -293,12 +392,21 @@ test.describe("Resource Viewer — Editor (#116)", () => {
 	test("V4-b: PDF 파일에 편집/미리보기 버튼 없음", async ({ page }) => {
 		await openWorkspacePanel(page);
 		await clickFileInTree(page, "report.pdf");
-		await expect(page.locator(".workspace-editor__filename")).toContainText("report.pdf", {
-			timeout: 5_000,
-		});
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"report.pdf",
+			{
+				timeout: 5_000,
+			},
+		);
 
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).not.toBeVisible();
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "미리보기" })).not.toBeVisible();
+		await expect(
+			page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }),
+		).not.toBeVisible();
+		await expect(
+			page
+				.locator(".workspace-editor__view-btn")
+				.filter({ hasText: "미리보기" }),
+		).not.toBeVisible();
 	});
 });
 
@@ -324,7 +432,9 @@ test.describe("Chat File Deeplinks (#116)", () => {
 		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("D1: 어시스턴트 응답에 절대경로 포함 시 deeplink 버튼 렌더링", async ({ page }) => {
+	test("D1: 어시스턴트 응답에 절대경로 포함 시 deeplink 버튼 렌더링", async ({
+		page,
+	}) => {
 		// Send a message that triggers the mock to respond with a file path
 		const input = page.locator(".chat-input");
 		await expect(input).toBeEnabled({ timeout: 5_000 });
@@ -332,7 +442,9 @@ test.describe("Chat File Deeplinks (#116)", () => {
 		await input.press("Enter");
 
 		// Wait for assistant response containing a deeplink button
-		await expect(page.locator(".chat-file-deeplink")).toBeVisible({ timeout: 8_000 });
+		await expect(page.locator(".chat-file-deeplink")).toBeVisible({
+			timeout: 8_000,
+		});
 
 		const btn = page.locator(".chat-file-deeplink").first();
 		await expect(btn).toContainText("App.tsx");
@@ -344,7 +456,9 @@ test.describe("Chat File Deeplinks (#116)", () => {
 		await input.fill("deeplink 테스트");
 		await input.press("Enter");
 
-		await expect(page.locator(".chat-file-deeplink")).toBeVisible({ timeout: 8_000 });
+		await expect(page.locator(".chat-file-deeplink")).toBeVisible({
+			timeout: 8_000,
+		});
 
 		// Workspace panel should NOT be the active panel yet
 		// (keepAlive panels are always mounted; check active slot instead of visibility)

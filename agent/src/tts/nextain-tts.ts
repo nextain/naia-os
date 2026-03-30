@@ -46,5 +46,6 @@ registerTtsProvider({
 	name: "Naia Cloud TTS",
 	requiresApiKey: false,
 	requiresNaiaKey: true,
-	synthesize: (opts) => synthesizeNextainSpeech(opts.text, opts.naiaKey!, opts.voice),
+	synthesize: (opts) =>
+		synthesizeNextainSpeech(opts.text, opts.naiaKey!, opts.voice),
 });

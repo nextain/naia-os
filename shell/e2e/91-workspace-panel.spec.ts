@@ -83,18 +83,51 @@ const FAKE_SESSIONS_WORKTREE = [
 ];
 
 const FAKE_DIRS = [
-	{ name: "naia-os", path: `${FAKE_ROOT}/naia-os`, is_dir: true, children: null },
-	{ name: "naia-os-issue-79", path: `${FAKE_ROOT}/naia-os-issue-79`, is_dir: true, children: null },
-	{ name: "naia.nextain.io", path: `${FAKE_ROOT}/naia.nextain.io`, is_dir: true, children: null },
+	{
+		name: "naia-os",
+		path: `${FAKE_ROOT}/naia-os`,
+		is_dir: true,
+		children: null,
+	},
+	{
+		name: "naia-os-issue-79",
+		path: `${FAKE_ROOT}/naia-os-issue-79`,
+		is_dir: true,
+		children: null,
+	},
+	{
+		name: "naia.nextain.io",
+		path: `${FAKE_ROOT}/naia.nextain.io`,
+		is_dir: true,
+		children: null,
+	},
 	{ name: "vllm", path: `${FAKE_ROOT}/vllm`, is_dir: true, children: null },
-	{ name: "ref-cline", path: `${FAKE_ROOT}/ref-cline`, is_dir: true, children: null },
-	{ name: "AGENTS.md", path: `${FAKE_ROOT}/AGENTS.md`, is_dir: false, children: null },
+	{
+		name: "ref-cline",
+		path: `${FAKE_ROOT}/ref-cline`,
+		is_dir: true,
+		children: null,
+	},
+	{
+		name: "AGENTS.md",
+		path: `${FAKE_ROOT}/AGENTS.md`,
+		is_dir: false,
+		children: null,
+	},
 ];
 
 const FAKE_CLASSIFIED = [
 	{ name: "naia-os", path: `${FAKE_ROOT}/naia-os`, category: "project" },
-	{ name: "naia-os-issue-79", path: `${FAKE_ROOT}/naia-os-issue-79`, category: "worktree" },
-	{ name: "naia.nextain.io", path: `${FAKE_ROOT}/naia.nextain.io`, category: "project" },
+	{
+		name: "naia-os-issue-79",
+		path: `${FAKE_ROOT}/naia-os-issue-79`,
+		category: "worktree",
+	},
+	{
+		name: "naia.nextain.io",
+		path: `${FAKE_ROOT}/naia.nextain.io`,
+		category: "project",
+	},
 	{ name: "vllm", path: `${FAKE_ROOT}/vllm`, category: "other" },
 	{ name: "ref-cline", path: `${FAKE_ROOT}/ref-cline`, category: "reference" },
 ];
@@ -206,7 +239,9 @@ async function openWorkspacePanel(page: Page): Promise<void> {
 	await tab.click();
 
 	// Verify workspace panel content is visible
-	await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 5_000 });
+	await expect(page.locator(".workspace-panel")).toBeVisible({
+		timeout: 5_000,
+	});
 }
 
 test.describe("Workspace Panel E2E", () => {
@@ -214,13 +249,16 @@ test.describe("Workspace Panel E2E", () => {
 		await page.addInitScript(TAURI_MOCK_SCRIPT);
 
 		await page.addInitScript(() => {
-			localStorage.setItem("naia-config", JSON.stringify({
-				provider: "gemini",
-				model: "gemini-2.5-flash",
-				apiKey: "e2e-mock-key",
-				locale: "ko",
-				onboardingComplete: true,
-			}));
+			localStorage.setItem(
+				"naia-config",
+				JSON.stringify({
+					provider: "gemini",
+					model: "gemini-2.5-flash",
+					apiKey: "e2e-mock-key",
+					locale: "ko",
+					onboardingComplete: true,
+				}),
+			);
 			// Clear any saved classification so Phase 4 triggers first-run
 			localStorage.removeItem("workspace-classified-dirs");
 		});
@@ -236,15 +274,21 @@ test.describe("Workspace Panel E2E", () => {
 		await expect(tab).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("S1-b: 패널 탭 클릭 시 FileTree와 SessionDashboard 표시", async ({ page }) => {
+	test("S1-b: 패널 탭 클릭 시 FileTree와 SessionDashboard 표시", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
 		// FileTree header visible
 		await expect(page.locator(".workspace-panel__tree-header")).toBeVisible();
-		expect(await page.locator(".workspace-panel__tree-header").textContent()).toContain("탐색기");
+		expect(
+			await page.locator(".workspace-panel__tree-header").textContent(),
+		).toContain("탐색기");
 
 		// SessionDashboard visible
-		await expect(page.locator(".workspace-dashboard")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-dashboard")).toBeVisible({
+			timeout: 5_000,
+		});
 	});
 
 	// ── S1-c: Session cards display ───────────────────────────────────────
@@ -253,36 +297,48 @@ test.describe("Workspace Panel E2E", () => {
 		await openWorkspacePanel(page);
 
 		// Wait for session cards to load
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		// Active session shows green emoji
 		const activeCard = page
 			.locator(".workspace-session-card--active")
 			.filter({ hasText: "naia-os-issue-79" });
 		await expect(activeCard).toBeVisible();
-		await expect(activeCard.locator(".workspace-session-card__status-icon")).toContainText("🟢");
+		await expect(
+			activeCard.locator(".workspace-session-card__status-icon"),
+		).toContainText("🟢");
 
 		// Idle session shows yellow emoji
 		const idleCard = page
 			.locator(".workspace-session-card--idle")
 			.filter({ hasText: "naia.nextain.io" });
 		await expect(idleCard).toBeVisible();
-		await expect(idleCard.locator(".workspace-session-card__status-icon")).toContainText("🟡");
+		await expect(
+			idleCard.locator(".workspace-session-card__status-icon"),
+		).toContainText("🟡");
 
 		// Stopped session shows black emoji
 		const stoppedCard = page
 			.locator(".workspace-session-card--stopped")
 			.filter({ hasText: "vllm" });
 		await expect(stoppedCard).toBeVisible();
-		await expect(stoppedCard.locator(".workspace-session-card__status-icon")).toContainText("⚫");
+		await expect(
+			stoppedCard.locator(".workspace-session-card__status-icon"),
+		).toContainText("⚫");
 	});
 
 	// ── S2: Session card shows progress badge ─────────────────────────────
 
-	test("S2: 세션 카드에 이슈/단계 배지 표시 (#79 · build)", async ({ page }) => {
+	test("S2: 세션 카드에 이슈/단계 배지 표시 (#79 · build)", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		const issueLabel = page
 			.locator(".workspace-session-card__issue")
@@ -296,7 +352,9 @@ test.describe("Workspace Panel E2E", () => {
 	test("S3: 세션 카드 클릭 시 에디터에 최근 파일 표시", async ({ page }) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		// Click the active session card
 		const activeCard = page
@@ -305,8 +363,12 @@ test.describe("Workspace Panel E2E", () => {
 		await activeCard.click();
 
 		// Editor should show a file (registry.ts)
-		await expect(page.locator(".workspace-editor__filename")).toBeVisible({ timeout: 5_000 });
-		await expect(page.locator(".workspace-editor__filename")).toContainText("registry.ts");
+		await expect(page.locator(".workspace-editor__filename")).toBeVisible({
+			timeout: 5_000,
+		});
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"registry.ts",
+		);
 	});
 
 	// ── S4: Editor badge shows issue and phase ────────────────────────────
@@ -314,7 +376,9 @@ test.describe("Workspace Panel E2E", () => {
 	test("S4: 에디터 상단 배지에 이슈/단계 표시", async ({ page }) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		// Click active session
 		const activeCard = page
@@ -323,7 +387,9 @@ test.describe("Workspace Panel E2E", () => {
 		await activeCard.click();
 
 		// Badge should show "#79 · build"
-		await expect(page.locator(".workspace-editor__badge")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor__badge")).toBeVisible({
+			timeout: 5_000,
+		});
 		await expect(page.locator(".workspace-editor__badge")).toContainText("#79");
 	});
 
@@ -333,19 +399,28 @@ test.describe("Workspace Panel E2E", () => {
 		await openWorkspacePanel(page);
 
 		// Wait for FileTree to load
-		await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-tree")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// naia-os dir should be visible
-		const naiaDir = page.locator(".workspace-tree__node").filter({ hasText: "naia-os" }).first();
+		const naiaDir = page
+			.locator(".workspace-tree__node")
+			.filter({ hasText: "naia-os" })
+			.first();
 		await expect(naiaDir).toBeVisible({ timeout: 5_000 });
 	});
 
 	// ── S6: FileTree item click → opens file in editor ───────────────────
 
-	test("S6: FileTree 파일 클릭 시 에디터에 파일 내용 표시", async ({ page }) => {
+	test("S6: FileTree 파일 클릭 시 에디터에 파일 내용 표시", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-tree")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// Click AGENTS.md file node
 		const fileNode = page
@@ -355,16 +430,24 @@ test.describe("Workspace Panel E2E", () => {
 		await fileNode.click();
 
 		// Editor should show the file
-		await expect(page.locator(".workspace-editor__filename")).toBeVisible({ timeout: 5_000 });
-		await expect(page.locator(".workspace-editor__filename")).toContainText("AGENTS.md");
+		await expect(page.locator(".workspace-editor__filename")).toBeVisible({
+			timeout: 5_000,
+		});
+		await expect(page.locator(".workspace-editor__filename")).toContainText(
+			"AGENTS.md",
+		);
 	});
 
 	// ── S7: Markdown preview toggle ───────────────────────────────────────
 
-	test("S7: 마크다운 파일 선택 시 미리보기 기본 표시 및 편집 버튼 전환", async ({ page }) => {
+	test("S7: 마크다운 파일 선택 시 미리보기 기본 표시 및 편집 버튼 전환", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-tree")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// Click AGENTS.md
 		const fileNode = page
@@ -374,14 +457,23 @@ test.describe("Workspace Panel E2E", () => {
 		await fileNode.click();
 
 		// Markdown file defaults to preview mode
-		await expect(page.locator(".workspace-editor__preview")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor__preview")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// "편집" view button visible
-		await expect(page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" })).toBeVisible({ timeout: 3_000 });
+		await expect(
+			page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }),
+		).toBeVisible({ timeout: 3_000 });
 
 		// Click "편집" → split view (editor + preview side by side)
-		await page.locator(".workspace-editor__view-btn").filter({ hasText: "편집" }).click();
-		await expect(page.locator(".workspace-editor__body--split")).toBeVisible({ timeout: 3_000 });
+		await page
+			.locator(".workspace-editor__view-btn")
+			.filter({ hasText: "편집" })
+			.click();
+		await expect(page.locator(".workspace-editor__body--split")).toBeVisible({
+			timeout: 3_000,
+		});
 	});
 
 	// ── S8: ref- directory shows read-only ───────────────────────────────
@@ -390,10 +482,15 @@ test.describe("Workspace Panel E2E", () => {
 		await openWorkspacePanel(page);
 
 		// Click ref-cline in FileTree
-		await expect(page.locator(".workspace-tree")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-tree")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// Wait for ref-cline node
-		const refNode = page.locator(".workspace-tree__node").filter({ hasText: "ref-cline" }).first();
+		const refNode = page
+			.locator(".workspace-tree__node")
+			.filter({ hasText: "ref-cline" })
+			.first();
 		await expect(refNode).toBeVisible({ timeout: 5_000 });
 		await refNode.click(); // expand dir
 
@@ -408,41 +505,57 @@ test.describe("Workspace Panel E2E", () => {
 	test("S9: 파일 선택 전 에디터 빈 힌트 메시지 표시", async ({ page }) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-editor--empty")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-editor--empty")).toBeVisible({
+			timeout: 5_000,
+		});
 		await expect(page.locator(".workspace-editor__empty-hint")).toBeVisible();
 	});
 
 	// ── S10: Panel deactivation stops watcher ─────────────────────────────
 
-	test("S10: 다른 패널로 전환 시 워크스페이스 패널 비활성화", async ({ page }) => {
+	test("S10: 다른 패널로 전환 시 워크스페이스 패널 비활성화", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-panel")).toBeVisible({ timeout: 5_000 });
+		await expect(page.locator(".workspace-panel")).toBeVisible({
+			timeout: 5_000,
+		});
 
 		// Switch to avatar panel (first tab in ModeBar, or any other panel)
 		const avatarTab = page.locator('[data-panel-id="avatar"]');
 		if (await avatarTab.isVisible()) {
 			await avatarTab.click();
 			// Workspace panel should no longer be visible
-			await expect(page.locator(".workspace-panel")).toBeHidden({ timeout: 3_000 });
+			await expect(page.locator(".workspace-panel")).toBeHidden({
+				timeout: 3_000,
+			});
 		}
 	});
 
 	// ── S12: workspaceReady gate — sessions load after workspace_set_root ──
 
-	test("S12: workspaceReady 게이트 — workspace_set_root 완료 후 세션 로드됨", async ({ page }) => {
+	test("S12: workspaceReady 게이트 — workspace_set_root 완료 후 세션 로드됨", async ({
+		page,
+	}) => {
 		// workspace_set_root mock returns a canonical string (Result<String, String>).
 		// If the gate works correctly, sessions should load after set_root resolves.
 		await openWorkspacePanel(page);
 
 		// Verify both dashboard (gated) and sessions load successfully
-		await expect(page.locator(".workspace-dashboard")).toBeVisible({ timeout: 5_000 });
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-dashboard")).toBeVisible({
+			timeout: 5_000,
+		});
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 	});
 
 	// ── S13: workspaceRoot config override reflected in SessionDashboard ──
 
-	test("S13: config workspaceRoot 설정 시 workspace_set_root가 해당 경로로 호출됨", async ({ page }) => {
+	test("S13: config workspaceRoot 설정 시 workspace_set_root가 해당 경로로 호출됨", async ({
+		page,
+	}) => {
 		const CUSTOM_ROOT = "/custom/workspace/path";
 
 		// Re-navigate with custom workspaceRoot in config (overrides beforeEach config)
@@ -463,20 +576,30 @@ test.describe("Workspace Panel E2E", () => {
 		await openWorkspacePanel(page);
 
 		// workspaceReady gate should resolve with custom root → sessions load
-		await expect(page.locator(".workspace-dashboard")).toBeVisible({ timeout: 5_000 });
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-dashboard")).toBeVisible({
+			timeout: 5_000,
+		});
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		// Verify workspace_set_root was called with the config workspaceRoot value
-		const capturedRoot = await page.evaluate(() => (window as any).__NAIA_E2E__?.lastSetRootArg);
+		const capturedRoot = await page.evaluate(
+			() => (window as any).__NAIA_E2E__?.lastSetRootArg,
+		);
 		expect(capturedRoot).toBe(CUSTOM_ROOT);
 	});
 
 	// ── S11: panel_tool_call via workspace:file-changed event ─────────────
 
-	test("S11: workspace:file-changed 이벤트 수신 시 세션 새로고침", async ({ page }) => {
+	test("S11: workspace:file-changed 이벤트 수신 시 세션 새로고침", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 
 		// Emit a file-changed event to trigger refresh
 		await page.evaluate(() => {
@@ -488,7 +611,9 @@ test.describe("Workspace Panel E2E", () => {
 		});
 
 		// Session cards should still be visible after refresh
-		await expect(page.locator(".workspace-session-card")).toHaveCount(3, { timeout: 8_000 });
+		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
+			timeout: 8_000,
+		});
 	});
 });
 
@@ -523,7 +648,9 @@ test.describe("WG: Worktree grouping", () => {
 		await expect(page.locator(".chat-panel")).toBeVisible({ timeout: 10_000 });
 	});
 
-	test("WG1: 같은 origin_path 세션이 WorktreeGroup으로 묶임", async ({ page }) => {
+	test("WG1: 같은 origin_path 세션이 WorktreeGroup으로 묶임", async ({
+		page,
+	}) => {
 		await openWorkspacePanel(page);
 
 		// One WorktreeGroup visible
@@ -531,9 +658,9 @@ test.describe("WG: Worktree grouping", () => {
 			timeout: 5_000,
 		});
 		// Group starts expanded — cards container must be visible before counting cards
-		await expect(
-			page.locator(".workspace-worktree-group__cards"),
-		).toBeVisible({ timeout: 3_000 });
+		await expect(page.locator(".workspace-worktree-group__cards")).toBeVisible({
+			timeout: 3_000,
+		});
 		// 3 session cards total: 2 inside group (expanded) + 1 standalone
 		await expect(page.locator(".workspace-session-card")).toHaveCount(3, {
 			timeout: 8_000,

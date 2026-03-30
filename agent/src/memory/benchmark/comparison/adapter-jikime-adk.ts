@@ -5,15 +5,16 @@
  *   cd /var/home/luke/dev/ref-jikime-adk && go build -o /tmp/jikime-adk ./cmd/jikime-adk/main.go
  */
 import { execSync } from "node:child_process";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { BenchmarkAdapter } from "./types.js";
 
 const JIKIME_BIN = "/tmp/jikime-adk";
 
 export class JikimeAdkAdapter implements BenchmarkAdapter {
 	readonly name = "jikime-adk";
-	readonly description = "jikime-adk — Go + SQLite FTS5 + Gemini vector hybrid search";
+	readonly description =
+		"jikime-adk — Go + SQLite FTS5 + Gemini vector hybrid search";
 
 	private projectDir = "";
 
@@ -30,7 +31,9 @@ export class JikimeAdkAdapter implements BenchmarkAdapter {
 		const date = new Date().toISOString().slice(0, 10);
 		const filePath = `${this.projectDir}/memory/${date}.md`;
 		try {
-			const existing = execSync(`cat "${filePath}" 2>/dev/null || echo ""`, { encoding: "utf-8" });
+			const existing = execSync(`cat "${filePath}" 2>/dev/null || echo ""`, {
+				encoding: "utf-8",
+			});
 			writeFileSync(filePath, `${existing}\n- ${content}\n`, "utf-8");
 			return true;
 		} catch {
@@ -46,7 +49,8 @@ export class JikimeAdkAdapter implements BenchmarkAdapter {
 			const result = execSync(
 				`${JIKIME_BIN} memory search '${escapedQuery}' --project '${this.projectDir}' --limit ${topK} --json 2>/dev/null`,
 				{
-					timeout: 30000, encoding: "utf-8",
+					timeout: 30000,
+					encoding: "utf-8",
 					env: {
 						...process.env,
 						JIKIME_EMBEDDING_PROVIDER: "gemini",
@@ -57,7 +61,9 @@ export class JikimeAdkAdapter implements BenchmarkAdapter {
 			);
 			const parsed = JSON.parse(result.trim());
 			const results = Array.isArray(parsed) ? parsed : (parsed?.results ?? []);
-			return results.map((r: any) => r.content ?? r.text ?? r.snippet ?? "").filter((s: string) => s.length > 0);
+			return results
+				.map((r: any) => r.content ?? r.text ?? r.snippet ?? "")
+				.filter((s: string) => s.length > 0);
 		} catch {
 			// Fallback: text-based search via grep
 			try {
@@ -65,7 +71,10 @@ export class JikimeAdkAdapter implements BenchmarkAdapter {
 					`grep -rih "${query.replace(/"/g, '\\"').split(/\s+/)[0]}" "${this.projectDir}/memory/" 2>/dev/null | head -${topK}`,
 					{ encoding: "utf-8", timeout: 5000 },
 				);
-				return result.split("\n").map((l) => l.replace(/^- /, "").trim()).filter((s) => s.length > 0);
+				return result
+					.split("\n")
+					.map((l) => l.replace(/^- /, "").trim())
+					.filter((s) => s.length > 0);
 			} catch {
 				return [];
 			}
@@ -74,7 +83,9 @@ export class JikimeAdkAdapter implements BenchmarkAdapter {
 
 	async cleanup(): Promise<void> {
 		if (this.projectDir) {
-			try { rmSync(this.projectDir, { recursive: true, force: true }); } catch {}
+			try {
+				rmSync(this.projectDir, { recursive: true, force: true });
+			} catch {}
 		}
 	}
 }

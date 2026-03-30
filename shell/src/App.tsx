@@ -9,11 +9,10 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { PanelInstallDialog } from "./components/PanelInstallDialog";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { WslSetupScreen } from "./components/WslSetupScreen";
 import { getBridgeForPanel } from "./lib/active-bridge";
 import { syncLinkedChannels } from "./lib/channel-sync";
-import { startIframeBridge } from "./lib/iframe-bridge";
 import { sendPanelSkills, sendPanelSkillsClear } from "./lib/chat-service";
-import { WslSetupScreen } from "./components/WslSetupScreen";
 import {
 	type ThemeId,
 	isOnboardingComplete,
@@ -23,8 +22,9 @@ import {
 	migrateSpeechStyleValues,
 	saveConfig,
 } from "./lib/config";
-import { restartGateway } from "./lib/openclaw-sync";
 import { persistDiscordDefaults } from "./lib/discord-auth";
+import { startIframeBridge } from "./lib/iframe-bridge";
+import { restartGateway } from "./lib/openclaw-sync";
 import { loadInstalledPanels } from "./lib/panel-loader";
 import { panelRegistry } from "./lib/panel-registry";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";
@@ -256,7 +256,7 @@ export function App() {
 	if (showWslSetup) {
 		return (
 			<div className="app-root">
-				<TitleBar panelVisible={panelVisible} onTogglePanel={togglePanel} />
+				<TitleBar panelVisible={naiaVisible} onTogglePanel={toggleNaia} />
 				<WslSetupScreen
 					onComplete={() => {
 						setShowWslSetup(false);

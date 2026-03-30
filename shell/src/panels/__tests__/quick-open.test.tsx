@@ -22,27 +22,59 @@ afterEach(() => {
 });
 
 const FAKE_FILES = [
-	{ name: "App.tsx", path: "/dev/project/src/App.tsx", is_dir: false, children: null },
-	{ name: "Editor.tsx", path: "/dev/project/src/Editor.tsx", is_dir: false, children: null },
-	{ name: "index.ts", path: "/dev/project/src/index.ts", is_dir: false, children: null },
-	{ name: "utils", path: "/dev/project/src/utils", is_dir: true, children: null },
+	{
+		name: "App.tsx",
+		path: "/dev/project/src/App.tsx",
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "Editor.tsx",
+		path: "/dev/project/src/Editor.tsx",
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "index.ts",
+		path: "/dev/project/src/index.ts",
+		is_dir: false,
+		children: null,
+	},
+	{
+		name: "utils",
+		path: "/dev/project/src/utils",
+		is_dir: true,
+		children: null,
+	},
 ];
 
 const FAKE_UTILS_FILES = [
-	{ name: "helper.ts", path: "/dev/project/src/utils/helper.ts", is_dir: false, children: null },
+	{
+		name: "helper.ts",
+		path: "/dev/project/src/utils/helper.ts",
+		is_dir: false,
+		children: null,
+	},
 ];
 
 describe("QuickOpen", () => {
 	it("renders input and file list", async () => {
 		mockInvoke.mockImplementation((_cmd: string, args: { parent: string }) => {
 			if (args.parent === "/dev/project") return Promise.resolve(FAKE_FILES);
-			if (args.parent === "/dev/project/src/utils") return Promise.resolve(FAKE_UTILS_FILES);
+			if (args.parent === "/dev/project/src/utils")
+				return Promise.resolve(FAKE_UTILS_FILES);
 			return Promise.resolve([]);
 		});
 
 		const onSelect = vi.fn();
 		const onClose = vi.fn();
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={onSelect} onClose={onClose} />);
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={onSelect}
+				onClose={onClose}
+			/>,
+		);
 
 		// Input is rendered
 		expect(screen.getByPlaceholderText(/파일 이름/)).toBeInTheDocument();
@@ -56,12 +88,21 @@ describe("QuickOpen", () => {
 	it("filters files by query", async () => {
 		mockInvoke.mockImplementation((_cmd: string, args: { parent: string }) => {
 			if (args.parent === "/dev/project") return Promise.resolve(FAKE_FILES);
-			if (args.parent === "/dev/project/src/utils") return Promise.resolve(FAKE_UTILS_FILES);
+			if (args.parent === "/dev/project/src/utils")
+				return Promise.resolve(FAKE_UTILS_FILES);
 			return Promise.resolve([]);
 		});
 
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={vi.fn()} onClose={vi.fn()} />);
-		await waitFor(() => expect(screen.getByText("App.tsx")).toBeInTheDocument());
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={vi.fn()}
+				onClose={vi.fn()}
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("App.tsx")).toBeInTheDocument(),
+		);
 
 		const input = screen.getByPlaceholderText(/파일 이름/);
 		fireEvent.change(input, { target: { value: "edit" } });
@@ -76,8 +117,16 @@ describe("QuickOpen", () => {
 
 		const onSelect = vi.fn();
 		const onClose = vi.fn();
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={onSelect} onClose={onClose} />);
-		await waitFor(() => expect(screen.getByText("App.tsx")).toBeInTheDocument());
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={onSelect}
+				onClose={onClose}
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("App.tsx")).toBeInTheDocument(),
+		);
 
 		const input = screen.getByPlaceholderText(/파일 이름/);
 		fireEvent.keyDown(input, { key: "Enter" });
@@ -90,7 +139,13 @@ describe("QuickOpen", () => {
 		mockInvoke.mockResolvedValue([]);
 
 		const onClose = vi.fn();
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={vi.fn()} onClose={onClose} />);
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={vi.fn()}
+				onClose={onClose}
+			/>,
+		);
 
 		const input = screen.getByPlaceholderText(/파일 이름/);
 		fireEvent.keyDown(input, { key: "Escape" });
@@ -101,28 +156,50 @@ describe("QuickOpen", () => {
 	it("navigates with ArrowDown/ArrowUp", async () => {
 		mockInvoke.mockResolvedValue(FAKE_FILES.filter((f) => !f.is_dir));
 
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={vi.fn()} onClose={vi.fn()} />);
-		await waitFor(() => expect(screen.getByText("App.tsx")).toBeInTheDocument());
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={vi.fn()}
+				onClose={vi.fn()}
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("App.tsx")).toBeInTheDocument(),
+		);
 
 		const input = screen.getByPlaceholderText(/파일 이름/);
 
 		// First item is selected by default
-		expect(document.querySelector(".quick-open__item--selected")).toHaveTextContent("App.tsx");
+		expect(
+			document.querySelector(".quick-open__item--selected"),
+		).toHaveTextContent("App.tsx");
 
 		// ArrowDown → select second item
 		fireEvent.keyDown(input, { key: "ArrowDown" });
-		expect(document.querySelector(".quick-open__item--selected")).toHaveTextContent("Editor.tsx");
+		expect(
+			document.querySelector(".quick-open__item--selected"),
+		).toHaveTextContent("Editor.tsx");
 
 		// ArrowUp → back to first
 		fireEvent.keyDown(input, { key: "ArrowUp" });
-		expect(document.querySelector(".quick-open__item--selected")).toHaveTextContent("App.tsx");
+		expect(
+			document.querySelector(".quick-open__item--selected"),
+		).toHaveTextContent("App.tsx");
 	});
 
 	it("shows empty message when no matches", async () => {
 		mockInvoke.mockResolvedValue(FAKE_FILES.filter((f) => !f.is_dir));
 
-		render(<QuickOpen workspaceRoot="/dev/project" onSelect={vi.fn()} onClose={vi.fn()} />);
-		await waitFor(() => expect(screen.getByText("App.tsx")).toBeInTheDocument());
+		render(
+			<QuickOpen
+				workspaceRoot="/dev/project"
+				onSelect={vi.fn()}
+				onClose={vi.fn()}
+			/>,
+		);
+		await waitFor(() =>
+			expect(screen.getByText("App.tsx")).toBeInTheDocument(),
+		);
 
 		const input = screen.getByPlaceholderText(/파일 이름/);
 		fireEvent.change(input, { target: { value: "zzzznoexist" } });

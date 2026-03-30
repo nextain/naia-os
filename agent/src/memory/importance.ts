@@ -17,34 +17,89 @@ import type { ImportanceScore, MemoryInput } from "./types.js";
 /** Keywords indicating high importance */
 const IMPORTANCE_MARKERS = [
 	// Directives
-	"always", "never", "must", "항상", "절대", "반드시",
+	"always",
+	"never",
+	"must",
+	"항상",
+	"절대",
+	"반드시",
 	// Decisions
-	"decided", "decision", "chose", "결정", "선택",
+	"decided",
+	"decision",
+	"chose",
+	"결정",
+	"선택",
 	// Preferences
-	"prefer", "i like", "i want", "i need", "좋아", "싫어", "원해",
+	"prefer",
+	"i like",
+	"i want",
+	"i need",
+	"좋아",
+	"싫어",
+	"원해",
 	// Corrections
-	"actually", "no,", "wrong", "not that", "아니", "틀렸", "그게 아니라",
+	"actually",
+	"no,",
+	"wrong",
+	"not that",
+	"아니",
+	"틀렸",
+	"그게 아니라",
 	// Critical info
-	"password", "secret", "key", "credential", "important", "중요",
+	"password",
+	"secret",
+	"key",
+	"credential",
+	"important",
+	"중요",
 ];
 
 /** Keywords indicating surprise/novelty */
 const SURPRISE_MARKERS = [
-	"unexpected", "surprising", "didn't expect", "weird", "strange", "bug",
-	"이상", "놀랍", "예상", "버그", "오류",
-	"actually works", "turns out", "discovered", "found out",
-	"알고 보니", "발견",
+	"unexpected",
+	"surprising",
+	"didn't expect",
+	"weird",
+	"strange",
+	"bug",
+	"이상",
+	"놀랍",
+	"예상",
+	"버그",
+	"오류",
+	"actually works",
+	"turns out",
+	"discovered",
+	"found out",
+	"알고 보니",
+	"발견",
 ];
 
 /** Keywords indicating emotional arousal */
 const EMOTION_MARKERS = {
 	positive: [
-		"great", "perfect", "awesome", "love", "amazing", "thank",
-		"완벽", "최고", "감사", "대박",
+		"great",
+		"perfect",
+		"awesome",
+		"love",
+		"amazing",
+		"thank",
+		"완벽",
+		"최고",
+		"감사",
+		"대박",
 	],
 	negative: [
-		"frustrated", "annoying", "hate", "terrible", "ugh", "damn",
-		"짜증", "별로", "최악", "답답",
+		"frustrated",
+		"annoying",
+		"hate",
+		"terrible",
+		"ugh",
+		"damn",
+		"짜증",
+		"별로",
+		"최악",
+		"답답",
 	],
 };
 
@@ -61,7 +116,8 @@ export function scoreImportance(input: MemoryInput): ImportanceScore {
 		if (text.includes(marker)) importanceHits++;
 	}
 	// User messages inherently more important than assistant/tool
-	const roleWeight = input.role === "user" ? 0.3 : input.role === "assistant" ? 0.1 : 0.0;
+	const roleWeight =
+		input.role === "user" ? 0.3 : input.role === "assistant" ? 0.1 : 0.0;
 	const importance = Math.min(1.0, roleWeight + importanceHits * 0.15);
 
 	// Surprise: prediction error signals

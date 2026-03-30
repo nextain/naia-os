@@ -6,7 +6,7 @@
  *
  * Requires: pip install mem0ai faiss-cpu in /tmp/sap-bench/ venv
  */
-import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, execSync, spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { BenchmarkAdapter } from "./types.js";
 
@@ -15,7 +15,8 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
 
 export class SapAdapter implements BenchmarkAdapter {
 	readonly name = "sap";
-	readonly description = "Super Agent Party — mem0 + FAISS vector store + BM25 hybrid";
+	readonly description =
+		"Super Agent Party — mem0 + FAISS vector store + BM25 hybrid";
 
 	private apiKey: string;
 	private proc: ChildProcess | null = null;
@@ -27,8 +28,13 @@ export class SapAdapter implements BenchmarkAdapter {
 
 	async init(): Promise<void> {
 		// Ensure venv and deps exist
-		execSync(`python3 -m venv ${VENV} 2>/dev/null || true`, { stdio: "ignore" });
-		execSync(`${VENV}/bin/pip install -q mem0ai faiss-cpu 2>/dev/null || true`, { stdio: "ignore", timeout: 60000 });
+		execSync(`python3 -m venv ${VENV} 2>/dev/null || true`, {
+			stdio: "ignore",
+		});
+		execSync(
+			`${VENV}/bin/pip install -q mem0ai faiss-cpu 2>/dev/null || true`,
+			{ stdio: "ignore", timeout: 60000 },
+		);
 
 		// Write persistent worker script
 		const workerScript = `
@@ -77,23 +83,30 @@ for line in sys.stdin:
 		writeFileSync("/tmp/sap-bench-worker.py", workerScript);
 
 		// Start persistent subprocess
-		this.proc = spawn(`${VENV}/bin/python3`, ["/tmp/sap-bench-worker.py", this.apiKey], {
-			stdio: ["pipe", "pipe", "pipe"],
-		});
+		this.proc = spawn(
+			`${VENV}/bin/python3`,
+			["/tmp/sap-bench-worker.py", this.apiKey],
+			{
+				stdio: ["pipe", "pipe", "pipe"],
+			},
+		);
 
 		// Wait for READY
 		await new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => reject(new Error("SAP worker timeout")), 30000);
+			const timeout = setTimeout(
+				() => reject(new Error("SAP worker timeout")),
+				30000,
+			);
 			const onData = (data: Buffer) => {
 				const text = data.toString();
 				if (text.includes("READY")) {
 					clearTimeout(timeout);
-					this.proc!.stdout!.off("data", onData);
+					this.proc?.stdout?.off("data", onData);
 					resolve();
 				}
 			};
-			this.proc!.stdout!.on("data", onData);
-			this.proc!.stderr!.on("data", (d: Buffer) => {
+			this.proc?.stdout?.on("data", onData);
+			this.proc?.stderr?.on("data", (d: Buffer) => {
 				const err = d.toString();
 				if (err.includes("Error") || err.includes("Traceback")) {
 					console.error(`  SAP init stderr: ${err.slice(0, 200)}`);
@@ -122,10 +135,13 @@ for line in sys.stdin:
 
 	private sendCommand(cmd: any): Promise<any> {
 		return new Promise((resolve) => {
-			if (!this.proc?.stdin?.writable) { resolve(null); return; }
+			if (!this.proc?.stdin?.writable) {
+				resolve(null);
+				return;
+			}
 
 			const timeout = setTimeout(() => {
-				this.proc!.stdout!.off("data", onData);
+				this.proc?.stdout?.off("data", onData);
 				resolve(null);
 			}, 60000);
 
@@ -138,7 +154,7 @@ for line in sys.stdin:
 						try {
 							const parsed = JSON.parse(line);
 							clearTimeout(timeout);
-							this.proc!.stdout!.off("data", onData);
+							this.proc?.stdout?.off("data", onData);
 							this.buffer = lines.slice(i + 1).join("\n");
 							resolve(parsed);
 							return;
@@ -148,8 +164,8 @@ for line in sys.stdin:
 				this.buffer = lines[lines.length - 1];
 			};
 
-			this.proc!.stdout!.on("data", onData);
-			this.proc!.stdin!.write(JSON.stringify(cmd) + "\n");
+			this.proc?.stdout?.on("data", onData);
+			this.proc?.stdin?.write(`${JSON.stringify(cmd)}\n`);
 		});
 	}
 }

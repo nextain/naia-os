@@ -39,21 +39,30 @@ function normPath(p: string): string {
 	return p.replace(/\/$/, "");
 }
 
-function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: TreeNodeProps) {
+function TreeNode({
+	entry,
+	depth,
+	onFileSelect,
+	openFilePath,
+	activeDirs,
+}: TreeNodeProps) {
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<DirEntry[] | null>(null);
 	const [loading, setLoading] = useState(false);
 	const nodeRef = useRef<HTMLButtonElement>(null);
 	/** Tracks which openFilePath we last auto-revealed for — prevents re-expanding after manual fold */
 	const lastRevealedRef = useRef<string | null>(null);
-	const isOpen = openFilePath ? normPath(openFilePath) === normPath(entry.path) : false;
-	const isActive = activeDirs?.some((d) => normPath(d) === normPath(entry.path)) ?? false;
+	const isOpen = openFilePath
+		? normPath(openFilePath) === normPath(entry.path)
+		: false;
+	const isActive =
+		activeDirs?.some((d) => normPath(d) === normPath(entry.path)) ?? false;
 
 	// Auto-reveal: if this directory is an ancestor of the open file, expand it (once per file change)
 	const shouldReveal =
 		entry.is_dir &&
 		openFilePath &&
-		normPath(openFilePath).startsWith(normPath(entry.path) + "/") &&
+		normPath(openFilePath).startsWith(`${normPath(entry.path)}/`) &&
 		lastRevealedRef.current !== openFilePath;
 
 	useEffect(() => {
@@ -100,7 +109,10 @@ function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: Tree
 				});
 				setChildren(result);
 			} catch (e) {
-				Logger.warn("FileTree", "Failed to list dir", { path: entry.path, error: String(e) });
+				Logger.warn("FileTree", "Failed to list dir", {
+					path: entry.path,
+					error: String(e),
+				});
 				setChildren([]);
 			} finally {
 				setLoading(false);
@@ -120,7 +132,9 @@ function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: Tree
 					"workspace-tree__node",
 					isOpen ? "workspace-tree__node--open" : "",
 					isActive ? "workspace-tree__node--active" : "",
-					entry.is_dir ? "workspace-tree__node--dir" : "workspace-tree__node--file",
+					entry.is_dir
+						? "workspace-tree__node--dir"
+						: "workspace-tree__node--file",
 				]
 					.filter(Boolean)
 					.join(" ")}
@@ -130,7 +144,9 @@ function TreeNode({ entry, depth, onFileSelect, openFilePath, activeDirs }: Tree
 			>
 				<span className="workspace-tree__icon">{icon}</span>
 				<span className="workspace-tree__name">{entry.name}</span>
-				{isActive && <span className="workspace-tree__active-dot" title="Active session" />}
+				{isActive && (
+					<span className="workspace-tree__active-dot" title="Active session" />
+				)}
 			</button>
 			{entry.is_dir && expanded && (
 				<div className="workspace-tree__children">
@@ -185,7 +201,13 @@ function getFileIcon(name: string): string {
 	return icons[ext] ?? "📄";
 }
 
-export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDirs, workspaceRoot = WORKSPACE_ROOT }: FileTreeProps) {
+export function FileTree({
+	onFileSelect,
+	openFilePath,
+	activeDirs,
+	classifiedDirs,
+	workspaceRoot = WORKSPACE_ROOT,
+}: FileTreeProps) {
 	const [entries, setEntries] = useState<DirEntry[]>([]);
 	const [loading, setLoading] = useState(true);
 	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,10 +223,14 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 			});
 			if (id !== fetchIdRef.current) return; // stale response — discard
 			setEntries(result);
-			Logger.info("FileTree", "Loaded workspace root", { count: result.length });
+			Logger.info("FileTree", "Loaded workspace root", {
+				count: result.length,
+			});
 		} catch (e) {
 			if (id !== fetchIdRef.current) return;
-			Logger.warn("FileTree", "Failed to load workspace root", { error: String(e) });
+			Logger.warn("FileTree", "Failed to load workspace root", {
+				error: String(e),
+			});
 		} finally {
 			if (id === fetchIdRef.current) setLoading(false);
 		}
@@ -235,7 +261,9 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 	}, [loadEntries, debouncedLoadEntries]);
 
 	if (loading) {
-		return <div className="workspace-tree workspace-tree--loading">불러오는 중…</div>;
+		return (
+			<div className="workspace-tree workspace-tree--loading">불러오는 중…</div>
+		);
 	}
 
 	// Phase 4: if classified dirs provided, show in sections
@@ -263,13 +291,17 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 		// Guard: if no classified dir matches any loaded entry (path mismatch or
 		// entries not yet loaded), show a fallback instead of a blank panel.
 		const hasAnyMatch = Object.values(sections).some((dirs) =>
-			dirs.some((d) => entries.some((e) => normPath(d.path) === normPath(e.path))),
+			dirs.some((d) =>
+				entries.some((e) => normPath(d.path) === normPath(e.path)),
+			),
 		);
 
 		if (!hasAnyMatch) {
 			return (
 				<div className="workspace-tree workspace-tree--empty">
-					<div className="workspace-tree__empty-hint">분류된 디렉토리를 찾을 수 없습니다</div>
+					<div className="workspace-tree__empty-hint">
+						분류된 디렉토리를 찾을 수 없습니다
+					</div>
 				</div>
 			);
 		}
@@ -284,7 +316,9 @@ export function FileTree({ onFileSelect, openFilePath, activeDirs, classifiedDir
 					if (classifiedEntries.length === 0) return null;
 					return (
 						<div key={cat} className="workspace-tree__section">
-							<div className="workspace-tree__section-label">{sectionLabels[cat]}</div>
+							<div className="workspace-tree__section-label">
+								{sectionLabels[cat]}
+							</div>
 							{classifiedEntries.map((entry) => (
 								<TreeNode
 									key={entry.path}

@@ -19,8 +19,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page as PdfPage, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mermaid from "mermaid";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Logger } from "../../lib/logger";
@@ -28,7 +28,14 @@ import { AUTOSAVE_DEBOUNCE_MS } from "./constants";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-type ViewMode = "editor" | "preview" | "split" | "image" | "csv" | "log" | "pdf";
+type ViewMode =
+	| "editor"
+	| "preview"
+	| "split"
+	| "image"
+	| "csv"
+	| "log"
+	| "pdf";
 
 interface EditorProps {
 	/** Absolute path of the file being edited. Empty = no file open. */
@@ -53,7 +60,8 @@ function getLanguageExtension(filePath: string) {
 	if (ext === "yaml" || ext === "yml") return yaml();
 	if (ext === "json") return json();
 	if (ext === "css" || ext === "scss" || ext === "less") return css();
-	if (ext === "sh" || ext === "bash" || ext === "zsh") return StreamLanguage.define(shell);
+	if (ext === "sh" || ext === "bash" || ext === "zsh")
+		return StreamLanguage.define(shell);
 	return null;
 }
 
@@ -180,7 +188,9 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const [pdfNumPages, setPdfNumPages] = useState(0);
 
 	/** Image viewer state */
-	const [imageZoom, setImageZoom] = useState<"fit" | "original" | number>("fit");
+	const [imageZoom, setImageZoom] = useState<"fit" | "original" | number>(
+		"fit",
+	);
 	const [imageInfo, setImageInfo] = useState<{
 		width: number;
 		height: number;
@@ -238,11 +248,16 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				// File size from byte length
 				const kb = bytes.length / 1024;
 				const sizeStr =
-					kb >= 1024
-						? `${(kb / 1024).toFixed(1)} MB`
-						: `${Math.round(kb)} KB`;
+					kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
 				setImageInfo((prev) =>
-					prev ? { ...prev, fileSize: sizeStr } : { width: 0, height: 0, format: ext.toUpperCase(), fileSize: sizeStr },
+					prev
+						? { ...prev, fileSize: sizeStr }
+						: {
+								width: 0,
+								height: 0,
+								format: ext.toUpperCase(),
+								fileSize: sizeStr,
+							},
 				);
 			})
 			.catch((e) => {
@@ -691,8 +706,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 								}
 								onLoad={(e) => {
 									const img = e.currentTarget;
-									const ext =
-										filePath.split(".").pop()?.toUpperCase() ?? "IMG";
+									const ext = filePath.split(".").pop()?.toUpperCase() ?? "IMG";
 									setImageInfo((prev) => ({
 										width: img.naturalWidth,
 										height: img.naturalHeight,
@@ -718,9 +732,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 							setLoadError(`PDF 로드 실패: ${String(err?.message ?? err)}`);
 						}}
 						loading={
-							<div className="workspace-editor__pdf-loading">
-								PDF 로딩 중…
-							</div>
+							<div className="workspace-editor__pdf-loading">PDF 로딩 중…</div>
 						}
 					>
 						{Array.from({ length: pdfNumPages }, (_, i) => (
@@ -729,9 +741,8 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 								pageNumber={i + 1}
 								width={Math.min(
 									800,
-									(typeof window !== "undefined"
-										? window.innerWidth
-										: 800) - 80,
+									(typeof window !== "undefined" ? window.innerWidth : 800) -
+										80,
 								)}
 								className="workspace-editor__pdf-page"
 							/>
@@ -757,7 +768,6 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 											<th
 												// biome-ignore lint/suspicious/noArrayIndexKey: CSV columns have no natural key
 												key={i}
-												tabIndex={0}
 												className="workspace-editor__csv-th"
 												onClick={toggleSort}
 												onKeyDown={(e) => {
@@ -809,7 +819,12 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 				</div>
 			) : viewMode === "preview" ? (
 				<div className="workspace-editor__preview">
-					<Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>{content}</Markdown>
+					<Markdown
+						remarkPlugins={[remarkGfm]}
+						components={{ code: CodeBlock }}
+					>
+						{content}
+					</Markdown>
 				</div>
 			) : viewMode === "split" ? (
 				<div className="workspace-editor__body--split">
@@ -818,7 +833,12 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						className="workspace-editor__codemirror workspace-editor__codemirror--half"
 					/>
 					<div className="workspace-editor__preview workspace-editor__preview--half">
-						<Markdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>{content}</Markdown>
+						<Markdown
+							remarkPlugins={[remarkGfm]}
+							components={{ code: CodeBlock }}
+						>
+							{content}
+						</Markdown>
 					</div>
 				</div>
 			) : (

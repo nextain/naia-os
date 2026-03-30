@@ -1,5 +1,5 @@
-import type React from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type React from "react";
 import type { BehaviorEntry, BehaviorFilter } from "./behavior-log";
 import { logBehavior, queryBehavior } from "./behavior-log";
 import { getSecretKey, saveSecretKey } from "./secure-store";
@@ -46,7 +46,7 @@ export interface NaiaTool {
 /** Handler invoked when Naia calls a panel tool. Returns a result string or void. */
 export type ToolHandler = (
 	args: Record<string, unknown>,
-) => Promise<string | void> | string | void;
+) => Promise<string | undefined> | string | undefined;
 
 export interface ShellResult {
 	stdout: string;

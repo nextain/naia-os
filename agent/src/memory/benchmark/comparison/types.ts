@@ -33,7 +33,10 @@ export interface ComparisonResult {
 	core: { total: number; passed: number; rate: number };
 	bonus: { total: number; passed: number };
 	grade: string;
-	byCapability: Record<string, { passed: number; total: number; weight: number }>;
+	byCapability: Record<
+		string,
+		{ passed: number; total: number; weight: number }
+	>;
 	details: TestDetail[];
 }
 

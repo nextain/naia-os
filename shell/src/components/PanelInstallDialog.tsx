@@ -2,8 +2,8 @@ import { listen } from "@tauri-apps/api/event";
 import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState } from "react";
 import { sendPanelInstall } from "../lib/chat-service";
-import { loadInstalledPanels } from "../lib/panel-loader";
 import { Logger } from "../lib/logger";
+import { loadInstalledPanels } from "../lib/panel-loader";
 import { usePanelStore } from "../stores/panel";
 
 interface PanelInstallDialogProps {
@@ -44,13 +44,17 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 						typeof event.payload === "string"
 							? event.payload
 							: JSON.stringify(event.payload);
-					const chunk = JSON.parse(raw) as { type: string; [k: string]: unknown };
+					const chunk = JSON.parse(raw) as {
+						type: string;
+						[k: string]: unknown;
+					};
 
 					if (chunk.type === "panel_install_result") {
 						const success = chunk.success as boolean;
 						const message = success
 							? (chunk.output as string)
-							: ((chunk.error as string | undefined) ?? (chunk.output as string));
+							: ((chunk.error as string | undefined) ??
+								(chunk.output as string));
 						setResult({ success, message });
 						setLoading(false);
 						successRef.current = success;
@@ -97,7 +101,10 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 		setLoading(true);
 		setResult(null);
 		successRef.current = false;
-		Logger.info("PanelInstallDialog", `Installing panel from ${mode}: ${source}`);
+		Logger.info(
+			"PanelInstallDialog",
+			`Installing panel from ${mode}: ${source}`,
+		);
 		try {
 			await sendPanelInstall(source);
 		} catch (err) {
@@ -107,7 +114,11 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 	}
 
 	return (
-		<div className="panel-install-overlay" onClick={onClose} onKeyDown={() => {}}>
+		<div
+			className="panel-install-overlay"
+			onClick={onClose}
+			onKeyDown={() => {}}
+		>
 			<div
 				className="panel-install-dialog"
 				onClick={(e) => e.stopPropagation()}
@@ -115,7 +126,11 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 			>
 				<div className="panel-install-header">
 					<span className="panel-install-title">패널 추가</span>
-					<button type="button" className="panel-install-close" onClick={onClose}>
+					<button
+						type="button"
+						className="panel-install-close"
+						onClick={onClose}
+					>
 						✕
 					</button>
 				</div>
@@ -204,7 +219,9 @@ export function PanelInstallDialog({ onClose }: PanelInstallDialogProps) {
 						type="button"
 						className="panel-install-confirm-btn"
 						onClick={handleInstall}
-						disabled={loading || (mode === "git" ? !gitUrl.trim() : !filePath.trim())}
+						disabled={
+							loading || (mode === "git" ? !gitUrl.trim() : !filePath.trim())
+						}
 					>
 						{loading ? "설치 중..." : "추가"}
 					</button>

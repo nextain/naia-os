@@ -3,7 +3,7 @@ trigger: "flatpak release, flatpak deploy, flatpak rebuild and upload"
 
 prerequisites:
   - flatpak-builder installed
-  - "org.gnome.Platform//49 + org.gnome.Sdk//49"
+  - "org.gnome.Platform//50 + org.gnome.Sdk//50"
   - org.freedesktop.Sdk.Extension.rust-stable
   - org.freedesktop.Sdk.Extension.node22
   - gh CLI authenticated

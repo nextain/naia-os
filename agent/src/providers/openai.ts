@@ -13,22 +13,27 @@ export function createOpenAIProvider(
 	const isOmni = isVllm && /minicpm[-_]?o/i.test(model);
 	const client = new OpenAI({
 		apiKey: isOllama ? "ollama" : isVllm ? "vllm" : apiKey,
-		baseURL:
-			isOllama
-				? `${(localHost || "http://localhost:11434").replace(/\/+$/, "")}/v1`
-				: isVllm
-					? `${(localHost || "http://localhost:8000").replace(/\/+$/, "")}/v1`
-					: undefined,
+		baseURL: isOllama
+			? `${(localHost || "http://localhost:11434").replace(/\/+$/, "")}/v1`
+			: isVllm
+				? `${(localHost || "http://localhost:8000").replace(/\/+$/, "")}/v1`
+				: undefined,
 	});
 
 	return {
 		async *stream(messages, systemPrompt, tools, signal): AgentStream {
 			// vllm-omni: non-streaming, audio comes in choices[1].message.audio.data
 			if (isOmni) {
-				const baseUrl = (localHost || "http://localhost:8000").replace(/\/+$/, "");
+				const baseUrl = (localHost || "http://localhost:8000").replace(
+					/\/+$/,
+					"",
+				);
 				const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
 					method: "POST",
-					headers: { "Content-Type": "application/json", Authorization: "Bearer vllm" },
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: "Bearer vllm",
+					},
 					body: JSON.stringify({
 						model,
 						temperature: 0.7,
@@ -36,8 +41,10 @@ export function createOpenAIProvider(
 					}),
 					signal: signal ?? undefined,
 				});
-				const data = await resp.json() as {
-					choices?: Array<{ message?: { content?: string; audio?: { data?: string } } }>;
+				const data = (await resp.json()) as {
+					choices?: Array<{
+						message?: { content?: string; audio?: { data?: string } };
+					}>;
 					usage?: { prompt_tokens?: number; completion_tokens?: number };
 				};
 				const text = data.choices?.[0]?.message?.content ?? "";

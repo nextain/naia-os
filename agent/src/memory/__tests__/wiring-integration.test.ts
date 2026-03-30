@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 /**
  * Memory wiring integration test.
  *
@@ -9,7 +10,6 @@
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
@@ -29,15 +29,22 @@ describe("Memory wiring integration", () => {
 
 	afterEach(async () => {
 		await system.close();
-		try { rmSync(storePath); } catch {}
-		try { rmSync(`${storePath}.tmp`); } catch {}
+		try {
+			rmSync(storePath);
+		} catch {}
+		try {
+			rmSync(`${storePath}.tmp`);
+		} catch {}
 	});
 
 	describe("Session 1 → Session 2 simulation", () => {
 		it("remembers facts from previous session", async () => {
 			// === Session 1: User tells facts ===
 			await system.encode(
-				{ content: "My name is Kim Haneul, startup CEO and fullstack developer", role: "user" },
+				{
+					content: "My name is Kim Haneul, startup CEO and fullstack developer",
+					role: "user",
+				},
 				{ project: "naia-os" },
 			);
 			await system.encode(
@@ -77,7 +84,9 @@ describe("Memory wiring integration", () => {
 				sourceEpisodes: [],
 			});
 
-			const context = await system.sessionRecall("TypeScript 프로젝트", { topK: 3 });
+			const context = await system.sessionRecall("TypeScript 프로젝트", {
+				topK: 3,
+			});
 			expect(context).toContain("관련 기억");
 			expect(context).toContain("TypeScript");
 		});
@@ -90,7 +99,10 @@ describe("Memory wiring integration", () => {
 			expect(trivial).toBeNull(); // Should be gated out
 
 			const important = await system.encode(
-				{ content: "이 프로젝트에서는 반드시 ESLint를 사용해야 합니다", role: "user" },
+				{
+					content: "이 프로젝트에서는 반드시 ESLint를 사용해야 합니다",
+					role: "user",
+				},
 				{ project: "naia-os" },
 			);
 			expect(important).not.toBeNull(); // Should be stored
@@ -140,7 +152,7 @@ describe("Memory wiring integration", () => {
 
 			// Check the fact was reconsolidated
 			const facts = await adapter.semantic.getAll();
-			const editorFact = facts.find(f => f.entities.includes("Neovim"));
+			const editorFact = facts.find((f) => f.entities.includes("Neovim"));
 			if (editorFact) {
 				expect(editorFact.content).toContain("Cursor");
 			}
@@ -159,7 +171,10 @@ describe("Memory wiring integration", () => {
 				"I use Next.js and FastAPI as frameworks",
 			];
 			for (const s of statements) {
-				await system.encode({ content: s, role: "user" }, { project: "naia-os" });
+				await system.encode(
+					{ content: s, role: "user" },
+					{ project: "naia-os" },
+				);
 			}
 
 			// Session 2: Direct recall

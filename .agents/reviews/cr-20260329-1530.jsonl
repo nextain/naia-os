@@ -1,0 +1,15 @@
+{"type":"REVIEW_STARTED","review_id":"cr-20260329-1530","profile":"code-review","target":"bug-05-sql-injection.rs","timestamp":"2026-03-29T15:30:00Z"}
+{"type":"REVIEWER_SPAWNED","review_id":"cr-20260329-1530","reviewer_id":"correctness","model":"sonnet","timestamp":"2026-03-29T15:30:10Z"}
+{"type":"REVIEWER_SPAWNED","review_id":"cr-20260329-1530","reviewer_id":"security","model":"sonnet","timestamp":"2026-03-29T15:30:10Z"}
+{"type":"REVIEWER_SPAWNED","review_id":"cr-20260329-1530","reviewer_id":"slop-detector","model":"sonnet","timestamp":"2026-03-29T15:30:10Z"}
+{"type":"REPORT_SUBMITTED","review_id":"cr-20260329-1530","round":1,"reviewer_id":"correctness","verdict":"FOUND_ISSUES","findings_count":3,"timestamp":"2026-03-29T15:31:00Z"}
+{"type":"REPORT_SUBMITTED","review_id":"cr-20260329-1530","round":1,"reviewer_id":"security","verdict":"FOUND_ISSUES","findings_count":2,"timestamp":"2026-03-29T15:31:00Z"}
+{"type":"REPORT_SUBMITTED","review_id":"cr-20260329-1530","round":1,"reviewer_id":"slop-detector","verdict":"FOUND_ISSUES","findings_count":4,"timestamp":"2026-03-29T15:31:30Z"}
+{"type":"FINDING_CONFIRMED","review_id":"cr-20260329-1530","round":1,"finding_id":"F1-sql-injection","severity":"CRITICAL","supporters":["correctness","security","slop-detector"],"threshold":"3/3","strategy":"unanimous","rationale":"supporters >= threshold (ALL R)"}
+{"type":"FINDING_CONTESTED","review_id":"cr-20260329-1530","round":1,"finding_id":"F2-silent-error-swallow","severity":"HIGH","supporters":["correctness","slop-detector"],"challengers":["security"],"threshold":"3/3","strategy":"unanimous","rationale":"supporters 2/3 < threshold ALL R"}
+{"type":"FINDING_DISMISSED","review_id":"cr-20260329-1530","round":1,"finding_id":"F3-no-order-by","severity":"MEDIUM","reason":"auto-dismiss (solo, R>=3)","strike_incremented":false,"reason_no_strike":"domain-consistent"}
+{"type":"FINDING_DISMISSED","review_id":"cr-20260329-1530","round":1,"finding_id":"F4-unused-params","severity":"HIGH","reason":"auto-dismiss (solo, R>=3)","strike_incremented":false,"reason_no_strike":"domain-consistent"}
+{"type":"FINDING_DISMISSED","review_id":"cr-20260329-1530","round":1,"finding_id":"F5-limit-offset","severity":"MEDIUM","reason":"auto-dismiss (solo, R>=3)","strike_incremented":false,"reason_no_strike":"domain-consistent"}
+{"type":"FINDING_DISMISSED","review_id":"cr-20260329-1530","round":1,"finding_id":"F6-schema-mismatch","severity":"MEDIUM","reason":"auto-dismiss (solo, R>=3)","strike_incremented":false,"reason_no_strike":"domain-consistent"}
+{"type":"ROUND_COMPLETED","review_id":"cr-20260329-1530","round":1,"confirmed":1,"dismissed":4,"contested":1,"clean_count":0}
+{"type":"REVIEW_COMPLETED","review_id":"cr-20260329-1530","rounds_total":1,"final_status":"FOUND_ISSUES","timestamp":"2026-03-29T15:32:00Z"}

@@ -36,7 +36,7 @@ rl.on("line", (line) => {
 				toolCallId: msg.toolCallId,
 				decision: "once",
 			};
-			agent.stdin.write(JSON.stringify(approval) + "\n");
+			agent.stdin.write(`${JSON.stringify(approval)}\n`);
 			console.log("[agent] Auto-approved:", msg.toolName);
 		} else if (msg.type === "stream_end" || msg.type === "finish") {
 			console.log(`[agent] ${msg.type} requestId:`, msg.requestId);
@@ -73,13 +73,13 @@ function sendRequest() {
 		gatewayUrl: GATEWAY_URL,
 		gatewayToken: TOKEN,
 	};
-	agent.stdin.write(JSON.stringify(request) + "\n");
+	agent.stdin.write(`${JSON.stringify(request)}\n`);
 }
 
 // Send after we see 'ready' or after 8s fallback
 let sent = false;
 const origPush = results.push.bind(results);
-results.push = function (...args) {
+results.push = (...args) => {
 	const r = origPush(...args);
 	if (!sent && args[0]?.type === "ready") {
 		sent = true;
@@ -114,9 +114,14 @@ function checkResults() {
 		console.log("\n=== Tool Result ===");
 		console.log(JSON.stringify(toolResult, null, 2));
 
-		const output = toolResult.output || toolResult.result?.stdout || JSON.stringify(toolResult);
+		const output =
+			toolResult.output ||
+			toolResult.result?.stdout ||
+			JSON.stringify(toolResult);
 		if (output?.includes("agent-gateway-e2e-ok")) {
-			console.log("\n=== PASS: Agent → Gateway → Node Host → execute_command worked! ===");
+			console.log(
+				"\n=== PASS: Agent → Gateway → Node Host → execute_command worked! ===",
+			);
 			agent.kill();
 			process.exit(0);
 		} else {

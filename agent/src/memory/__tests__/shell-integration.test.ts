@@ -9,10 +9,10 @@
  * This validates the wiring that Shell depends on (#174).
  */
 
+import { randomUUID } from "node:crypto";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
@@ -68,7 +68,9 @@ describe("Shell Integration — Memory System E2E (#174)", () => {
 			...recallResult.facts.map((f) => f.content),
 		].join(" ");
 		// At minimum, episodes should be found (facts depend on heuristic extractor)
-		expect(recallResult.episodes.length + recallResult.facts.length).toBeGreaterThan(0);
+		expect(
+			recallResult.episodes.length + recallResult.facts.length,
+		).toBeGreaterThan(0);
 
 		// === STEP 4: List all facts (Settings UI reads this) ===
 		const allFacts = await adapter2.semantic.getAll();
@@ -115,7 +117,9 @@ describe("Shell Integration — Memory System E2E (#174)", () => {
 		expect(noResult.episodes.length + noResult.facts.length).toBe(0);
 
 		await system2.close();
-		try { rmSync(storePath); } catch {}
+		try {
+			rmSync(storePath);
+		} catch {}
 	});
 
 	it("cross-session persistence: encode in session 1, recall in session 2", async () => {
@@ -125,7 +129,10 @@ describe("Shell Integration — Memory System E2E (#174)", () => {
 		const s1Adapter = new LocalAdapter(storePath);
 		const s1System = new MemorySystem({ adapter: s1Adapter });
 		await s1System.encode(
-			{ content: "I am a Python developer working on machine learning", role: "user" },
+			{
+				content: "I am a Python developer working on machine learning",
+				role: "user",
+			},
 			{ project: "naia-os" },
 		);
 		await s1System.close();
@@ -142,6 +149,8 @@ describe("Shell Integration — Memory System E2E (#174)", () => {
 		expect(typeof ctx).toBe("string");
 
 		await s2System.close();
-		try { rmSync(storePath); } catch {}
+		try {
+			rmSync(storePath);
+		} catch {}
 	});
 });

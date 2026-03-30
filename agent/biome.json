@@ -28,6 +28,21 @@
 		}
 	},
 	"files": {
-		"ignore": ["node_modules", "dist", "assets/default-skills"]
-	}
+		"ignore": ["node_modules", "dist", "assets/default-skills", ".claude"]
+	},
+	"overrides": [
+		{
+			"include": ["src/__tests__/**", "src/**/__tests__/**", "scripts/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					}
+				}
+			}
+		}
+	]
 }

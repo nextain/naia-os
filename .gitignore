@@ -21,6 +21,7 @@ build-dir/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/hooks/**
+agent/.claude/
 
 # Progress files (session-local, not committed)
 .agents/progress/*.json
@@ -32,5 +33,6 @@ shell/src-tauri/resources/
 errors/
 iso-download/
 work-logs/
+.jikime/
 *~
 *.pid

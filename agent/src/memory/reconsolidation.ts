@@ -52,8 +52,19 @@ const NEGATION_PATTERNS = [
 
 /** Preference/state verbs that indicate updatable facts */
 const STATE_VERBS = [
-	"prefer", "use", "like", "want", "work with", "live in", "work at",
-	"좋아", "사용", "쓰", "원", "살", "일하",
+	"prefer",
+	"use",
+	"like",
+	"want",
+	"work with",
+	"live in",
+	"work at",
+	"좋아",
+	"사용",
+	"쓰",
+	"원",
+	"살",
+	"일하",
 ];
 
 /**
@@ -99,15 +110,24 @@ export function checkContradiction(
 		if (hasMatch) contentOverlapCount++;
 	}
 	// Require at least 2 overlapping tokens, or 1 if tokens are few
-	const minOverlap = Math.max(1, Math.min(2, Math.floor(newContentTokens.length * 0.15)));
-	const hasContentOverlap = contentOverlapCount >= minOverlap && newContentTokens.length > 0;
+	const minOverlap = Math.max(
+		1,
+		Math.min(2, Math.floor(newContentTokens.length * 0.15)),
+	);
+	const hasContentOverlap =
+		contentOverlapCount >= minOverlap && newContentTokens.length > 0;
 
 	if (sharedEntities.length === 0 && !hasContentOverlap) {
-		return { action: "keep", reason: "No shared entities or content overlap — unrelated" };
+		return {
+			action: "keep",
+			reason: "No shared entities or content overlap — unrelated",
+		};
 	}
 
 	// 2. Check for negation patterns in new info that reference the existing fact
-	const hasNegation = NEGATION_PATTERNS.some((pattern) => pattern.test(newLower));
+	const hasNegation = NEGATION_PATTERNS.some((pattern) =>
+		pattern.test(newLower),
+	);
 
 	// 3. Check for state verb overlap (preference/state facts are update candidates)
 	const isStateFact = STATE_VERBS.some(
@@ -121,7 +141,8 @@ export function checkContradiction(
 	for (const token of newTokens) {
 		if (existingTokens.has(token)) overlapCount++;
 	}
-	const overlapRatio = newTokens.length > 0 ? overlapCount / newTokens.length : 0;
+	const overlapRatio =
+		newTokens.length > 0 ? overlapCount / newTokens.length : 0;
 
 	if (hasNegation && overlapRatio > 0.3) {
 		return {

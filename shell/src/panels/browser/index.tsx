@@ -55,7 +55,8 @@ panelRegistry.register({
 				properties: {
 					ref: {
 						type: "string",
-						description: "Element @ref from snapshot (e.g. @e3) or a CSS selector",
+						description:
+							"Element @ref from snapshot (e.g. @e3) or a CSS selector",
 					},
 				},
 				required: ["ref"],
@@ -137,7 +138,8 @@ panelRegistry.register({
 				properties: {
 					ref: {
 						type: "string",
-						description: "Element @ref from snapshot, or empty for full page text",
+						description:
+							"Element @ref from snapshot, or empty for full page text",
 					},
 				},
 			},

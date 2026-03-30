@@ -66,7 +66,11 @@ function useRelativeTime(timestamp: number | null | undefined): string {
 	return label;
 }
 
-export function SessionCard({ session, onClick, highlighted }: SessionCardProps) {
+export function SessionCard({
+	session,
+	onClick,
+	highlighted,
+}: SessionCardProps) {
 	const relTime = useRelativeTime(session.last_change);
 	const statusIcon = STATUS_ICONS[session.status] ?? "⚫";
 	const statusLabel = STATUS_LABELS[session.status] ?? session.status;
@@ -74,7 +78,7 @@ export function SessionCard({ session, onClick, highlighted }: SessionCardProps)
 	const issuePhase =
 		session.progress?.issue && session.progress?.phase
 			? `${session.progress.issue} · ${session.progress.phase}`
-			: session.progress?.issue ?? null;
+			: (session.progress?.issue ?? null);
 
 	return (
 		<button
@@ -85,14 +89,20 @@ export function SessionCard({ session, onClick, highlighted }: SessionCardProps)
 			data-dir={session.dir}
 		>
 			<div className="workspace-session-card__header">
-				<span className="workspace-session-card__status-icon">{statusIcon}</span>
+				<span className="workspace-session-card__status-icon">
+					{statusIcon}
+				</span>
 				<span className="workspace-session-card__dir">{session.dir}</span>
-				<span className="workspace-session-card__status-label">{statusLabel}</span>
+				<span className="workspace-session-card__status-label">
+					{statusLabel}
+				</span>
 			</div>
 			{session.branch && (
 				<div className="workspace-session-card__branch" title="Git branch">
 					<span className="workspace-session-card__branch-icon">⎇</span>
-					<span className="workspace-session-card__branch-name">{session.branch}</span>
+					<span className="workspace-session-card__branch-name">
+						{session.branch}
+					</span>
 				</div>
 			)}
 			{issuePhase && (
@@ -106,9 +116,7 @@ export function SessionCard({ session, onClick, highlighted }: SessionCardProps)
 					{truncatePath(session.recent_file)}
 				</div>
 			)}
-			{relTime && (
-				<div className="workspace-session-card__time">{relTime}</div>
-			)}
+			{relTime && <div className="workspace-session-card__time">{relTime}</div>}
 		</button>
 	);
 }

@@ -488,7 +488,7 @@ NAIA_BUNDLE="/usr/share/naia/naia-shell.flatpak"
 if [ -f "${NAIA_BUNDLE}" ]; then
     echo "[naia] Installing Naia Shell Flatpak for live session..."
     # GNOME Platform runtime (Naia Shell dependency)
-    flatpak install --system --noninteractive flathub org.gnome.Platform//49 || true
+    flatpak install --system --noninteractive flathub org.gnome.Platform//50 || true
     # Install from local bundle
     flatpak install --system --noninteractive --bundle "${NAIA_BUNDLE}" || true
     echo "[naia] Naia Shell Flatpak installed."

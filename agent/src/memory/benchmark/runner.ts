@@ -10,19 +10,19 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalAdapter } from "../adapters/local.js";
+import { BASE_DECAY, IMPORTANCE_DAMPING, calculateStrength } from "../decay.js";
+import { STORAGE_GATE_THRESHOLD, scoreImportance } from "../importance.js";
 import { MemorySystem } from "../index.js";
-import { calculateStrength, BASE_DECAY, IMPORTANCE_DAMPING } from "../decay.js";
-import { scoreImportance, STORAGE_GATE_THRESHOLD } from "../importance.js";
 import { KnowledgeGraph, emptyKGState } from "../knowledge-graph.js";
 import { checkContradiction, findContradictions } from "../reconsolidation.js";
 import type { Episode, Fact, ImportanceScore } from "../types.js";
 import {
 	ADOPTED_CRITERIA,
 	ALPHA_CRITERIA,
-	INDUSTRY_CRITERIA,
 	type BenchmarkReport,
 	type BenchmarkResult,
 	type CriterionCategory,
+	INDUSTRY_CRITERIA,
 } from "./criteria.js";
 
 const HOUR = 3600_000;
@@ -341,7 +341,9 @@ async function benchContradictionDetection(): Promise<BenchmarkResult> {
 }
 
 async function benchReconsolidation(): Promise<BenchmarkResult> {
-	const adapter = new LocalAdapter(join(tmpdir(), `alpha-bench-${randomUUID()}.json`));
+	const adapter = new LocalAdapter(
+		join(tmpdir(), `alpha-bench-${randomUUID()}.json`),
+	);
 	const now = Date.now();
 
 	// 1. Store original fact
@@ -353,7 +355,10 @@ async function benchReconsolidation(): Promise<BenchmarkResult> {
 	// 2. Encode contradicting info via MemorySystem
 	const system = new MemorySystem({ adapter });
 	await system.encode(
-		{ content: "I no longer use tabs, I switched to spaces instead", role: "user" },
+		{
+			content: "I no longer use tabs, I switched to spaces instead",
+			role: "user",
+		},
 		{ project: "benchmark" },
 	);
 
@@ -371,7 +376,7 @@ async function benchReconsolidation(): Promise<BenchmarkResult> {
 	if (tabsFacts.length <= 1) score++;
 
 	// Check 2: new content is retrievable
-	if (updatedFact && updatedFact.content.includes("spaces")) score++;
+	if (updatedFact?.content.includes("spaces")) score++;
 
 	// Check 3: unrelated facts unaffected
 	const unrelatedId = randomUUID();
@@ -379,7 +384,10 @@ async function benchReconsolidation(): Promise<BenchmarkResult> {
 		makeFact("Server runs on port 3000", ["port"], { id: unrelatedId }),
 	);
 	await system.encode(
-		{ content: "I actually prefer dark mode now, not light mode", role: "user" },
+		{
+			content: "I actually prefer dark mode now, not light mode",
+			role: "user",
+		},
 		{ project: "benchmark" },
 	);
 	const portFact = (await adapter.semantic.getAll()).find(
@@ -414,11 +422,27 @@ async function benchImportanceGating(): Promise<BenchmarkResult> {
 		expected: boolean;
 	}> = [
 		// Should store (important)
-		{ content: "I always want TypeScript, never JavaScript", role: "user", expected: true },
-		{ content: "We decided to use Vitest for all testing", role: "user", expected: true },
+		{
+			content: "I always want TypeScript, never JavaScript",
+			role: "user",
+			expected: true,
+		},
+		{
+			content: "We decided to use Vitest for all testing",
+			role: "user",
+			expected: true,
+		},
 		{ content: "절대 Python 2 쓰지 마세요", role: "user", expected: true },
-		{ content: "This is a critical bug that must be fixed", role: "user", expected: true },
-		{ content: "I prefer tabs over spaces for indentation", role: "user", expected: true },
+		{
+			content: "This is a critical bug that must be fixed",
+			role: "user",
+			expected: true,
+		},
+		{
+			content: "I prefer tabs over spaces for indentation",
+			role: "user",
+			expected: true,
+		},
 		// Should NOT store (trivial)
 		{ content: "ok", role: "tool", expected: false },
 		{ content: "Done.", role: "tool", expected: false },
@@ -450,14 +474,15 @@ async function benchImportanceGating(): Promise<BenchmarkResult> {
 		truePositives + falseNegatives > 0
 			? truePositives / (truePositives + falseNegatives)
 			: 0;
-	const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+	const f1 =
+		precision + recall > 0
+			? (2 * precision * recall) / (precision + recall)
+			: 0;
 
 	const target = ADOPTED_CRITERIA.importanceGating.target;
 	const minimum = ADOPTED_CRITERIA.importanceGating.minimum;
 	const passed =
-		precision >= target.precision &&
-		recall >= target.recall &&
-		f1 >= target.f1;
+		precision >= target.precision && recall >= target.recall && f1 >= target.f1;
 	const aboveMinimum =
 		precision >= minimum.precision &&
 		recall >= minimum.recall &&
@@ -476,7 +501,9 @@ async function benchImportanceGating(): Promise<BenchmarkResult> {
 }
 
 async function benchContextDependentRetrieval(): Promise<BenchmarkResult> {
-	const adapter = new LocalAdapter(join(tmpdir(), `alpha-bench-${randomUUID()}.json`));
+	const adapter = new LocalAdapter(
+		join(tmpdir(), `alpha-bench-${randomUUID()}.json`),
+	);
 	const now = Date.now();
 
 	// Store two identical episodes with different contexts
@@ -526,7 +553,9 @@ async function benchContextDependentRetrieval(): Promise<BenchmarkResult> {
 }
 
 async function benchImportanceRetention(): Promise<BenchmarkResult> {
-	const adapter = new LocalAdapter(join(tmpdir(), `alpha-bench-${randomUUID()}.json`));
+	const adapter = new LocalAdapter(
+		join(tmpdir(), `alpha-bench-${randomUUID()}.json`),
+	);
 	const now = Date.now();
 	const oldTime = now - 60 * DAY;
 
@@ -590,7 +619,9 @@ async function benchImportanceRetention(): Promise<BenchmarkResult> {
 }
 
 async function benchConsolidationCompression(): Promise<BenchmarkResult> {
-	const adapter = new LocalAdapter(join(tmpdir(), `alpha-bench-${randomUUID()}.json`));
+	const adapter = new LocalAdapter(
+		join(tmpdir(), `alpha-bench-${randomUUID()}.json`),
+	);
 	const system = new MemorySystem({ adapter });
 	const now = Date.now();
 	const twoHoursAgo = now - 2 * HOUR;
@@ -610,7 +641,12 @@ async function benchConsolidationCompression(): Promise<BenchmarkResult> {
 			makeEpisode(content, {
 				timestamp: twoHoursAgo,
 				lastAccessed: twoHoursAgo,
-				importance: { importance: 0.6, surprise: 0.1, emotion: 0.5, utility: 0.5 },
+				importance: {
+					importance: 0.6,
+					surprise: 0.1,
+					emotion: 0.5,
+					utility: 0.5,
+				},
 			}),
 		);
 	}
@@ -656,9 +692,7 @@ function spearmanRho(x: number[], y: number[]): number {
 }
 
 function ranks(arr: number[]): number[] {
-	const sorted = arr
-		.map((v, i) => ({ v, i }))
-		.sort((a, b) => a.v - b.v);
+	const sorted = arr.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
 	const result = new Array<number>(arr.length);
 	for (let i = 0; i < sorted.length; i++) {
 		result[sorted[i].i] = i + 1;

@@ -1,10 +1,10 @@
+import { randomUUID } from "node:crypto";
 /**
  * Baseline benchmark runner — runs query-templates.json against current LocalAdapter.
  * Records results as JSON for before/after comparison.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { LocalAdapter } from "../adapters/local.js";
 import { MemorySystem } from "../index.js";
 import type { Fact } from "../types.js";
@@ -62,7 +62,10 @@ async function main() {
 	// === Phase 2: Run queries per capability ===
 	console.log("\n=== Phase 2: Running queries ===\n");
 
-	for (const [capName, cap] of Object.entries(templates.capabilities) as [string, any][]) {
+	for (const [capName, cap] of Object.entries(templates.capabilities) as [
+		string,
+		any,
+	][]) {
 		if (!cap.queries) continue;
 
 		let capPass = 0;
@@ -111,7 +114,9 @@ async function main() {
 			const allContent = [
 				...result.episodes.map((e) => e.content),
 				...result.facts.map((f) => f.content),
-			].join(" ").toLowerCase();
+			]
+				.join(" ")
+				.toLowerCase();
 
 			// Evaluate
 			let pass = false;
@@ -147,7 +152,8 @@ async function main() {
 				capability: capName,
 				query,
 				response_keywords: allContent.split(" ").slice(0, 20),
-				expected: q.expected_contains || q.expected_any || [q.expected_pattern || ""],
+				expected: q.expected_contains ||
+					q.expected_any || [q.expected_pattern || ""],
 				pass,
 				detail,
 			});
@@ -156,7 +162,9 @@ async function main() {
 			if (pass) capPass++;
 
 			const icon = pass ? "✅" : "❌";
-			console.log(`  ${icon} [${capName}] "${query.slice(0, 40)}..." — ${detail}`);
+			console.log(
+				`  ${icon} [${capName}] "${query.slice(0, 40)}..." — ${detail}`,
+			);
 		}
 
 		console.log(`  → ${capName}: ${capPass}/${capTotal}\n`);
@@ -171,7 +179,10 @@ async function main() {
 		total: totalTests,
 		passed: totalPass,
 		passRate: Math.round((totalPass / totalTests) * 100),
-		byCapability: {} as Record<string, { pass: number; total: number; rate: string }>,
+		byCapability: {} as Record<
+			string,
+			{ pass: number; total: number; rate: string }
+		>,
 		details: results,
 	};
 
@@ -196,7 +207,10 @@ async function main() {
 
 	// Save report
 	mkdirSync(BENCHMARK_DIR, { recursive: true });
-	const reportPath = join(BENCHMARK_DIR, `memory-baseline-${new Date().toISOString().slice(0, 10)}.json`);
+	const reportPath = join(
+		BENCHMARK_DIR,
+		`memory-baseline-${new Date().toISOString().slice(0, 10)}.json`,
+	);
 	writeFileSync(reportPath, JSON.stringify(report, null, 2));
 	console.log(`\nReport saved: ${reportPath}`);
 

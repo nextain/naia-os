@@ -102,10 +102,11 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 		<div className="wsl-setup-screen">
 			<div className="wsl-setup-card">
 				<h1>{t("wslSetup.title")}</h1>
-				<p className="wsl-setup-desc">
-					{t("wslSetup.description")}
-				</p>
-				<p className="wsl-setup-desc" style={{ fontSize: "0.85em", opacity: 0.7 }}>
+				<p className="wsl-setup-desc">{t("wslSetup.description")}</p>
+				<p
+					className="wsl-setup-desc"
+					style={{ fontSize: "0.85em", opacity: 0.7 }}
+				>
 					{t("wslSetup.timeEstimate")}
 				</p>
 
@@ -131,14 +132,20 @@ export function WslSetupScreen({ onComplete }: WslSetupScreenProps) {
 
 				{!needsReboot && !running && (
 					<>
-						<p className="wsl-setup-desc" style={{ fontSize: "0.8em", opacity: 0.6, marginTop: "0.5rem", whiteSpace: "pre-line", textAlign: "left" }}>
+						<p
+							className="wsl-setup-desc"
+							style={{
+								fontSize: "0.8em",
+								opacity: 0.6,
+								marginTop: "0.5rem",
+								whiteSpace: "pre-line",
+								textAlign: "left",
+							}}
+						>
 							{t("wslSetup.whiteScreenNotice")}
 						</p>
 						<div className="wsl-setup-actions">
-							<button
-								className="wsl-setup-btn primary"
-								onClick={handleSetup}
-							>
+							<button className="wsl-setup-btn primary" onClick={handleSetup}>
 								{t("wslSetup.startButton")}
 							</button>
 						</div>

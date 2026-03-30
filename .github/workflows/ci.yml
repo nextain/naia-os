@@ -39,11 +39,11 @@ jobs:
 
       - name: Lint & format shell
         working-directory: shell
-        run: pnpm exec biome check .
+        run: pnpm exec biome check --diagnostic-level=error .
 
       - name: Lint & format agent
         working-directory: agent
-        run: pnpm exec biome check .
+        run: pnpm exec biome check --diagnostic-level=error .
 
   typecheck:
     name: Type Check

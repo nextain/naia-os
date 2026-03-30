@@ -75,7 +75,10 @@ class MockBridge implements NaiaContextBridge {
 	readFile(_path: string): Promise<string> {
 		return Promise.resolve("");
 	}
-	runShell(_cmd: string, _args?: string[]): Promise<import("../../lib/panel-registry").ShellResult> {
+	runShell(
+		_cmd: string,
+		_args?: string[],
+	): Promise<import("../../lib/panel-registry").ShellResult> {
 		return Promise.resolve({ stdout: "", stderr: "", code: 0 });
 	}
 }
@@ -159,7 +162,11 @@ describe("Panel Registry — API", () => {
 	const FakeCenterPanel = () => <div />;
 
 	beforeEach(() => {
-		panelRegistry.register({ id: "api-test-panel", name: "API Test", center: FakeCenterPanel });
+		panelRegistry.register({
+			id: "api-test-panel",
+			name: "API Test",
+			center: FakeCenterPanel,
+		});
 	});
 
 	afterEach(() => {

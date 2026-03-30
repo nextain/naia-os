@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-
 type MetaTab = "bookmarks" | "settings";
 
 interface Bookmark {

@@ -24,7 +24,6 @@ export function ModeBar({ onAddMode }: ModeBarProps) {
 	const modes = useMemo(
 		() => panelRegistry.list().filter((p) => p.id !== "avatar"),
 		// panelListVersion is the reactive dependency — registry is not observable directly
-		// biome-ignore lint/correctness/useExhaustiveDependencies: panelListVersion drives refresh
 		[panelListVersion],
 	);
 
@@ -65,7 +64,11 @@ export function ModeBar({ onAddMode }: ModeBarProps) {
 		<div className="mode-bar">
 			<div className="mode-bar-tabs">
 				{modes.map((mode) => (
-					<div key={mode.id} className="mode-bar-tab-wrapper" data-panel-id={mode.id}>
+					<div
+						key={mode.id}
+						className="mode-bar-tab-wrapper"
+						data-panel-id={mode.id}
+					>
 						<button
 							type="button"
 							className={`mode-bar-tab${activePanel === mode.id ? " mode-bar-tab--active" : ""}`}

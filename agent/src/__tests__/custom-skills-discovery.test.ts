@@ -27,7 +27,10 @@ import {
 	skillRegistry,
 } from "../gateway/tool-bridge.js";
 import type { ChatMessage, StreamChunk } from "../providers/types.js";
-import { ALPHA_SYSTEM_PROMPT, buildToolStatusPrompt } from "../system-prompt.js";
+import {
+	ALPHA_SYSTEM_PROMPT,
+	buildToolStatusPrompt,
+} from "../system-prompt.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -105,10 +108,9 @@ describe("custom skills: registry and tool delivery", () => {
 			for (const name of EXPECTED_CUSTOM_SKILLS) {
 				const skill = skillRegistry.get(name);
 				if (skill) {
-					expect(
-						skill.requiresGateway,
-						`${name} should require gateway`,
-					).toBe(true);
+					expect(skill.requiresGateway, `${name} should require gateway`).toBe(
+						true,
+					);
 				}
 			}
 		});
@@ -119,10 +121,9 @@ describe("custom skills: registry and tool delivery", () => {
 			const tools = getAllTools(true);
 			const names = tools.map((t) => t.name);
 			for (const name of EXPECTED_CUSTOM_SKILLS) {
-				expect(
-					names,
-					`getAllTools(true) should include ${name}`,
-				).toContain(name);
+				expect(names, `getAllTools(true) should include ${name}`).toContain(
+					name,
+				);
 			}
 		});
 
@@ -163,8 +164,14 @@ describe("custom skills: registry and tool delivery", () => {
 			const tools = getAllTools(true);
 			for (const tool of tools) {
 				expect(tool.name, "tool must have name").toBeTruthy();
-				expect(tool.description, `${tool.name} must have description`).toBeTruthy();
-				expect(tool.parameters, `${tool.name} must have parameters`).toBeDefined();
+				expect(
+					tool.description,
+					`${tool.name} must have description`,
+				).toBeTruthy();
+				expect(
+					tool.parameters,
+					`${tool.name} must have parameters`,
+				).toBeDefined();
 			}
 		});
 	});
@@ -204,7 +211,13 @@ describe("custom skills: registry and tool delivery", () => {
 		});
 
 		it("shows gateway failure with specific tool names when disconnected", () => {
-			const failPrompt = buildToolStatusPrompt("base", true, true, false, tools);
+			const failPrompt = buildToolStatusPrompt(
+				"base",
+				true,
+				true,
+				false,
+				tools,
+			);
 			expect(failPrompt).toContain("execute_command");
 			expect(failPrompt).toContain("로컬 스킬");
 		});
@@ -223,24 +236,28 @@ describe("custom skills: registry and tool delivery", () => {
 		});
 
 		it("does NOT contain duplicated emotion/discord instructions (handled by persona.ts/buildToolStatusPrompt)", () => {
-			expect(ALPHA_SYSTEM_PROMPT).not.toContain("Emotion tags (for Shell avatar only)");
-			expect(ALPHA_SYSTEM_PROMPT).not.toContain("skill_naia_discord has EXACTLY 3 actions");
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain(
+				"Emotion tags (for Shell avatar only)",
+			);
+			expect(ALPHA_SYSTEM_PROMPT).not.toContain(
+				"skill_naia_discord has EXACTLY 3 actions",
+			);
 		});
 	});
 
 	describe("Korean keyword → skill name mapping", () => {
 		// Mapping of Korean keywords to expected skill names
 		const KOREAN_SKILL_MAP: Record<string, string> = {
-			"obsidian": "skill_obsidian",
-			"github": "skill_github",
-			"discord": "skill_discord",
-			"slack": "skill_slack",
-			"notion": "skill_notion",
-			"trello": "skill_trello",
-			"spotify": "skill_spotify-player",
-			"canvas": "skill_canvas",
-			"weather": "skill_weather",
-			"memo": "skill_memo",
+			obsidian: "skill_obsidian",
+			github: "skill_github",
+			discord: "skill_discord",
+			slack: "skill_slack",
+			notion: "skill_notion",
+			trello: "skill_trello",
+			spotify: "skill_spotify-player",
+			canvas: "skill_canvas",
+			weather: "skill_weather",
+			memo: "skill_memo",
 		};
 
 		it("all mapped skills exist in registry", () => {
@@ -258,12 +275,14 @@ describe("custom skills: registry and tool delivery", () => {
 				const tool = tools.find((t) => t.name === skillName);
 				expect(tool, `${skillName} should be in tools`).toBeDefined();
 				// Either description or tool name should contain the keyword
-				const desc = tool!.description.toLowerCase();
-				const name = tool!.name.toLowerCase();
-				const found = desc.includes(keyword.toLowerCase()) || name.includes(keyword.toLowerCase());
+				const desc = tool?.description?.toLowerCase() ?? "";
+				const tname = tool?.name?.toLowerCase() ?? "";
+				const found =
+					desc.includes(keyword.toLowerCase()) ||
+					tname.includes(keyword.toLowerCase());
 				expect(
 					found,
-					`${skillName} description or name should contain "${keyword}" but got name="${tool!.name}", desc="${tool!.description}"`,
+					`${skillName} description or name should contain "${keyword}" but got name="${tool?.name}", desc="${tool?.description}"`,
 				).toBe(true);
 			}
 		});
@@ -284,9 +303,7 @@ function loadGatewayToken(): string | null {
 			const config = JSON.parse(readFileSync(p, "utf-8"));
 			const token = config.gateway?.auth?.token;
 			if (token) return token;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return null;
 }
@@ -373,9 +390,7 @@ function loadEnvKeys(): Record<string, string> {
 				keys[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
 			}
 			return keys;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 	return {};
 }
@@ -441,7 +456,9 @@ describe.skipIf(!LIVE_LLM_E2E)(
 			it.skipIf(!apiKey)(
 				"한국어 '옵시디안 스킬 찾아줘' → skill_skill_manager 호출",
 				async () => {
-					const { createGeminiProvider } = await import("../providers/gemini.js");
+					const { createGeminiProvider } = await import(
+						"../providers/gemini.js"
+					);
 					const provider = createGeminiProvider(apiKey, "gemini-2.5-flash");
 					const result = await checkToolSelection(
 						provider,
@@ -453,8 +470,7 @@ describe.skipIf(!LIVE_LLM_E2E)(
 					// Gemini should call skill_skill_manager or skill_obsidian
 					const calledRelevant = result.toolsCalled.some(
 						(name) =>
-							name === "skill_skill_manager" ||
-							name === "skill_obsidian",
+							name === "skill_skill_manager" || name === "skill_obsidian",
 					);
 					expect(
 						calledRelevant,
@@ -467,7 +483,9 @@ describe.skipIf(!LIVE_LLM_E2E)(
 			it.skipIf(!apiKey)(
 				"한국어 'GitHub PR 확인해줘' → skill_github 호출",
 				async () => {
-					const { createGeminiProvider } = await import("../providers/gemini.js");
+					const { createGeminiProvider } = await import(
+						"../providers/gemini.js"
+					);
 					const provider = createGeminiProvider(apiKey, "gemini-2.5-flash");
 					const result = await checkToolSelection(
 						provider,
@@ -477,9 +495,7 @@ describe.skipIf(!LIVE_LLM_E2E)(
 					);
 
 					const calledRelevant = result.toolsCalled.some(
-						(name) =>
-							name === "skill_github" ||
-							name === "execute_command",
+						(name) => name === "skill_github" || name === "execute_command",
 					);
 					expect(
 						calledRelevant,
@@ -492,7 +508,9 @@ describe.skipIf(!LIVE_LLM_E2E)(
 			it.skipIf(!apiKey)(
 				"한국어 '지금 몇시야' → skill_time 호출",
 				async () => {
-					const { createGeminiProvider } = await import("../providers/gemini.js");
+					const { createGeminiProvider } = await import(
+						"../providers/gemini.js"
+					);
 					const provider = createGeminiProvider(apiKey, "gemini-2.5-flash");
 					const result = await checkToolSelection(
 						provider,
@@ -519,8 +537,13 @@ describe.skipIf(!LIVE_LLM_E2E)(
 			it.skipIf(!apiKey)(
 				"한국어 '옵시디안 스킬 찾아줘' → skill_skill_manager 호출",
 				async () => {
-					const { createAnthropicProvider } = await import("../providers/anthropic.js");
-					const provider = createAnthropicProvider(apiKey, "claude-sonnet-4-5-20250929");
+					const { createAnthropicProvider } = await import(
+						"../providers/anthropic.js"
+					);
+					const provider = createAnthropicProvider(
+						apiKey,
+						"claude-sonnet-4-5-20250929",
+					);
 					const result = await checkToolSelection(
 						provider,
 						"옵시디안 스킬 찾아줘",
@@ -530,8 +553,7 @@ describe.skipIf(!LIVE_LLM_E2E)(
 
 					const calledRelevant = result.toolsCalled.some(
 						(name) =>
-							name === "skill_skill_manager" ||
-							name === "skill_obsidian",
+							name === "skill_skill_manager" || name === "skill_obsidian",
 					);
 					expect(
 						calledRelevant,
@@ -548,7 +570,9 @@ describe.skipIf(!LIVE_LLM_E2E)(
 			it.skipIf(!apiKey)(
 				"한국어 '옵시디안 스킬 찾아줘' → skill_skill_manager 호출",
 				async () => {
-					const { createOpenAIProvider } = await import("../providers/openai.js");
+					const { createOpenAIProvider } = await import(
+						"../providers/openai.js"
+					);
 					const provider = createOpenAIProvider(apiKey, "gpt-4.1-mini");
 					const result = await checkToolSelection(
 						provider,
@@ -559,8 +583,7 @@ describe.skipIf(!LIVE_LLM_E2E)(
 
 					const calledRelevant = result.toolsCalled.some(
 						(name) =>
-							name === "skill_skill_manager" ||
-							name === "skill_obsidian",
+							name === "skill_skill_manager" || name === "skill_obsidian",
 					);
 					expect(
 						calledRelevant,
@@ -577,18 +600,36 @@ describe.skipIf(!LIVE_LLM_E2E)(
 
 			// Native transliterations — NO English "Obsidian" in the query
 			const LANGUAGE_TESTS = [
-				{ lang: "Japanese", query: "オブシディアンのスキルを探して", skill: "obsidian" },
+				{
+					lang: "Japanese",
+					query: "オブシディアンのスキルを探して",
+					skill: "obsidian",
+				},
 				{ lang: "Chinese", query: "帮我找黑曜石笔记的技能", skill: "obsidian" },
-				{ lang: "English", query: "Find the obsidian note-taking skill", skill: "obsidian" },
-				{ lang: "French", query: "Cherche le skill pour les notes obsidienne", skill: "obsidian" },
-				{ lang: "Spanish", query: "Busca el skill de notas obsidiana", skill: "obsidian" },
+				{
+					lang: "English",
+					query: "Find the obsidian note-taking skill",
+					skill: "obsidian",
+				},
+				{
+					lang: "French",
+					query: "Cherche le skill pour les notes obsidienne",
+					skill: "obsidian",
+				},
+				{
+					lang: "Spanish",
+					query: "Busca el skill de notas obsidiana",
+					skill: "obsidian",
+				},
 			];
 
 			for (const { lang, query, skill } of LANGUAGE_TESTS) {
 				it.skipIf(!apiKey)(
 					`${lang}: "${query}" → skill_skill_manager or skill_${skill}`,
 					async () => {
-						const { createGeminiProvider } = await import("../providers/gemini.js");
+						const { createGeminiProvider } = await import(
+							"../providers/gemini.js"
+						);
 						const provider = createGeminiProvider(apiKey, "gemini-2.5-flash");
 						const result = await checkToolSelection(
 							provider,
@@ -599,8 +640,7 @@ describe.skipIf(!LIVE_LLM_E2E)(
 
 						const calledRelevant = result.toolsCalled.some(
 							(name) =>
-								name === "skill_skill_manager" ||
-								name === `skill_${skill}`,
+								name === "skill_skill_manager" || name === `skill_${skill}`,
 						);
 						expect(
 							calledRelevant,
