@@ -255,8 +255,10 @@ fn spawn_chrome(port: u16, tmpdir: &str) -> Result<Child, String> {
 		cmd.env(key, val);
 	}
 	cmd.stdout(std::process::Stdio::null())
-		.stderr(std::process::Stdio::null())
-		.spawn()
+		.stderr(std::process::Stdio::null());
+	#[cfg(windows)]
+	platform::hide_console(&mut cmd);
+	cmd.spawn()
 		.map_err(|e| format!("Failed to spawn Chrome: {e}"))
 }
 

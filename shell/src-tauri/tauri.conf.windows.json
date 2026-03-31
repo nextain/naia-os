@@ -5,7 +5,8 @@
 	"bundle": {
 		"targets": ["nsis", "msi"],
 		"resources": {
-			"resources/node.exe": "node.exe"
+			"resources/node.exe": "node.exe",
+			"resources/libvosk.dll": "libvosk.dll"
 		},
 		"windows": {
 			"certificateThumbprint": null,

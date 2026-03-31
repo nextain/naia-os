@@ -842,8 +842,10 @@ fn spawn_node_host(
         .arg("NaiaLocal")
         .env("OPENCLAW_CONFIG_PATH", config_path)
         .stdout(stdout_cfg)
-        .stderr(stderr_cfg)
-        .spawn()
+        .stderr(stderr_cfg);
+    #[cfg(windows)]
+    platform::hide_console(&mut cmd);
+    let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Node Host: {}", e))?;
 
     log_verbose(&format!(
@@ -980,6 +982,8 @@ fn spawn_gateway() -> Result<GatewayProcess, String> {
             }
         }
     }
+    #[cfg(windows)]
+    platform::hide_console(&mut cmd);
     let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Gateway: {}", e))?;
 
@@ -1122,26 +1126,22 @@ fn spawn_agent_core(app_handle: &AppHandle, audit_db: &audit::AuditDb) -> Result
 
     log_verbose(&format!("[Naia] Starting agent-core: {} {}", runner, agent_script));
 
-    let mut child = if use_tsx {
-        Command::new(&runner)
-            .arg("tsx")
-            .arg(&agent_script)
-            .arg("--stdio")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn agent-core: {}", e))?
+    let mut cmd = if use_tsx {
+        let mut c = Command::new(&runner);
+        c.arg("tsx").arg(&agent_script).arg("--stdio");
+        c
     } else {
-        Command::new(&runner)
-            .arg(&agent_script)
-            .arg("--stdio")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn agent-core: {}", e))?
+        let mut c = Command::new(&runner);
+        c.arg(&agent_script).arg("--stdio");
+        c
     };
+    cmd.stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit());
+    #[cfg(windows)]
+    platform::hide_console(&mut cmd);
+    let mut child = cmd.spawn()
+        .map_err(|e| format!("Failed to spawn agent-core: {}", e))?;
 
     let stdin = child
         .stdin

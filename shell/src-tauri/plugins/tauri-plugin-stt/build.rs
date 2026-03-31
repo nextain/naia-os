@@ -141,26 +141,40 @@ fn setup_vosk() {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path");
 
-    // Copy runtime libraries next to the binary for development
+    // Copy runtime libraries next to the binary AND to resources/ for installer bundling
     if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        let target_dir = PathBuf::from(&manifest_dir)
+        let src_tauri_dir = PathBuf::from(&manifest_dir)
             .parent() // plugins
             .and_then(|p| p.parent()) // src-tauri
-            .map(|p| p.join("target"))
-            .unwrap();
+            .unwrap()
+            .to_path_buf();
+        let target_dir = src_tauri_dir.join("target");
 
         let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
         let bin_dir = target_dir.join(&profile);
-        if bin_dir.exists() {
-            // Copy all .dll files from vosk-lib to the binary dir
-            if let Ok(entries) = std::fs::read_dir(&vosk_dir) {
-                for entry in entries.flatten() {
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    if name.ends_with(".dll") || name.ends_with(".so") || name.ends_with(".dylib") {
-                        let dest = bin_dir.join(&name);
-                        if !dest.exists() {
-                            let _ = std::fs::copy(entry.path(), &dest);
-                            eprintln!("cargo:warning=Copied {} to {}", name, dest.display());
+        // Create bin_dir if it doesn't exist yet (first build)
+        let _ = std::fs::create_dir_all(&bin_dir);
+
+        // Also copy to resources/ for NSIS/MSI installer bundling
+        let resources_dir = src_tauri_dir.join("resources");
+        let _ = std::fs::create_dir_all(&resources_dir);
+
+        if let Ok(entries) = std::fs::read_dir(&vosk_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with(".dll") || name.ends_with(".so") || name.ends_with(".dylib") {
+                    // Always overwrite — ensures DLL stays in sync after version bumps
+                    let bin_dest = bin_dir.join(&name);
+                    if std::fs::copy(entry.path(), &bin_dest).is_ok() {
+                        eprintln!("cargo:warning=Copied {} to {}", name, bin_dest.display());
+                    }
+
+                    // Copy to resources/ for installer bundling (Windows only)
+                    #[cfg(target_os = "windows")]
+                    {
+                        let res_dest = resources_dir.join(&name);
+                        if std::fs::copy(entry.path(), &res_dest).is_ok() {
+                            eprintln!("cargo:warning=Copied {} to resources/", name);
                         }
                     }
                 }
