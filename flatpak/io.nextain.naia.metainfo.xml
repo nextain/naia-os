@@ -29,6 +29,29 @@
   </branding>
   <launchable type="desktop-id">io.nextain.naia.desktop</launchable>
   <releases>
+    <release version="0.1.3" date="2026-03-30">
+      <description>
+        <p>NVIDIA GPU support, GNOME 50 runtime, and CI pipeline overhaul.</p>
+        <ul>
+          <li>OS base image switched to bazzite-nvidia-open (RTX GPU out of the box)</li>
+          <li>GNOME Platform/Sdk runtime upgraded from 49 to 50</li>
+          <li>OpenClaw gateway updated to 2026.3.28</li>
+          <li>Full CI green: all lint, type-check, and test failures resolved</li>
+          <li>Windows and Flatpak release pipeline fixes</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.2" date="2026-03-09">
+      <description>
+        <p>Browser panel embedding, workspace panel, and Discord relay.</p>
+        <ul>
+          <li>Browser panel: Chrome embedding via X11 reparenting</li>
+          <li>Workspace panel: file tree, editor, session dashboard</li>
+          <li>Discord relay polling with linked channels sync</li>
+          <li>Onboarding wizard with provider selection</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.1" date="2026-03-05">
       <description>
         <p>Voice conversation, TTS unification, and credential storage improvements.</p>
