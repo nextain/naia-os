@@ -104,6 +104,8 @@ export interface Fact {
 	strength: number;
 	/** Source episode IDs that contributed to this fact */
 	sourceEpisodes: string[];
+	/** Cosine similarity score from vector search (0.0–1.0, optional) */
+	relevanceScore?: number;
 }
 
 // ─── Procedural Memory (Basal Ganglia / Cerebellum) ──────────────────────────

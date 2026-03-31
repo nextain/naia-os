@@ -296,6 +296,7 @@ export class Mem0Adapter implements MemoryAdapter {
 						lastAccessed: now,
 						strength,
 						sourceEpisodes: [],
+						relevanceScore: r.score ?? undefined,
 						_score,
 					};
 				},

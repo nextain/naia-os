@@ -72,7 +72,10 @@ export class NaiaAdapter implements BenchmarkAdapter {
 			topK,
 		});
 		const raw = [
-			...result.facts.map((f) => f.content),
+			...result.facts.map((f) => {
+				const pct = f.relevanceScore != null ? Math.round(f.relevanceScore * 100) : null;
+				return pct != null ? `[관련도 ${pct}%] ${f.content}` : f.content;
+			}),
 			...result.episodes.map((e) => e.content),
 		];
 		return [...new Set(raw)];
