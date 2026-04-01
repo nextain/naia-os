@@ -28,7 +28,9 @@ export async function createMicStream(
 			autoGainControl: true,
 		},
 	});
-	const ctx = new AudioContext({ sampleRate });
+	// AudioContext({ sampleRate }) causes GStreamer CRITICAL in WebKitGTK.
+	// Use default sampleRate and downsample in SW instead.
+	const ctx = new AudioContext();
 	const source = ctx.createMediaStreamSource(stream);
 	const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
 
@@ -37,7 +39,8 @@ export async function createMicStream(
 	processor.onaudioprocess = (e) => {
 		if (!active) return;
 		const float32 = e.inputBuffer.getChannelData(0);
-		const int16 = float32ToInt16(float32);
+		const downsampled = downsample(float32, ctx.sampleRate, sampleRate);
+		const int16 = float32ToInt16(downsampled);
 		const b64 = uint8ArrayToBase64(new Uint8Array(int16.buffer));
 		opts.onChunk(b64);
 	};
@@ -58,6 +61,26 @@ export async function createMicStream(
 			Logger.info("MicStream", "stopped");
 		},
 	};
+}
+
+/** Average-based downsampling from one sample rate to another. */
+function downsample(
+	input: Float32Array,
+	fromRate: number,
+	toRate: number,
+): Float32Array {
+	if (fromRate === toRate) return input;
+	const ratio = fromRate / toRate;
+	const outLen = Math.round(input.length / ratio);
+	const output = new Float32Array(outLen);
+	for (let i = 0; i < outLen; i++) {
+		const start = Math.round(i * ratio);
+		const end = Math.min(Math.round((i + 1) * ratio), input.length);
+		let sum = 0;
+		for (let j = start; j < end; j++) sum += input[j];
+		output[i] = sum / (end - start);
+	}
+	return output;
 }
 
 function float32ToInt16(float32: Float32Array): Int16Array {

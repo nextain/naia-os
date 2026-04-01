@@ -18,8 +18,10 @@ export interface AudioPlayerOptions {
 }
 
 export function createAudioPlayer(opts: AudioPlayerOptions = {}): AudioPlayer {
-	const sampleRate = opts.sampleRate ?? 24000;
-	const ctx = new AudioContext({ sampleRate });
+	const inputSampleRate = opts.sampleRate ?? 24000;
+	// AudioContext({ sampleRate }) causes GStreamer CRITICAL in WebKitGTK.
+	// Use default sampleRate and upsample in SW instead.
+	const ctx = new AudioContext();
 	let nextStartTime = 0;
 	let activeSourceCount = 0;
 	let destroyed = false;
@@ -38,9 +40,10 @@ export function createAudioPlayer(opts: AudioPlayerOptions = {}): AudioPlayer {
 			bytes.byteOffset,
 			bytes.byteLength / 2,
 		);
-		const float32 = int16ToFloat32(int16);
+		const float32Raw = int16ToFloat32(int16);
+		const float32 = upsample(float32Raw, inputSampleRate, ctx.sampleRate);
 
-		const buffer = ctx.createBuffer(1, float32.length, sampleRate);
+		const buffer = ctx.createBuffer(1, float32.length, ctx.sampleRate);
 		buffer.getChannelData(0).set(float32);
 
 		const source = ctx.createBufferSource();
@@ -103,6 +106,26 @@ export function createAudioPlayer(opts: AudioPlayerOptions = {}): AudioPlayer {
 			return activeSourceCount > 0;
 		},
 	};
+}
+
+/** Linear interpolation resampling (Float32 mono). */
+function upsample(
+	input: Float32Array,
+	fromRate: number,
+	toRate: number,
+): Float32Array {
+	if (fromRate === toRate) return input;
+	const ratio = fromRate / toRate;
+	const outLen = Math.round(input.length / ratio);
+	const output = new Float32Array(outLen);
+	for (let i = 0; i < outLen; i++) {
+		const src = i * ratio;
+		const lo = Math.floor(src);
+		const hi = Math.min(lo + 1, input.length - 1);
+		const frac = src - lo;
+		output[i] = input[lo] * (1 - frac) + input[hi] * frac;
+	}
+	return output;
 }
 
 function base64ToUint8Array(b64: string): Uint8Array {

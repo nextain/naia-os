@@ -37,9 +37,13 @@ export function modelHasCapability(
 	);
 }
 
-/** Check if a model is omni (built-in voice). */
+/** Check if a model is omni (built-in voice).
+ * Falls back to model ID pattern for dynamically fetched models (e.g. vLLM)
+ * that are not in the static registry. */
 export function isOmniModel(providerId: string, modelId: string): boolean {
-	return modelHasCapability(providerId, modelId, "omni");
+	if (modelHasCapability(providerId, modelId, "omni")) return true;
+	const mid = modelId.toLowerCase();
+	return mid.includes("minicpm-o") || mid.includes("minicpmo");
 }
 
 /** Get default model for a provider. */

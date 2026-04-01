@@ -15,6 +15,7 @@ import { createGeminiLiveSession } from "./gemini-live";
 import { createGeminiLiveProxySession } from "./gemini-live-proxy";
 import { createMiniCpmOSession } from "./minicpm-o";
 import { createOpenAIRealtimeSession } from "./openai-realtime";
+import { createVllmOmniSession } from "./vllm-omni";
 import type { LiveProviderId, VoiceSession } from "./types";
 
 export {
@@ -28,6 +29,7 @@ export type {
 	GeminiLiveConfig,
 	MiniCpmOConfig,
 	OpenAIRealtimeConfig,
+	VllmOmniConfig,
 	ToolDeclaration,
 } from "./types";
 // Re-export voice options from LLM registry
@@ -54,6 +56,8 @@ export function createVoiceSession(
 			return createOpenAIRealtimeSession();
 		case "minicpm-o":
 			return createMiniCpmOSession();
+		case "vllm-omni":
+			return createVllmOmniSession();
 		default:
 			throw new Error(`Unknown live provider: ${provider}`);
 	}

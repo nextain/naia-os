@@ -15,13 +15,15 @@ export type LiveProviderId =
 	| "gemini-live"
 	| "openai-realtime"
 	| "minicpm-o"
+	| "vllm-omni"
 	| "edge-tts";
 
 export const LIVE_PROVIDER_LABELS: Record<LiveProviderId, string> = {
 	naia: "Naia OS",
 	"gemini-live": "Gemini",
 	"openai-realtime": "OpenAI",
-	"minicpm-o": "MiniCPM-o (Local)",
+	"minicpm-o": "MiniCPM-o (Bridge)",
+	"vllm-omni": "MiniCPM-o (vllm-omni)",
 	"edge-tts": "Edge (TTS 전용)",
 };
 
@@ -35,6 +37,7 @@ export const LIVE_PROVIDER_COST_HINTS: Record<
 	"gemini-live": { cost: "~$0.03/min", note: "Google API Key" },
 	"openai-realtime": { cost: "~$0.10/min", note: "OpenAI API Key" },
 	"minicpm-o": { cost: "Free*", note: "Local GPU / RunPod ~$0.22/hr" },
+	"vllm-omni": { cost: "Free*", note: "Local GPU / RunPod ~$0.22/hr" },
 	"edge-tts": { cost: "Free", note: "TTS only" },
 };
 
@@ -81,10 +84,19 @@ export interface MiniCpmOConfig extends LiveProviderConfigBase {
 	serverUrl: string;
 }
 
+export interface VllmOmniConfig extends LiveProviderConfigBase {
+	provider: "vllm-omni";
+	/** vllm-omni REST server URL (e.g. http://localhost:8000). */
+	host: string;
+	/** Model ID served by the server. */
+	model: string;
+}
+
 export type LiveProviderConfig =
 	| GeminiLiveConfig
 	| OpenAIRealtimeConfig
-	| MiniCpmOConfig;
+	| MiniCpmOConfig
+	| VllmOmniConfig;
 
 // ── Voice Session (provider-agnostic interface) ──
 

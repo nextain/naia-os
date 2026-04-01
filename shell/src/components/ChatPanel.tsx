@@ -44,6 +44,7 @@ import {
 	getLlmModel,
 	getLlmProvider,
 	isApiKeyOptional,
+	isOmniModel,
 } from "../lib/llm";
 import { Logger } from "../lib/logger";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
@@ -1115,7 +1116,7 @@ export function ChatPanel() {
 			}
 			const naiaKey = config?.naiaKey;
 			const modelMeta = getLlmModel(config.provider, config.model);
-			const isOmni = modelMeta?.capabilities.includes("omni") ?? false;
+			const isOmni = isOmniModel(config.provider, config.model ?? "");
 			// ASR mode: STT provider is vllm, or LLM model has "asr" capability
 			const isAsrModel =
 				config.sttProvider === "vllm" ||
@@ -1430,13 +1431,15 @@ export function ChatPanel() {
 
 			// Determine the live provider from the current model/provider
 			const liveProvider =
-				config.provider === "vllm"
-					? ("minicpm-o" as const)
-					: config.provider === "openai"
-						? ("openai-realtime" as const)
-						: naiaKey
-							? ("naia" as const)
-							: ("gemini-live" as const);
+				isOmni && config.provider === "vllm"
+					? ("vllm-omni" as const)
+					: config.provider === "vllm"
+						? ("minicpm-o" as const)
+						: config.provider === "openai"
+							? ("openai-realtime" as const)
+							: naiaKey
+								? ("naia" as const)
+								: ("gemini-live" as const);
 
 			Logger.info("ChatPanel", "Voice config", {
 				provider: config.provider,
@@ -1622,7 +1625,21 @@ export function ChatPanel() {
 			// Build provider-specific config and connect
 			const selectedVoice =
 				config.voice ?? getDefaultVoiceForAvatar(config.vrmModel);
-			if (liveProvider === "minicpm-o") {
+			if (liveProvider === "vllm-omni") {
+				const vllmBase = (config.vllmHost ?? DEFAULT_VLLM_HOST).replace(
+					/\/+$/,
+					"",
+				);
+				// vllmHost may be ws:// (from settings) → convert to http://
+				const httpHost = vllmBase.replace(/^ws/, "http");
+				await session.connect({
+					provider: "vllm-omni",
+					host: httpHost,
+					model: config.model ?? "",
+					systemInstruction: voiceSystemPrompt,
+					tools: voiceTools.length ? voiceTools : undefined,
+				});
+			} else if (liveProvider === "minicpm-o") {
 				// Derive WebSocket base URL from vllmHost: http://host:port → ws://host:port
 				// minicpm-o.ts appends /ws to form the final endpoint
 				const vllmBase = (config.vllmHost ?? DEFAULT_VLLM_HOST).replace(
