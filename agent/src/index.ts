@@ -20,6 +20,7 @@ import {
 import type { GatewayAdapter } from "./gateway/types.js";
 import { JobTracker } from "./tasks/index.js";
 import type { JobKind } from "./tasks/index.js";
+import { checkTokenBudget } from "./conversation/token-budget.js";
 
 /** Global job tracker — tracks all skill/tool executions. */
 export const jobTracker = new JobTracker();
@@ -600,6 +601,32 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				gatewayConnected,
 				tools,
 			);
+
+			// Pre-flight token budget check
+			const budgetCheck = checkTokenBudget(chatMessages, providerConfig.model, effectiveSystemPrompt);
+			if (budgetCheck.status === "critical") {
+				console.error(`[agent:chat] ${budgetCheck.message}`);
+				writeLine({
+					type: "token_warning",
+					requestId,
+					status: "critical",
+					estimatedTokens: budgetCheck.estimatedTokens,
+					contextWindow: budgetCheck.contextWindow,
+					usagePercent: budgetCheck.usagePercent,
+					message: budgetCheck.message,
+				});
+			} else if (budgetCheck.status === "warning") {
+				console.error(`[agent:chat] ${budgetCheck.message}`);
+				writeLine({
+					type: "token_warning",
+					requestId,
+					status: "warning",
+					estimatedTokens: budgetCheck.estimatedTokens,
+					contextWindow: budgetCheck.contextWindow,
+					usagePercent: budgetCheck.usagePercent,
+					message: budgetCheck.message,
+				});
+			}
 
 			const stream = provider.stream(
 				chatMessages,
