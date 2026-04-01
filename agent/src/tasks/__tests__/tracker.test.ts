@@ -121,6 +121,15 @@ describe("JobTracker", () => {
 		expect(tracker.list({ status: "pending" })).toHaveLength(1);
 	});
 
+	it("filters by status + kind combined", () => {
+		const id1 = tracker.create("skill", "a", "A");
+		tracker.create("gateway_tool", "b", "B");
+		tracker.start(id1);
+
+		expect(tracker.list({ status: "running", kind: "skill" })).toHaveLength(1);
+		expect(tracker.list({ status: "running", kind: "gateway_tool" })).toHaveLength(0);
+	});
+
 	it("filters by kind", () => {
 		tracker.create("skill", "a", "A");
 		tracker.create("gateway_tool", "b", "B");
