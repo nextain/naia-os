@@ -22,7 +22,7 @@ const CRITICAL_THRESHOLD = 0.95;
 
 /**
  * Rough token estimation for a messages array.
- * Uses ~4 chars per token heuristic (conservative for multilingual content).
+ * Uses ~4 chars per token heuristic. Tends to underestimate for CJK languages (1-2 chars/token).
  * Actual token count varies by model tokenizer, but this is sufficient for budget warnings.
  */
 export function estimateTokens(messages: ReadonlyArray<{ role: string; content: string }>): number {

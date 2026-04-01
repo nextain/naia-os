@@ -602,30 +602,20 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				tools,
 			);
 
-			// Pre-flight token budget check
+			// Pre-flight token budget check (Phase 1: warn only. Phase 2: add compaction.)
 			const budgetCheck = checkTokenBudget(chatMessages, providerConfig.model, effectiveSystemPrompt);
-			if (budgetCheck.status === "critical") {
+			if (budgetCheck.status !== "ok") {
 				console.error(`[agent:chat] ${budgetCheck.message}`);
 				writeLine({
 					type: "token_warning",
 					requestId,
-					status: "critical",
+					status: budgetCheck.status,
 					estimatedTokens: budgetCheck.estimatedTokens,
 					contextWindow: budgetCheck.contextWindow,
 					usagePercent: budgetCheck.usagePercent,
 					message: budgetCheck.message,
 				});
-			} else if (budgetCheck.status === "warning") {
-				console.error(`[agent:chat] ${budgetCheck.message}`);
-				writeLine({
-					type: "token_warning",
-					requestId,
-					status: "warning",
-					estimatedTokens: budgetCheck.estimatedTokens,
-					contextWindow: budgetCheck.contextWindow,
-					usagePercent: budgetCheck.usagePercent,
-					message: budgetCheck.message,
-				});
+				// TODO (#185 Phase 2): On critical, trigger automatic compaction before proceeding
 			}
 
 			const stream = provider.stream(
