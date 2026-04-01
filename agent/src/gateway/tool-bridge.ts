@@ -86,48 +86,48 @@ bootstrapDefaultSkills(customSkillsDir, bundledSkillsDir);
 loadCustomSkills(skillRegistry, customSkillsDir);
 
 // --- Gateway tool safety metadata ---
-const ALWAYS_TRUE = () => true;
-const ALWAYS_FALSE_SAFETY = () => false;
+import { ALWAYS_TRUE, ALWAYS_FALSE } from "../skills/registry.js";
+// Reuse typed safety predicate constants from registry (fail-closed defaults)
 
 skillRegistry.registerToolSafety("execute_command", {
-	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isConcurrencySafe: ALWAYS_FALSE,
 	isDestructive: ALWAYS_TRUE,
-	isReadOnly: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_FALSE,
 });
 skillRegistry.registerToolSafety("read_file", {
 	isConcurrencySafe: ALWAYS_TRUE,
-	isDestructive: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_FALSE,
 	isReadOnly: ALWAYS_TRUE,
 });
 skillRegistry.registerToolSafety("write_file", {
-	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isConcurrencySafe: ALWAYS_FALSE,
 	isDestructive: ALWAYS_TRUE,
-	isReadOnly: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_FALSE,
 });
 skillRegistry.registerToolSafety("search_files", {
 	isConcurrencySafe: ALWAYS_TRUE,
-	isDestructive: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_FALSE,
 	isReadOnly: ALWAYS_TRUE,
 });
 skillRegistry.registerToolSafety("web_search", {
 	isConcurrencySafe: ALWAYS_TRUE,
-	isDestructive: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_FALSE,
 	isReadOnly: ALWAYS_TRUE,
 });
 skillRegistry.registerToolSafety("apply_diff", {
-	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isConcurrencySafe: ALWAYS_FALSE,
 	isDestructive: ALWAYS_TRUE,
-	isReadOnly: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_FALSE,
 });
 skillRegistry.registerToolSafety("browser", {
 	isConcurrencySafe: ALWAYS_TRUE,
-	isDestructive: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_FALSE,
 	isReadOnly: ALWAYS_TRUE,
 });
 skillRegistry.registerToolSafety("sessions_spawn", {
 	isConcurrencySafe: ALWAYS_TRUE,
-	isDestructive: ALWAYS_FALSE_SAFETY,
-	isReadOnly: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_FALSE,
+	isReadOnly: ALWAYS_FALSE,
 });
 
 /** Get all tools: Gateway tools + skill tools (minus disabled) */

@@ -7,7 +7,8 @@ import type {
 } from "./types.js";
 
 /** Constant predicate that always returns false (fail-closed default). */
-const ALWAYS_FALSE: SafetyPredicate = () => false;
+export const ALWAYS_FALSE: SafetyPredicate = () => false;
+export const ALWAYS_TRUE: SafetyPredicate = () => true;
 
 /** Safety metadata for non-skill tools (gateway built-ins). */
 export interface ToolSafetyMeta {
