@@ -21,15 +21,19 @@ const OUTPUT_SAMPLE_RATE = 24000;
 const MAX_TOKENS = 1024;
 /** RMS amplitude threshold for speech detection (Int16 scale, 0–32767).
  *  Chunks below this are treated as silence and do not reset the flush timer.
- *  ~0.3% of full scale — quiet enough to ignore mic noise, loud enough for speech. */
-const SPEECH_RMS_THRESHOLD = 100;
+ *  ~3% of full scale — filters ambient noise, passes normal speech. */
+const SPEECH_RMS_THRESHOLD = 1000;
+/** Force flush after this many ms even if speech is still ongoing. */
+const MAX_BUFFER_MS = 6000;
 
 export function createVllmOmniSession(): VoiceSession {
 	let connected = false;
 	let cfg: VllmOmniConfig | null = null;
 	let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+	let maxBufferTimer: ReturnType<typeof setTimeout> | null = null;
 	let pcmBuffer: Int16Array[] = [];
 	let messages: Array<{ role: string; content: unknown }> = [];
+	let rmsLogThrottle = 0; // log RMS every N chunks
 
 	const session: VoiceSession = {
 		onAudio: null,
@@ -69,10 +73,21 @@ export function createVllmOmniSession(): VoiceSession {
 			);
 			pcmBuffer.push(samples.slice());
 
+			const chunkRms = rms(samples);
+
+			// Log RMS every 20 chunks (~1.7s) to help calibrate threshold
+			if (++rmsLogThrottle % 20 === 0) {
+				Logger.debug("vllm-omni", "RMS sample", {
+					rms: Math.round(chunkRms),
+					threshold: SPEECH_RMS_THRESHOLD,
+					isSpeech: chunkRms >= SPEECH_RMS_THRESHOLD,
+					bufferChunks: pcmBuffer.length,
+				});
+			}
+
 			// Amplitude-based silence detection: only reset the flush timer when
 			// the chunk contains actual speech (RMS above threshold).
-			// This prevents continuous mic noise from permanently blocking the flush.
-			const isSpeech = rms(samples) >= SPEECH_RMS_THRESHOLD;
+			const isSpeech = chunkRms >= SPEECH_RMS_THRESHOLD;
 			if (isSpeech) {
 				if (silenceTimer) clearTimeout(silenceTimer);
 				silenceTimer = setTimeout(() => {
@@ -84,9 +99,25 @@ export function createVllmOmniSession(): VoiceSession {
 						);
 					});
 				}, SILENCE_TIMEOUT_MS);
+
+				// Start max-buffer timer on first speech chunk
+				if (!maxBufferTimer) {
+					maxBufferTimer = setTimeout(() => {
+						maxBufferTimer = null;
+						if (silenceTimer) clearTimeout(silenceTimer);
+						silenceTimer = null;
+						flushAudio().catch((err) => {
+							Logger.warn("vllm-omni", "max-buffer flush failed", {
+								error: String(err),
+							});
+							session.onError?.(
+								err instanceof Error ? err : new Error(String(err)),
+							);
+						});
+					}, MAX_BUFFER_MS);
+				}
 			} else if (!silenceTimer) {
-				// No speech yet and no pending timer — start one so we flush
-				// even if user never speaks (clears any leftover buffer).
+				// No speech yet — start a timer so we eventually flush stale buffer
 				silenceTimer = setTimeout(() => {
 					silenceTimer = null;
 					flushAudio().catch((err) => {
@@ -123,17 +154,17 @@ export function createVllmOmniSession(): VoiceSession {
 
 		disconnect() {
 			connected = false;
-			if (silenceTimer) {
-				clearTimeout(silenceTimer);
-				silenceTimer = null;
-			}
+			if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+			if (maxBufferTimer) { clearTimeout(maxBufferTimer); maxBufferTimer = null; }
 			pcmBuffer = [];
 			messages = [];
+			rmsLogThrottle = 0;
 			session.onDisconnect?.();
 		},
 	};
 
 	async function flushAudio() {
+		if (maxBufferTimer) { clearTimeout(maxBufferTimer); maxBufferTimer = null; }
 		if (!cfg || pcmBuffer.length === 0) return;
 
 		const totalSamples = pcmBuffer.reduce((n, c) => n + c.length, 0);
