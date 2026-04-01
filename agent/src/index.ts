@@ -659,11 +659,11 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 
 			// Execute each tool (with approval check for tier 1-2)
 			// Partition using registry-based safety metadata
-			const { concurrent: spawnCalls, sequential: otherCalls } =
+			const { concurrent: concurrentCalls, sequential: sequentialCalls } =
 				skillRegistry.partitionForConcurrentExecution(toolCalls);
 
 			// Process sequential tools first
-			for (const call of otherCalls) {
+			for (const call of sequentialCalls) {
 				if (needsApproval(call.name)) {
 					const decision = await waitForApproval(
 						requestId,
@@ -709,11 +709,11 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				});
 			}
 
-			// Process sessions_spawn calls in parallel (approval sequential, execution parallel)
-			if (spawnCalls.length > 0) {
+			// Process concurrent-safe calls in parallel (approval sequential, execution parallel)
+			if (concurrentCalls.length > 0) {
 				// Approval phase (sequential — one modal at a time)
-				const approvedSpawns: typeof spawnCalls = [];
-				for (const call of spawnCalls) {
+				const approvedConcurrent: typeof concurrentCalls = [];
+				for (const call of concurrentCalls) {
 					if (needsApproval(call.name)) {
 						const decision = await waitForApproval(
 							requestId,
@@ -741,12 +741,12 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 							continue;
 						}
 					}
-					approvedSpawns.push(call);
+					approvedConcurrent.push(call);
 				}
 
 				// Execution phase (parallel)
 				const results = await Promise.all(
-					approvedSpawns.map((call) =>
+					approvedConcurrent.map((call) =>
 						executeToolWithRecovery(call.name, call.args).then((result) => ({
 							call,
 							result,
