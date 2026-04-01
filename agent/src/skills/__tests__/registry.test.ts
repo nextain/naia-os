@@ -138,11 +138,11 @@ describe("SkillRegistry — safety metadata", () => {
 		expect(registry.isReadOnly("skill_plain", {})).toBe(false);
 	});
 
-	it("returns false for unknown tool names", () => {
+	it("returns fail-closed defaults for unknown tool names", () => {
 		const registry = new SkillRegistry();
-		expect(registry.isConcurrencySafe("nonexistent", {})).toBe(false);
-		expect(registry.isDestructive("nonexistent", {})).toBe(false);
-		expect(registry.isReadOnly("nonexistent", {})).toBe(false);
+		expect(registry.isConcurrencySafe("nonexistent", {})).toBe(false);  // not concurrent-safe
+		expect(registry.isDestructive("nonexistent", {})).toBe(true);       // assume destructive
+		expect(registry.isReadOnly("nonexistent", {})).toBe(false);         // not read-only
 	});
 
 	it("respects explicit safety predicates on skills", () => {

@@ -116,10 +116,10 @@ export class SkillRegistry {
 		return (meta.isConcurrencySafe ?? ALWAYS_FALSE)(args);
 	}
 
-	/** Does the given tool perform destructive operations with these args? */
+	/** Does the given tool perform destructive operations with these args? Fail-closed: unknown = destructive. */
 	isDestructive(name: string, args: Record<string, unknown>): boolean {
 		const meta = this.resolveSafety(name);
-		if (!meta) return false;
+		if (!meta) return true; // unknown tool = assume destructive (fail-closed)
 		return (meta.isDestructive ?? ALWAYS_FALSE)(args);
 	}
 
