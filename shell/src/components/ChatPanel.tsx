@@ -1611,7 +1611,7 @@ export function ChatPanel() {
 					role: "assistant",
 					content: `${t("chat.voiceError")}: ${err.message}`,
 				});
-				setVoiceMode("off");
+				session.disconnect();
 			};
 			session.onDisconnect = () => {
 				showVoiceCostSummary();
