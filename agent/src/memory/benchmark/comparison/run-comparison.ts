@@ -45,6 +45,7 @@ function parseArgs() {
 	let judge: "claude-cli" | "keyword" = "claude-cli";
 	let runs = 1;
 	let categories: string[] | null = null;
+	let llm: "gemini" | "qwen3" = "gemini";
 
 	for (const arg of args) {
 		if (arg.startsWith("--adapters="))
@@ -54,8 +55,9 @@ function parseArgs() {
 			runs = Number.parseInt(arg.split("=")[1], 10);
 		if (arg.startsWith("--categories="))
 			categories = arg.split("=")[1].split(",");
+		if (arg.startsWith("--llm=")) llm = arg.split("=")[1] as any;
 	}
-	return { adapterNames, judge, runs, categories };
+	return { adapterNames, judge, runs, categories, llm };
 }
 
 // ─── Adapter Factory ────────────────────────────────────────────────────────
@@ -94,6 +96,37 @@ function createAdapter(name: string, apiKey: string): BenchmarkAdapter {
 }
 
 // ─── LLM Response Generation ────────────────────────────────────────────────
+
+const OLLAMA_BASE = "http://localhost:11434/v1/";
+
+async function callOllama(
+	model: string,
+	messages: Array<{ role: string; content: string }>,
+	maxTokens: number,
+): Promise<string> {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			const res = await fetch(`${OLLAMA_BASE}chat/completions`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					model,
+					messages,
+					max_tokens: maxTokens,
+				}),
+			});
+			if (!res.ok) {
+				await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+				continue;
+			}
+			const data = (await res.json()) as any;
+			return data.choices?.[0]?.message?.content ?? "";
+		} catch {
+			await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+		}
+	}
+	return "";
+}
 
 async function callGemini(
 	apiKey: string,
@@ -143,18 +176,17 @@ async function askWithMemory(
 	apiKey: string,
 	memories: string[],
 	question: string,
+	llm: "gemini" | "qwen3" = "gemini",
 ): Promise<string> {
 	const memCtx =
 		memories.length > 0
 			? `<recalled_memories>\n${memories.map((m) => `- ${m}`).join("\n")}\n</recalled_memories>`
 			: "(관련 기억 없음)";
 
-	return callGemini(
-		apiKey,
-		[
-			{
-				role: "system",
-				content: `You are the user's personal AI companion. Respond in the same language as the user's message.
+	const messages = [
+		{
+			role: "system",
+			content: `You are the user's personal AI companion. Respond in the same language as the user's message.
 
 ## Rules
 1. Only use memories that are **directly relevant** to the user's question. Ignore unrelated memories.
@@ -165,11 +197,14 @@ async function askWithMemory(
 6. For confirmation questions ("Did I say...?", "~했었지?"), if no memory directly matches, reply that you don't recall. Do NOT substitute with a different memory.
 
 ${memCtx}`,
-			},
-			{ role: "user", content: question },
-		],
-		500,
-	);
+		},
+		{ role: "user", content: question },
+	];
+
+	if (llm === "qwen3") {
+		return callOllama("qwen3:8b", messages, 500);
+	}
+	return callGemini(apiKey, messages, 500);
 }
 
 // ─── Judge ───────────────────────────────────────────────────────────────────
@@ -329,6 +364,7 @@ async function main() {
 	console.log("║  MEMORY SYSTEM COMPARISON BENCHMARK                     ║");
 	console.log(`║  Adapters: ${config.adapterNames.join(", ").padEnd(44)}║`);
 	console.log(`║  Judge: ${config.judge.padEnd(47)}║`);
+	console.log(`║  LLM: ${config.llm.padEnd(49)}║`);
 	console.log(`║  Runs: ${String(config.runs).padEnd(48)}║`);
 	console.log("╚══════════════════════════════════════════════════════════╝\n");
 
@@ -467,7 +503,7 @@ async function main() {
 					let lastReason = "";
 
 					for (let run = 0; run < config.runs; run++) {
-						const response = await askWithMemory(apiKey, memories, query);
+						const response = await askWithMemory(apiKey, memories, query, config.llm);
 						lastResponse = response;
 						const verdict = await judgeResponse(
 							apiKey,

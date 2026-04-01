@@ -6,717 +6,5810 @@
 			"id": "F01",
 			"domain": "identity",
 			"statement": "나는 김하늘이야. 스타트업 대표고 풀스택 개발자야",
-			"entities": ["김하늘", "풀스택"],
-			"extractable_facts": ["이름: 김하늘", "직책: 대표", "역할: 풀스택 개발자"]
+			"entities": [
+				"김하늘",
+				"풀스택"
+			],
+			"extractable_facts": [
+				"이름: 김하늘",
+				"직책: 대표",
+				"역할: 풀스택 개발자"
+			]
 		},
 		{
 			"id": "F02",
 			"domain": "tech",
 			"statement": "요즘은 주로 TypeScript로 개발하고 있어",
-			"entities": ["TypeScript"],
-			"extractable_facts": ["주 언어: TypeScript"]
+			"entities": [
+				"TypeScript"
+			],
+			"extractable_facts": [
+				"주 언어: TypeScript"
+			]
 		},
 		{
 			"id": "F03",
 			"domain": "tech",
 			"statement": "에디터는 Neovim 쓰고 있어",
-			"entities": ["Neovim"],
-			"extractable_facts": ["에디터: Neovim"]
+			"entities": [
+				"Neovim"
+			],
+			"extractable_facts": [
+				"에디터: Neovim"
+			]
 		},
 		{
 			"id": "F04",
 			"domain": "tech",
 			"statement": "프레임워크는 Next.js랑 FastAPI를 주로 써",
-			"entities": ["Next.js", "FastAPI"],
-			"extractable_facts": ["프론트엔드: Next.js", "백엔드: FastAPI"]
+			"entities": [
+				"Next.js",
+				"FastAPI"
+			],
+			"extractable_facts": [
+				"프론트엔드: Next.js",
+				"백엔드: FastAPI"
+			]
 		},
 		{
 			"id": "F05",
 			"domain": "preference",
 			"statement": "다크모드 좋아하고, 탭 인덴트 선호해",
-			"entities": ["다크모드", "탭"],
-			"extractable_facts": ["테마: 다크모드", "인덴트: 탭"]
+			"entities": [
+				"다크모드",
+				"탭"
+			],
+			"extractable_facts": [
+				"테마: 다크모드",
+				"인덴트: 탭"
+			]
 		},
 		{
 			"id": "F06",
 			"domain": "personal",
 			"statement": "성수동에 살아",
-			"entities": ["성수동"],
-			"extractable_facts": ["거주지: 성수동"]
+			"entities": [
+				"성수동"
+			],
+			"extractable_facts": [
+				"거주지: 성수동"
+			]
 		},
 		{
 			"id": "F07",
 			"domain": "personal",
 			"statement": "커피는 아메리카노만 마셔. 우유 들어간 건 싫어해",
-			"entities": ["아메리카노"],
-			"extractable_facts": ["커피: 아메리카노", "우유 음료: 싫어함"]
+			"entities": [
+				"아메리카노"
+			],
+			"extractable_facts": [
+				"커피: 아메리카노",
+				"우유 음료: 싫어함"
+			]
 		},
 		{
 			"id": "F08",
 			"domain": "personal",
 			"statement": "동생 이름은 김바다야. 디자이너로 일하고 있어",
-			"entities": ["김바다", "디자이너"],
-			"extractable_facts": ["동생: 김바다", "동생 직업: 디자이너"]
+			"entities": [
+				"김바다",
+				"디자이너"
+			],
+			"extractable_facts": [
+				"동생: 김바다",
+				"동생 직업: 디자이너"
+			]
 		},
 		{
 			"id": "F09",
 			"domain": "temporal",
 			"statement": "다음 주 목요일에 투자자 미팅이 있어",
-			"entities": ["투자자 미팅", "다음 주 목요일"],
-			"extractable_facts": ["일정: 다음 주 목요일 투자자 미팅"]
+			"entities": [
+				"투자자 미팅",
+				"다음 주 목요일"
+			],
+			"extractable_facts": [
+				"일정: 다음 주 목요일 투자자 미팅"
+			]
 		},
 		{
 			"id": "F10",
 			"domain": "preference",
 			"statement": "매운 음식 잘 못 먹어. 순한 맛 위주로 먹어",
-			"entities": ["매운 음식"],
-			"extractable_facts": ["매운 음식: 못 먹음", "선호: 순한 맛"]
+			"entities": [
+				"매운 음식"
+			],
+			"extractable_facts": [
+				"매운 음식: 못 먹음",
+				"선호: 순한 맛"
+			]
 		},
 		{
 			"id": "F11",
 			"domain": "tech",
 			"statement": "OS는 Fedora 쓰고 있어. 불변 OS가 좋더라",
-			"entities": ["Fedora"],
-			"extractable_facts": ["OS: Fedora", "선호: 불변 OS"]
+			"entities": [
+				"Fedora"
+			],
+			"extractable_facts": [
+				"OS: Fedora",
+				"선호: 불변 OS"
+			]
 		},
 		{
 			"id": "F12",
 			"domain": "personal",
 			"statement": "주말에는 주로 러닝을 해. 한강 달리기 좋아해",
-			"entities": ["러닝", "한강"],
-			"extractable_facts": ["취미: 러닝", "러닝 장소: 한강"]
+			"entities": [
+				"러닝",
+				"한강"
+			],
+			"extractable_facts": [
+				"취미: 러닝",
+				"러닝 장소: 한강"
+			]
 		},
 		{
 			"id": "F13",
 			"domain": "identity",
 			"statement": "회사는 AI 스타트업이야. 개인 AI 앱을 만들고 있어",
-			"entities": ["AI 스타트업", "AI 앱"],
-			"extractable_facts": ["사업: AI 스타트업", "제품: 개인 AI 앱"]
+			"entities": [
+				"AI 스타트업",
+				"AI 앱"
+			],
+			"extractable_facts": [
+				"사업: AI 스타트업",
+				"제품: 개인 AI 앱"
+			]
 		},
 		{
 			"id": "F14",
 			"domain": "preference",
 			"statement": "미팅은 오전에 하는 게 좋아. 오후에는 집중 코딩 시간이거든",
-			"entities": ["오전 미팅", "오후 코딩"],
-			"extractable_facts": ["미팅 선호: 오전", "오후: 집중 코딩"]
+			"entities": [
+				"오전 미팅",
+				"오후 코딩"
+			],
+			"extractable_facts": [
+				"미팅 선호: 오전",
+				"오후: 집중 코딩"
+			]
 		},
 		{
 			"id": "F15",
 			"domain": "tech",
 			"statement": "Git은 CLI만 써. GUI 클라이언트는 안 쓰거든",
-			"entities": ["Git", "CLI"],
-			"extractable_facts": ["Git: CLI only", "GUI: 안 씀"]
+			"entities": [
+				"Git",
+				"CLI"
+			],
+			"extractable_facts": [
+				"Git: CLI only",
+				"GUI: 안 씀"
+			]
 		},
-
 		{
 			"id": "F16",
 			"domain": "tech",
 			"statement": "데이터베이스는 PostgreSQL을 주로 쓰고, Redis도 캐시용으로 쓰고 있어",
-			"entities": ["PostgreSQL", "Redis"],
-			"extractable_facts": ["DB: PostgreSQL", "캐시: Redis"]
+			"entities": [
+				"PostgreSQL",
+				"Redis"
+			],
+			"extractable_facts": [
+				"DB: PostgreSQL",
+				"캐시: Redis"
+			]
 		},
 		{
 			"id": "F17",
 			"domain": "tech",
 			"statement": "CI/CD는 GitHub Actions으로 돌리고 있어",
-			"entities": ["GitHub Actions"],
-			"extractable_facts": ["CI/CD: GitHub Actions"]
+			"entities": [
+				"GitHub Actions"
+			],
+			"extractable_facts": [
+				"CI/CD: GitHub Actions"
+			]
 		},
 		{
 			"id": "F18",
 			"domain": "tech",
 			"statement": "클라우드는 GCP 쓰고 있어. Cloud Run이랑 Cloud SQL 메인이야",
-			"entities": ["GCP", "Cloud Run", "Cloud SQL"],
-			"extractable_facts": ["클라우드: GCP", "서비스: Cloud Run, Cloud SQL"]
+			"entities": [
+				"GCP",
+				"Cloud Run",
+				"Cloud SQL"
+			],
+			"extractable_facts": [
+				"클라우드: GCP",
+				"서비스: Cloud Run, Cloud SQL"
+			]
 		},
 		{
 			"id": "F19",
 			"domain": "tech",
 			"statement": "도커 대신 Podman 쓰고 있어. 루트리스가 좋더라",
-			"entities": ["Podman"],
-			"extractable_facts": ["컨테이너: Podman", "선호: 루트리스"]
+			"entities": [
+				"Podman"
+			],
+			"extractable_facts": [
+				"컨테이너: Podman",
+				"선호: 루트리스"
+			]
 		},
 		{
 			"id": "F20",
 			"domain": "tech",
 			"statement": "테스트는 Vitest로 작성해. Jest보다 빠르더라",
-			"entities": ["Vitest"],
-			"extractable_facts": ["테스트: Vitest"]
+			"entities": [
+				"Vitest"
+			],
+			"extractable_facts": [
+				"테스트: Vitest"
+			]
 		},
 		{
 			"id": "F21",
 			"domain": "tech",
 			"statement": "포매터는 Biome 쓰고 있어. Prettier 대신 바꿨어",
-			"entities": ["Biome"],
-			"extractable_facts": ["포매터: Biome"]
+			"entities": [
+				"Biome"
+			],
+			"extractable_facts": [
+				"포매터: Biome"
+			]
 		},
 		{
 			"id": "F22",
 			"domain": "tech",
 			"statement": "터미널은 Ghostty 쓰고 있어. GPU 가속이 좋더라",
-			"entities": ["Ghostty"],
-			"extractable_facts": ["터미널: Ghostty"]
+			"entities": [
+				"Ghostty"
+			],
+			"extractable_facts": [
+				"터미널: Ghostty"
+			]
 		},
 		{
 			"id": "F23",
 			"domain": "tech",
 			"statement": "셸은 Fish 쓰고 있어. 자동완성이 편해서",
-			"entities": ["Fish"],
-			"extractable_facts": ["셸: Fish"]
+			"entities": [
+				"Fish"
+			],
+			"extractable_facts": [
+				"셸: Fish"
+			]
 		},
 		{
 			"id": "F24",
 			"domain": "tech",
 			"statement": "모니터는 듀얼로 쓰고 있어. 왼쪽은 코드, 오른쪽은 브라우저",
-			"entities": ["듀얼 모니터"],
-			"extractable_facts": ["모니터: 듀얼", "배치: 왼쪽 코드, 오른쪽 브라우저"]
+			"entities": [
+				"듀얼 모니터"
+			],
+			"extractable_facts": [
+				"모니터: 듀얼",
+				"배치: 왼쪽 코드, 오른쪽 브라우저"
+			]
 		},
 		{
 			"id": "F25",
 			"domain": "tech",
 			"statement": "키보드는 해피해킹 프로페셔널 쓰고 있어",
-			"entities": ["해피해킹"],
-			"extractable_facts": ["키보드: 해피해킹 프로페셔널"]
+			"entities": [
+				"해피해킹"
+			],
+			"extractable_facts": [
+				"키보드: 해피해킹 프로페셔널"
+			]
 		},
-
 		{
 			"id": "F26",
 			"domain": "identity",
 			"statement": "회사 이름은 넥스테인이야. 2024년에 창업했어",
-			"entities": ["넥스테인", "2024년"],
-			"extractable_facts": ["회사: 넥스테인", "창업: 2024년"]
+			"entities": [
+				"넥스테인",
+				"2024년"
+			],
+			"extractable_facts": [
+				"회사: 넥스테인",
+				"창업: 2024년"
+			]
 		},
 		{
 			"id": "F27",
 			"domain": "identity",
 			"statement": "직원은 나 포함 5명이야. 소규모로 운영하고 있어",
-			"entities": ["5명"],
-			"extractable_facts": ["규모: 5명"]
+			"entities": [
+				"5명"
+			],
+			"extractable_facts": [
+				"규모: 5명"
+			]
 		},
 		{
 			"id": "F28",
 			"domain": "identity",
 			"statement": "대학은 카이스트 전산학과 졸업했어",
-			"entities": ["카이스트", "전산학과"],
-			"extractable_facts": ["학력: 카이스트 전산학과"]
+			"entities": [
+				"카이스트",
+				"전산학과"
+			],
+			"extractable_facts": [
+				"학력: 카이스트 전산학과"
+			]
 		},
 		{
 			"id": "F29",
 			"domain": "identity",
 			"statement": "전 직장은 네이버였어. 3년 다녔어",
-			"entities": ["네이버", "3년"],
-			"extractable_facts": ["전직: 네이버 3년"]
+			"entities": [
+				"네이버",
+				"3년"
+			],
+			"extractable_facts": [
+				"전직: 네이버 3년"
+			]
 		},
 		{
 			"id": "F30",
 			"domain": "identity",
 			"statement": "나이는 32살이야. 92년생",
-			"entities": ["32살", "92년생"],
-			"extractable_facts": ["나이: 32살", "출생: 92년생"]
+			"entities": [
+				"32살",
+				"92년생"
+			],
+			"extractable_facts": [
+				"나이: 32살",
+				"출생: 92년생"
+			]
 		},
-
 		{
 			"id": "F31",
 			"domain": "personal",
 			"statement": "어머니는 교사야. 초등학교에서 가르치셔",
-			"entities": ["어머니", "교사"],
-			"extractable_facts": ["어머니: 초등학교 교사"]
+			"entities": [
+				"어머니",
+				"교사"
+			],
+			"extractable_facts": [
+				"어머니: 초등학교 교사"
+			]
 		},
 		{
 			"id": "F32",
 			"domain": "personal",
 			"statement": "반려견이 있어. 골든 리트리버인데 이름은 뭉치야",
-			"entities": ["뭉치", "골든 리트리버"],
-			"extractable_facts": ["반려견: 뭉치(골든 리트리버)"]
+			"entities": [
+				"뭉치",
+				"골든 리트리버"
+			],
+			"extractable_facts": [
+				"반려견: 뭉치(골든 리트리버)"
+			]
 		},
 		{
 			"id": "F33",
 			"domain": "personal",
 			"statement": "시력이 안 좋아서 안경 끼고 있어. -3.5 정도야",
-			"entities": ["안경", "시력"],
-			"extractable_facts": ["시력: -3.5, 안경 착용"]
+			"entities": [
+				"안경",
+				"시력"
+			],
+			"extractable_facts": [
+				"시력: -3.5, 안경 착용"
+			]
 		},
 		{
 			"id": "F34",
 			"domain": "personal",
 			"statement": "혈액형은 A형이야",
-			"entities": ["A형"],
-			"extractable_facts": ["혈액형: A형"]
+			"entities": [
+				"A형"
+			],
+			"extractable_facts": [
+				"혈액형: A형"
+			]
 		},
 		{
 			"id": "F35",
 			"domain": "personal",
 			"statement": "MBTI는 INTJ야",
-			"entities": ["INTJ"],
-			"extractable_facts": ["MBTI: INTJ"]
+			"entities": [
+				"INTJ"
+			],
+			"extractable_facts": [
+				"MBTI: INTJ"
+			]
 		},
-
 		{
 			"id": "F36",
 			"domain": "preference",
 			"statement": "좋아하는 색은 네이비야. 옷도 네이비 계열 많이 입어",
-			"entities": ["네이비"],
-			"extractable_facts": ["좋아하는 색: 네이비"]
+			"entities": [
+				"네이비"
+			],
+			"extractable_facts": [
+				"좋아하는 색: 네이비"
+			]
 		},
 		{
 			"id": "F37",
 			"domain": "preference",
 			"statement": "음악은 재즈 좋아해. 빌 에반스 자주 들어",
-			"entities": ["재즈", "빌 에반스"],
-			"extractable_facts": ["음악: 재즈", "아티스트: 빌 에반스"]
+			"entities": [
+				"재즈",
+				"빌 에반스"
+			],
+			"extractable_facts": [
+				"음악: 재즈",
+				"아티스트: 빌 에반스"
+			]
 		},
 		{
 			"id": "F38",
 			"domain": "preference",
 			"statement": "책은 SF 소설 좋아해. 최근에 프로젝트 헤일메리 읽었어",
-			"entities": ["SF", "프로젝트 헤일메리"],
-			"extractable_facts": ["장르: SF", "최근: 프로젝트 헤일메리"]
+			"entities": [
+				"SF",
+				"프로젝트 헤일메리"
+			],
+			"extractable_facts": [
+				"장르: SF",
+				"최근: 프로젝트 헤일메리"
+			]
 		},
 		{
 			"id": "F39",
 			"domain": "preference",
 			"statement": "영화는 크리스토퍼 놀란 감독 팬이야. 인터스텔라가 인생 영화",
-			"entities": ["놀란", "인터스텔라"],
-			"extractable_facts": ["감독: 놀란", "인생영화: 인터스텔라"]
+			"entities": [
+				"놀란",
+				"인터스텔라"
+			],
+			"extractable_facts": [
+				"감독: 놀란",
+				"인생영화: 인터스텔라"
+			]
 		},
 		{
 			"id": "F40",
 			"domain": "preference",
 			"statement": "여행은 일본을 제일 좋아해. 교토가 최고야",
-			"entities": ["일본", "교토"],
-			"extractable_facts": ["여행: 일본", "도시: 교토"]
+			"entities": [
+				"일본",
+				"교토"
+			],
+			"extractable_facts": [
+				"여행: 일본",
+				"도시: 교토"
+			]
 		},
-
 		{
 			"id": "F41",
 			"domain": "work",
 			"statement": "지금 제일 중요한 프로젝트는 Naia OS야. AI 데스크탑 동반자",
-			"entities": ["Naia OS"],
-			"extractable_facts": ["메인 프로젝트: Naia OS"]
+			"entities": [
+				"Naia OS"
+			],
+			"extractable_facts": [
+				"메인 프로젝트: Naia OS"
+			]
 		},
 		{
 			"id": "F42",
 			"domain": "work",
 			"statement": "이번 분기 목표는 베타 출시야. 4월 말까지",
-			"entities": ["베타", "4월"],
-			"extractable_facts": ["목표: 4월 말 베타 출시"]
+			"entities": [
+				"베타",
+				"4월"
+			],
+			"extractable_facts": [
+				"목표: 4월 말 베타 출시"
+			]
 		},
 		{
 			"id": "F43",
 			"domain": "work",
 			"statement": "기술 블로그를 쓰고 있어. 월 2회 목표야",
-			"entities": ["기술 블로그"],
-			"extractable_facts": ["블로그: 월 2회"]
+			"entities": [
+				"기술 블로그"
+			],
+			"extractable_facts": [
+				"블로그: 월 2회"
+			]
 		},
 		{
 			"id": "F44",
 			"domain": "work",
 			"statement": "코드리뷰는 매일 아침에 해. PR은 하루 안에 리뷰하는 게 원칙이야",
-			"entities": ["코드리뷰"],
-			"extractable_facts": ["코드리뷰: 매일 아침", "PR 리뷰: 하루 내"]
+			"entities": [
+				"코드리뷰"
+			],
+			"extractable_facts": [
+				"코드리뷰: 매일 아침",
+				"PR 리뷰: 하루 내"
+			]
 		},
 		{
 			"id": "F45",
 			"domain": "work",
 			"statement": "스프린트는 2주 단위로 하고 있어",
-			"entities": ["스프린트"],
-			"extractable_facts": ["스프린트: 2주"]
+			"entities": [
+				"스프린트"
+			],
+			"extractable_facts": [
+				"스프린트: 2주"
+			]
 		},
 		{
 			"id": "F46",
 			"domain": "work",
 			"statement": "회의는 줌으로 해. 슬랙은 비동기 커뮤니케이션 용도야",
-			"entities": ["줌", "슬랙"],
-			"extractable_facts": ["회의: 줌", "커뮤니케이션: 슬랙(비동기)"]
+			"entities": [
+				"줌",
+				"슬랙"
+			],
+			"extractable_facts": [
+				"회의: 줌",
+				"커뮤니케이션: 슬랙(비동기)"
+			]
 		},
 		{
 			"id": "F47",
 			"domain": "work",
 			"statement": "OKR 방법론을 쓰고 있어. 매 분기 세팅해",
-			"entities": ["OKR"],
-			"extractable_facts": ["방법론: OKR, 분기별"]
+			"entities": [
+				"OKR"
+			],
+			"extractable_facts": [
+				"방법론: OKR, 분기별"
+			]
 		},
 		{
 			"id": "F48",
 			"domain": "work",
 			"statement": "문서화는 Notion으로 해. 위키 대용이야",
-			"entities": ["Notion"],
-			"extractable_facts": ["문서화: Notion"]
+			"entities": [
+				"Notion"
+			],
+			"extractable_facts": [
+				"문서화: Notion"
+			]
 		},
 		{
 			"id": "F49",
 			"domain": "work",
 			"statement": "디자인 시스템은 Figma로 관리해. 디자이너랑 협업용",
-			"entities": ["Figma"],
-			"extractable_facts": ["디자인: Figma"]
+			"entities": [
+				"Figma"
+			],
+			"extractable_facts": [
+				"디자인: Figma"
+			]
 		},
 		{
 			"id": "F50",
 			"domain": "work",
 			"statement": "온콜은 1주일씩 돌아가면서 해. 이번 주는 내 차례야",
-			"entities": ["온콜"],
-			"extractable_facts": ["온콜: 주간 로테이션"]
+			"entities": [
+				"온콜"
+			],
+			"extractable_facts": [
+				"온콜: 주간 로테이션"
+			]
 		},
-
 		{
 			"id": "F51",
 			"domain": "health",
 			"statement": "아침에 일어나면 스트레칭 10분 해",
-			"entities": ["스트레칭"],
-			"extractable_facts": ["루틴: 아침 스트레칭 10분"]
+			"entities": [
+				"스트레칭"
+			],
+			"extractable_facts": [
+				"루틴: 아침 스트레칭 10분"
+			]
 		},
 		{
 			"id": "F52",
 			"domain": "health",
 			"statement": "물은 하루에 2리터 마시려고 해",
-			"entities": ["물", "2리터"],
-			"extractable_facts": ["수분: 하루 2리터"]
+			"entities": [
+				"물",
+				"2리터"
+			],
+			"extractable_facts": [
+				"수분: 하루 2리터"
+			]
 		},
 		{
 			"id": "F53",
 			"domain": "health",
 			"statement": "허리가 안 좋아서 스탠딩 데스크 쓰고 있어",
-			"entities": ["스탠딩 데스크"],
-			"extractable_facts": ["건강: 허리 문제", "장비: 스탠딩 데스크"]
+			"entities": [
+				"스탠딩 데스크"
+			],
+			"extractable_facts": [
+				"건강: 허리 문제",
+				"장비: 스탠딩 데스크"
+			]
 		},
 		{
 			"id": "F54",
 			"domain": "health",
 			"statement": "견과류 알레르기가 있어. 땅콩이나 호두 못 먹어",
-			"entities": ["견과류", "알레르기"],
-			"extractable_facts": ["알레르기: 견과류(땅콩, 호두)"]
+			"entities": [
+				"견과류",
+				"알레르기"
+			],
+			"extractable_facts": [
+				"알레르기: 견과류(땅콩, 호두)"
+			]
 		},
 		{
 			"id": "F55",
 			"domain": "health",
 			"statement": "수면은 12시~7시. 7시간 자는 편이야",
-			"entities": ["7시간"],
-			"extractable_facts": ["수면: 12시~7시, 7시간"]
+			"entities": [
+				"7시간"
+			],
+			"extractable_facts": [
+				"수면: 12시~7시, 7시간"
+			]
 		},
 		{
 			"id": "F56",
 			"domain": "health",
 			"statement": "헬스장은 주 3회 가. 화목토야",
-			"entities": ["헬스장", "주3회"],
-			"extractable_facts": ["운동: 헬스장 화목토"]
+			"entities": [
+				"헬스장",
+				"주3회"
+			],
+			"extractable_facts": [
+				"운동: 헬스장 화목토"
+			]
 		},
 		{
 			"id": "F57",
 			"domain": "health",
 			"statement": "비타민 D랑 오메가3 매일 먹어",
-			"entities": ["비타민D", "오메가3"],
-			"extractable_facts": ["영양제: 비타민D, 오메가3"]
+			"entities": [
+				"비타민D",
+				"오메가3"
+			],
+			"extractable_facts": [
+				"영양제: 비타민D, 오메가3"
+			]
 		},
 		{
 			"id": "F58",
 			"domain": "health",
 			"statement": "카페인은 오후 2시 이후에는 안 마셔",
-			"entities": ["카페인"],
-			"extractable_facts": ["카페인: 오후 2시 이후 금지"]
+			"entities": [
+				"카페인"
+			],
+			"extractable_facts": [
+				"카페인: 오후 2시 이후 금지"
+			]
 		},
-
 		{
 			"id": "F59",
 			"domain": "social",
 			"statement": "가장 친한 친구 이름은 박준서야. 대학 동기야",
-			"entities": ["박준서"],
-			"extractable_facts": ["친구: 박준서(대학 동기)"]
+			"entities": [
+				"박준서"
+			],
+			"extractable_facts": [
+				"친구: 박준서(대학 동기)"
+			]
 		},
 		{
 			"id": "F60",
 			"domain": "social",
 			"statement": "매주 수요일에 독서 모임이 있어",
-			"entities": ["독서 모임", "수요일"],
-			"extractable_facts": ["모임: 수요일 독서"]
+			"entities": [
+				"독서 모임",
+				"수요일"
+			],
+			"extractable_facts": [
+				"모임: 수요일 독서"
+			]
 		},
 		{
 			"id": "F61",
 			"domain": "social",
 			"statement": "인스타그램은 안 하고 트위터만 해. 개발 트윗 위주야",
-			"entities": ["트위터"],
-			"extractable_facts": ["SNS: 트위터만(인스타 안 함)"]
+			"entities": [
+				"트위터"
+			],
+			"extractable_facts": [
+				"SNS: 트위터만(인스타 안 함)"
+			]
 		},
 		{
 			"id": "F62",
 			"domain": "social",
 			"statement": "월 1회 창업자 네트워킹 모임에 나가고 있어",
-			"entities": ["네트워킹"],
-			"extractable_facts": ["모임: 월1회 창업자 네트워킹"]
+			"entities": [
+				"네트워킹"
+			],
+			"extractable_facts": [
+				"모임: 월1회 창업자 네트워킹"
+			]
 		},
 		{
 			"id": "F63",
 			"domain": "social",
 			"statement": "멘토가 있어. 이전 CTO였던 정민수 님이야",
-			"entities": ["정민수"],
-			"extractable_facts": ["멘토: 정민수(전 CTO)"]
+			"entities": [
+				"정민수"
+			],
+			"extractable_facts": [
+				"멘토: 정민수(전 CTO)"
+			]
 		},
-
 		{
 			"id": "F64",
 			"domain": "finance",
 			"statement": "월급은 400만원 받고 있어. 대표라 적게 가져가",
-			"entities": ["400만원"],
-			"extractable_facts": ["월급: 400만원"]
+			"entities": [
+				"400만원"
+			],
+			"extractable_facts": [
+				"월급: 400만원"
+			]
 		},
 		{
 			"id": "F65",
 			"domain": "finance",
 			"statement": "시드 투자를 3억 받았어. 엔젤 투자자 한 명이야",
-			"entities": ["시드", "3억"],
-			"extractable_facts": ["투자: 시드 3억"]
+			"entities": [
+				"시드",
+				"3억"
+			],
+			"extractable_facts": [
+				"투자: 시드 3억"
+			]
 		},
 		{
 			"id": "F66",
 			"domain": "finance",
 			"statement": "구독 서비스는 최소한으로. GitHub Pro, Figma, ChatGPT Plus만",
-			"entities": ["GitHub Pro", "ChatGPT Plus"],
-			"extractable_facts": ["구독: GitHub Pro, Figma, ChatGPT Plus"]
+			"entities": [
+				"GitHub Pro",
+				"ChatGPT Plus"
+			],
+			"extractable_facts": [
+				"구독: GitHub Pro, Figma, ChatGPT Plus"
+			]
 		},
 		{
 			"id": "F67",
 			"domain": "finance",
 			"statement": "서버 비용은 월 50만원 정도 나와",
-			"entities": ["50만원"],
-			"extractable_facts": ["서버비: 월 50만원"]
+			"entities": [
+				"50만원"
+			],
+			"extractable_facts": [
+				"서버비: 월 50만원"
+			]
 		},
 		{
 			"id": "F68",
 			"domain": "finance",
 			"statement": "사무실은 위워크 성수점이야. 데스크 2개 쓰고 있어",
-			"entities": ["위워크", "성수점"],
-			"extractable_facts": ["사무실: 위워크 성수점"]
+			"entities": [
+				"위워크",
+				"성수점"
+			],
+			"extractable_facts": [
+				"사무실: 위워크 성수점"
+			]
 		},
-
 		{
 			"id": "F69",
 			"domain": "hobby",
 			"statement": "사진 찍는 거 좋아해. 소니 카메라 쓰고 있어",
-			"entities": ["소니", "카메라"],
-			"extractable_facts": ["취미: 사진", "카메라: 소니"]
+			"entities": [
+				"소니",
+				"카메라"
+			],
+			"extractable_facts": [
+				"취미: 사진",
+				"카메라: 소니"
+			]
 		},
 		{
 			"id": "F70",
 			"domain": "hobby",
 			"statement": "요리도 좋아해. 파스타 만드는 거 잘해",
-			"entities": ["요리", "파스타"],
-			"extractable_facts": ["요리: 파스타"]
+			"entities": [
+				"요리",
+				"파스타"
+			],
+			"extractable_facts": [
+				"요리: 파스타"
+			]
 		},
 		{
 			"id": "F71",
 			"domain": "hobby",
 			"statement": "보드게임 좋아해. 주말에 가끔 보드게임 카페 가",
-			"entities": ["보드게임"],
-			"extractable_facts": ["취미: 보드게임"]
+			"entities": [
+				"보드게임"
+			],
+			"extractable_facts": [
+				"취미: 보드게임"
+			]
 		},
 		{
 			"id": "F72",
 			"domain": "hobby",
 			"statement": "넷플릭스 즐겨봐. 다큐멘터리 위주로",
-			"entities": ["넷플릭스", "다큐멘터리"],
-			"extractable_facts": ["OTT: 넷플릭스", "장르: 다큐멘터리"]
+			"entities": [
+				"넷플릭스",
+				"다큐멘터리"
+			],
+			"extractable_facts": [
+				"OTT: 넷플릭스",
+				"장르: 다큐멘터리"
+			]
 		},
 		{
 			"id": "F73",
 			"domain": "hobby",
 			"statement": "커피 핸드드립도 해. 에티오피아 원두를 좋아해",
-			"entities": ["핸드드립", "에티오피아"],
-			"extractable_facts": ["커피: 핸드드립", "원두: 에티오피아"]
+			"entities": [
+				"핸드드립",
+				"에티오피아"
+			],
+			"extractable_facts": [
+				"커피: 핸드드립",
+				"원두: 에티오피아"
+			]
 		},
-
 		{
 			"id": "F74",
 			"domain": "temporal",
 			"statement": "이번 주 금요일에 팀 회식이야. 삼겹살 먹기로 했어",
-			"entities": ["회식", "금요일"],
-			"extractable_facts": ["일정: 금요일 회식(삼겹살)"]
+			"entities": [
+				"회식",
+				"금요일"
+			],
+			"extractable_facts": [
+				"일정: 금요일 회식(삼겹살)"
+			]
 		},
 		{
 			"id": "F75",
 			"domain": "temporal",
 			"statement": "다음 달에 일본 출장 가. 도쿄에서 파트너사 미팅",
-			"entities": ["일본 출장", "도쿄"],
-			"extractable_facts": ["일정: 다음달 도쿄 출장"]
+			"entities": [
+				"일본 출장",
+				"도쿄"
+			],
+			"extractable_facts": [
+				"일정: 다음달 도쿄 출장"
+			]
 		},
 		{
 			"id": "F76",
 			"domain": "temporal",
 			"statement": "4월에 Naia OS 베타 런칭 발표회 있어",
-			"entities": ["발표회", "4월"],
-			"extractable_facts": ["일정: 4월 발표회"]
+			"entities": [
+				"발표회",
+				"4월"
+			],
+			"extractable_facts": [
+				"일정: 4월 발표회"
+			]
 		},
 		{
 			"id": "F77",
 			"domain": "temporal",
 			"statement": "이번 주 수요일에 치과 예약 있어. 스케일링",
-			"entities": ["치과", "수요일"],
-			"extractable_facts": ["일정: 수요일 치과(스케일링)"]
+			"entities": [
+				"치과",
+				"수요일"
+			],
+			"extractable_facts": [
+				"일정: 수요일 치과(스케일링)"
+			]
 		},
 		{
 			"id": "F78",
 			"domain": "temporal",
 			"statement": "토요일에 동생 생일이야. 선물 사야 해",
-			"entities": ["동생 생일", "토요일"],
-			"extractable_facts": ["일정: 토요일 동생 생일"]
+			"entities": [
+				"동생 생일",
+				"토요일"
+			],
+			"extractable_facts": [
+				"일정: 토요일 동생 생일"
+			]
 		},
-
 		{
 			"id": "F79",
 			"domain": "tech",
 			"statement": "API 설계는 RESTful 위주야. GraphQL은 잘 안 써",
-			"entities": ["RESTful", "GraphQL"],
-			"extractable_facts": ["API: RESTful 위주", "GraphQL: 안 씀"]
+			"entities": [
+				"RESTful",
+				"GraphQL"
+			],
+			"extractable_facts": [
+				"API: RESTful 위주",
+				"GraphQL: 안 씀"
+			]
 		},
 		{
 			"id": "F80",
 			"domain": "tech",
 			"statement": "모노레포 구조로 하고 있어. Turborepo 쓰고 있어",
-			"entities": ["모노레포", "Turborepo"],
-			"extractable_facts": ["레포: 모노레포", "도구: Turborepo"]
+			"entities": [
+				"모노레포",
+				"Turborepo"
+			],
+			"extractable_facts": [
+				"레포: 모노레포",
+				"도구: Turborepo"
+			]
 		},
 		{
 			"id": "F81",
 			"domain": "tech",
 			"statement": "인프라는 IaC로 관리해. Terraform 쓰고 있어",
-			"entities": ["Terraform", "IaC"],
-			"extractable_facts": ["인프라: Terraform"]
+			"entities": [
+				"Terraform",
+				"IaC"
+			],
+			"extractable_facts": [
+				"인프라: Terraform"
+			]
 		},
 		{
 			"id": "F82",
 			"domain": "tech",
 			"statement": "로깅은 Pino 쓰고 있어. 구조화된 로깅이 좋아서",
-			"entities": ["Pino"],
-			"extractable_facts": ["로깅: Pino"]
+			"entities": [
+				"Pino"
+			],
+			"extractable_facts": [
+				"로깅: Pino"
+			]
 		},
 		{
 			"id": "F83",
 			"domain": "tech",
 			"statement": "에러 트래킹은 Sentry 쓰고 있어",
-			"entities": ["Sentry"],
-			"extractable_facts": ["에러: Sentry"]
+			"entities": [
+				"Sentry"
+			],
+			"extractable_facts": [
+				"에러: Sentry"
+			]
 		},
-
 		{
 			"id": "F84",
 			"domain": "preference",
 			"statement": "집 인테리어는 미니멀리스트 스타일이야. 물건 적게 두는 편",
-			"entities": ["미니멀리스트"],
-			"extractable_facts": ["인테리어: 미니멀리스트"]
+			"entities": [
+				"미니멀리스트"
+			],
+			"extractable_facts": [
+				"인테리어: 미니멀리스트"
+			]
 		},
 		{
 			"id": "F85",
 			"domain": "preference",
 			"statement": "운동화는 나이키만 신어. 에어맥스 좋아해",
-			"entities": ["나이키", "에어맥스"],
-			"extractable_facts": ["운동화: 나이키 에어맥스"]
+			"entities": [
+				"나이키",
+				"에어맥스"
+			],
+			"extractable_facts": [
+				"운동화: 나이키 에어맥스"
+			]
 		},
 		{
 			"id": "F86",
 			"domain": "preference",
 			"statement": "향수는 르 라보 상탈 33 써",
-			"entities": ["르 라보", "상탈 33"],
-			"extractable_facts": ["향수: 르 라보 상탈 33"]
+			"entities": [
+				"르 라보",
+				"상탈 33"
+			],
+			"extractable_facts": [
+				"향수: 르 라보 상탈 33"
+			]
 		},
 		{
 			"id": "F87",
 			"domain": "preference",
 			"statement": "아침에는 토스트랑 과일 먹어. 간단하게",
-			"entities": ["토스트", "과일"],
-			"extractable_facts": ["아침: 토스트, 과일"]
+			"entities": [
+				"토스트",
+				"과일"
+			],
+			"extractable_facts": [
+				"아침: 토스트, 과일"
+			]
 		},
 		{
 			"id": "F88",
 			"domain": "preference",
 			"statement": "맥주는 IPA 좋아해. 쓴 맛이 좋더라",
-			"entities": ["IPA"],
-			"extractable_facts": ["맥주: IPA"]
+			"entities": [
+				"IPA"
+			],
+			"extractable_facts": [
+				"맥주: IPA"
+			]
 		},
-
 		{
 			"id": "F89",
 			"domain": "personal",
 			"statement": "고향은 부산이야. 초등학교까지 거기서 살았어",
-			"entities": ["부산"],
-			"extractable_facts": ["고향: 부산"]
+			"entities": [
+				"부산"
+			],
+			"extractable_facts": [
+				"고향: 부산"
+			]
 		},
 		{
 			"id": "F90",
 			"domain": "personal",
 			"statement": "군대는 공군으로 갔다 왔어",
-			"entities": ["공군"],
-			"extractable_facts": ["군대: 공군"]
+			"entities": [
+				"공군"
+			],
+			"extractable_facts": [
+				"군대: 공군"
+			]
 		},
 		{
 			"id": "F91",
 			"domain": "personal",
 			"statement": "운전면허는 있는데 차는 없어. 대중교통 위주야",
-			"entities": ["대중교통"],
-			"extractable_facts": ["교통: 대중교통(차 없음)"]
+			"entities": [
+				"대중교통"
+			],
+			"extractable_facts": [
+				"교통: 대중교통(차 없음)"
+			]
 		},
 		{
 			"id": "F92",
 			"domain": "personal",
 			"statement": "아버지는 은퇴하셨어. 원래 엔지니어였어",
-			"entities": ["아버지", "엔지니어"],
-			"extractable_facts": ["아버지: 은퇴 엔지니어"]
+			"entities": [
+				"아버지",
+				"엔지니어"
+			],
+			"extractable_facts": [
+				"아버지: 은퇴 엔지니어"
+			]
 		},
-
 		{
 			"id": "F93",
 			"domain": "work",
 			"statement": "채용은 지금은 프리랜서 위주로 하고 있어. 정규직은 내년에",
-			"entities": ["프리랜서"],
-			"extractable_facts": ["채용: 프리랜서 위주"]
+			"entities": [
+				"프리랜서"
+			],
+			"extractable_facts": [
+				"채용: 프리랜서 위주"
+			]
 		},
 		{
 			"id": "F94",
 			"domain": "work",
 			"statement": "컨퍼런스 발표도 해. 올해 FEConf에서 발표할 예정이야",
-			"entities": ["FEConf"],
-			"extractable_facts": ["발표: FEConf 예정"]
+			"entities": [
+				"FEConf"
+			],
+			"extractable_facts": [
+				"발표: FEConf 예정"
+			]
 		},
 		{
 			"id": "F95",
 			"domain": "work",
 			"statement": "오픈소스 기여도 하고 있어. 메인은 Naia OS야",
-			"entities": ["오픈소스"],
-			"extractable_facts": ["오픈소스: Naia OS"]
+			"entities": [
+				"오픈소스"
+			],
+			"extractable_facts": [
+				"오픈소스: Naia OS"
+			]
 		},
-
 		{
 			"id": "F96",
 			"domain": "hobby",
 			"statement": "피아노를 배우고 있어. 초급인데 재미있어",
-			"entities": ["피아노"],
-			"extractable_facts": ["배우는 중: 피아노(초급)"]
+			"entities": [
+				"피아노"
+			],
+			"extractable_facts": [
+				"배우는 중: 피아노(초급)"
+			]
 		},
 		{
 			"id": "F97",
 			"domain": "hobby",
 			"statement": "캠핑도 가끔 가. 차박은 못 하고 글램핑 위주야",
-			"entities": ["캠핑", "글램핑"],
-			"extractable_facts": ["캠핑: 글램핑 위주"]
+			"entities": [
+				"캠핑",
+				"글램핑"
+			],
+			"extractable_facts": [
+				"캠핑: 글램핑 위주"
+			]
 		},
-
 		{
 			"id": "F98",
 			"domain": "health",
 			"statement": "비염이 있어. 봄에 특히 심해져",
-			"entities": ["비염"],
-			"extractable_facts": ["건강: 비염(봄 심해짐)"]
+			"entities": [
+				"비염"
+			],
+			"extractable_facts": [
+				"건강: 비염(봄 심해짐)"
+			]
 		},
 		{
 			"id": "F99",
 			"domain": "health",
 			"statement": "명상 앱 쓰고 있어. Headspace인데 매일 10분씩 해",
-			"entities": ["Headspace", "명상"],
-			"extractable_facts": ["명상: Headspace 매일 10분"]
+			"entities": [
+				"Headspace",
+				"명상"
+			],
+			"extractable_facts": [
+				"명상: Headspace 매일 10분"
+			]
 		},
 		{
 			"id": "F100",
 			"domain": "finance",
 			"statement": "암호화폐는 비트코인만 조금 가지고 있어. 투기 안 해",
-			"entities": ["비트코인"],
-			"extractable_facts": ["투자: 비트코인 소량"]
+			"entities": [
+				"비트코인"
+			],
+			"extractable_facts": [
+				"투자: 비트코인 소량"
+			]
+		},
+		{
+			"id": "F101",
+			"domain": "identity",
+			"statement": "영어 이름은 Daniel이야. 외국 클라이언트랑 미팅할 때 써",
+			"entities": [
+				"Daniel",
+				"영어 이름"
+			],
+			"extractable_facts": [
+				"영어 이름: Daniel"
+			]
+		},
+		{
+			"id": "F102",
+			"domain": "identity",
+			"statement": "혈압 높은 가족력이 있어. 할아버지, 아버지 둘 다",
+			"entities": [
+				"가족력",
+				"혈압"
+			],
+			"extractable_facts": [
+				"가족력: 고혈압"
+			]
+		},
+		{
+			"id": "F103",
+			"domain": "identity",
+			"statement": "중학교 때 미국에서 2년 살았어. 캘리포니아였어",
+			"entities": [
+				"미국",
+				"캘리포니아"
+			],
+			"extractable_facts": [
+				"해외 거주: 미국 캘리포니아 2년"
+			]
+		},
+		{
+			"id": "F104",
+			"domain": "identity",
+			"statement": "대학원은 안 갔어. 바로 취업했지",
+			"entities": [
+				"대학원"
+			],
+			"extractable_facts": [
+				"학력: 학사 졸업(대학원 안 감)"
+			]
+		},
+		{
+			"id": "F105",
+			"domain": "identity",
+			"statement": "네이버에서는 검색팀이었어. 추천 알고리즘 쪽",
+			"entities": [
+				"네이버",
+				"검색팀"
+			],
+			"extractable_facts": [
+				"전직 부서: 네이버 검색팀(추천 알고리즘)"
+			]
+		},
+		{
+			"id": "F106",
+			"domain": "identity",
+			"statement": "고등학교는 과학고 나왔어. 부산과학고",
+			"entities": [
+				"부산과학고"
+			],
+			"extractable_facts": [
+				"고등학교: 부산과학고"
+			]
+		},
+		{
+			"id": "F107",
+			"domain": "identity",
+			"statement": "사업자등록은 법인으로 했어. 주식회사 넥스테인",
+			"entities": [
+				"법인",
+				"주식회사"
+			],
+			"extractable_facts": [
+				"사업자: 법인(주식회사 넥스테인)"
+			]
+		},
+		{
+			"id": "F108",
+			"domain": "identity",
+			"statement": "공동창업자가 있어. 이수현이야. CTO 역할이야",
+			"entities": [
+				"이수현",
+				"CTO"
+			],
+			"extractable_facts": [
+				"공동창업자: 이수현(CTO)"
+			]
+		},
+		{
+			"id": "F109",
+			"domain": "identity",
+			"statement": "생일은 3월 15일이야",
+			"entities": [
+				"3월 15일"
+			],
+			"extractable_facts": [
+				"생일: 3월 15일"
+			]
+		},
+		{
+			"id": "F110",
+			"domain": "identity",
+			"statement": "본적은 부산 해운대구야",
+			"entities": [
+				"해운대구"
+			],
+			"extractable_facts": [
+				"본적: 부산 해운대구"
+			]
+		},
+		{
+			"id": "F111",
+			"domain": "identity",
+			"statement": "첫 프로그래밍은 중학교 때 C언어였어",
+			"entities": [
+				"C언어",
+				"중학교"
+			],
+			"extractable_facts": [
+				"첫 프로그래밍: 중학교 C언어"
+			]
+		},
+		{
+			"id": "F112",
+			"domain": "identity",
+			"statement": "카이스트에서 학부 연구생도 했어. 자연어처리 랩이었어",
+			"entities": [
+				"학부 연구생",
+				"자연어처리"
+			],
+			"extractable_facts": [
+				"연구: 카이스트 NLP 랩 학부 연구생"
+			]
+		},
+		{
+			"id": "F113",
+			"domain": "identity",
+			"statement": "넥스테인 사업 아이템은 원래 챗봇이었는데 피봇했어",
+			"entities": [
+				"챗봇",
+				"피봇"
+			],
+			"extractable_facts": [
+				"창업 히스토리: 챗봇→AI OS 피봇"
+			]
+		},
+		{
+			"id": "F114",
+			"domain": "identity",
+			"statement": "법인 설립일은 2024년 3월이야",
+			"entities": [
+				"2024년 3월"
+			],
+			"extractable_facts": [
+				"법인 설립: 2024년 3월"
+			]
+		},
+		{
+			"id": "F115",
+			"domain": "identity",
+			"statement": "네이버 퇴사는 2023년 말이었어. 창업 준비하려고",
+			"entities": [
+				"2023년 말",
+				"퇴사"
+			],
+			"extractable_facts": [
+				"네이버 퇴사: 2023년 말"
+			]
+		},
+		{
+			"id": "F116",
+			"domain": "identity",
+			"statement": "외할머니가 제주도에 계셔. 명절에 가끔 가",
+			"entities": [
+				"외할머니",
+				"제주도"
+			],
+			"extractable_facts": [
+				"외할머니: 제주도 거주"
+			]
+		},
+		{
+			"id": "F117",
+			"domain": "identity",
+			"statement": "사촌 중에 변호사 있어. 법률 자문 가끔 받아",
+			"entities": [
+				"사촌",
+				"변호사"
+			],
+			"extractable_facts": [
+				"사촌: 변호사(법률 자문)"
+			]
+		},
+		{
+			"id": "F118",
+			"domain": "identity",
+			"statement": "어릴 때 꿈은 우주비행사였어",
+			"entities": [
+				"우주비행사"
+			],
+			"extractable_facts": [
+				"어릴 때 꿈: 우주비행사"
+			]
+		},
+		{
+			"id": "F119",
+			"domain": "identity",
+			"statement": "쌍둥이 아니야. 김바다랑 세 살 차이야",
+			"entities": [
+				"세 살 차이"
+			],
+			"extractable_facts": [
+				"동생과 나이차: 3살"
+			]
+		},
+		{
+			"id": "F120",
+			"domain": "identity",
+			"statement": "회사 로고는 내가 직접 만들었어. Figma로",
+			"entities": [
+				"로고",
+				"Figma"
+			],
+			"extractable_facts": [
+				"회사 로고: 본인 제작"
+			]
+		},
+		{
+			"id": "F121",
+			"domain": "identity",
+			"statement": "넥스테인 본사 주소는 판교 스타트업캠퍼스야",
+			"entities": [
+				"판교",
+				"스타트업캠퍼스"
+			],
+			"extractable_facts": [
+				"본사: 판교 스타트업캠퍼스"
+			]
+		},
+		{
+			"id": "F122",
+			"domain": "identity",
+			"statement": "초등학교 때 로봇 대회 나간 적 있어. 은상 받았어",
+			"entities": [
+				"로봇 대회",
+				"은상"
+			],
+			"extractable_facts": [
+				"수상: 초등학교 로봇 대회 은상"
+			]
+		},
+		{
+			"id": "F123",
+			"domain": "identity",
+			"statement": "대학 때 동아리는 프로그래밍 동아리 SPARCS였어",
+			"entities": [
+				"SPARCS"
+			],
+			"extractable_facts": [
+				"동아리: SPARCS(프로그래밍)"
+			]
+		},
+		{
+			"id": "F124",
+			"domain": "identity",
+			"statement": "주민등록상 이름은 김하늘 맞아. 개명한 적 없어",
+			"entities": [
+				"김하늘",
+				"개명"
+			],
+			"extractable_facts": [
+				"본명: 김하늘(개명 없음)"
+			]
+		},
+		{
+			"id": "F125",
+			"domain": "identity",
+			"statement": "넥스테인 직원 중 한 명은 프리랜서 디자이너야. 동생 김바다는 아니야",
+			"entities": [
+				"프리랜서 디자이너"
+			],
+			"extractable_facts": [
+				"직원: 프리랜서 디자이너 1명(김바다 아님)"
+			]
+		},
+		{
+			"id": "F126",
+			"domain": "identity",
+			"statement": "특허 하나 출원 중이야. AI 개인화 관련",
+			"entities": [
+				"특허",
+				"AI 개인화"
+			],
+			"extractable_facts": [
+				"특허: AI 개인화 관련 출원 중"
+			]
+		},
+		{
+			"id": "F127",
+			"domain": "identity",
+			"statement": "네이버 다닐 때 사내 해커톤 1등 한 적 있어",
+			"entities": [
+				"해커톤",
+				"1등"
+			],
+			"extractable_facts": [
+				"수상: 네이버 사내 해커톤 1등"
+			]
+		},
+		{
+			"id": "F128",
+			"domain": "identity",
+			"statement": "링크드인 프로필 있어. 근데 잘 안 업데이트해",
+			"entities": [
+				"링크드인"
+			],
+			"extractable_facts": [
+				"SNS: 링크드인(비활성)"
+			]
+		},
+		{
+			"id": "F129",
+			"domain": "identity",
+			"statement": "GitHub 아이디는 haneulkim이야",
+			"entities": [
+				"haneulkim",
+				"GitHub"
+			],
+			"extractable_facts": [
+				"GitHub: haneulkim"
+			]
+		},
+		{
+			"id": "F130",
+			"domain": "identity",
+			"statement": "카이스트 졸업 연도는 2016년이야",
+			"entities": [
+				"2016년"
+			],
+			"extractable_facts": [
+				"졸업: 카이스트 2016년"
+			]
+		},
+		{
+			"id": "F131",
+			"domain": "identity",
+			"statement": "석사 학위는 없어. 학사만",
+			"entities": [
+				"학사"
+			],
+			"extractable_facts": [
+				"최종학력: 학사"
+			]
+		},
+		{
+			"id": "F132",
+			"domain": "identity",
+			"statement": "사업자 번호 외우고 있어. 123-45-67890이야",
+			"entities": [
+				"사업자 번호"
+			],
+			"extractable_facts": [
+				"사업자번호: 123-45-67890"
+			]
+		},
+		{
+			"id": "F133",
+			"domain": "identity",
+			"statement": "넥스테인 영문 이름은 Nextain이야. Next + Attain 합성어",
+			"entities": [
+				"Nextain"
+			],
+			"extractable_facts": [
+				"사명 유래: Next + Attain"
+			]
+		},
+		{
+			"id": "F134",
+			"domain": "identity",
+			"statement": "고등학교 때 수학 올림피아드 준비했었어",
+			"entities": [
+				"수학 올림피아드"
+			],
+			"extractable_facts": [
+				"고등학교: 수학 올림피아드 준비"
+			]
+		},
+		{
+			"id": "F135",
+			"domain": "identity",
+			"statement": "첫 직장 면접은 카카오였는데 떨어졌어",
+			"entities": [
+				"카카오",
+				"면접"
+			],
+			"extractable_facts": [
+				"첫 면접: 카카오(불합격)"
+			]
+		},
+		{
+			"id": "F136",
+			"domain": "identity",
+			"statement": "대학 때 교환학생으로 ETH 취리히 갔다 왔어",
+			"entities": [
+				"ETH 취리히",
+				"교환학생"
+			],
+			"extractable_facts": [
+				"교환학생: ETH 취리히"
+			]
+		},
+		{
+			"id": "F137",
+			"domain": "identity",
+			"statement": "이수현이랑은 카이스트 동기야. 같은 랩이었어",
+			"entities": [
+				"이수현",
+				"카이스트 동기"
+			],
+			"extractable_facts": [
+				"이수현: 카이스트 동기(같은 랩)"
+			]
+		},
+		{
+			"id": "F138",
+			"domain": "identity",
+			"statement": "회사 슬로건은 'Your AI, Your OS'야",
+			"entities": [
+				"슬로건"
+			],
+			"extractable_facts": [
+				"슬로건: Your AI, Your OS"
+			]
+		},
+		{
+			"id": "F139",
+			"domain": "identity",
+			"statement": "대표이사 겸 개발팀장이야. 1인 2역",
+			"entities": [
+				"대표이사",
+				"개발팀장"
+			],
+			"extractable_facts": [
+				"직책: 대표이사 겸 개발팀장"
+			]
+		},
+		{
+			"id": "F140",
+			"domain": "identity",
+			"statement": "사업 멘토링은 TIPS 프로그램으로 받고 있어",
+			"entities": [
+				"TIPS"
+			],
+			"extractable_facts": [
+				"멘토링: TIPS 프로그램"
+			]
+		},
+		{
+			"id": "F141",
+			"domain": "tech",
+			"statement": "코드 에디터 플러그인은 lazy.nvim 패키지 매니저 써",
+			"entities": [
+				"lazy.nvim"
+			],
+			"extractable_facts": [
+				"Neovim 플러그인 매니저: lazy.nvim"
+			]
+		},
+		{
+			"id": "F142",
+			"domain": "tech",
+			"statement": "LSP는 typescript-language-server 쓰고 있어",
+			"entities": [
+				"typescript-language-server",
+				"LSP"
+			],
+			"extractable_facts": [
+				"LSP: typescript-language-server"
+			]
+		},
+		{
+			"id": "F143",
+			"domain": "tech",
+			"statement": "브라우저는 개발할 때 Firefox 쓰고, 일반 용도는 Arc",
+			"entities": [
+				"Firefox",
+				"Arc"
+			],
+			"extractable_facts": [
+				"브라우저: 개발 Firefox, 일반 Arc"
+			]
+		},
+		{
+			"id": "F144",
+			"domain": "tech",
+			"statement": "Node 버전 관리는 fnm으로 해. nvm 대신",
+			"entities": [
+				"fnm"
+			],
+			"extractable_facts": [
+				"Node 관리: fnm"
+			]
+		},
+		{
+			"id": "F145",
+			"domain": "tech",
+			"statement": "Python 버전 관리는 pyenv 써",
+			"entities": [
+				"pyenv"
+			],
+			"extractable_facts": [
+				"Python 관리: pyenv"
+			]
+		},
+		{
+			"id": "F146",
+			"domain": "tech",
+			"statement": "패키지 매니저는 pnpm 써. npm은 느려서 안 써",
+			"entities": [
+				"pnpm"
+			],
+			"extractable_facts": [
+				"패키지 매니저: pnpm"
+			]
+		},
+		{
+			"id": "F147",
+			"domain": "tech",
+			"statement": "GPU는 RTX 4090 쓰고 있어. 로컬 LLM 돌리려고",
+			"entities": [
+				"RTX 4090",
+				"LLM"
+			],
+			"extractable_facts": [
+				"GPU: RTX 4090",
+				"용도: 로컬 LLM"
+			]
+		},
+		{
+			"id": "F148",
+			"domain": "tech",
+			"statement": "메모리는 64기가야. 32기가에서 업그레이드했어",
+			"entities": [
+				"64GB"
+			],
+			"extractable_facts": [
+				"RAM: 64GB"
+			]
+		},
+		{
+			"id": "F149",
+			"domain": "tech",
+			"statement": "SSD는 2테라 NVMe 쓰고 있어",
+			"entities": [
+				"2TB",
+				"NVMe"
+			],
+			"extractable_facts": [
+				"SSD: 2TB NVMe"
+			]
+		},
+		{
+			"id": "F150",
+			"domain": "tech",
+			"statement": "모니터는 27인치 4K 두 대야. Dell UltraSharp",
+			"entities": [
+				"Dell UltraSharp",
+				"4K"
+			],
+			"extractable_facts": [
+				"모니터: 27인치 4K Dell UltraSharp x2"
+			]
+		},
+		{
+			"id": "F151",
+			"domain": "tech",
+			"statement": "마우스는 로지텍 MX Master 3 써",
+			"entities": [
+				"MX Master 3"
+			],
+			"extractable_facts": [
+				"마우스: 로지텍 MX Master 3"
+			]
+		},
+		{
+			"id": "F152",
+			"domain": "tech",
+			"statement": "Rust도 배우고 있어. Tauri 때문에 시작했어",
+			"entities": [
+				"Rust",
+				"Tauri"
+			],
+			"extractable_facts": [
+				"학습 중: Rust(Tauri 계기)"
+			]
+		},
+		{
+			"id": "F153",
+			"domain": "tech",
+			"statement": "AI 모델은 로컬에서 llama.cpp로 돌려. GGUF 포맷",
+			"entities": [
+				"llama.cpp",
+				"GGUF"
+			],
+			"extractable_facts": [
+				"로컬 AI: llama.cpp(GGUF)"
+			]
+		},
+		{
+			"id": "F154",
+			"domain": "tech",
+			"statement": "벡터 DB는 Qdrant 쓰고 있어. 메모리 시스템용",
+			"entities": [
+				"Qdrant"
+			],
+			"extractable_facts": [
+				"벡터 DB: Qdrant"
+			]
+		},
+		{
+			"id": "F155",
+			"domain": "tech",
+			"statement": "메시지 큐는 아직 안 쓰고 있어. 필요하면 NATS 쓸 생각이야",
+			"entities": [
+				"NATS"
+			],
+			"extractable_facts": [
+				"메시지 큐: 미사용(NATS 고려 중)"
+			]
+		},
+		{
+			"id": "F156",
+			"domain": "tech",
+			"statement": "린팅은 Biome에 통합했어. ESLint 따로 안 써",
+			"entities": [
+				"Biome",
+				"ESLint"
+			],
+			"extractable_facts": [
+				"린팅: Biome(ESLint 안 씀)"
+			]
+		},
+		{
+			"id": "F157",
+			"domain": "tech",
+			"statement": "도메인은 nextain.io야. Cloudflare DNS 쓰고 있어",
+			"entities": [
+				"nextain.io",
+				"Cloudflare"
+			],
+			"extractable_facts": [
+				"도메인: nextain.io",
+				"DNS: Cloudflare"
+			]
+		},
+		{
+			"id": "F158",
+			"domain": "tech",
+			"statement": "SSL 인증서는 Let's Encrypt 써. 자동 갱신",
+			"entities": [
+				"Let's Encrypt"
+			],
+			"extractable_facts": [
+				"SSL: Let's Encrypt(자동 갱신)"
+			]
+		},
+		{
+			"id": "F159",
+			"domain": "tech",
+			"statement": "백업은 Restic으로 해. B2 스토리지에 올려",
+			"entities": [
+				"Restic",
+				"B2"
+			],
+			"extractable_facts": [
+				"백업: Restic → B2 스토리지"
+			]
+		},
+		{
+			"id": "F160",
+			"domain": "tech",
+			"statement": "ORM은 Prisma 쓰고 있어. Drizzle도 관심 있어",
+			"entities": [
+				"Prisma",
+				"Drizzle"
+			],
+			"extractable_facts": [
+				"ORM: Prisma(Drizzle 관심)"
+			]
+		},
+		{
+			"id": "F161",
+			"domain": "tech",
+			"statement": "인증은 JWT 기반이야. 토큰 만료는 1시간",
+			"entities": [
+				"JWT"
+			],
+			"extractable_facts": [
+				"인증: JWT(1시간 만료)"
+			]
+		},
+		{
+			"id": "F162",
+			"domain": "tech",
+			"statement": "웹소켓은 Socket.io 써. 실시간 채팅용",
+			"entities": [
+				"Socket.io"
+			],
+			"extractable_facts": [
+				"웹소켓: Socket.io"
+			]
+		},
+		{
+			"id": "F163",
+			"domain": "tech",
+			"statement": "CSS는 Tailwind 쓰고 있어. CSS-in-JS는 안 좋아해",
+			"entities": [
+				"Tailwind"
+			],
+			"extractable_facts": [
+				"CSS: Tailwind"
+			]
+		},
+		{
+			"id": "F164",
+			"domain": "tech",
+			"statement": "상태 관리는 Zustand 써. Redux는 너무 복잡해",
+			"entities": [
+				"Zustand"
+			],
+			"extractable_facts": [
+				"상태 관리: Zustand"
+			]
+		},
+		{
+			"id": "F165",
+			"domain": "tech",
+			"statement": "임베딩 모델은 BGE-M3 쓰고 있어. 다국어 지원 좋아서",
+			"entities": [
+				"BGE-M3"
+			],
+			"extractable_facts": [
+				"임베딩: BGE-M3"
+			]
+		},
+		{
+			"id": "F166",
+			"domain": "tech",
+			"statement": "코드 리뷰 봇은 직접 만들었어. GitHub Actions + Claude API",
+			"entities": [
+				"코드 리뷰 봇",
+				"Claude API"
+			],
+			"extractable_facts": [
+				"코드 리뷰 봇: 자체 개발(GitHub Actions + Claude)"
+			]
+		},
+		{
+			"id": "F167",
+			"domain": "tech",
+			"statement": "프로파일링은 Chrome DevTools Performance 탭으로 해",
+			"entities": [
+				"Chrome DevTools"
+			],
+			"extractable_facts": [
+				"프로파일링: Chrome DevTools"
+			]
+		},
+		{
+			"id": "F168",
+			"domain": "tech",
+			"statement": "API 문서는 Swagger 대신 Scalar 쓰고 있어",
+			"entities": [
+				"Scalar"
+			],
+			"extractable_facts": [
+				"API 문서: Scalar"
+			]
+		},
+		{
+			"id": "F169",
+			"domain": "tech",
+			"statement": "Git 브랜치 전략은 GitHub Flow야. Git Flow는 너무 복잡해",
+			"entities": [
+				"GitHub Flow"
+			],
+			"extractable_facts": [
+				"브랜치 전략: GitHub Flow"
+			]
+		},
+		{
+			"id": "F170",
+			"domain": "tech",
+			"statement": "dotfiles는 GitHub에 올려놓고 chezmoi로 관리해",
+			"entities": [
+				"chezmoi",
+				"dotfiles"
+			],
+			"extractable_facts": [
+				"dotfiles: chezmoi 관리"
+			]
+		},
+		{
+			"id": "F171",
+			"domain": "tech",
+			"statement": "개발 머신 CPU는 AMD Ryzen 9 7950X야",
+			"entities": [
+				"Ryzen 9 7950X"
+			],
+			"extractable_facts": [
+				"CPU: AMD Ryzen 9 7950X"
+			]
+		},
+		{
+			"id": "F172",
+			"domain": "tech",
+			"statement": "서버 모니터링은 Grafana + Prometheus 조합이야",
+			"entities": [
+				"Grafana",
+				"Prometheus"
+			],
+			"extractable_facts": [
+				"모니터링: Grafana + Prometheus"
+			]
+		},
+		{
+			"id": "F173",
+			"domain": "tech",
+			"statement": "E2E 테스트는 Playwright로 해. Cypress 대신 바꿨어",
+			"entities": [
+				"Playwright"
+			],
+			"extractable_facts": [
+				"E2E 테스트: Playwright"
+			]
+		},
+		{
+			"id": "F174",
+			"domain": "tech",
+			"statement": "데스크탑 앱은 Tauri 2로 만들어. Electron은 무거워서 싫어",
+			"entities": [
+				"Tauri 2",
+				"Electron"
+			],
+			"extractable_facts": [
+				"데스크탑: Tauri 2(Electron 안 씀)"
+			]
+		},
+		{
+			"id": "F175",
+			"domain": "tech",
+			"statement": "AI 코딩 어시스턴트는 Claude Code 쓰고 있어. Copilot보다 나아",
+			"entities": [
+				"Claude Code"
+			],
+			"extractable_facts": [
+				"AI 코딩: Claude Code"
+			]
+		},
+		{
+			"id": "F176",
+			"domain": "tech",
+			"statement": "DNS over HTTPS 쓰고 있어. 프라이버시 때문에",
+			"entities": [
+				"DNS over HTTPS"
+			],
+			"extractable_facts": [
+				"DNS: DoH 사용"
+			]
+		},
+		{
+			"id": "F177",
+			"domain": "tech",
+			"statement": "VPN은 WireGuard 써. 개발 서버 접속용",
+			"entities": [
+				"WireGuard"
+			],
+			"extractable_facts": [
+				"VPN: WireGuard"
+			]
+		},
+		{
+			"id": "F178",
+			"domain": "tech",
+			"statement": "빌드 캐시는 Turborepo Remote Cache 쓰고 있어",
+			"entities": [
+				"Remote Cache",
+				"Turborepo"
+			],
+			"extractable_facts": [
+				"빌드 캐시: Turborepo Remote Cache"
+			]
+		},
+		{
+			"id": "F179",
+			"domain": "tech",
+			"statement": "시크릿 관리는 1Password CLI로 해. .env 직접 안 써",
+			"entities": [
+				"1Password CLI"
+			],
+			"extractable_facts": [
+				"시크릿 관리: 1Password CLI"
+			]
+		},
+		{
+			"id": "F180",
+			"domain": "tech",
+			"statement": "코드 검색은 ripgrep 써. grep보다 훨씬 빨라",
+			"entities": [
+				"ripgrep"
+			],
+			"extractable_facts": [
+				"코드 검색: ripgrep"
+			]
+		},
+		{
+			"id": "F181",
+			"domain": "preference",
+			"statement": "에어컨 온도는 24도가 딱 좋아. 23도 이하면 추워",
+			"entities": [
+				"에어컨",
+				"24도"
+			],
+			"extractable_facts": [
+				"에어컨: 24도 선호"
+			]
+		},
+		{
+			"id": "F182",
+			"domain": "preference",
+			"statement": "밥보다 면 좋아해. 특히 라멘",
+			"entities": [
+				"면",
+				"라멘"
+			],
+			"extractable_facts": [
+				"주식 선호: 면(라멘)"
+			]
+		},
+		{
+			"id": "F183",
+			"domain": "preference",
+			"statement": "계절은 가을이 제일 좋아. 선선한 날씨가 좋아서",
+			"entities": [
+				"가을"
+			],
+			"extractable_facts": [
+				"계절: 가을 선호"
+			]
+		},
+		{
+			"id": "F184",
+			"domain": "preference",
+			"statement": "코딩할 때는 lo-fi 음악 틀어놔. Spotify 플레이리스트 있어",
+			"entities": [
+				"lo-fi",
+				"Spotify"
+			],
+			"extractable_facts": [
+				"코딩 BGM: lo-fi(Spotify)"
+			]
+		},
+		{
+			"id": "F185",
+			"domain": "preference",
+			"statement": "유튜브는 기술 채널 위주로 봐. Fireship이랑 Theo 좋아해",
+			"entities": [
+				"Fireship",
+				"Theo"
+			],
+			"extractable_facts": [
+				"유튜브: Fireship, Theo"
+			]
+		},
+		{
+			"id": "F186",
+			"domain": "preference",
+			"statement": "핸드폰은 아이폰 써. 근데 맥북은 안 쓰고 리눅스 데스크탑",
+			"entities": [
+				"아이폰"
+			],
+			"extractable_facts": [
+				"핸드폰: 아이폰",
+				"데스크탑: 리눅스"
+			]
+		},
+		{
+			"id": "F187",
+			"domain": "preference",
+			"statement": "이어폰은 에어팟 프로 써. 노이즈 캔슬링 필수야",
+			"entities": [
+				"에어팟 프로"
+			],
+			"extractable_facts": [
+				"이어폰: 에어팟 프로"
+			]
+		},
+		{
+			"id": "F188",
+			"domain": "preference",
+			"statement": "노트는 마크다운으로만 써. 리치 텍스트 에디터 싫어해",
+			"entities": [
+				"마크다운"
+			],
+			"extractable_facts": [
+				"노트: 마크다운 only"
+			]
+		},
+		{
+			"id": "F189",
+			"domain": "preference",
+			"statement": "폰트는 JetBrains Mono 써. 코딩용 폰트로 최고야",
+			"entities": [
+				"JetBrains Mono"
+			],
+			"extractable_facts": [
+				"코딩 폰트: JetBrains Mono"
+			]
+		},
+		{
+			"id": "F190",
+			"domain": "preference",
+			"statement": "택시보다 지하철 좋아해. 조용히 책 읽을 수 있어서",
+			"entities": [
+				"지하철"
+			],
+			"extractable_facts": [
+				"교통: 지하철 선호"
+			]
+		},
+		{
+			"id": "F191",
+			"domain": "preference",
+			"statement": "주말 아침에는 늦잠 자는 편이야. 10시까지",
+			"entities": [
+				"늦잠",
+				"10시"
+			],
+			"extractable_facts": [
+				"주말 기상: 10시"
+			]
+		},
+		{
+			"id": "F192",
+			"domain": "preference",
+			"statement": "생수는 제주 삼다수만 마셔",
+			"entities": [
+				"삼다수"
+			],
+			"extractable_facts": [
+				"생수: 제주 삼다수"
+			]
+		},
+		{
+			"id": "F193",
+			"domain": "preference",
+			"statement": "정리는 미니멀하게. 1년 안 쓴 건 버려",
+			"entities": [
+				"미니멀"
+			],
+			"extractable_facts": [
+				"정리: 1년 미사용 시 폐기"
+			]
+		},
+		{
+			"id": "F194",
+			"domain": "preference",
+			"statement": "카페는 조용한 곳 좋아해. 스타벅스 같은 체인은 잘 안 가",
+			"entities": [
+				"카페",
+				"조용"
+			],
+			"extractable_facts": [
+				"카페: 조용한 개인 카페 선호"
+			]
+		},
+		{
+			"id": "F195",
+			"domain": "preference",
+			"statement": "도서관은 국립중앙도서관 자주 가. 집중 잘 돼",
+			"entities": [
+				"국립중앙도서관"
+			],
+			"extractable_facts": [
+				"도서관: 국립중앙도서관"
+			]
+		},
+		{
+			"id": "F196",
+			"domain": "preference",
+			"statement": "팟캐스트는 출퇴근길에 들어. 이동 중에만",
+			"entities": [
+				"팟캐스트"
+			],
+			"extractable_facts": [
+				"팟캐스트: 출퇴근 시"
+			]
+		},
+		{
+			"id": "F197",
+			"domain": "preference",
+			"statement": "뉴스는 아침에 뉴스레터로 봐. GeekNews 구독해",
+			"entities": [
+				"GeekNews",
+				"뉴스레터"
+			],
+			"extractable_facts": [
+				"뉴스: GeekNews 뉴스레터(아침)"
+			]
+		},
+		{
+			"id": "F198",
+			"domain": "preference",
+			"statement": "문구류는 무인양품 좋아해. 깔끔한 디자인이 좋아서",
+			"entities": [
+				"무인양품"
+			],
+			"extractable_facts": [
+				"문구류: 무인양품"
+			]
+		},
+		{
+			"id": "F199",
+			"domain": "preference",
+			"statement": "시계는 안 차. 핸드폰으로 시간 봐",
+			"entities": [
+				"시계"
+			],
+			"extractable_facts": [
+				"시계: 안 참(핸드폰 사용)"
+			]
+		},
+		{
+			"id": "F200",
+			"domain": "preference",
+			"statement": "겨울에는 핫초코 마셔. 커피 말고",
+			"entities": [
+				"핫초코",
+				"겨울"
+			],
+			"extractable_facts": [
+				"겨울 음료: 핫초코"
+			]
+		},
+		{
+			"id": "F201",
+			"domain": "preference",
+			"statement": "배달보다 직접 요리해서 먹는 걸 선호해",
+			"entities": [
+				"직접 요리"
+			],
+			"extractable_facts": [
+				"식사: 직접 요리 선호"
+			]
+		},
+		{
+			"id": "F202",
+			"domain": "preference",
+			"statement": "잠옷은 면 소재만 입어. 합성 섬유는 싫어",
+			"entities": [
+				"면 소재"
+			],
+			"extractable_facts": [
+				"잠옷: 면 소재 only"
+			]
+		},
+		{
+			"id": "F203",
+			"domain": "preference",
+			"statement": "데스크 셋업은 클린한 걸 좋아해. 물건 최소화",
+			"entities": [
+				"클린 데스크"
+			],
+			"extractable_facts": [
+				"데스크: 클린 셋업"
+			]
+		},
+		{
+			"id": "F204",
+			"domain": "preference",
+			"statement": "밤에 산책하는 걸 좋아해. 동네 한 바퀴",
+			"entities": [
+				"밤 산책"
+			],
+			"extractable_facts": [
+				"취미: 밤 산책"
+			]
+		},
+		{
+			"id": "F205",
+			"domain": "preference",
+			"statement": "치킨은 양념보다 후라이드가 좋아",
+			"entities": [
+				"후라이드"
+			],
+			"extractable_facts": [
+				"치킨: 후라이드 선호"
+			]
+		},
+		{
+			"id": "F206",
+			"domain": "preference",
+			"statement": "알람은 3개 맞춰놔. 5분 간격으로",
+			"entities": [
+				"알람",
+				"3개"
+			],
+			"extractable_facts": [
+				"알람: 3개(5분 간격)"
+			]
+		},
+		{
+			"id": "F207",
+			"domain": "preference",
+			"statement": "샴푸는 무향 쓰고 있어. 향 강한 거 싫어해",
+			"entities": [
+				"무향 샴푸"
+			],
+			"extractable_facts": [
+				"샴푸: 무향"
+			]
+		},
+		{
+			"id": "F208",
+			"domain": "preference",
+			"statement": "영상 통화보다 음성 통화가 편해",
+			"entities": [
+				"음성 통화"
+			],
+			"extractable_facts": [
+				"통화: 음성 선호"
+			]
+		},
+		{
+			"id": "F209",
+			"domain": "preference",
+			"statement": "비 오는 날 좋아해. 빗소리가 집중에 도움돼",
+			"entities": [
+				"비 오는 날"
+			],
+			"extractable_facts": [
+				"날씨: 비 오는 날 좋아함"
+			]
+		},
+		{
+			"id": "F210",
+			"domain": "preference",
+			"statement": "TV는 안 봐. OTT만",
+			"entities": [
+				"OTT"
+			],
+			"extractable_facts": [
+				"영상: TV 안 봄, OTT만"
+			]
+		},
+		{
+			"id": "F211",
+			"domain": "preference",
+			"statement": "컨퍼런스 좌석은 뒷자리가 편해",
+			"entities": [
+				"뒷자리"
+			],
+			"extractable_facts": [
+				"컨퍼런스 좌석: 뒷자리"
+			]
+		},
+		{
+			"id": "F212",
+			"domain": "preference",
+			"statement": "일할 때 방 온도는 20도가 좋아. 시원한 게 집중 잘 돼",
+			"entities": [
+				"20도"
+			],
+			"extractable_facts": [
+				"작업 온도: 20도"
+			]
+		},
+		{
+			"id": "F213",
+			"domain": "preference",
+			"statement": "가방은 백팩만 써. 크로스백은 어깨 아파서 안 해",
+			"entities": [
+				"백팩"
+			],
+			"extractable_facts": [
+				"가방: 백팩 only"
+			]
+		},
+		{
+			"id": "F214",
+			"domain": "preference",
+			"statement": "양말은 검은색만 사. 매칭 고민 안 하려고",
+			"entities": [
+				"검은 양말"
+			],
+			"extractable_facts": [
+				"양말: 검은색 only"
+			]
+		},
+		{
+			"id": "F215",
+			"domain": "preference",
+			"statement": "라디오는 안 들어. 팟캐스트가 더 좋아",
+			"entities": [
+				"팟캐스트"
+			],
+			"extractable_facts": [
+				"라디오: 안 들음, 팟캐스트 선호"
+			]
+		},
+		{
+			"id": "F216",
+			"domain": "preference",
+			"statement": "프레젠테이션은 Keynote 대신 Marp 써. 마크다운으로 슬라이드 만들어",
+			"entities": [
+				"Marp"
+			],
+			"extractable_facts": [
+				"프레젠테이션: Marp(마크다운)"
+			]
+		},
+		{
+			"id": "F217",
+			"domain": "preference",
+			"statement": "간식은 다크 초콜릿만 먹어. 카카오 72% 이상",
+			"entities": [
+				"다크 초콜릿",
+				"72%"
+			],
+			"extractable_facts": [
+				"간식: 다크 초콜릿(72%+)"
+			]
+		},
+		{
+			"id": "F218",
+			"domain": "preference",
+			"statement": "빵은 좋아하는데 크림 많이 든 건 싫어. 담백한 게 좋아",
+			"entities": [
+				"빵",
+				"담백"
+			],
+			"extractable_facts": [
+				"빵: 담백한 것 선호"
+			]
+		},
+		{
+			"id": "F219",
+			"domain": "preference",
+			"statement": "카카오톡보다 텔레그램 선호해. 프라이버시 때문에",
+			"entities": [
+				"텔레그램"
+			],
+			"extractable_facts": [
+				"메신저: 텔레그램 선호"
+			]
+		},
+		{
+			"id": "F220",
+			"domain": "preference",
+			"statement": "전자책 리더기는 리디페이퍼 써. 킨들 대신",
+			"entities": [
+				"리디페이퍼"
+			],
+			"extractable_facts": [
+				"전자책: 리디페이퍼"
+			]
+		},
+		{
+			"id": "F221",
+			"domain": "personal",
+			"statement": "첫사랑은 고등학교 때였어. 이미 오래전 얘기야",
+			"entities": [
+				"첫사랑",
+				"고등학교"
+			],
+			"extractable_facts": [
+				"첫사랑: 고등학교"
+			]
+		},
+		{
+			"id": "F222",
+			"domain": "personal",
+			"statement": "현재 여자친구 있어. 이름은 최서연이야. 마케터야",
+			"entities": [
+				"최서연",
+				"마케터"
+			],
+			"extractable_facts": [
+				"여자친구: 최서연(마케터)"
+			]
+		},
+		{
+			"id": "F223",
+			"domain": "personal",
+			"statement": "서연이랑 만난 지 2년 됐어. 소개팅으로 만났어",
+			"entities": [
+				"최서연",
+				"2년"
+			],
+			"extractable_facts": [
+				"교제기간: 2년",
+				"만남: 소개팅"
+			]
+		},
+		{
+			"id": "F224",
+			"domain": "personal",
+			"statement": "결혼은 아직 생각 안 하고 있어. 사업이 안정되면",
+			"entities": [
+				"결혼"
+			],
+			"extractable_facts": [
+				"결혼: 미정(사업 안정 후)"
+			]
+		},
+		{
+			"id": "F225",
+			"domain": "personal",
+			"statement": "성수동 원룸에 살아. 월세 80만원이야",
+			"entities": [
+				"원룸",
+				"80만원"
+			],
+			"extractable_facts": [
+				"주거: 성수동 원룸, 월세 80만원"
+			]
+		},
+		{
+			"id": "F226",
+			"domain": "personal",
+			"statement": "김바다는 홍대 앞에 살아. 나랑 멀어서 자주는 못 만나",
+			"entities": [
+				"김바다",
+				"홍대"
+			],
+			"extractable_facts": [
+				"동생 거주지: 홍대"
+			]
+		},
+		{
+			"id": "F227",
+			"domain": "personal",
+			"statement": "부모님은 부산에 계셔. 한 달에 한 번은 전화해",
+			"entities": [
+				"부산",
+				"부모님"
+			],
+			"extractable_facts": [
+				"부모님: 부산 거주",
+				"연락: 월 1회"
+			]
+		},
+		{
+			"id": "F228",
+			"domain": "personal",
+			"statement": "뭉치 산책은 아침저녁으로 해. 30분씩",
+			"entities": [
+				"뭉치",
+				"산책"
+			],
+			"extractable_facts": [
+				"반려견 산책: 아침저녁 30분"
+			]
+		},
+		{
+			"id": "F229",
+			"domain": "personal",
+			"statement": "어릴 때 수영 배웠어. 지금도 가끔 가",
+			"entities": [
+				"수영"
+			],
+			"extractable_facts": [
+				"운동: 수영(어릴 때부터)"
+			]
+		},
+		{
+			"id": "F230",
+			"domain": "personal",
+			"statement": "자동차 면허는 군대에서 땄어",
+			"entities": [
+				"운전면허",
+				"군대"
+			],
+			"extractable_facts": [
+				"운전면허: 군대에서 취득"
+			]
+		},
+		{
+			"id": "F231",
+			"domain": "personal",
+			"statement": "집에 식물 3개 키우고 있어. 몬스테라, 스투키, 산세베리아",
+			"entities": [
+				"몬스테라",
+				"스투키",
+				"산세베리아"
+			],
+			"extractable_facts": [
+				"식물: 몬스테라, 스투키, 산세베리아"
+			]
+		},
+		{
+			"id": "F232",
+			"domain": "personal",
+			"statement": "좋아하는 계절 음식은 겨울 어묵탕이야",
+			"entities": [
+				"어묵탕",
+				"겨울"
+			],
+			"extractable_facts": [
+				"겨울 음식: 어묵탕"
+			]
+		},
+		{
+			"id": "F233",
+			"domain": "personal",
+			"statement": "신발 사이즈는 270이야",
+			"entities": [
+				"270"
+			],
+			"extractable_facts": [
+				"신발 사이즈: 270"
+			]
+		},
+		{
+			"id": "F234",
+			"domain": "personal",
+			"statement": "키는 178이야. 체중은 72키로",
+			"entities": [
+				"178cm",
+				"72kg"
+			],
+			"extractable_facts": [
+				"키: 178cm",
+				"체중: 72kg"
+			]
+		},
+		{
+			"id": "F235",
+			"domain": "personal",
+			"statement": "어머니 생신은 5월 8일이야. 어버이날이랑 같아",
+			"entities": [
+				"어머니 생신",
+				"5월 8일"
+			],
+			"extractable_facts": [
+				"어머니 생신: 5월 8일"
+			]
+		},
+		{
+			"id": "F236",
+			"domain": "personal",
+			"statement": "아버지 생신은 9월 22일이야",
+			"entities": [
+				"아버지 생신",
+				"9월 22일"
+			],
+			"extractable_facts": [
+				"아버지 생신: 9월 22일"
+			]
+		},
+		{
+			"id": "F237",
+			"domain": "personal",
+			"statement": "작년에 코로나 걸렸었어. 일주일 누워 있었어",
+			"entities": [
+				"코로나"
+			],
+			"extractable_facts": [
+				"병력: 코로나(작년)"
+			]
+		},
+		{
+			"id": "F238",
+			"domain": "personal",
+			"statement": "초등학교는 부산 해운대초등학교야",
+			"entities": [
+				"해운대초등학교"
+			],
+			"extractable_facts": [
+				"초등학교: 부산 해운대초등학교"
+			]
+		},
+		{
+			"id": "F239",
+			"domain": "personal",
+			"statement": "중학교 때 서울로 이사 왔어. 아버지 직장 때문에",
+			"entities": [
+				"서울",
+				"이사"
+			],
+			"extractable_facts": [
+				"서울 이사: 중학교(아버지 직장)"
+			]
+		},
+		{
+			"id": "F240",
+			"domain": "personal",
+			"statement": "여자친구 서연이가 고양이 키워. 이름은 루나야",
+			"entities": [
+				"고양이",
+				"루나",
+				"최서연"
+			],
+			"extractable_facts": [
+				"서연이 고양이: 루나"
+			]
+		},
+		{
+			"id": "F241",
+			"domain": "personal",
+			"statement": "뭉치는 3살이야. 입양한 지는 2년 됐어",
+			"entities": [
+				"뭉치",
+				"3살"
+			],
+			"extractable_facts": [
+				"뭉치 나이: 3살, 입양 2년"
+			]
+		},
+		{
+			"id": "F242",
+			"domain": "personal",
+			"statement": "집에 빔프로젝터 있어. 넷플릭스 볼 때 써",
+			"entities": [
+				"빔프로젝터"
+			],
+			"extractable_facts": [
+				"가전: 빔프로젝터(넷플릭스용)"
+			]
+		},
+		{
+			"id": "F243",
+			"domain": "personal",
+			"statement": "동생 김바다는 ENFP야. 나랑 완전 반대",
+			"entities": [
+				"김바다",
+				"ENFP"
+			],
+			"extractable_facts": [
+				"동생 MBTI: ENFP"
+			]
+		},
+		{
+			"id": "F244",
+			"domain": "personal",
+			"statement": "아버지 성함은 김영수야",
+			"entities": [
+				"김영수"
+			],
+			"extractable_facts": [
+				"아버지 이름: 김영수"
+			]
+		},
+		{
+			"id": "F245",
+			"domain": "personal",
+			"statement": "어머니 성함은 이정희야",
+			"entities": [
+				"이정희"
+			],
+			"extractable_facts": [
+				"어머니 이름: 이정희"
+			]
+		},
+		{
+			"id": "F246",
+			"domain": "personal",
+			"statement": "서연이랑 처음 데이트는 경복궁이었어",
+			"entities": [
+				"경복궁",
+				"첫 데이트"
+			],
+			"extractable_facts": [
+				"첫 데이트: 경복궁"
+			]
+		},
+		{
+			"id": "F247",
+			"domain": "personal",
+			"statement": "좋아하는 라면은 신라면이야. 계란 넣어서 먹어",
+			"entities": [
+				"신라면"
+			],
+			"extractable_facts": [
+				"라면: 신라면(계란)"
+			]
+		},
+		{
+			"id": "F248",
+			"domain": "personal",
+			"statement": "편의점은 GS25 자주 가. 집 앞에 있어서",
+			"entities": [
+				"GS25"
+			],
+			"extractable_facts": [
+				"편의점: GS25"
+			]
+		},
+		{
+			"id": "F249",
+			"domain": "personal",
+			"statement": "핸드폰 번호 끝자리는 7890이야",
+			"entities": [
+				"7890"
+			],
+			"extractable_facts": [
+				"전화번호 끝자리: 7890"
+			]
+		},
+		{
+			"id": "F250",
+			"domain": "personal",
+			"statement": "집 와이파이 비밀번호는 하늘sky92야. 바꿔야 하는데",
+			"entities": [
+				"와이파이"
+			],
+			"extractable_facts": [
+				"와이파이 비번: haneulsky92"
+			]
+		},
+		{
+			"id": "F251",
+			"domain": "personal",
+			"statement": "치약은 죽염 써. 어릴 때부터",
+			"entities": [
+				"죽염"
+			],
+			"extractable_facts": [
+				"치약: 죽염"
+			]
+		},
+		{
+			"id": "F252",
+			"domain": "personal",
+			"statement": "머리는 투블럭이야. 2주에 한 번 미용실 가",
+			"entities": [
+				"투블럭"
+			],
+			"extractable_facts": [
+				"헤어: 투블럭(2주마다 미용실)"
+			]
+		},
+		{
+			"id": "F253",
+			"domain": "personal",
+			"statement": "안경 브랜드는 젠틀몬스터야",
+			"entities": [
+				"젠틀몬스터"
+			],
+			"extractable_facts": [
+				"안경: 젠틀몬스터"
+			]
+		},
+		{
+			"id": "F254",
+			"domain": "personal",
+			"statement": "침대는 퀸 사이즈야. 뭉치가 같이 자거든",
+			"entities": [
+				"퀸 사이즈",
+				"뭉치"
+			],
+			"extractable_facts": [
+				"침대: 퀸 사이즈(뭉치와 함께)"
+			]
+		},
+		{
+			"id": "F255",
+			"domain": "personal",
+			"statement": "세탁은 주로 주말에 몰아서 해",
+			"entities": [
+				"세탁",
+				"주말"
+			],
+			"extractable_facts": [
+				"세탁: 주말에 몰아서"
+			]
+		},
+		{
+			"id": "F256",
+			"domain": "personal",
+			"statement": "공군 복무 기간은 2년이었어. 대전에서 근무했어",
+			"entities": [
+				"공군",
+				"대전",
+				"2년"
+			],
+			"extractable_facts": [
+				"군복무: 공군 2년, 대전"
+			]
+		},
+		{
+			"id": "F257",
+			"domain": "personal",
+			"statement": "유년기 별명은 하늘이였어. 지금도 가족들은 그렇게 불러",
+			"entities": [
+				"하늘이"
+			],
+			"extractable_facts": [
+				"별명: 하늘이(가족)"
+			]
+		},
+		{
+			"id": "F258",
+			"domain": "personal",
+			"statement": "동생이 작년에 결혼했어. 형부 이름은 오진우야",
+			"entities": [
+				"김바다",
+				"오진우"
+			],
+			"extractable_facts": [
+				"동생 배우자: 오진우"
+			]
+		},
+		{
+			"id": "F259",
+			"domain": "personal",
+			"statement": "부산 사투리 가끔 나와. 특히 전화할 때",
+			"entities": [
+				"부산 사투리"
+			],
+			"extractable_facts": [
+				"사투리: 부산(가끔)"
+			]
+		},
+		{
+			"id": "F260",
+			"domain": "personal",
+			"statement": "초등학교 때 태권도 검은띠 땄어",
+			"entities": [
+				"태권도",
+				"검은띠"
+			],
+			"extractable_facts": [
+				"태권도: 검은띠"
+			]
+		},
+		{
+			"id": "F261",
+			"domain": "temporal",
+			"statement": "내일 오전 10시에 VC 미팅이야. 시리즈A 관련",
+			"entities": [
+				"VC 미팅",
+				"시리즈A"
+			],
+			"extractable_facts": [
+				"일정: 내일 10시 시리즈A VC 미팅"
+			]
+		},
+		{
+			"id": "F262",
+			"domain": "temporal",
+			"statement": "이번 주 토요일에 서연이랑 영화 보기로 했어",
+			"entities": [
+				"영화",
+				"토요일",
+				"최서연"
+			],
+			"extractable_facts": [
+				"일정: 토요일 서연이와 영화"
+			]
+		},
+		{
+			"id": "F263",
+			"domain": "temporal",
+			"statement": "5월에 GDG 컨퍼런스 발표해. Cloud AI 세션",
+			"entities": [
+				"GDG",
+				"5월"
+			],
+			"extractable_facts": [
+				"일정: 5월 GDG 컨퍼런스 발표"
+			]
+		},
+		{
+			"id": "F264",
+			"domain": "temporal",
+			"statement": "다음 달에 서버 이전 계획 있어. GCP 리전 변경",
+			"entities": [
+				"서버 이전",
+				"GCP"
+			],
+			"extractable_facts": [
+				"일정: 다음달 GCP 서버 이전"
+			]
+		},
+		{
+			"id": "F265",
+			"domain": "temporal",
+			"statement": "6월에 팀 워크숍 가. 강릉으로",
+			"entities": [
+				"워크숍",
+				"강릉",
+				"6월"
+			],
+			"extractable_facts": [
+				"일정: 6월 강릉 팀 워크숍"
+			]
+		},
+		{
+			"id": "F266",
+			"domain": "temporal",
+			"statement": "이번 주에 보안 감사 받아야 해. SOC2 준비 중",
+			"entities": [
+				"보안 감사",
+				"SOC2"
+			],
+			"extractable_facts": [
+				"일정: 이번 주 보안 감사(SOC2)"
+			]
+		},
+		{
+			"id": "F267",
+			"domain": "temporal",
+			"statement": "다음 주 월요일에 세무사 미팅이야. 법인세 관련",
+			"entities": [
+				"세무사",
+				"법인세"
+			],
+			"extractable_facts": [
+				"일정: 다음 주 월요일 세무사(법인세)"
+			]
+		},
+		{
+			"id": "F268",
+			"domain": "temporal",
+			"statement": "오늘 저녁에 동생 만나기로 했어. 삼성역에서",
+			"entities": [
+				"동생",
+				"삼성역"
+			],
+			"extractable_facts": [
+				"일정: 오늘 저녁 동생 삼성역"
+			]
+		},
+		{
+			"id": "F269",
+			"domain": "temporal",
+			"statement": "주말에 뭉치 예방접종 가야 해",
+			"entities": [
+				"뭉치",
+				"예방접종"
+			],
+			"extractable_facts": [
+				"일정: 주말 뭉치 예방접종"
+			]
+		},
+		{
+			"id": "F270",
+			"domain": "temporal",
+			"statement": "3월 말까지 특허 출원서 제출해야 해",
+			"entities": [
+				"특허",
+				"3월 말"
+			],
+			"extractable_facts": [
+				"일정: 3월 말 특허 출원"
+			]
+		},
+		{
+			"id": "F271",
+			"domain": "temporal",
+			"statement": "내주에 투자 계약서 사인해. 엔젤 투자 2차",
+			"entities": [
+				"투자 계약서",
+				"엔젤"
+			],
+			"extractable_facts": [
+				"일정: 다음 주 엔젤 투자 2차 계약"
+			]
+		},
+		{
+			"id": "F272",
+			"domain": "temporal",
+			"statement": "7월에 어머니 환갑이야. 파티 준비해야 해",
+			"entities": [
+				"어머니 환갑",
+				"7월"
+			],
+			"extractable_facts": [
+				"일정: 7월 어머니 환갑"
+			]
+		},
+		{
+			"id": "F273",
+			"domain": "temporal",
+			"statement": "내일까지 코드리뷰 끝내야 해. PR 3개 밀려 있어",
+			"entities": [
+				"코드리뷰",
+				"PR"
+			],
+			"extractable_facts": [
+				"일정: 내일까지 PR 3개 코드리뷰"
+			]
+		},
+		{
+			"id": "F274",
+			"domain": "temporal",
+			"statement": "수요일에 치과 검진 있어. 충치 치료 마무리",
+			"entities": [
+				"치과",
+				"충치"
+			],
+			"extractable_facts": [
+				"일정: 수요일 치과 충치 치료"
+			]
+		},
+		{
+			"id": "F275",
+			"domain": "temporal",
+			"statement": "이번 달 말에 넥스테인 1주년이야",
+			"entities": [
+				"1주년"
+			],
+			"extractable_facts": [
+				"일정: 이번 달 말 넥스테인 1주년"
+			]
+		},
+		{
+			"id": "F276",
+			"domain": "temporal",
+			"statement": "8월에 여름 휴가 갈 거야. 오키나와 계획 중",
+			"entities": [
+				"오키나와",
+				"8월"
+			],
+			"extractable_facts": [
+				"일정: 8월 오키나와 여름 휴가"
+			]
+		},
+		{
+			"id": "F277",
+			"domain": "temporal",
+			"statement": "오후 3시에 디자인 리뷰 있어. Figma로",
+			"entities": [
+				"디자인 리뷰",
+				"3시"
+			],
+			"extractable_facts": [
+				"일정: 오후 3시 디자인 리뷰"
+			]
+		},
+		{
+			"id": "F278",
+			"domain": "temporal",
+			"statement": "금요일에 데모데이 리허설이야",
+			"entities": [
+				"데모데이",
+				"금요일"
+			],
+			"extractable_facts": [
+				"일정: 금요일 데모데이 리허설"
+			]
+		},
+		{
+			"id": "F279",
+			"domain": "temporal",
+			"statement": "이번 스프린트는 메모리 시스템 개선이 목표야. 2주 후까지",
+			"entities": [
+				"메모리 시스템",
+				"스프린트"
+			],
+			"extractable_facts": [
+				"일정: 2주 스프린트 메모리 시스템"
+			]
+		},
+		{
+			"id": "F280",
+			"domain": "temporal",
+			"statement": "내년 1월에 CES 가볼 생각이야. 라스베이거스",
+			"entities": [
+				"CES",
+				"라스베이거스"
+			],
+			"extractable_facts": [
+				"일정: 내년 1월 CES"
+			]
+		},
+		{
+			"id": "F281",
+			"domain": "temporal",
+			"statement": "추석 연휴에 부산 내려가. 부모님 뵈러",
+			"entities": [
+				"추석",
+				"부산"
+			],
+			"extractable_facts": [
+				"일정: 추석 부산 방문"
+			]
+		},
+		{
+			"id": "F282",
+			"domain": "temporal",
+			"statement": "9월에 TIPS 중간 점검 있어",
+			"entities": [
+				"TIPS",
+				"9월"
+			],
+			"extractable_facts": [
+				"일정: 9월 TIPS 중간 점검"
+			]
+		},
+		{
+			"id": "F283",
+			"domain": "temporal",
+			"statement": "다음 주 수요일에 병원 가. 건강검진",
+			"entities": [
+				"건강검진",
+				"수요일"
+			],
+			"extractable_facts": [
+				"일정: 다음 주 수요일 건강검진"
+			]
+		},
+		{
+			"id": "F284",
+			"domain": "temporal",
+			"statement": "올해 안에 직원 3명 더 뽑을 예정이야",
+			"entities": [
+				"채용",
+				"3명"
+			],
+			"extractable_facts": [
+				"일정: 올해 3명 채용 예정"
+			]
+		},
+		{
+			"id": "F285",
+			"domain": "temporal",
+			"statement": "어제 뭉치 목욕시켰어. 한 달에 한 번 해",
+			"entities": [
+				"뭉치",
+				"목욕"
+			],
+			"extractable_facts": [
+				"뭉치 목욕: 월 1회"
+			]
+		},
+		{
+			"id": "F286",
+			"domain": "temporal",
+			"statement": "오늘 오전에 린트 에러 고쳤어. 배포 전에 발견해서 다행이야",
+			"entities": [
+				"린트 에러",
+				"배포"
+			],
+			"extractable_facts": [
+				"오늘: 린트 에러 수정"
+			]
+		},
+		{
+			"id": "F287",
+			"domain": "temporal",
+			"statement": "화요일마다 팀 스탠드업 미팅해. 15분짜리",
+			"entities": [
+				"스탠드업",
+				"화요일"
+			],
+			"extractable_facts": [
+				"정기: 화요일 스탠드업(15분)"
+			]
+		},
+		{
+			"id": "F288",
+			"domain": "temporal",
+			"statement": "올해 목표 매출은 2억이야",
+			"entities": [
+				"2억",
+				"매출"
+			],
+			"extractable_facts": [
+				"올해 목표: 매출 2억"
+			]
+		},
+		{
+			"id": "F289",
+			"domain": "temporal",
+			"statement": "다음 분기에 시리즈A 들어갈 계획이야",
+			"entities": [
+				"시리즈A"
+			],
+			"extractable_facts": [
+				"일정: 다음 분기 시리즈A"
+			]
+		},
+		{
+			"id": "F290",
+			"domain": "temporal",
+			"statement": "크리스마스에 서연이랑 홋카이도 가기로 했어",
+			"entities": [
+				"크리스마스",
+				"홋카이도"
+			],
+			"extractable_facts": [
+				"일정: 크리스마스 홋카이도 여행"
+			]
+		},
+		{
+			"id": "F291",
+			"domain": "temporal",
+			"statement": "지난주에 GPU 서버 새로 세팅했어. 48시간 걸렸어",
+			"entities": [
+				"GPU 서버"
+			],
+			"extractable_facts": [
+				"지난주: GPU 서버 세팅(48시간)"
+			]
+		},
+		{
+			"id": "F292",
+			"domain": "temporal",
+			"statement": "매달 15일이 급여일이야",
+			"entities": [
+				"급여일",
+				"15일"
+			],
+			"extractable_facts": [
+				"급여일: 매달 15일"
+			]
+		},
+		{
+			"id": "F293",
+			"domain": "temporal",
+			"statement": "10월에 해커톤 나갈 생각이야. AI 분야",
+			"entities": [
+				"해커톤",
+				"10월"
+			],
+			"extractable_facts": [
+				"일정: 10월 AI 해커톤"
+			]
+		},
+		{
+			"id": "F294",
+			"domain": "temporal",
+			"statement": "이번 주까지 MVP 마무리해야 해. 투자자 데모용",
+			"entities": [
+				"MVP",
+				"데모"
+			],
+			"extractable_facts": [
+				"일정: 이번 주 MVP 완료"
+			]
+		},
+		{
+			"id": "F295",
+			"domain": "temporal",
+			"statement": "아까 점심에 비빔밥 먹었어. 회사 근처 한식집에서",
+			"entities": [
+				"비빔밥"
+			],
+			"extractable_facts": [
+				"오늘 점심: 비빔밥"
+			]
+		},
+		{
+			"id": "F296",
+			"domain": "temporal",
+			"statement": "11월에 서연이 생일이야. 11월 17일",
+			"entities": [
+				"서연이 생일",
+				"11월 17일"
+			],
+			"extractable_facts": [
+				"서연이 생일: 11월 17일"
+			]
+		},
+		{
+			"id": "F297",
+			"domain": "temporal",
+			"statement": "어제 깃허브 스타가 100개 넘었어. Naia OS 레포",
+			"entities": [
+				"GitHub 스타",
+				"100개"
+			],
+			"extractable_facts": [
+				"어제: Naia OS GitHub 스타 100개 돌파"
+			]
+		},
+		{
+			"id": "F298",
+			"domain": "temporal",
+			"statement": "내일 오후에 특허 변리사 미팅이야",
+			"entities": [
+				"변리사",
+				"특허"
+			],
+			"extractable_facts": [
+				"일정: 내일 오후 변리사 미팅"
+			]
+		},
+		{
+			"id": "F299",
+			"domain": "temporal",
+			"statement": "2주 뒤에 회계사 만나. 결산 관련",
+			"entities": [
+				"회계사",
+				"결산"
+			],
+			"extractable_facts": [
+				"일정: 2주 뒤 회계사 결산"
+			]
+		},
+		{
+			"id": "F300",
+			"domain": "temporal",
+			"statement": "매주 금요일에 주간 회고 해. 팀 전체로",
+			"entities": [
+				"주간 회고",
+				"금요일"
+			],
+			"extractable_facts": [
+				"정기: 금요일 주간 회고"
+			]
+		},
+		{
+			"id": "F301",
+			"domain": "work",
+			"statement": "백엔드 개발자 한 명 뽑고 있어. FastAPI 경험자",
+			"entities": [
+				"백엔드 개발자",
+				"채용"
+			],
+			"extractable_facts": [
+				"채용 중: 백엔드(FastAPI)"
+			]
+		},
+		{
+			"id": "F302",
+			"domain": "work",
+			"statement": "투자 피칭 덱은 30페이지야. 너무 긴 것 같아서 줄여야 해",
+			"entities": [
+				"피칭 덱",
+				"30페이지"
+			],
+			"extractable_facts": [
+				"피칭 덱: 30페이지(축소 예정)"
+			]
+		},
+		{
+			"id": "F303",
+			"domain": "work",
+			"statement": "기술 스택 문서화를 Notion에서 직접 만든 위키로 옮기고 있어",
+			"entities": [
+				"기술 스택",
+				"위키"
+			],
+			"extractable_facts": [
+				"기술 문서: 자체 위키로 이전 중"
+			]
+		},
+		{
+			"id": "F304",
+			"domain": "work",
+			"statement": "코드 커버리지 목표는 80%야. 지금은 65% 정도",
+			"entities": [
+				"코드 커버리지",
+				"80%"
+			],
+			"extractable_facts": [
+				"커버리지: 목표 80%(현재 65%)"
+			]
+		},
+		{
+			"id": "F305",
+			"domain": "work",
+			"statement": "릴리즈는 매주 화요일에 해. 정기 배포",
+			"entities": [
+				"릴리즈",
+				"화요일"
+			],
+			"extractable_facts": [
+				"릴리즈: 매주 화요일"
+			]
+		},
+		{
+			"id": "F306",
+			"domain": "work",
+			"statement": "고객 문의는 Discord로 받고 있어. 커뮤니티 겸",
+			"entities": [
+				"Discord"
+			],
+			"extractable_facts": [
+				"고객 문의: Discord"
+			]
+		},
+		{
+			"id": "F307",
+			"domain": "work",
+			"statement": "SLA는 99.9% 목표야. 다운타임은 월 43분 이내",
+			"entities": [
+				"SLA",
+				"99.9%"
+			],
+			"extractable_facts": [
+				"SLA: 99.9%"
+			]
+		},
+		{
+			"id": "F308",
+			"domain": "work",
+			"statement": "매주 유저 인터뷰 하고 있어. 얼리 어답터 10명이랑",
+			"entities": [
+				"유저 인터뷰"
+			],
+			"extractable_facts": [
+				"유저 인터뷰: 주간, 얼리 어답터 10명"
+			]
+		},
+		{
+			"id": "F309",
+			"domain": "work",
+			"statement": "버그 트래킹은 GitHub Issues로 해. Jira는 안 써",
+			"entities": [
+				"GitHub Issues"
+			],
+			"extractable_facts": [
+				"버그 트래킹: GitHub Issues"
+			]
+		},
+		{
+			"id": "F310",
+			"domain": "work",
+			"statement": "프로덕션 DB 백업은 매일 새벽 3시에 돌아가",
+			"entities": [
+				"DB 백업",
+				"새벽 3시"
+			],
+			"extractable_facts": [
+				"DB 백업: 매일 새벽 3시"
+			]
+		},
+		{
+			"id": "F311",
+			"domain": "work",
+			"statement": "테스트 환경은 스테이징 서버에서 해. dev.nextain.io",
+			"entities": [
+				"스테이징",
+				"dev.nextain.io"
+			],
+			"extractable_facts": [
+				"스테이징: dev.nextain.io"
+			]
+		},
+		{
+			"id": "F312",
+			"domain": "work",
+			"statement": "이메일은 Google Workspace 써. 도메인 이메일",
+			"entities": [
+				"Google Workspace"
+			],
+			"extractable_facts": [
+				"이메일: Google Workspace"
+			]
+		},
+		{
+			"id": "F313",
+			"domain": "work",
+			"statement": "사내 챗은 슬랙 무료 플랜이야. 유료는 아직 부담돼",
+			"entities": [
+				"슬랙 무료"
+			],
+			"extractable_facts": [
+				"슬랙: 무료 플랜"
+			]
+		},
+		{
+			"id": "F314",
+			"domain": "work",
+			"statement": "CI 빌드 시간은 평균 3분이야. 느리면 5분",
+			"entities": [
+				"CI",
+				"3분"
+			],
+			"extractable_facts": [
+				"CI 빌드: 평균 3분"
+			]
+		},
+		{
+			"id": "F315",
+			"domain": "work",
+			"statement": "PR 리뷰어는 최소 1명 필수야. 본인 머지 금지",
+			"entities": [
+				"PR 리뷰"
+			],
+			"extractable_facts": [
+				"PR 정책: 리뷰어 1명 필수"
+			]
+		},
+		{
+			"id": "F316",
+			"domain": "work",
+			"statement": "데일리 스크럼은 안 해. 주 2회 스탠드업이면 충분해",
+			"entities": [
+				"데일리 스크럼"
+			],
+			"extractable_facts": [
+				"데일리 스크럼: 안 함(주2회 스탠드업)"
+			]
+		},
+		{
+			"id": "F317",
+			"domain": "work",
+			"statement": "회사 계좌는 토스뱅크야. 사업자 계좌",
+			"entities": [
+				"토스뱅크"
+			],
+			"extractable_facts": [
+				"사업자 계좌: 토스뱅크"
+			]
+		},
+		{
+			"id": "F318",
+			"domain": "work",
+			"statement": "세무는 삼일회계법인 소속 세무사한테 맡기고 있어",
+			"entities": [
+				"삼일회계법인"
+			],
+			"extractable_facts": [
+				"세무: 삼일회계법인"
+			]
+		},
+		{
+			"id": "F319",
+			"domain": "work",
+			"statement": "특허는 국내만 먼저 출원하고, 해외는 나중에",
+			"entities": [
+				"특허",
+				"국내"
+			],
+			"extractable_facts": [
+				"특허 전략: 국내 우선"
+			]
+		},
+		{
+			"id": "F320",
+			"domain": "work",
+			"statement": "기술 블로그는 Hashnode에 써. 미디엄 대신",
+			"entities": [
+				"Hashnode"
+			],
+			"extractable_facts": [
+				"기술 블로그: Hashnode"
+			]
+		},
+		{
+			"id": "F321",
+			"domain": "work",
+			"statement": "로드맵은 GitHub Projects로 관리해",
+			"entities": [
+				"GitHub Projects"
+			],
+			"extractable_facts": [
+				"로드맵: GitHub Projects"
+			]
+		},
+		{
+			"id": "F322",
+			"domain": "work",
+			"statement": "아키텍처 결정은 ADR로 기록해. 마크다운 파일로",
+			"entities": [
+				"ADR"
+			],
+			"extractable_facts": [
+				"아키텍처: ADR 기록"
+			]
+		},
+		{
+			"id": "F323",
+			"domain": "work",
+			"statement": "프리랜서 디자이너 비용은 월 200만원이야",
+			"entities": [
+				"디자이너",
+				"200만원"
+			],
+			"extractable_facts": [
+				"디자이너 비용: 월 200만원"
+			]
+		},
+		{
+			"id": "F324",
+			"domain": "work",
+			"statement": "이수현이 인프라 전담이야. 나는 프로덕트 쪽",
+			"entities": [
+				"이수현",
+				"인프라"
+			],
+			"extractable_facts": [
+				"역할분담: 이수현-인프라, 본인-프로덕트"
+			]
+		},
+		{
+			"id": "F325",
+			"domain": "work",
+			"statement": "유저 수는 현재 500명 정도야. 오가닉 위주",
+			"entities": [
+				"500명",
+				"유저"
+			],
+			"extractable_facts": [
+				"현재 유저: ~500명(오가닉)"
+			]
+		},
+		{
+			"id": "F326",
+			"domain": "work",
+			"statement": "DAU는 50명 정도야. 활성 유저 비율이 좀 낮아",
+			"entities": [
+				"DAU",
+				"50명"
+			],
+			"extractable_facts": [
+				"DAU: ~50명"
+			]
+		},
+		{
+			"id": "F327",
+			"domain": "work",
+			"statement": "수익 모델은 프리미엄 구독이야. 월 9,900원",
+			"entities": [
+				"구독",
+				"9900원"
+			],
+			"extractable_facts": [
+				"수익 모델: 프리미엄 구독 월 9,900원"
+			]
+		},
+		{
+			"id": "F328",
+			"domain": "work",
+			"statement": "경쟁사로는 Rabbit R1이랑 Humane Ai Pin 보고 있어",
+			"entities": [
+				"Rabbit R1",
+				"Humane Ai Pin"
+			],
+			"extractable_facts": [
+				"경쟁사: Rabbit R1, Humane Ai Pin"
+			]
+		},
+		{
+			"id": "F329",
+			"domain": "work",
+			"statement": "해외 시장은 내년에 진출할 계획이야. 일본부터",
+			"entities": [
+				"해외 진출",
+				"일본"
+			],
+			"extractable_facts": [
+				"해외 진출: 내년 일본"
+			]
+		},
+		{
+			"id": "F330",
+			"domain": "work",
+			"statement": "정부 지원금으로 인건비 일부 충당하고 있어. 창업진흥원",
+			"entities": [
+				"창업진흥원",
+				"지원금"
+			],
+			"extractable_facts": [
+				"지원금: 창업진흥원"
+			]
+		},
+		{
+			"id": "F331",
+			"domain": "work",
+			"statement": "법률 자문은 사촌 변호사한테 무료로 받고 있어",
+			"entities": [
+				"법률 자문",
+				"사촌"
+			],
+			"extractable_facts": [
+				"법률 자문: 사촌 변호사(무료)"
+			]
+		},
+		{
+			"id": "F332",
+			"domain": "work",
+			"statement": "IR 자료는 영문으로도 만들어 놨어. 해외 VC용",
+			"entities": [
+				"IR",
+				"영문"
+			],
+			"extractable_facts": [
+				"IR 자료: 국문+영문"
+			]
+		},
+		{
+			"id": "F333",
+			"domain": "work",
+			"statement": "사내 해커톤을 분기마다 해. 사이드 프로젝트 발굴",
+			"entities": [
+				"사내 해커톤"
+			],
+			"extractable_facts": [
+				"사내 해커톤: 분기별"
+			]
+		},
+		{
+			"id": "F334",
+			"domain": "work",
+			"statement": "애자일 코치는 따로 없어. 내가 스크럼 마스터 겸임",
+			"entities": [
+				"스크럼 마스터"
+			],
+			"extractable_facts": [
+				"스크럼 마스터: 본인 겸임"
+			]
+		},
+		{
+			"id": "F335",
+			"domain": "work",
+			"statement": "보안 정책은 SOC2 Type 1 준비 중이야",
+			"entities": [
+				"SOC2"
+			],
+			"extractable_facts": [
+				"보안: SOC2 Type 1 준비"
+			]
+		},
+		{
+			"id": "F336",
+			"domain": "work",
+			"statement": "프로덕트 로드맵은 3개월 단위로 짜",
+			"entities": [
+				"로드맵",
+				"3개월"
+			],
+			"extractable_facts": [
+				"로드맵: 3개월 단위"
+			]
+		},
+		{
+			"id": "F337",
+			"domain": "work",
+			"statement": "이번 달 KPI는 유저 700명 돌파야",
+			"entities": [
+				"KPI",
+				"700명"
+			],
+			"extractable_facts": [
+				"이번 달 KPI: 유저 700명"
+			]
+		},
+		{
+			"id": "F338",
+			"domain": "work",
+			"statement": "A/B 테스트는 Posthog로 해. 온보딩 플로우 테스트 중",
+			"entities": [
+				"Posthog",
+				"A/B 테스트"
+			],
+			"extractable_facts": [
+				"A/B 테스트: Posthog"
+			]
+		},
+		{
+			"id": "F339",
+			"domain": "work",
+			"statement": "기술 부채 해결에 매 스프린트 20% 할당해",
+			"entities": [
+				"기술 부채",
+				"20%"
+			],
+			"extractable_facts": [
+				"기술 부채: 스프린트 20% 할당"
+			]
+		},
+		{
+			"id": "F340",
+			"domain": "work",
+			"statement": "원격 근무는 주 2회 허용해. 수금이야",
+			"entities": [
+				"원격 근무",
+				"수금"
+			],
+			"extractable_facts": [
+				"원격 근무: 주 2회(수, 금)"
+			]
+		},
+		{
+			"id": "F341",
+			"domain": "health",
+			"statement": "코골이가 좀 있어. 서연이가 가끔 짜증내",
+			"entities": [
+				"코골이"
+			],
+			"extractable_facts": [
+				"건강: 코골이"
+			]
+		},
+		{
+			"id": "F342",
+			"domain": "health",
+			"statement": "편두통이 가끔 와. 스트레스 받으면",
+			"entities": [
+				"편두통"
+			],
+			"extractable_facts": [
+				"건강: 편두통(스트레스성)"
+			]
+		},
+		{
+			"id": "F343",
+			"domain": "health",
+			"statement": "헬스장에서는 주로 웨이트 해. 벤치프레스 80kg 정도",
+			"entities": [
+				"벤치프레스",
+				"80kg"
+			],
+			"extractable_facts": [
+				"운동: 벤치프레스 80kg"
+			]
+		},
+		{
+			"id": "F344",
+			"domain": "health",
+			"statement": "러닝은 5km가 기본이야. 주말에 10km 뛰기도 해",
+			"entities": [
+				"러닝",
+				"5km"
+			],
+			"extractable_facts": [
+				"러닝: 평일 5km, 주말 10km"
+			]
+		},
+		{
+			"id": "F345",
+			"domain": "health",
+			"statement": "체지방률은 18% 정도야. 좀 더 줄이고 싶어",
+			"entities": [
+				"체지방률",
+				"18%"
+			],
+			"extractable_facts": [
+				"체지방: 18%"
+			]
+		},
+		{
+			"id": "F346",
+			"domain": "health",
+			"statement": "혈압은 정상이야. 120/80 정도",
+			"entities": [
+				"혈압",
+				"120/80"
+			],
+			"extractable_facts": [
+				"혈압: 120/80(정상)"
+			]
+		},
+		{
+			"id": "F347",
+			"domain": "health",
+			"statement": "지난번 건강검진에서 콜레스테롤 좀 높다고 했어",
+			"entities": [
+				"콜레스테롤"
+			],
+			"extractable_facts": [
+				"건강: 콜레스테롤 경계"
+			]
+		},
+		{
+			"id": "F348",
+			"domain": "health",
+			"statement": "프로틴 쉐이크 운동 후에 먹어. 초코맛",
+			"entities": [
+				"프로틴",
+				"초코맛"
+			],
+			"extractable_facts": [
+				"영양: 운동 후 프로틴(초코맛)"
+			]
+		},
+		{
+			"id": "F349",
+			"domain": "health",
+			"statement": "스쿼트는 100kg까지 해. 레그데이가 제일 힘들어",
+			"entities": [
+				"스쿼트",
+				"100kg"
+			],
+			"extractable_facts": [
+				"운동: 스쿼트 100kg"
+			]
+		},
+		{
+			"id": "F350",
+			"domain": "health",
+			"statement": "아침에 공복 유산균 먹어. 장 건강이 중요하니까",
+			"entities": [
+				"유산균"
+			],
+			"extractable_facts": [
+				"영양: 공복 유산균"
+			]
+		},
+		{
+			"id": "F351",
+			"domain": "health",
+			"statement": "자세가 안 좋아서 거북목이야. 교정 중",
+			"entities": [
+				"거북목"
+			],
+			"extractable_facts": [
+				"건강: 거북목(교정 중)"
+			]
+		},
+		{
+			"id": "F352",
+			"domain": "health",
+			"statement": "치아 교정은 안 했어. 치열은 괜찮은 편이야",
+			"entities": [
+				"치아 교정"
+			],
+			"extractable_facts": [
+				"치아 교정: 안 함"
+			]
+		},
+		{
+			"id": "F353",
+			"domain": "health",
+			"statement": "안과 정기 검진 받고 있어. 6개월마다",
+			"entities": [
+				"안과",
+				"6개월"
+			],
+			"extractable_facts": [
+				"안과: 6개월마다 검진"
+			]
+		},
+		{
+			"id": "F354",
+			"domain": "health",
+			"statement": "피부과는 잘 안 가. 피부 트러블은 별로 없어",
+			"entities": [
+				"피부과"
+			],
+			"extractable_facts": [
+				"피부: 트러블 없음"
+			]
+		},
+		{
+			"id": "F355",
+			"domain": "health",
+			"statement": "탈모 걱정은 없어. 머리숱 많은 편",
+			"entities": [
+				"탈모"
+			],
+			"extractable_facts": [
+				"탈모: 없음(머리숱 많음)"
+			]
+		},
+		{
+			"id": "F356",
+			"domain": "health",
+			"statement": "감기에 잘 안 걸려. 면역력 좋은 편",
+			"entities": [
+				"면역력"
+			],
+			"extractable_facts": [
+				"건강: 감기 잘 안 걸림"
+			]
+		},
+		{
+			"id": "F357",
+			"domain": "health",
+			"statement": "요가도 가끔 해. 스트레칭 겸해서",
+			"entities": [
+				"요가"
+			],
+			"extractable_facts": [
+				"운동: 요가(가끔)"
+			]
+		},
+		{
+			"id": "F358",
+			"domain": "health",
+			"statement": "데드리프트는 120kg 해. 허리 조심하면서",
+			"entities": [
+				"데드리프트",
+				"120kg"
+			],
+			"extractable_facts": [
+				"운동: 데드리프트 120kg"
+			]
+		},
+		{
+			"id": "F359",
+			"domain": "health",
+			"statement": "식이 조절은 따로 안 해. 운동으로 커버",
+			"entities": [
+				"식이 조절"
+			],
+			"extractable_facts": [
+				"식이: 별도 조절 안 함"
+			]
+		},
+		{
+			"id": "F360",
+			"domain": "health",
+			"statement": "손목 터널 증후군 초기 증상이 있어. 코딩 많이 해서",
+			"entities": [
+				"손목 터널"
+			],
+			"extractable_facts": [
+				"건강: 손목 터널 증후군 초기"
+			]
+		},
+		{
+			"id": "F361",
+			"domain": "health",
+			"statement": "눈 건조증이 좀 있어. 인공눈물 자주 써",
+			"entities": [
+				"눈 건조증",
+				"인공눈물"
+			],
+			"extractable_facts": [
+				"건강: 눈 건조증(인공눈물)"
+			]
+		},
+		{
+			"id": "F362",
+			"domain": "health",
+			"statement": "포모도로 기법으로 일해. 25분 일하고 5분 쉬어",
+			"entities": [
+				"포모도로"
+			],
+			"extractable_facts": [
+				"업무: 포모도로(25/5)"
+			]
+		},
+		{
+			"id": "F363",
+			"domain": "health",
+			"statement": "점심은 12시에 먹어. 규칙적으로",
+			"entities": [
+				"점심",
+				"12시"
+			],
+			"extractable_facts": [
+				"식사: 점심 12시"
+			]
+		},
+		{
+			"id": "F364",
+			"domain": "health",
+			"statement": "저녁은 7시에 먹고, 그 이후엔 안 먹어",
+			"entities": [
+				"저녁",
+				"7시"
+			],
+			"extractable_facts": [
+				"식사: 저녁 7시(이후 금식)"
+			]
+		},
+		{
+			"id": "F365",
+			"domain": "health",
+			"statement": "주량은 소주 1병 정도야. 많이 못 마셔",
+			"entities": [
+				"소주",
+				"1병"
+			],
+			"extractable_facts": [
+				"주량: 소주 1병"
+			]
+		},
+		{
+			"id": "F366",
+			"domain": "health",
+			"statement": "담배는 한 번도 안 피웠어",
+			"entities": [
+				"담배"
+			],
+			"extractable_facts": [
+				"흡연: 비흡연"
+			]
+		},
+		{
+			"id": "F367",
+			"domain": "health",
+			"statement": "마그네슘도 먹고 있어. 근육 경련 방지",
+			"entities": [
+				"마그네슘"
+			],
+			"extractable_facts": [
+				"영양제: 마그네슘"
+			]
+		},
+		{
+			"id": "F368",
+			"domain": "health",
+			"statement": "겨울에는 건조해서 가습기 꼭 틀어. 미니 가습기",
+			"entities": [
+				"가습기"
+			],
+			"extractable_facts": [
+				"겨울: 가습기 사용"
+			]
+		},
+		{
+			"id": "F369",
+			"domain": "health",
+			"statement": "에르고노믹 키보드 고려 중이야. 손목 때문에",
+			"entities": [
+				"에르고노믹 키보드"
+			],
+			"extractable_facts": [
+				"장비 고려: 에르고노믹 키보드"
+			]
+		},
+		{
+			"id": "F370",
+			"domain": "health",
+			"statement": "플랭크 매일 2분씩 해. 코어 운동용",
+			"entities": [
+				"플랭크",
+				"2분"
+			],
+			"extractable_facts": [
+				"운동: 플랭크 매일 2분"
+			]
+		},
+		{
+			"id": "F371",
+			"domain": "health",
+			"statement": "스마트워치로 심박수 체크해. 갤럭시 워치",
+			"entities": [
+				"갤럭시 워치",
+				"심박수"
+			],
+			"extractable_facts": [
+				"건강 기기: 갤럭시 워치(심박수)"
+			]
+		},
+		{
+			"id": "F372",
+			"domain": "health",
+			"statement": "발바닥이 가끔 아파. 족저근막염 초기인 것 같아",
+			"entities": [
+				"족저근막염"
+			],
+			"extractable_facts": [
+				"건강: 족저근막염 의심"
+			]
+		},
+		{
+			"id": "F373",
+			"domain": "health",
+			"statement": "소화가 좀 안 좋을 때가 있어. 야식 먹으면",
+			"entities": [
+				"소화"
+			],
+			"extractable_facts": [
+				"건강: 야식 시 소화 불량"
+			]
+		},
+		{
+			"id": "F374",
+			"domain": "health",
+			"statement": "블루라이트 차단 안경도 따로 있어. 모니터 볼 때",
+			"entities": [
+				"블루라이트 차단"
+			],
+			"extractable_facts": [
+				"안경: 블루라이트 차단(모니터용)"
+			]
+		},
+		{
+			"id": "F375",
+			"domain": "health",
+			"statement": "매일 걸음 수 8000보 목표야. 보통 달성해",
+			"entities": [
+				"8000보"
+			],
+			"extractable_facts": [
+				"걸음: 일 8000보 목표"
+			]
+		},
+		{
+			"id": "F376",
+			"domain": "health",
+			"statement": "사우나 주 1회 가. 피로 풀리는 느낌 좋아서",
+			"entities": [
+				"사우나"
+			],
+			"extractable_facts": [
+				"습관: 사우나 주 1회"
+			]
+		},
+		{
+			"id": "F377",
+			"domain": "health",
+			"statement": "코가 좀 막혀서 코세척 매일 해",
+			"entities": [
+				"코세척"
+			],
+			"extractable_facts": [
+				"습관: 코세척 매일"
+			]
+		},
+		{
+			"id": "F378",
+			"domain": "health",
+			"statement": "멀미 좀 해. 뒷좌석 못 타",
+			"entities": [
+				"멀미"
+			],
+			"extractable_facts": [
+				"건강: 멀미(뒷좌석 못 탐)"
+			]
+		},
+		{
+			"id": "F379",
+			"domain": "health",
+			"statement": "목 베개 쓰고 있어. 거북목 교정에 도움된다고 해서",
+			"entities": [
+				"목 베개"
+			],
+			"extractable_facts": [
+				"수면: 목 베개(거북목 교정)"
+			]
+		},
+		{
+			"id": "F380",
+			"domain": "health",
+			"statement": "건강기능식품은 쿠팡에서 정기배송 걸어놨어",
+			"entities": [
+				"쿠팡",
+				"정기배송"
+			],
+			"extractable_facts": [
+				"건강식품: 쿠팡 정기배송"
+			]
+		},
+		{
+			"id": "F381",
+			"domain": "social",
+			"statement": "대학 동기 모임은 분기마다 한 번 해",
+			"entities": [
+				"동기 모임"
+			],
+			"extractable_facts": [
+				"모임: 대학 동기(분기별)"
+			]
+		},
+		{
+			"id": "F382",
+			"domain": "social",
+			"statement": "고등학교 친구 중에 의사 있어. 가끔 건강 상담해",
+			"entities": [
+				"의사 친구"
+			],
+			"extractable_facts": [
+				"친구: 고교(의사)"
+			]
+		},
+		{
+			"id": "F383",
+			"domain": "social",
+			"statement": "이웃 중에 같은 층에 사는 형이 있어. 가끔 술 마셔",
+			"entities": [
+				"이웃"
+			],
+			"extractable_facts": [
+				"이웃: 같은 층 형(가끔 음주)"
+			]
+		},
+		{
+			"id": "F384",
+			"domain": "social",
+			"statement": "서연이 친구들이랑도 가끔 만나. 더블데이트",
+			"entities": [
+				"더블데이트"
+			],
+			"extractable_facts": [
+				"사교: 서연이 친구들과 더블데이트"
+			]
+		},
+		{
+			"id": "F385",
+			"domain": "social",
+			"statement": "군대 동기 3명이랑 아직 연락해. 단톡방 있어",
+			"entities": [
+				"군대 동기"
+			],
+			"extractable_facts": [
+				"친구: 군대 동기 3명(단톡방)"
+			]
+		},
+		{
+			"id": "F386",
+			"domain": "social",
+			"statement": "디스코드 개발자 커뮤니티에서 활동해. 모더레이터야",
+			"entities": [
+				"디스코드",
+				"모더레이터"
+			],
+			"extractable_facts": [
+				"커뮤니티: 디스코드 모더레이터"
+			]
+		},
+		{
+			"id": "F387",
+			"domain": "social",
+			"statement": "정민수 멘토는 한 달에 한 번 만나. 점심 미팅",
+			"entities": [
+				"정민수",
+				"멘토"
+			],
+			"extractable_facts": [
+				"멘토링: 정민수 월 1회"
+			]
+		},
+		{
+			"id": "F388",
+			"domain": "social",
+			"statement": "동생 결혼식 때 축사했어. 감동적이었다고 하더라",
+			"entities": [
+				"김바다",
+				"결혼식"
+			],
+			"extractable_facts": [
+				"동생 결혼식: 축사 담당"
+			]
+		},
+		{
+			"id": "F389",
+			"domain": "social",
+			"statement": "GDG Seoul 멤버야. 가끔 밋업 나가",
+			"entities": [
+				"GDG Seoul"
+			],
+			"extractable_facts": [
+				"커뮤니티: GDG Seoul"
+			]
+		},
+		{
+			"id": "F390",
+			"domain": "social",
+			"statement": "트위터 팔로워 2000명 정도야. 기술 트윗 위주",
+			"entities": [
+				"트위터",
+				"2000명"
+			],
+			"extractable_facts": [
+				"트위터: 팔로워 ~2000명"
+			]
+		},
+		{
+			"id": "F391",
+			"domain": "social",
+			"statement": "블로그 뉴스레터 구독자가 300명이야",
+			"entities": [
+				"뉴스레터",
+				"300명"
+			],
+			"extractable_facts": [
+				"블로그 구독자: 300명"
+			]
+		},
+		{
+			"id": "F392",
+			"domain": "social",
+			"statement": "오픈소스 컨트리뷰터 모임 가끔 나가. 월 1회",
+			"entities": [
+				"오픈소스",
+				"컨트리뷰터"
+			],
+			"extractable_facts": [
+				"모임: 오픈소스 컨트리뷰터(월 1회)"
+			]
+		},
+		{
+			"id": "F393",
+			"domain": "social",
+			"statement": "부산 친구들은 1년에 2번 정도 만나. 명절이랑 여름",
+			"entities": [
+				"부산 친구"
+			],
+			"extractable_facts": [
+				"부산 친구: 연 2회(명절, 여름)"
+			]
+		},
+		{
+			"id": "F394",
+			"domain": "social",
+			"statement": "박준서는 지금 구글 다니고 있어. 미국에 있어",
+			"entities": [
+				"박준서",
+				"구글"
+			],
+			"extractable_facts": [
+				"박준서: 구글 재직(미국)"
+			]
+		},
+		{
+			"id": "F395",
+			"domain": "social",
+			"statement": "매월 마지막 주에 소셜 다이닝 나가. 다양한 사람 만나려고",
+			"entities": [
+				"소셜 다이닝"
+			],
+			"extractable_facts": [
+				"모임: 소셜 다이닝(월말)"
+			]
+		},
+		{
+			"id": "F396",
+			"domain": "social",
+			"statement": "가족 단톡방 있어. 매일 아침 안부 인사 올려",
+			"entities": [
+				"가족 단톡방"
+			],
+			"extractable_facts": [
+				"가족: 단톡방 매일 안부"
+			]
+		},
+		{
+			"id": "F397",
+			"domain": "social",
+			"statement": "서연이 어머니를 한 달에 한 번 만나. 식사 대접",
+			"entities": [
+				"서연이 어머니"
+			],
+			"extractable_facts": [
+				"사교: 여자친구 어머니 월 1회"
+			]
+		},
+		{
+			"id": "F398",
+			"domain": "social",
+			"statement": "네이버 출신 동료들이랑 분기마다 모여. 전직 동료 네트워크",
+			"entities": [
+				"네이버 동료"
+			],
+			"extractable_facts": [
+				"모임: 네이버 전직 동료(분기별)"
+			]
+		},
+		{
+			"id": "F399",
+			"domain": "social",
+			"statement": "카카오톡 프로필은 뭉치 사진이야",
+			"entities": [
+				"카카오톡",
+				"뭉치"
+			],
+			"extractable_facts": [
+				"카톡 프로필: 뭉치 사진"
+			]
+		},
+		{
+			"id": "F400",
+			"domain": "social",
+			"statement": "조카가 있어. 동생 아이는 아직 없고, 이모 쪽 조카. 5살",
+			"entities": [
+				"조카",
+				"5살"
+			],
+			"extractable_facts": [
+				"조카: 이모 쪽 5살"
+			]
+		},
+		{
+			"id": "F401",
+			"domain": "social",
+			"statement": "이수현이랑은 매일 점심 같이 먹어. 회사 동료니까",
+			"entities": [
+				"이수현",
+				"점심"
+			],
+			"extractable_facts": [
+				"이수현: 매일 점심 동행"
+			]
+		},
+		{
+			"id": "F402",
+			"domain": "social",
+			"statement": "독서 모임 멤버는 6명이야. 다 IT 업계 사람들",
+			"entities": [
+				"독서 모임",
+				"6명"
+			],
+			"extractable_facts": [
+				"독서 모임: 6명(IT 업계)"
+			]
+		},
+		{
+			"id": "F403",
+			"domain": "social",
+			"statement": "서연이가 우리 회사에 와서 마케팅 좀 도와줘. 비공식으로",
+			"entities": [
+				"최서연",
+				"마케팅"
+			],
+			"extractable_facts": [
+				"서연이: 비공식 마케팅 도움"
+			]
+		},
+		{
+			"id": "F404",
+			"domain": "social",
+			"statement": "대학 선배 중에 VC 파트너 있어. 투자 소개 받기도 해",
+			"entities": [
+				"대학 선배",
+				"VC"
+			],
+			"extractable_facts": [
+				"인맥: 대학 선배 VC 파트너"
+			]
+		},
+		{
+			"id": "F405",
+			"domain": "social",
+			"statement": "레딧 개발 서브 가끔 봐. 댓글은 잘 안 달아",
+			"entities": [
+				"레딧"
+			],
+			"extractable_facts": [
+				"SNS: 레딧(읽기만)"
+			]
+		},
+		{
+			"id": "F406",
+			"domain": "social",
+			"statement": "뭉치 덕분에 강아지 커뮤니티 가입했어. 산책 메이트도 있어",
+			"entities": [
+				"강아지 커뮤니티"
+			],
+			"extractable_facts": [
+				"커뮤니티: 강아지(산책 메이트)"
+			]
+		},
+		{
+			"id": "F407",
+			"domain": "social",
+			"statement": "페이스북은 완전히 탈퇴했어. 3년 전에",
+			"entities": [
+				"페이스북"
+			],
+			"extractable_facts": [
+				"SNS: 페이스북 탈퇴(3년 전)"
+			]
+		},
+		{
+			"id": "F408",
+			"domain": "social",
+			"statement": "블라인드에서 가끔 업계 동향 봐. 글 쓰진 않아",
+			"entities": [
+				"블라인드"
+			],
+			"extractable_facts": [
+				"SNS: 블라인드(읽기만)"
+			]
+		},
+		{
+			"id": "F409",
+			"domain": "social",
+			"statement": "이수현이 결혼했어. 와이프가 간호사야",
+			"entities": [
+				"이수현",
+				"결혼"
+			],
+			"extractable_facts": [
+				"이수현: 기혼(배우자 간호사)"
+			]
+		},
+		{
+			"id": "F410",
+			"domain": "social",
+			"statement": "동네 미용실 원장님이랑 친해. 매번 같은 데 가",
+			"entities": [
+				"미용실"
+			],
+			"extractable_facts": [
+				"사교: 동네 미용실 단골"
+			]
+		},
+		{
+			"id": "F411",
+			"domain": "finance",
+			"statement": "개인 통장은 카카오뱅크야",
+			"entities": [
+				"카카오뱅크"
+			],
+			"extractable_facts": [
+				"개인 계좌: 카카오뱅크"
+			]
+		},
+		{
+			"id": "F412",
+			"domain": "finance",
+			"statement": "월세 80만원이랑 관리비 10만원 나가",
+			"entities": [
+				"월세",
+				"관리비"
+			],
+			"extractable_facts": [
+				"주거비: 월세 80만원 + 관리비 10만원"
+			]
+		},
+		{
+			"id": "F413",
+			"domain": "finance",
+			"statement": "식비는 월 50만원 정도 써. 외식 포함",
+			"entities": [
+				"식비",
+				"50만원"
+			],
+			"extractable_facts": [
+				"식비: 월 50만원"
+			]
+		},
+		{
+			"id": "F414",
+			"domain": "finance",
+			"statement": "적금은 매달 100만원씩 넣고 있어. 비상금용",
+			"entities": [
+				"적금",
+				"100만원"
+			],
+			"extractable_facts": [
+				"적금: 월 100만원"
+			]
+		},
+		{
+			"id": "F415",
+			"domain": "finance",
+			"statement": "보험은 실비 하나만 들어 있어",
+			"entities": [
+				"실비 보험"
+			],
+			"extractable_facts": [
+				"보험: 실비"
+			]
+		},
+		{
+			"id": "F416",
+			"domain": "finance",
+			"statement": "신용카드는 현대카드 써. 포인트 적립률이 좋아서",
+			"entities": [
+				"현대카드"
+			],
+			"extractable_facts": [
+				"신용카드: 현대카드"
+			]
+		},
+		{
+			"id": "F417",
+			"domain": "finance",
+			"statement": "교통비는 월 5만원 정도야. 지하철이니까",
+			"entities": [
+				"교통비",
+				"5만원"
+			],
+			"extractable_facts": [
+				"교통비: 월 5만원"
+			]
+		},
+		{
+			"id": "F418",
+			"domain": "finance",
+			"statement": "AWS 비용은 안 나가. GCP만 쓰니까",
+			"entities": [
+				"AWS",
+				"GCP"
+			],
+			"extractable_facts": [
+				"클라우드 비용: AWS 없음(GCP만)"
+			]
+		},
+		{
+			"id": "F419",
+			"domain": "finance",
+			"statement": "회사 법인카드 한도는 500만원이야",
+			"entities": [
+				"법인카드",
+				"500만원"
+			],
+			"extractable_facts": [
+				"법인카드: 한도 500만원"
+			]
+		},
+		{
+			"id": "F420",
+			"domain": "finance",
+			"statement": "연봉 협상은 아직 해본 적 없어. 대표니까",
+			"entities": [
+				"연봉 협상"
+			],
+			"extractable_facts": [
+				"연봉: 자체 결정(대표)"
+			]
+		},
+		{
+			"id": "F421",
+			"domain": "finance",
+			"statement": "세금 낼 때 홈택스 직접 해. 부가세는 세무사한테 맡기지만",
+			"entities": [
+				"홈택스"
+			],
+			"extractable_facts": [
+				"세금: 홈택스(부가세는 세무사)"
+			]
+		},
+		{
+			"id": "F422",
+			"domain": "finance",
+			"statement": "주식은 안 해. 자기 사업에 올인",
+			"entities": [
+				"주식"
+			],
+			"extractable_facts": [
+				"투자: 주식 안 함"
+			]
+		},
+		{
+			"id": "F423",
+			"domain": "finance",
+			"statement": "사무실 렌탈비는 월 150만원이야. 데스크 2개 포함",
+			"entities": [
+				"렌탈비",
+				"150만원"
+			],
+			"extractable_facts": [
+				"사무실: 월 150만원"
+			]
+		},
+		{
+			"id": "F424",
+			"domain": "finance",
+			"statement": "커피값으로 월 10만원 정도 써. 직접 내려 마셔서 적은 편",
+			"entities": [
+				"커피값",
+				"10만원"
+			],
+			"extractable_facts": [
+				"커피: 월 10만원"
+			]
+		},
+		{
+			"id": "F425",
+			"domain": "finance",
+			"statement": "핸드폰 요금은 알뜰폰이야. 월 3만원",
+			"entities": [
+				"알뜰폰",
+				"3만원"
+			],
+			"extractable_facts": [
+				"핸드폰: 알뜰폰 월 3만원"
+			]
+		},
+		{
+			"id": "F426",
+			"domain": "finance",
+			"statement": "인터넷은 KT 기가 써. 월 3만5천원",
+			"entities": [
+				"KT",
+				"인터넷"
+			],
+			"extractable_facts": [
+				"인터넷: KT 기가 월 3.5만원"
+			]
+		},
+		{
+			"id": "F427",
+			"domain": "finance",
+			"statement": "넷플릭스 프리미엄 플랜 써. 월 17,000원",
+			"entities": [
+				"넷플릭스",
+				"프리미엄"
+			],
+			"extractable_facts": [
+				"넷플릭스: 프리미엄 월 17,000원"
+			]
+		},
+		{
+			"id": "F428",
+			"domain": "finance",
+			"statement": "작년 매출은 5천만원이었어. 올해는 2억 목표",
+			"entities": [
+				"매출",
+				"5천만원"
+			],
+			"extractable_facts": [
+				"작년 매출: 5천만원"
+			]
+		},
+		{
+			"id": "F429",
+			"domain": "finance",
+			"statement": "엔젤 투자자 이름은 강태호야. 전 네이버 임원",
+			"entities": [
+				"강태호",
+				"엔젤"
+			],
+			"extractable_facts": [
+				"엔젤 투자자: 강태호(전 네이버 임원)"
+			]
+		},
+		{
+			"id": "F430",
+			"domain": "finance",
+			"statement": "회사 월 번은 지출은 800만원 정도야. 인건비 포함",
+			"entities": [
+				"월 지출",
+				"800만원"
+			],
+			"extractable_facts": [
+				"회사 월 지출: ~800만원"
+			]
+		},
+		{
+			"id": "F431",
+			"domain": "finance",
+			"statement": "부모님께 용돈 매달 30만원씩 드려",
+			"entities": [
+				"용돈",
+				"30만원"
+			],
+			"extractable_facts": [
+				"부모님 용돈: 월 30만원"
+			]
+		},
+		{
+			"id": "F432",
+			"domain": "finance",
+			"statement": "비상금은 2천만원 정도 있어. 통장에",
+			"entities": [
+				"비상금",
+				"2천만원"
+			],
+			"extractable_facts": [
+				"비상금: 2천만원"
+			]
+		},
+		{
+			"id": "F433",
+			"domain": "finance",
+			"statement": "전세 보증금 대출은 없어. 원룸이라 월세야",
+			"entities": [
+				"대출"
+			],
+			"extractable_facts": [
+				"대출: 없음"
+			]
+		},
+		{
+			"id": "F434",
+			"domain": "finance",
+			"statement": "도메인 비용은 연 15달러야. .io 도메인이라 좀 비싸",
+			"entities": [
+				"도메인",
+				"15달러"
+			],
+			"extractable_facts": [
+				"도메인 비용: 연 $15"
+			]
+		},
+		{
+			"id": "F435",
+			"domain": "finance",
+			"statement": "클라우드 비용 월 50만원 중 Cloud Run이 30만원이야",
+			"entities": [
+				"Cloud Run",
+				"30만원"
+			],
+			"extractable_facts": [
+				"Cloud Run: 월 30만원"
+			]
+		},
+		{
+			"id": "F436",
+			"domain": "finance",
+			"statement": "시리즈A에서 10억 목표야. 밸류에이션 50억 정도로",
+			"entities": [
+				"시리즈A",
+				"10억"
+			],
+			"extractable_facts": [
+				"시리즈A: 목표 10억(밸류 50억)"
+			]
+		},
+		{
+			"id": "F437",
+			"domain": "finance",
+			"statement": "직원 급여 총액은 월 500만원이야. 나 포함 5명인데 프리랜서도 있으니까",
+			"entities": [
+				"급여 총액"
+			],
+			"extractable_facts": [
+				"급여 총액: 월 500만원"
+			]
+		},
+		{
+			"id": "F438",
+			"domain": "finance",
+			"statement": "가계부는 토스 앱으로 관리해. 자동 분류 편해서",
+			"entities": [
+				"토스",
+				"가계부"
+			],
+			"extractable_facts": [
+				"가계부: 토스 앱"
+			]
+		},
+		{
+			"id": "F439",
+			"domain": "finance",
+			"statement": "중고거래는 당근마켓으로 해. 안 쓰는 전자기기 위주",
+			"entities": [
+				"당근마켓"
+			],
+			"extractable_facts": [
+				"중고거래: 당근마켓"
+			]
+		},
+		{
+			"id": "F440",
+			"domain": "finance",
+			"statement": "연말정산 때 기부금 공제 받아. 코드포코리아에 기부해",
+			"entities": [
+				"코드포코리아",
+				"기부"
+			],
+			"extractable_facts": [
+				"기부: 코드포코리아"
+			]
+		},
+		{
+			"id": "F441",
+			"domain": "finance",
+			"statement": "의료비는 연 100만원 정도 써. 치과가 제일 많아",
+			"entities": [
+				"의료비",
+				"100만원"
+			],
+			"extractable_facts": [
+				"의료비: 연 100만원(치과 위주)"
+			]
+		},
+		{
+			"id": "F442",
+			"domain": "finance",
+			"statement": "창업진흥원 지원금은 연 5천만원이야. 인건비 보조",
+			"entities": [
+				"5천만원",
+				"지원금"
+			],
+			"extractable_facts": [
+				"지원금: 연 5천만원(인건비)"
+			]
+		},
+		{
+			"id": "F443",
+			"domain": "finance",
+			"statement": "해외 결제는 와이즈 카드 써. 환율 수수료 적어서",
+			"entities": [
+				"와이즈"
+			],
+			"extractable_facts": [
+				"해외 결제: 와이즈"
+			]
+		},
+		{
+			"id": "F444",
+			"domain": "finance",
+			"statement": "Figma 요금은 팀 플랜 월 15달러야",
+			"entities": [
+				"Figma",
+				"15달러"
+			],
+			"extractable_facts": [
+				"Figma: 팀 플랜 월 $15"
+			]
+		},
+		{
+			"id": "F445",
+			"domain": "finance",
+			"statement": "Claude API 비용이 월 20만원 정도 나와",
+			"entities": [
+				"Claude API",
+				"20만원"
+			],
+			"extractable_facts": [
+				"Claude API: 월 20만원"
+			]
+		},
+		{
+			"id": "F446",
+			"domain": "finance",
+			"statement": "GitHub Team 플랜 쓰고 있어. 월 4달러/인",
+			"entities": [
+				"GitHub Team"
+			],
+			"extractable_facts": [
+				"GitHub: Team 플랜 월 $4/인"
+			]
+		},
+		{
+			"id": "F447",
+			"domain": "finance",
+			"statement": "슬랙 유료 전환하면 월 8.75달러/인이야. 아직 고민 중",
+			"entities": [
+				"슬랙 유료"
+			],
+			"extractable_facts": [
+				"슬랙 유료: 월 $8.75/인(고려 중)"
+			]
+		},
+		{
+			"id": "F448",
+			"domain": "finance",
+			"statement": "세무사 수수료는 분기 30만원이야",
+			"entities": [
+				"세무사",
+				"30만원"
+			],
+			"extractable_facts": [
+				"세무사 비용: 분기 30만원"
+			]
+		},
+		{
+			"id": "F449",
+			"domain": "finance",
+			"statement": "특허 출원 비용은 건당 150만원 정도 들어",
+			"entities": [
+				"특허 비용",
+				"150만원"
+			],
+			"extractable_facts": [
+				"특허 비용: 건당 ~150만원"
+			]
+		},
+		{
+			"id": "F450",
+			"domain": "finance",
+			"statement": "연말에 4대보험 정산 때 추가 납부 있을 수 있어",
+			"entities": [
+				"4대보험"
+			],
+			"extractable_facts": [
+				"4대보험: 연말 정산 주의"
+			]
+		},
+		{
+			"id": "F451",
+			"domain": "hobby",
+			"statement": "사진은 주로 거리 사진 찍어. 스트리트 포토그래피",
+			"entities": [
+				"스트리트 포토그래피"
+			],
+			"extractable_facts": [
+				"사진: 스트리트 포토그래피"
+			]
+		},
+		{
+			"id": "F452",
+			"domain": "hobby",
+			"statement": "소니 카메라는 A7C II야. 가볍고 좋아",
+			"entities": [
+				"A7C II",
+				"소니"
+			],
+			"extractable_facts": [
+				"카메라 모델: 소니 A7C II"
+			]
+		},
+		{
+			"id": "F453",
+			"domain": "hobby",
+			"statement": "렌즈는 35mm 단렌즈 주로 써. 시그마꺼",
+			"entities": [
+				"35mm",
+				"시그마"
+			],
+			"extractable_facts": [
+				"렌즈: 시그마 35mm 단렌즈"
+			]
+		},
+		{
+			"id": "F454",
+			"domain": "hobby",
+			"statement": "사진 편집은 Lightroom으로 해. 포토샵은 잘 안 써",
+			"entities": [
+				"Lightroom"
+			],
+			"extractable_facts": [
+				"사진 편집: Lightroom"
+			]
+		},
+		{
+			"id": "F455",
+			"domain": "hobby",
+			"statement": "요리할 때 유튜브 레시피 보고 해. 백종원 채널 자주 봐",
+			"entities": [
+				"백종원",
+				"유튜브"
+			],
+			"extractable_facts": [
+				"요리 참고: 유튜브 백종원"
+			]
+		},
+		{
+			"id": "F456",
+			"domain": "hobby",
+			"statement": "파스타 중에서 까르보나라를 제일 잘 만들어",
+			"entities": [
+				"까르보나라"
+			],
+			"extractable_facts": [
+				"특기 요리: 까르보나라"
+			]
+		},
+		{
+			"id": "F457",
+			"domain": "hobby",
+			"statement": "주방 칼은 글로벌 산토쿠 써. 선물 받은 거야",
+			"entities": [
+				"글로벌 산토쿠"
+			],
+			"extractable_facts": [
+				"주방 칼: 글로벌 산토쿠"
+			]
+		},
+		{
+			"id": "F458",
+			"domain": "hobby",
+			"statement": "보드게임 중에 스플렌더를 제일 좋아해",
+			"entities": [
+				"스플렌더"
+			],
+			"extractable_facts": [
+				"보드게임: 스플렌더"
+			]
+		},
+		{
+			"id": "F459",
+			"domain": "hobby",
+			"statement": "넷플릭스에서 최근에 본 건 '삼체'야. 원작 소설도 읽었어",
+			"entities": [
+				"삼체"
+			],
+			"extractable_facts": [
+				"최근 시청: 삼체(원작도 읽음)"
+			]
+		},
+		{
+			"id": "F460",
+			"domain": "hobby",
+			"statement": "커피 그라인더는 타임모어 C2 써. 수동이야",
+			"entities": [
+				"타임모어 C2"
+			],
+			"extractable_facts": [
+				"커피 그라인더: 타임모어 C2(수동)"
+			]
+		},
+		{
+			"id": "F461",
+			"domain": "hobby",
+			"statement": "핸드드립 드리퍼는 하리오 V60 써",
+			"entities": [
+				"하리오 V60"
+			],
+			"extractable_facts": [
+				"드리퍼: 하리오 V60"
+			]
+		},
+		{
+			"id": "F462",
+			"domain": "hobby",
+			"statement": "원두는 프릳츠에서 사. 월 1회 정기배송",
+			"entities": [
+				"프릳츠"
+			],
+			"extractable_facts": [
+				"원두 구매: 프릳츠(월 1회 정기배송)"
+			]
+		},
+		{
+			"id": "F463",
+			"domain": "hobby",
+			"statement": "피아노 학원은 성수동에 있어. 주 1회 레슨",
+			"entities": [
+				"피아노",
+				"레슨"
+			],
+			"extractable_facts": [
+				"피아노: 주 1회 레슨(성수동)"
+			]
+		},
+		{
+			"id": "F464",
+			"domain": "hobby",
+			"statement": "피아노로 지금 치는 곡은 쇼팽 녹턴이야. 아직 어려워",
+			"entities": [
+				"쇼팽 녹턴"
+			],
+			"extractable_facts": [
+				"연습곡: 쇼팽 녹턴"
+			]
+		},
+		{
+			"id": "F465",
+			"domain": "hobby",
+			"statement": "글램핑은 가평에 주로 가. 서울에서 가깝잖아",
+			"entities": [
+				"글램핑",
+				"가평"
+			],
+			"extractable_facts": [
+				"글램핑 장소: 가평"
+			]
+		},
+		{
+			"id": "F466",
+			"domain": "hobby",
+			"statement": "캠핑 장비는 최소한으로. 텐트 안 치고 글램핑이니까",
+			"entities": [
+				"캠핑 장비"
+			],
+			"extractable_facts": [
+				"캠핑: 장비 최소(글램핑)"
+			]
+		},
+		{
+			"id": "F467",
+			"domain": "hobby",
+			"statement": "러닝할 때 나이키 페가수스 신어. 쿠셔닝 좋아서",
+			"entities": [
+				"나이키 페가수스"
+			],
+			"extractable_facts": [
+				"러닝화: 나이키 페가수스"
+			]
+		},
+		{
+			"id": "F468",
+			"domain": "hobby",
+			"statement": "한강 러닝 코스는 뚝섬~잠실이야. 왕복 10km",
+			"entities": [
+				"뚝섬",
+				"잠실"
+			],
+			"extractable_facts": [
+				"러닝 코스: 뚝섬~잠실(왕복 10km)"
+			]
+		},
+		{
+			"id": "F469",
+			"domain": "hobby",
+			"statement": "독서 모임에서 이번 달 책은 '사피엔스'야",
+			"entities": [
+				"사피엔스"
+			],
+			"extractable_facts": [
+				"이달 책: 사피엔스"
+			]
+		},
+		{
+			"id": "F470",
+			"domain": "hobby",
+			"statement": "SF 소설은 테드 창 좋아해. '당신 인생의 이야기' 최고",
+			"entities": [
+				"테드 창"
+			],
+			"extractable_facts": [
+				"SF 작가: 테드 창"
+			]
+		},
+		{
+			"id": "F471",
+			"domain": "hobby",
+			"statement": "게임은 거의 안 해. 가끔 스팀에서 인디 게임 정도",
+			"entities": [
+				"스팀",
+				"인디 게임"
+			],
+			"extractable_facts": [
+				"게임: 스팀 인디(가끔)"
+			]
+		},
+		{
+			"id": "F472",
+			"domain": "hobby",
+			"statement": "퍼즐도 좋아해. 1000피스 가끔 맞춰",
+			"entities": [
+				"퍼즐",
+				"1000피스"
+			],
+			"extractable_facts": [
+				"취미: 퍼즐(1000피스)"
+			]
+		},
+		{
+			"id": "F473",
+			"domain": "hobby",
+			"statement": "유튜브 채널 하나 운영해. 개발 브이로그인데 업로드가 뜸해",
+			"entities": [
+				"유튜브",
+				"개발 브이로그"
+			],
+			"extractable_facts": [
+				"유튜브: 개발 브이로그 운영"
+			]
+		},
+		{
+			"id": "F474",
+			"domain": "hobby",
+			"statement": "전시회 보는 거 좋아해. 미디어아트 위주로",
+			"entities": [
+				"전시회",
+				"미디어아트"
+			],
+			"extractable_facts": [
+				"취미: 전시회(미디어아트)"
+			]
+		},
+		{
+			"id": "F475",
+			"domain": "hobby",
+			"statement": "공예는 안 해. 손재주가 없어서",
+			"entities": [
+				"공예"
+			],
+			"extractable_facts": [
+				"공예: 안 함"
+			]
+		},
+		{
+			"id": "F476",
+			"domain": "hobby",
+			"statement": "낚시 한 번도 안 해봤어. 관심 없어",
+			"entities": [
+				"낚시"
+			],
+			"extractable_facts": [
+				"낚시: 관심 없음"
+			]
+		},
+		{
+			"id": "F477",
+			"domain": "hobby",
+			"statement": "등산은 가끔 해. 북한산이 가까워서",
+			"entities": [
+				"등산",
+				"북한산"
+			],
+			"extractable_facts": [
+				"등산: 가끔(북한산)"
+			]
+		},
+		{
+			"id": "F478",
+			"domain": "hobby",
+			"statement": "자전거도 타. 따릉이로 출퇴근할 때도 있어",
+			"entities": [
+				"따릉이",
+				"자전거"
+			],
+			"extractable_facts": [
+				"자전거: 따릉이(가끔 출퇴근)"
+			]
+		},
+		{
+			"id": "F479",
+			"domain": "hobby",
+			"statement": "볼링도 좋아해. 평균 스코어 140 정도",
+			"entities": [
+				"볼링",
+				"140"
+			],
+			"extractable_facts": [
+				"볼링: 평균 140"
+			]
+		},
+		{
+			"id": "F480",
+			"domain": "hobby",
+			"statement": "레고 가끔 조립해. 테크닉 시리즈 좋아해",
+			"entities": [
+				"레고",
+				"테크닉"
+			],
+			"extractable_facts": [
+				"레고: 테크닉 시리즈"
+			]
+		},
+		{
+			"id": "F481",
+			"domain": "hobby",
+			"statement": "와인은 잘 모르지만 가끔 마셔. 레드 와인 선호",
+			"entities": [
+				"와인",
+				"레드"
+			],
+			"extractable_facts": [
+				"와인: 레드 선호(비전문)"
+			]
+		},
+		{
+			"id": "F482",
+			"domain": "hobby",
+			"statement": "만화는 안 봐. 웹툰도 잘 안 봐",
+			"entities": [
+				"만화",
+				"웹툰"
+			],
+			"extractable_facts": [
+				"만화/웹툰: 안 봄"
+			]
+		},
+		{
+			"id": "F483",
+			"domain": "hobby",
+			"statement": "크로스핏은 안 해. 부상 위험 때문에",
+			"entities": [
+				"크로스핏"
+			],
+			"extractable_facts": [
+				"크로스핏: 안 함(부상 우려)"
+			]
+		},
+		{
+			"id": "F484",
+			"domain": "hobby",
+			"statement": "골프는 아직 안 배웠어. 좀 나이 들면 할 수도",
+			"entities": [
+				"골프"
+			],
+			"extractable_facts": [
+				"골프: 미경험"
+			]
+		},
+		{
+			"id": "F485",
+			"domain": "hobby",
+			"statement": "뮤지컬 가끔 봐. 서연이가 좋아해서 같이 가",
+			"entities": [
+				"뮤지컬"
+			],
+			"extractable_facts": [
+				"뮤지컬: 서연이와(가끔)"
+			]
+		},
+		{
+			"id": "F486",
+			"domain": "hobby",
+			"statement": "콘서트는 1년에 2-3번 가. 재즈 공연 위주",
+			"entities": [
+				"콘서트",
+				"재즈"
+			],
+			"extractable_facts": [
+				"콘서트: 연 2-3회(재즈)"
+			]
+		},
+		{
+			"id": "F487",
+			"domain": "hobby",
+			"statement": "팟캐스트는 '코드잇 다시보기'랑 'GeekNews Weekly' 구독해",
+			"entities": [
+				"코드잇",
+				"GeekNews"
+			],
+			"extractable_facts": [
+				"팟캐스트: 코드잇, GeekNews Weekly"
+			]
+		},
+		{
+			"id": "F488",
+			"domain": "hobby",
+			"statement": "드론은 DJI Mini 가지고 있어. 여행 갈 때 가끔 가져가",
+			"entities": [
+				"DJI Mini",
+				"드론"
+			],
+			"extractable_facts": [
+				"드론: DJI Mini"
+			]
+		},
+		{
+			"id": "F489",
+			"domain": "hobby",
+			"statement": "탁구도 좋아해. 회사에 미니 탁구대 있어",
+			"entities": [
+				"탁구"
+			],
+			"extractable_facts": [
+				"탁구: 회사 미니 탁구대"
+			]
+		},
+		{
+			"id": "F490",
+			"domain": "hobby",
+			"statement": "서예는 어릴 때 배웠어. 지금은 안 해",
+			"entities": [
+				"서예"
+			],
+			"extractable_facts": [
+				"서예: 어릴 때만"
+			]
+		},
+		{
+			"id": "F491",
+			"domain": "social",
+			"statement": "동생 김바다 생일에 매년 케이크 직접 사 가. 딸기 케이크 좋아하거든",
+			"entities": [
+				"김바다",
+				"딸기 케이크"
+			],
+			"extractable_facts": [
+				"동생 생일: 딸기 케이크"
+			]
+		},
+		{
+			"id": "F492",
+			"domain": "social",
+			"statement": "이수현 와이프가 뭉치 아플 때 병원 추천해줬어",
+			"entities": [
+				"이수현",
+				"뭉치"
+			],
+			"extractable_facts": [
+				"이수현 배우자: 뭉치 병원 추천"
+			]
+		},
+		{
+			"id": "F493",
+			"domain": "social",
+			"statement": "창업자 모임에서 만난 CEO 한 명이랑 커피 자주 마셔. 유사 업종이야",
+			"entities": [
+				"창업자 모임",
+				"CEO"
+			],
+			"extractable_facts": [
+				"사교: 창업자 모임 CEO(유사 업종)"
+			]
+		},
+		{
+			"id": "F494",
+			"domain": "social",
+			"statement": "정민수 멘토가 이번에 새 스타트업 시작했어. 에듀테크",
+			"entities": [
+				"정민수",
+				"에듀테크"
+			],
+			"extractable_facts": [
+				"정민수: 에듀테크 스타트업 창업"
+			]
+		},
+		{
+			"id": "F495",
+			"domain": "social",
+			"statement": "서연이 직장은 강남에 있어. 광고 대행사야",
+			"entities": [
+				"최서연",
+				"광고 대행사"
+			],
+			"extractable_facts": [
+				"서연이 직장: 강남 광고 대행사"
+			]
+		},
+		{
+			"id": "F496",
+			"domain": "social",
+			"statement": "엄마가 가끔 반찬 택배 보내줘. 김치랑 나물 위주",
+			"entities": [
+				"반찬 택배",
+				"어머니"
+			],
+			"extractable_facts": [
+				"어머니: 반찬 택배(김치, 나물)"
+			]
+		},
+		{
+			"id": "F497",
+			"domain": "social",
+			"statement": "동네 카페 바리스타랑 아는 사이야. 자주 가니까",
+			"entities": [
+				"바리스타"
+			],
+			"extractable_facts": [
+				"사교: 동네 카페 바리스타"
+			]
+		},
+		{
+			"id": "F498",
+			"domain": "social",
+			"statement": "SPARCS 동아리 동문 모임이 1년에 한 번 있어",
+			"entities": [
+				"SPARCS",
+				"동문 모임"
+			],
+			"extractable_facts": [
+				"모임: SPARCS 동문(연 1회)"
+			]
+		},
+		{
+			"id": "F499",
+			"domain": "social",
+			"statement": "강태호 엔젤 투자자랑 분기마다 저녁 식사해. 포트폴리오 리뷰 겸",
+			"entities": [
+				"강태호"
+			],
+			"extractable_facts": [
+				"강태호: 분기 저녁 식사"
+			]
+		},
+		{
+			"id": "F500",
+			"domain": "social",
+			"statement": "서연이 아버지는 공무원이야. 명절에 인사 가",
+			"entities": [
+				"서연이 아버지",
+				"공무원"
+			],
+			"extractable_facts": [
+				"서연이 아버지: 공무원"
+			]
 		}
 	],
 	"noise_messages": [
@@ -743,7 +5836,27 @@
 		"아 몰라",
 		"좀 이따 할게",
 		"어 잠깐",
-		"그런가"
+		"그런가",
+		"아 졸려 죽겠다",
+		"헐 진짜?",
+		"ㅋㅋㅋ 레전드",
+		"아 그거 까먹었다",
+		"좀 쉬었다 할게",
+		"뭐 먹을까 고민이야",
+		"아 날씨 좋다",
+		"에이 모르겠다",
+		"잠깐 생각 좀 해볼게",
+		"아 맞다맞다",
+		"그래 뭐 어쩔 수 없지",
+		"좀 늦을 것 같아",
+		"ㅋㅋ 진짜 웃기다",
+		"아 집에 가고 싶다",
+		"핫 대박이네",
+		"그냥 그래",
+		"좀 이따 보자",
+		"아 배부르다",
+		"뭐 특별한 거 없어?",
+		"ㅇㅋ 알겠어"
 	],
 	"updates": [
 		{
@@ -825,6 +5938,46 @@
 			"type": "direct",
 			"old_value": "IPA",
 			"new_value": "금주"
+		},
+		{
+			"id": "U11",
+			"target_fact": "F147",
+			"statement": "GPU 업그레이드했어. RTX 5090으로",
+			"type": "direct",
+			"old_value": "RTX 4090",
+			"new_value": "RTX 5090"
+		},
+		{
+			"id": "U12",
+			"target_fact": "F225",
+			"statement": "이사했어. 판교 투룸으로. 월세 120만원",
+			"type": "direct",
+			"old_value": "성수동 원룸 80만원",
+			"new_value": "판교 투룸 120만원"
+		},
+		{
+			"id": "U13",
+			"target_fact": "F164",
+			"statement": "상태 관리 Jotai로 바꿨어. 더 심플해서",
+			"type": "direct",
+			"old_value": "Zustand",
+			"new_value": "Jotai"
+		},
+		{
+			"id": "U14",
+			"target_fact": "F327",
+			"statement": "구독 가격 올렸어. 월 14,900원으로",
+			"type": "direct",
+			"old_value": "9,900원",
+			"new_value": "14,900원"
+		},
+		{
+			"id": "U15",
+			"target_fact": "F463",
+			"statement": "피아노 학원 그만뒀어. 유튜브로 독학하기로 했어",
+			"type": "indirect",
+			"old_value": "피아노 학원 주1회",
+			"new_value": "유튜브 독학"
 		}
 	]
 }
