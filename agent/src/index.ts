@@ -701,12 +701,17 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				const jobId = jobTracker.create(jobKind, call.name, `Execute ${call.name}`);
 				jobTracker.start(jobId);
 
-				const result = await executeToolWithRecovery(call.name, call.args);
-
-				if (result.success) {
-					jobTracker.complete(jobId, { output: result.output });
-				} else {
-					jobTracker.fail(jobId, result.error ?? "Unknown error");
+				let result;
+				try {
+					result = await executeToolWithRecovery(call.name, call.args);
+					if (result.success) {
+						jobTracker.complete(jobId, { output: result.output });
+					} else {
+						jobTracker.fail(jobId, result.error ?? "Unknown error");
+					}
+				} catch (err) {
+					jobTracker.fail(jobId, err instanceof Error ? err.message : String(err));
+					result = { success: false, output: "", error: String(err) };
 				}
 
 				writeLine({
@@ -770,14 +775,19 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 
 				const results = await Promise.all(
 					approvedConcurrent.map((call, idx) =>
-						executeToolWithRecovery(call.name, call.args).then((result) => {
-							if (result.success) {
-								jobTracker.complete(jobIds[idx], { output: result.output });
-							} else {
-								jobTracker.fail(jobIds[idx], result.error ?? "Unknown error");
-							}
-							return { call, result };
-						}),
+						executeToolWithRecovery(call.name, call.args)
+							.then((result) => {
+								if (result.success) {
+									jobTracker.complete(jobIds[idx], { output: result.output });
+								} else {
+									jobTracker.fail(jobIds[idx], result.error ?? "Unknown error");
+								}
+								return { call, result };
+							})
+							.catch((err) => {
+								jobTracker.fail(jobIds[idx], err instanceof Error ? err.message : String(err));
+								return { call, result: { success: false, output: "", error: String(err) } };
+							}),
 					),
 				);
 
@@ -895,6 +905,8 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			`[agent:chat] Finish — fullText=${fullText.length} chars, reqId=${requestId}`,
 		);
 		writeLine({ type: "finish", requestId });
+		// Evict completed/failed jobs older than 5 minutes to prevent memory leaks
+		jobTracker.evictTerminal();
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : String(err);
 		logLlm({
