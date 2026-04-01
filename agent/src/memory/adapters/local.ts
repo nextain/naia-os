@@ -160,6 +160,8 @@ export class LocalAdapter implements MemoryAdapter {
 			const topK = context.topK ?? 5;
 			const minStrength = context.minStrength ?? 0.05;
 
+			const deepRecall = context.deepRecall ?? false;
+
 			const scored = this.store.episodes
 				.map((ep) => {
 					// Recalculate strength with current time
@@ -171,7 +173,8 @@ export class LocalAdapter implements MemoryAdapter {
 						now,
 					);
 
-					if (strength < minStrength) return null;
+					// deepRecall: skip strength filter to retrieve old memories
+					if (!deepRecall && strength < minStrength) return null;
 
 					// Keyword relevance
 					const textScore = keywordScore(query, `${ep.content} ${ep.summary}`);
@@ -191,7 +194,10 @@ export class LocalAdapter implements MemoryAdapter {
 						contextBonus += 0.1;
 					}
 
-					const finalScore = textScore * strength + contextBonus;
+					// deepRecall: ignore decay in scoring
+					const finalScore = deepRecall
+						? textScore + contextBonus
+						: textScore * strength + contextBonus;
 					return { episode: ep, score: finalScore, strength };
 				})
 				.filter((x): x is NonNullable<typeof x> => x !== null && x.score > 0)

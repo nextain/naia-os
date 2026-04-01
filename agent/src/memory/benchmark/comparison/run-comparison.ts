@@ -540,12 +540,22 @@ async function main() {
 				console.log();
 			}
 
-			// Phase 3: Score
+			// Phase 3: Score (weighted)
 			const core = details.filter((d) => !d.isBonus);
 			const bonus = details.filter((d) => d.isBonus);
+			// Weighted score: each test contributes its category weight
+			const coreWeightedPass = core.reduce(
+				(sum, d) => sum + (d.pass ? d.weight : 0),
+				0,
+			);
+			const coreWeightedTotal = core.reduce(
+				(sum, d) => sum + d.weight,
+				0,
+			);
 			const corePassed = core.filter((d) => d.pass).length;
 			const bonusPassed = bonus.filter((d) => d.pass).length;
-			const coreRate = core.length > 0 ? corePassed / core.length : 0;
+			const coreRate =
+				coreWeightedTotal > 0 ? coreWeightedPass / coreWeightedTotal : 0;
 			const bonusRate = bonus.length > 0 ? bonusPassed / bonus.length : 0;
 			const abstentionFail = details.some(
 				(d) => d.capability === "abstention" && !d.pass,
@@ -583,7 +593,7 @@ async function main() {
 
 			console.log(`    ─── ${adapter.name} Result ───`);
 			console.log(
-				`    Core: ${corePassed}/${core.length} (${Math.round(coreRate * 100)}%)`,
+				`    Core: ${corePassed}/${core.length} items, weighted ${Math.round(coreRate * 100)}% (${coreWeightedPass}/${coreWeightedTotal} pts)`,
 			);
 			console.log(`    Bonus: ${bonusPassed}/${bonus.length}`);
 			console.log(`    Grade: ${grade}\n`);

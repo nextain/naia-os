@@ -352,7 +352,7 @@ export class Mem0Adapter implements MemoryAdapter {
 			entityB: string,
 			weight?: number,
 		): Promise<void> => {
-			this.kg.strengthen(entityA, entityB, weight);
+			this.kg.strengthen(entityA, entityB, weight, Date.now());
 		},
 
 		getAll: async (): Promise<Fact[]> => {
@@ -452,10 +452,21 @@ export class Mem0Adapter implements MemoryAdapter {
 
 	// ─── Consolidation ───────────────────────────────────────────────────
 
+	/**
+	 * Adapter-level consolidation: decay sweep + KG edge decay.
+	 *
+	 * Note: Episode → fact extraction is handled by MemorySystem.consolidateNow(),
+	 * not here. Mem0Adapter's consolidate() only runs maintenance tasks.
+	 * episodesProcessed/factsCreated are 0 because MemorySystem tracks those.
+	 *
+	 * Limitation: semantic.decay() only prunes local episodes, not mem0 vector
+	 * store facts. mem0 facts persist indefinitely. This is intentional —
+	 * fact pruning will be addressed with long-term memory separation.
+	 */
 	async consolidate(): Promise<ConsolidationResult> {
 		const now = Date.now();
 
-		// 1. Decay sweep
+		// 1. Decay sweep (local episodes only; mem0 facts are not pruned)
 		const memoriesPruned = await this.semantic.decay(now);
 
 		// 2. Knowledge graph edge decay
