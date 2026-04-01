@@ -465,7 +465,7 @@ export class MemorySystem {
 
 		const [episodes, facts, reflections] = await Promise.all([
 			this.adapter.episode.recall(query, context),
-			this.adapter.semantic.search(query, topK),
+			this.adapter.semantic.search(query, topK, context.deepRecall),
 			this.adapter.procedural.getReflections(query, topK),
 		]);
 

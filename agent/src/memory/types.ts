@@ -77,6 +77,13 @@ export interface RecallContext {
 	topK?: number;
 	/** Minimum strength threshold */
 	minStrength?: number;
+	/**
+	 * Deep recall mode — search long-term memory ignoring decay.
+	 * Triggered when user explicitly asks about forgotten memories
+	 * ("왜 잊었어?", "예전에 뭐라고 했었지?").
+	 * Uses pure vector similarity without strength weighting.
+	 */
+	deepRecall?: boolean;
 }
 
 // ─── Semantic Memory (Neocortex) ─────────────────────────────────────────────
@@ -185,8 +192,8 @@ export interface MemoryAdapter {
 	semantic: {
 		/** Insert or update a fact (includes reconsolidation logic) */
 		upsert(fact: Fact): Promise<void>;
-		/** Search facts by query string */
-		search(query: string, topK: number): Promise<Fact[]>;
+		/** Search facts by query string. deepRecall ignores decay for long-term retrieval. */
+		search(query: string, topK: number, deepRecall?: boolean): Promise<Fact[]>;
 		/** Run Ebbinghaus decay sweep, returns number of pruned memories */
 		decay(now: number): Promise<number>;
 		/** Strengthen association between two entities (Hebbian) */

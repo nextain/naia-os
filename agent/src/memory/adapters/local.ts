@@ -279,7 +279,7 @@ export class LocalAdapter implements MemoryAdapter {
 			this.save();
 		},
 
-		search: async (query: string, topK: number): Promise<Fact[]> => {
+		search: async (query: string, topK: number, _deepRecall = false): Promise<Fact[]> => {
 			const now = Date.now();
 			const queryTokens = tokenize(query);
 

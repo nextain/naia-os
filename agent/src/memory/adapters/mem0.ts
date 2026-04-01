@@ -179,7 +179,8 @@ export class Mem0Adapter implements MemoryAdapter {
 				}
 			} catch {}
 
-			// Sort by: decay strength × (1 + context boost + KG boost)
+			// Sort by: relevance first, decay as tiebreaker
+			// No filter — memories are never removed from search results.
 			matchedEpisodes.sort((a, b) => {
 				const aCtx =
 					context.project && a.encodingContext.project === context.project
@@ -196,13 +197,13 @@ export class Mem0Adapter implements MemoryAdapter {
 					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.1;
 					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.1;
 				}
-				const aScore = a.strength * (1 + aCtx + aKg);
-				const bScore = b.strength * (1 + bCtx + bKg);
+				// Relevance-first: strength boosts but doesn't dominate
+				const aScore = (1 + a.strength + aCtx + aKg);
+				const bScore = (1 + b.strength + bCtx + bKg);
 				return bScore - aScore;
 			});
 
-			// Filter decayed episodes
-			return matchedEpisodes.filter((ep) => ep.strength > 0.05).slice(0, topK);
+			return matchedEpisodes.slice(0, topK);
 		},
 
 		getRecent: async (n: number): Promise<Episode[]> => {
@@ -240,7 +241,11 @@ export class Mem0Adapter implements MemoryAdapter {
 			});
 		},
 
-		search: async (query: string, topK: number): Promise<Fact[]> => {
+		search: async (
+			query: string,
+			topK: number,
+			deepRecall = false,
+		): Promise<Fact[]> => {
 			const m = await this.ensureMem0();
 			const results = await m.search(query, {
 				userId: this.userId,
@@ -280,9 +285,13 @@ export class Mem0Adapter implements MemoryAdapter {
 						if (act) kgBoost += act;
 					}
 
-					// Combined score: mem0 rank position + KG boost, modulated by decay
-					const positionScore = 1 - idx / resultItems.length;
-					const _score = (positionScore + kgBoost * 0.1) * strength;
+					// Scoring strategy:
+					// - Normal mode: relevance × (1 + decay boost) — relevance first, decay adjusts
+					// - Deep recall: pure vector similarity — ignore decay entirely
+					const cosineScore = r.score ?? 1 - idx / resultItems.length;
+					const _score = deepRecall
+						? cosineScore
+						: cosineScore * (1 + strength + kgBoost * 0.1);
 
 					return {
 						id: r.id ?? randomUUID(),
@@ -302,9 +311,10 @@ export class Mem0Adapter implements MemoryAdapter {
 				},
 			);
 
-			// Filter decayed + sort by combined score
+			// No filter — memories are never removed from search results.
+			// Decay affects ranking only, not existence.
+			// (LocalAdapter still filters for storage constraints.)
 			return facts
-				.filter((f) => f.strength > 0.05)
 				.sort((a, b) => b._score - a._score)
 				.slice(0, topK)
 				.map(({ _score, ...fact }) => fact);
