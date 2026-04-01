@@ -434,7 +434,7 @@ async function main() {
 				"noise_resilience",
 				// === Post-mutation tests ===
 				"unchanged_persistence",
-				"temporal_history",
+				"temporal",
 			];
 			const capEntries = CAPABILITY_ORDER.filter(
 				(name) => templates.capabilities[name],
