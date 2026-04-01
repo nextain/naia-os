@@ -18,6 +18,10 @@ interface SkillManifest {
 	command?: string;
 	tier?: number;
 	parameters?: Record<string, unknown>;
+	/** Static safety declarations (optional, default false / fail-closed). */
+	isConcurrencySafe?: boolean;
+	isDestructive?: boolean;
+	isReadOnly?: boolean;
 }
 
 /**
@@ -392,6 +396,16 @@ export function loadCustomSkills(
 			tier: manifest.tier ?? 2,
 			requiresGateway: isGateway,
 			source: path.join(skillsDir, entry.name),
+			// Convert static booleans from manifest to predicates
+			...(manifest.isConcurrencySafe != null && {
+				isConcurrencySafe: () => manifest.isConcurrencySafe!,
+			}),
+			...(manifest.isDestructive != null && {
+				isDestructive: () => manifest.isDestructive!,
+			}),
+			...(manifest.isReadOnly != null && {
+				isReadOnly: () => manifest.isReadOnly!,
+			}),
 		};
 
 		try {

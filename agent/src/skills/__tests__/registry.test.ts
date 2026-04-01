@@ -15,6 +15,11 @@ function makeSkill(overrides: Partial<SkillDefinition> = {}): SkillDefinition {
 		tier: overrides.tier ?? 0,
 		requiresGateway: overrides.requiresGateway ?? false,
 		source: overrides.source ?? "built-in",
+		...(overrides.isConcurrencySafe && {
+			isConcurrencySafe: overrides.isConcurrencySafe,
+		}),
+		...(overrides.isDestructive && { isDestructive: overrides.isDestructive }),
+		...(overrides.isReadOnly && { isReadOnly: overrides.isReadOnly }),
 	};
 }
 
@@ -23,7 +28,11 @@ describe("SkillRegistry", () => {
 		const registry = new SkillRegistry();
 		const skill = makeSkill();
 		registry.register(skill);
-		expect(registry.get("skill_test")).toBe(skill);
+		const retrieved = registry.get("skill_test");
+		expect(retrieved).toBeDefined();
+		expect(retrieved!.name).toBe(skill.name);
+		expect(retrieved!.description).toBe(skill.description);
+		expect(retrieved!.execute).toBe(skill.execute);
 	});
 
 	it("has() returns true for registered skills", () => {
@@ -117,5 +126,117 @@ describe("SkillRegistry", () => {
 		expect(() => registry.register(makeSkill({ name: "skill_dup" }))).toThrow(
 			/already registered/,
 		);
+	});
+});
+
+describe("SkillRegistry — safety metadata", () => {
+	it("defaults to fail-closed (concurrencySafe=false, destructive=false, readOnly=false)", () => {
+		const registry = new SkillRegistry();
+		registry.register(makeSkill({ name: "skill_plain" }));
+		expect(registry.isConcurrencySafe("skill_plain", {})).toBe(false);
+		expect(registry.isDestructive("skill_plain", {})).toBe(false);
+		expect(registry.isReadOnly("skill_plain", {})).toBe(false);
+	});
+
+	it("returns false for unknown tool names", () => {
+		const registry = new SkillRegistry();
+		expect(registry.isConcurrencySafe("nonexistent", {})).toBe(false);
+		expect(registry.isDestructive("nonexistent", {})).toBe(false);
+		expect(registry.isReadOnly("nonexistent", {})).toBe(false);
+	});
+
+	it("respects explicit safety predicates on skills", () => {
+		const registry = new SkillRegistry();
+		registry.register(
+			makeSkill({
+				name: "skill_safe_reader",
+				isConcurrencySafe: () => true,
+				isDestructive: () => false,
+				isReadOnly: () => true,
+			}),
+		);
+		expect(registry.isConcurrencySafe("skill_safe_reader", {})).toBe(true);
+		expect(registry.isDestructive("skill_safe_reader", {})).toBe(false);
+		expect(registry.isReadOnly("skill_safe_reader", {})).toBe(true);
+	});
+
+	it("passes args to safety predicates", () => {
+		const registry = new SkillRegistry();
+		registry.register(
+			makeSkill({
+				name: "skill_conditional",
+				isDestructive: (args) => args.force === true,
+			}),
+		);
+		expect(registry.isDestructive("skill_conditional", { force: false })).toBe(
+			false,
+		);
+		expect(registry.isDestructive("skill_conditional", { force: true })).toBe(
+			true,
+		);
+	});
+
+	it("registerToolSafety works for non-skill tools", () => {
+		const registry = new SkillRegistry();
+		registry.registerToolSafety("read_file", {
+			isConcurrencySafe: () => true,
+			isReadOnly: () => true,
+		});
+		expect(registry.isConcurrencySafe("read_file", {})).toBe(true);
+		expect(registry.isReadOnly("read_file", {})).toBe(true);
+		// isDestructive not provided → defaults to false
+		expect(registry.isDestructive("read_file", {})).toBe(false);
+	});
+
+	it("partitionForConcurrentExecution splits correctly", () => {
+		const registry = new SkillRegistry();
+		registry.register(
+			makeSkill({
+				name: "skill_parallel",
+				isConcurrencySafe: () => true,
+			}),
+		);
+		registry.register(
+			makeSkill({
+				name: "skill_serial",
+				// isConcurrencySafe defaults to false
+			}),
+		);
+		registry.registerToolSafety("read_file", {
+			isConcurrencySafe: () => true,
+		});
+
+		const calls = [
+			{ id: "1", name: "skill_parallel", args: {} },
+			{ id: "2", name: "skill_serial", args: {} },
+			{ id: "3", name: "read_file", args: { path: "/tmp/x" } },
+			{ id: "4", name: "unknown_tool", args: {} },
+		];
+
+		const { concurrent, sequential } =
+			registry.partitionForConcurrentExecution(calls);
+		expect(concurrent.map((c) => c.name)).toEqual([
+			"skill_parallel",
+			"read_file",
+		]);
+		expect(sequential.map((c) => c.name)).toEqual([
+			"skill_serial",
+			"unknown_tool",
+		]);
+	});
+
+	it("existing skills still work after safety metadata additions", async () => {
+		const registry = new SkillRegistry();
+		registry.register(
+			makeSkill({
+				name: "skill_legacy",
+				execute: async () => ({ success: true, output: "legacy works" }),
+			}),
+		);
+		const result = await registry.execute("skill_legacy", {}, {});
+		expect(result.success).toBe(true);
+		expect(result.output).toBe("legacy works");
+		// Safety defaults still hold
+		expect(registry.isConcurrencySafe("skill_legacy", {})).toBe(false);
 	});
 });

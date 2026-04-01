@@ -24,6 +24,9 @@ export type SkillHandler = (
 	ctx: SkillExecutionContext,
 ) => Promise<SkillResult>;
 
+/** Callback that inspects tool args to determine a safety property. */
+export type SafetyPredicate = (args: Record<string, unknown>) => boolean;
+
 /** Full skill definition */
 export interface SkillDefinition {
 	name: string;
@@ -33,4 +36,13 @@ export interface SkillDefinition {
 	tier: number;
 	requiresGateway: boolean;
 	source: string;
+
+	// --- Tool safety metadata (all optional, fail-closed defaults) ---
+
+	/** Can this tool run concurrently with other tools? Default: false (fail-closed). */
+	isConcurrencySafe?: SafetyPredicate;
+	/** Does this tool perform destructive / mutating operations? Default: false. */
+	isDestructive?: SafetyPredicate;
+	/** Is this tool purely read-only with no side effects? Default: false. */
+	isReadOnly?: SafetyPredicate;
 }

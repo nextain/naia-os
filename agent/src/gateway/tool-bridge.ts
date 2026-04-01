@@ -85,6 +85,51 @@ bootstrapDefaultSkills(customSkillsDir, bundledSkillsDir);
 // Load custom skills from ~/.naia/skills/
 loadCustomSkills(skillRegistry, customSkillsDir);
 
+// --- Gateway tool safety metadata ---
+const ALWAYS_TRUE = () => true;
+const ALWAYS_FALSE_SAFETY = () => false;
+
+skillRegistry.registerToolSafety("execute_command", {
+	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_TRUE,
+	isReadOnly: ALWAYS_FALSE_SAFETY,
+});
+skillRegistry.registerToolSafety("read_file", {
+	isConcurrencySafe: ALWAYS_TRUE,
+	isDestructive: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_TRUE,
+});
+skillRegistry.registerToolSafety("write_file", {
+	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_TRUE,
+	isReadOnly: ALWAYS_FALSE_SAFETY,
+});
+skillRegistry.registerToolSafety("search_files", {
+	isConcurrencySafe: ALWAYS_TRUE,
+	isDestructive: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_TRUE,
+});
+skillRegistry.registerToolSafety("web_search", {
+	isConcurrencySafe: ALWAYS_TRUE,
+	isDestructive: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_TRUE,
+});
+skillRegistry.registerToolSafety("apply_diff", {
+	isConcurrencySafe: ALWAYS_FALSE_SAFETY,
+	isDestructive: ALWAYS_TRUE,
+	isReadOnly: ALWAYS_FALSE_SAFETY,
+});
+skillRegistry.registerToolSafety("browser", {
+	isConcurrencySafe: ALWAYS_TRUE,
+	isDestructive: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_TRUE,
+});
+skillRegistry.registerToolSafety("sessions_spawn", {
+	isConcurrencySafe: ALWAYS_TRUE,
+	isDestructive: ALWAYS_FALSE_SAFETY,
+	isReadOnly: ALWAYS_FALSE_SAFETY,
+});
+
 /** Get all tools: Gateway tools + skill tools (minus disabled) */
 export function getAllTools(
 	hasGateway: boolean,

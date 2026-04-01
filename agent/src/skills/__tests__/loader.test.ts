@@ -167,4 +167,40 @@ describe("loadCustomSkills", () => {
 		// Should load fine since gatewaySkill is provided
 		expect(registry.has("skill_gateway_ok")).toBe(true);
 	});
+
+	it("loads safety metadata from manifest", () => {
+		writeManifest("safe-reader", {
+			name: "safe_reader",
+			description: "A safe read-only skill",
+			type: "command",
+			command: "echo hello",
+			isConcurrencySafe: true,
+			isDestructive: false,
+			isReadOnly: true,
+		});
+
+		const registry = new SkillRegistry();
+		loadCustomSkills(registry, tmpDir);
+		expect(registry.has("skill_safe_reader")).toBe(true);
+		expect(registry.isConcurrencySafe("skill_safe_reader", {})).toBe(true);
+		expect(registry.isDestructive("skill_safe_reader", {})).toBe(false);
+		expect(registry.isReadOnly("skill_safe_reader", {})).toBe(true);
+	});
+
+	it("defaults safety metadata when not in manifest", () => {
+		writeManifest("no-safety", {
+			name: "no_safety",
+			description: "Skill without safety metadata",
+			type: "command",
+			command: "echo test",
+		});
+
+		const registry = new SkillRegistry();
+		loadCustomSkills(registry, tmpDir);
+		expect(registry.has("skill_no_safety")).toBe(true);
+		// Fail-closed defaults
+		expect(registry.isConcurrencySafe("skill_no_safety", {})).toBe(false);
+		expect(registry.isDestructive("skill_no_safety", {})).toBe(false);
+		expect(registry.isReadOnly("skill_no_safety", {})).toBe(false);
+	});
 });

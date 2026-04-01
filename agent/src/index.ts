@@ -658,9 +658,9 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 			});
 
 			// Execute each tool (with approval check for tier 1-2)
-			// Partition: sessions_spawn runs in parallel, others sequential
-			const spawnCalls = toolCalls.filter((c) => c.name === "sessions_spawn");
-			const otherCalls = toolCalls.filter((c) => c.name !== "sessions_spawn");
+			// Partition using registry-based safety metadata
+			const { concurrent: spawnCalls, sequential: otherCalls } =
+				skillRegistry.partitionForConcurrentExecution(toolCalls);
 
 			// Process sequential tools first
 			for (const call of otherCalls) {
