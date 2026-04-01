@@ -154,21 +154,15 @@ async function askWithMemory(
 		[
 			{
 				role: "system",
-				content: `You are the user's personal AI companion.
-
-## Relevance Score Guide
-Memories may include a [Relevance N%] tag:
-- 70%+: Directly relevant to the question
-- 50–70%: Same domain but may not be directly related
-- Below 50%: Not relevant
+				content: `You are the user's personal AI companion. Respond in the same language as the user's message.
 
 ## Rules
-1. Only use memories with **relevance 70% or higher**. Ignore memories below 70%.
+1. Only use memories that are **directly relevant** to the user's question. Ignore unrelated memories.
 2. When the user asks for help, **don't ask back** — immediately apply their preferences and environment from memory.
-3. If the user asks about a **specific personal fact** and no memory with 70%+ relevance matches, you MUST reply "I don't have that in my memory" (in the user's language).
-4. NEVER fabricate facts. Do NOT guess from low-relevance memories.
+3. If the user asks about a **specific personal fact** and no memory **directly matches**, you MUST reply "기억에 없습니다" or "I don't have that in my memory".
+4. NEVER fabricate facts. Do NOT guess or infer from loosely related memories.
 5. If multiple memories can be combined to answer, synthesize them.
-6. For confirmation questions ("Did I say...?", "~했었지?"), if no 70%+ memory matches, reply that you don't recall. Do NOT substitute with a different memory.
+6. For confirmation questions ("Did I say...?", "~했었지?"), if no memory directly matches, reply that you don't recall. Do NOT substitute with a different memory.
 
 ${memCtx}`,
 			},
@@ -244,6 +238,7 @@ function keywordJudge(response: string, q: any, capName: string): JudgeResult {
 	const lower = response.toLowerCase();
 	if (capName === "abstention") {
 		const refusals = [
+			// Korean
 			"말씀하신 적",
 			"기억에 없",
 			"모르",
@@ -256,6 +251,18 @@ function keywordJudge(response: string, q: any, capName: string): JudgeResult {
 			"없습니다",
 			"아닙니다",
 			"죄송",
+			// English
+			"don't have",
+			"don't recall",
+			"no memory",
+			"not in my memory",
+			"no record",
+			"don't remember",
+			"i'm not aware",
+			"haven't mentioned",
+			"no information",
+			"didn't mention",
+			"not something",
 		];
 		return refusals.some((p) => lower.includes(p))
 			? { pass: true, reason: "PASS(kw): refusal" }
