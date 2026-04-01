@@ -18,7 +18,11 @@ const MIN_AUDIO_SAMPLES = 8000; // 0.5s @ 16kHz — ignore very short utterances
 const AUDIO_CHUNK_FRAMES = 4096; // onAudio chunk size in samples
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
-const MAX_TOKENS = 256;
+const MAX_TOKENS = 1024;
+/** RMS amplitude threshold for speech detection (Int16 scale, 0–32767).
+ *  Chunks below this are treated as silence and do not reset the flush timer.
+ *  ~0.3% of full scale — quiet enough to ignore mic noise, loud enough for speech. */
+const SPEECH_RMS_THRESHOLD = 100;
 
 export function createVllmOmniSession(): VoiceSession {
 	let connected = false;
@@ -65,16 +69,34 @@ export function createVllmOmniSession(): VoiceSession {
 			);
 			pcmBuffer.push(samples.slice());
 
-			if (silenceTimer) clearTimeout(silenceTimer);
-			silenceTimer = setTimeout(() => {
-				silenceTimer = null;
-				flushAudio().catch((err) => {
-					Logger.warn("vllm-omni", "flush failed", { error: String(err) });
-					session.onError?.(
-						err instanceof Error ? err : new Error(String(err)),
-					);
-				});
-			}, SILENCE_TIMEOUT_MS);
+			// Amplitude-based silence detection: only reset the flush timer when
+			// the chunk contains actual speech (RMS above threshold).
+			// This prevents continuous mic noise from permanently blocking the flush.
+			const isSpeech = rms(samples) >= SPEECH_RMS_THRESHOLD;
+			if (isSpeech) {
+				if (silenceTimer) clearTimeout(silenceTimer);
+				silenceTimer = setTimeout(() => {
+					silenceTimer = null;
+					flushAudio().catch((err) => {
+						Logger.warn("vllm-omni", "flush failed", { error: String(err) });
+						session.onError?.(
+							err instanceof Error ? err : new Error(String(err)),
+						);
+					});
+				}, SILENCE_TIMEOUT_MS);
+			} else if (!silenceTimer) {
+				// No speech yet and no pending timer — start one so we flush
+				// even if user never speaks (clears any leftover buffer).
+				silenceTimer = setTimeout(() => {
+					silenceTimer = null;
+					flushAudio().catch((err) => {
+						Logger.warn("vllm-omni", "flush failed", { error: String(err) });
+						session.onError?.(
+							err instanceof Error ? err : new Error(String(err)),
+						);
+					});
+				}, SILENCE_TIMEOUT_MS);
+			}
 		},
 
 		sendText(text: string) {
@@ -286,6 +308,14 @@ function pcmToWav(samples: Int16Array, sampleRate: number): Uint8Array {
 	view.setUint32(40, dataLen, true);
 	new Int16Array(buf, 44).set(samples);
 	return new Uint8Array(buf);
+}
+
+/** Root-mean-square amplitude of Int16 PCM samples. */
+function rms(samples: Int16Array): number {
+	if (samples.length === 0) return 0;
+	let sum = 0;
+	for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+	return Math.sqrt(sum / samples.length);
 }
 
 function base64ToUint8Array(b64: string): Uint8Array {
