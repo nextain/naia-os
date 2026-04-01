@@ -18,6 +18,11 @@ import {
 	setToolTier,
 } from "./gateway/tool-tiers.js";
 import type { GatewayAdapter } from "./gateway/types.js";
+import { JobTracker } from "./tasks/index.js";
+import type { JobKind } from "./tasks/index.js";
+
+/** Global job tracker — tracks all skill/tool executions. */
+export const jobTracker = new JobTracker();
 import { LocalAdapter } from "./memory/adapters/local.js";
 import { MemorySystem } from "./memory/index.js";
 import type { MemoryAdapter } from "./memory/types.js";
@@ -692,7 +697,18 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 					}
 				}
 
+				const jobKind: JobKind = skillRegistry.has(call.name) ? "skill" : "gateway_tool";
+				const jobId = jobTracker.create(jobKind, call.name, `Execute ${call.name}`);
+				jobTracker.start(jobId);
+
 				const result = await executeToolWithRecovery(call.name, call.args);
+
+				if (result.success) {
+					jobTracker.complete(jobId, { output: result.output });
+				} else {
+					jobTracker.fail(jobId, result.error ?? "Unknown error");
+				}
+
 				writeLine({
 					type: "tool_result",
 					requestId,
@@ -744,13 +760,24 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 					approvedConcurrent.push(call);
 				}
 
-				// Execution phase (parallel)
+				// Execution phase (parallel) — track each job
+				const jobIds = approvedConcurrent.map((call) => {
+					const kind: JobKind = skillRegistry.has(call.name) ? "skill" : "gateway_tool";
+					const jid = jobTracker.create(kind, call.name, `Execute ${call.name}`);
+					jobTracker.start(jid);
+					return jid;
+				});
+
 				const results = await Promise.all(
-					approvedConcurrent.map((call) =>
-						executeToolWithRecovery(call.name, call.args).then((result) => ({
-							call,
-							result,
-						})),
+					approvedConcurrent.map((call, idx) =>
+						executeToolWithRecovery(call.name, call.args).then((result) => {
+							if (result.success) {
+								jobTracker.complete(jobIds[idx], { output: result.output });
+							} else {
+								jobTracker.fail(jobIds[idx], result.error ?? "Unknown error");
+							}
+							return { call, result };
+						}),
 					),
 				);
 
