@@ -381,4 +381,28 @@ describe("LocalAdapter", () => {
 			await adapter2.close();
 		});
 	});
+
+	describe("deepRecall", () => {
+		it("semantic.search returns decayed facts when deepRecall=true", async () => {
+			const oldFact: Fact = {
+				id: randomUUID(),
+				content: "I prefer Neovim as my editor always",
+				entities: ["Neovim"],
+				topics: ["tech"],
+				createdAt: Date.now() - 365 * DAY,
+				updatedAt: Date.now() - 365 * DAY,
+				importance: 0.3,
+				recallCount: 0,
+				lastAccessed: Date.now() - 365 * DAY,
+				strength: 0.01,
+				sourceEpisodes: [],
+			};
+			await adapter.semantic.upsert(oldFact);
+
+			// Deep recall — decay should not penalize ranking
+			const deep = await adapter.semantic.search("Neovim", 5, true);
+			expect(deep.length).toBeGreaterThan(0);
+			expect(deep[0].content).toContain("Neovim");
+		});
+	});
 });

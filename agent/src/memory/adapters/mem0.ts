@@ -118,11 +118,12 @@ export class Mem0Adapter implements MemoryAdapter {
 			});
 
 			// Map mem0 results back to episodes
-			const matchedEpisodes: Episode[] = [];
+			const matchedEpisodes: Array<Episode & { _mem0Score: number }> = [];
 			const resultItems = results?.results ?? results ?? [];
 
 			for (const r of resultItems) {
 				const memoryText = r.memory ?? r.text ?? r.content ?? "";
+				const mem0Score: number = r.score ?? 0.5;
 				// Find matching episode by content similarity
 				const match = this.episodes.find(
 					(ep) =>
@@ -141,7 +142,7 @@ export class Mem0Adapter implements MemoryAdapter {
 						match.lastAccessed,
 						now,
 					);
-					matchedEpisodes.push(match);
+					matchedEpisodes.push({ ...match, _mem0Score: mem0Score });
 				} else {
 					// mem0 returned a memory not in our episode list
 					// (could be from a previous session). Create a synthetic episode.
@@ -165,6 +166,7 @@ export class Mem0Adapter implements MemoryAdapter {
 						recallCount: 1,
 						lastAccessed: now,
 						strength,
+						_mem0Score: mem0Score,
 					});
 				}
 			}
@@ -197,13 +199,17 @@ export class Mem0Adapter implements MemoryAdapter {
 					if (a.content.toLowerCase().includes(entity)) aKg += act * 0.1;
 					if (b.content.toLowerCase().includes(entity)) bKg += act * 0.1;
 				}
-				// Relevance-first: strength boosts but doesn't dominate
-				const aScore = (1 + a.strength + aCtx + aKg);
-				const bScore = (1 + b.strength + bCtx + bKg);
+				// Relevance-first: cosine similarity base, strength/KG as bonus
+				const aCosine = a._mem0Score;
+				const bCosine = b._mem0Score;
+				const aScore = aCosine * (1 + a.strength + aCtx + aKg);
+				const bScore = bCosine * (1 + b.strength + bCtx + bKg);
 				return bScore - aScore;
 			});
 
-			return matchedEpisodes.slice(0, topK);
+			return matchedEpisodes
+				.slice(0, topK)
+				.map(({ _mem0Score, ...ep }) => ep);
 		},
 
 		getRecent: async (n: number): Promise<Episode[]> => {
@@ -288,7 +294,7 @@ export class Mem0Adapter implements MemoryAdapter {
 					// Scoring strategy:
 					// - Normal mode: relevance × (1 + decay boost) — relevance first, decay adjusts
 					// - Deep recall: pure vector similarity — ignore decay entirely
-					const cosineScore = r.score ?? 1 - idx / resultItems.length;
+					const cosineScore = r.score ?? (1 - idx / resultItems.length);
 					const _score = deepRecall
 						? cosineScore
 						: cosineScore * (1 + strength + kgBoost * 0.1);
@@ -305,7 +311,7 @@ export class Mem0Adapter implements MemoryAdapter {
 						lastAccessed: now,
 						strength,
 						sourceEpisodes: [],
-						relevanceScore: r.score ?? undefined,
+						relevanceScore: r.score,
 						_score,
 					};
 				},
@@ -429,24 +435,18 @@ export class Mem0Adapter implements MemoryAdapter {
 			task: string,
 			topK: number,
 		): Promise<Reflection[]> => {
-			// Use mem0 semantic search for reflections
-			const m = await this.ensureMem0();
-			const results = await m.search(`task failure: ${task}`, {
-				userId: this.userId,
-				limit: topK,
-			});
-
-			// Also search local reflections by keyword
+			// Search local reflections by keyword
+			// Note: reflections stored via learnFromFailure are also in mem0,
+			// but local search is sufficient for current session's reflections.
+			// Cross-session reflection retrieval requires Mem0Adapter persistence (#189).
 			const taskLower = task.toLowerCase();
-			const localMatches = this.reflections
+			return this.reflections
 				.filter(
 					(r) =>
 						r.task.toLowerCase().includes(taskLower) ||
 						taskLower.includes(r.task.toLowerCase()),
 				)
 				.slice(0, topK);
-
-			return localMatches;
 		},
 	};
 

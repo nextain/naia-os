@@ -279,7 +279,7 @@ export class LocalAdapter implements MemoryAdapter {
 			this.save();
 		},
 
-		search: async (query: string, topK: number, _deepRecall = false): Promise<Fact[]> => {
+		search: async (query: string, topK: number, deepRecall = false): Promise<Fact[]> => {
 			const now = Date.now();
 			const queryTokens = tokenize(query);
 
@@ -327,8 +327,10 @@ export class LocalAdapter implements MemoryAdapter {
 						if (act) activationBonus += act * 0.1;
 					}
 
-					const finalScore =
-						(textScore + entityBonus + activationBonus) * strength;
+					// deepRecall: ignore decay, use pure text relevance
+					const finalScore = deepRecall
+						? textScore + entityBonus + activationBonus
+						: (textScore + entityBonus + activationBonus) * strength;
 					return { fact, score: finalScore, strength };
 				})
 				.filter((x) => x.score > 0)
