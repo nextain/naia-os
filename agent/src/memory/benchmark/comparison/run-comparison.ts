@@ -360,13 +360,17 @@ async function judgeResponse(
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-	const apiKey = process.env.GEMINI_API_KEY;
-	if (!apiKey) {
-		console.error("GEMINI_API_KEY required");
+	const config = parseArgs();
+
+	const apiKey = process.env.GEMINI_API_KEY ?? "";
+	const needsGemini =
+		config.embedder === "gemini" || config.llm === "gemini";
+	if (needsGemini && !apiKey) {
+		console.error(
+			"GEMINI_API_KEY required (or use --llm=qwen3 --embedder=qwen3|bge-m3|solar)",
+		);
 		process.exit(1);
 	}
-
-	const config = parseArgs();
 	console.log("\n╔══════════════════════════════════════════════════════════╗");
 	console.log("║  MEMORY SYSTEM COMPARISON BENCHMARK                     ║");
 	console.log(`║  Adapters: ${config.adapterNames.join(", ").padEnd(44)}║`);
