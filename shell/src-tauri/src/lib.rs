@@ -2508,11 +2508,16 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // When a second instance is launched (e.g. via deep link),
-            // focus the existing window instead.
+            // focus the existing window and process any deep link URL in args.
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
             }
-            let _ = args; // deep link URLs are handled by on_open_url
+            // Linux: on_open_url may not fire for second instance — process args directly
+            for arg in &args {
+                if arg.starts_with("naia://") {
+                    process_deep_link_url(arg, app, None, "single-instance");
+                }
+            }
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
