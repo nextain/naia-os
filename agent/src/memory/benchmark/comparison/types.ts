@@ -14,8 +14,9 @@ export interface BenchmarkAdapter {
 	/** One-line description */
 	readonly description: string;
 
-	/** Initialize the adapter (create DB, start server, etc.) */
-	init(): Promise<void>;
+	/** Initialize the adapter (create DB, start server, etc.)
+	 *  cacheId: fixed ID for DB path reuse (skip-encode mode) */
+	init(cacheId?: string): Promise<void>;
 
 	/** Store a fact. Returns true if stored, false if filtered/gated. */
 	addFact(content: string): Promise<boolean>;

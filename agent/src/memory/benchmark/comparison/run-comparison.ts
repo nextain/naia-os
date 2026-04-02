@@ -398,28 +398,35 @@ async function main() {
 
 		try {
 			// Phase 1: Init + Encode
-			console.log("  Phase 1: Init + Encode\n");
-			await adapter.init();
+			const cacheId = config.skipEncode ? `cache-${config.lang}` : undefined;
+			await adapter.init(cacheId);
 
-			let stored = 0;
-			let gated = 0;
-			for (const fact of factBank.facts) {
-				try {
-					const ok = await adapter.addFact(fact.statement);
-					if (ok) {
-						stored++;
-						console.log(`    ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`);
-					} else {
-						gated++;
-						console.log(`    ⛔ ${fact.id}: GATED`);
+			if (config.skipEncode) {
+				console.log("  Phase 1: ⚡ SKIPPED (using cached DB)\n");
+			} else {
+				console.log("  Phase 1: Init + Encode\n");
+				let stored = 0;
+				let gated = 0;
+				for (const fact of factBank.facts) {
+					try {
+						const ok = await adapter.addFact(fact.statement);
+						if (ok) {
+							stored++;
+							console.log(
+								`    ✅ ${fact.id}: ${fact.statement.slice(0, 50)}...`,
+							);
+						} else {
+							gated++;
+							console.log(`    ⛔ ${fact.id}: GATED`);
+						}
+					} catch (err: any) {
+						console.log(`    ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 					}
-				} catch (err: any) {
-					console.log(`    ❌ ${fact.id}: ${err.message?.slice(0, 60)}`);
 				}
+				console.log(
+					`\n    Stored: ${stored}/${factBank.facts.length} (gated: ${gated})\n`,
+				);
 			}
-			console.log(
-				`\n    Stored: ${stored}/${factBank.facts.length} (gated: ${gated})\n`,
-			);
 
 			// Phase 2: Query + Respond + Judge
 			console.log("  Phase 2: Query + Judge\n");

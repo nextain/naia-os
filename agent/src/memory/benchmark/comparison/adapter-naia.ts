@@ -21,8 +21,10 @@ export class NaiaAdapter implements BenchmarkAdapter {
 		this.apiKey = apiKey;
 	}
 
-	async init(): Promise<void> {
-		const dbPath = `/tmp/mem0-bench-naia-${randomUUID()}`;
+	async init(cacheId?: string): Promise<void> {
+		const dbPath = cacheId
+			? `/tmp/mem0-bench-naia-${cacheId}`
+			: `/tmp/mem0-bench-naia-${randomUUID()}`;
 		const mem0Config = {
 			embedder: {
 				provider: "openai",
