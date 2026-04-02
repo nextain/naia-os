@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AVATAR_PRESETS, DEFAULT_AVATAR_MODEL } from "../lib/avatar-presets";
 import { directToolCall } from "../lib/chat-service";
 import {
@@ -156,6 +156,7 @@ export function OnboardingWizard({
 	const [naiaKey, setNaiaKey] = useState("");
 	const [naiaUserId, setNaiaUserId] = useState("");
 	const [labWaiting, setLabWaiting] = useState(false);
+	const labTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [labTimeout, setLabTimeout] = useState(false);
 	const [selectedSpeechStyle, setSelectedSpeechStyle] = useState("casual");
 	const [honorificInput, setHonorificInput] = useState("");
@@ -177,7 +178,10 @@ export function OnboardingWizard({
 	// Hide Chrome X11 embed while onboarding modal is visible
 	useEffect(() => {
 		pushModal();
-		return () => popModal();
+		return () => {
+			popModal();
+			if (labTimerRef.current) clearTimeout(labTimerRef.current);
+		};
 	}, [pushModal, popModal]);
 
 	// Listen for deep-link Lab auth callback
@@ -421,9 +425,11 @@ export function OnboardingWizard({
 			try { await openUrl(loginUrl); } catch { /* ignore */ }
 		}
 		// Timeout after 60s (embedded browser may take longer)
-		setTimeout(() => {
+		if (labTimerRef.current) clearTimeout(labTimerRef.current);
+		labTimerRef.current = setTimeout(() => {
 			setLabWaiting(false);
 			setLabTimeout(true);
+			labTimerRef.current = null;
 		}, 60_000);
 	}
 

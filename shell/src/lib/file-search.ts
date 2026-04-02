@@ -4,11 +4,12 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 
-interface DirEntry {
+export interface DirEntry {
 	name: string;
 	path: string;
 	is_dir: boolean;
-	children: DirEntry[] | null;
+	children?: DirEntry[] | null;
+	category?: string;
 }
 
 /** Maximum depth for recursive file listing */

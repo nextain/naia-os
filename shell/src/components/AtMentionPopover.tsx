@@ -104,8 +104,12 @@ function getCachedFiles(root: string): Promise<string[]> {
 	cachedRoot = root;
 	cachePromise = collectFiles(root, 0).then((files) => {
 		cachedFiles = files;
-		cachePromise = null;
 		return files;
+	}).catch((err) => {
+		cachedFiles = [];
+		throw err;
+	}).finally(() => {
+		cachePromise = null;
 	});
 	return cachePromise;
 }
@@ -228,8 +232,9 @@ export const AtMentionPopover = forwardRef<AtMentionHandle, AtMentionPopoverProp
 					if (e.key === "Enter" || e.key === "Tab") {
 						if (results.length > 0 && results[activeIndex]) {
 							handleSelect(results[activeIndex]);
-							return true;
 						}
+						// Always consume Enter/Tab while popover is open — prevent accidental send
+						return true;
 					}
 					return false;
 				},
