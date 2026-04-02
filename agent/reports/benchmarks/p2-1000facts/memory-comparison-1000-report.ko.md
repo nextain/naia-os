@@ -12,16 +12,29 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 
 | 순위 | 시스템 | Core | 비고 |
 |:----:|--------|:----:|------|
-| 순위 | 시스템 | Stars | 분류 | 1000 Facts | 500 Facts | 비고 |
-|:----:|--------|------:|------|:----------:|:---------:|------|
-| **1** | **Naia** | - | AI 데스크탑 동반자 | **65%** | 70-72% | 자체 메모리 (KG + 감쇠 + 재공고화 + mem0 벡터) |
-| 2 | OpenClaw | 210K+ | AI 게이트웨이 | 55% | 65% | Markdown + 벡터 인덱스. Naia가 사용하는 게이트웨이 |
-| 3 | Letta | 14K+ | Agent 메모리 프레임워크 | 47% | - | 계층적 메모리 (core/archival/recall). MemGPT 후속 |
-| 4 | SillyTavern | 24K+ | 캐릭터 챗/롤플레이 | 46% | - | vectra + transformers.js 로컬 임베딩 |
-| - | AIRI | 36K | AI VTuber/캐릭터 | 18% | - | 메모리 미구현. LLM 추측만으로 답한 baseline |
-| ❌ | mem0 | 24K+ | 메모리 라이브러리 | 재검증 필요 | 74% | 벡터 검색 + LLM fact 추출. API rate limit으로 실패 |
-| ❌ | SAP | - | 벡터 검색 | 재검증 필요 | 66% | FAISS 기반. API rate limit으로 인코딩 실패 |
-| ❌ | Open-LLM-VTuber | 4.1K | AI VTuber | 재검증 필요 | - | Letta 기반 메모리. API rate limit으로 중단 |
+| 순위 | 시스템 | 1000 Facts | 500 Facts | 비고 |
+|:----:|--------|:----------:|:---------:|------|
+| **1** | **Naia** | **65%** | 70-72% | KG + 감쇠 + 재공고화 |
+| 2 | OpenClaw | 55% | 65% | 게이트웨이 메모리 |
+| 3 | Letta | 47% | - | 계층적 메모리 (MemGPT) |
+| 4 | SillyTavern | 46% | - | vectra + 로컬 임베딩 |
+| - | AIRI | 18% | - | 메모리 미구현 (baseline) |
+| ❌ | mem0 | 재검증 필요 | 74% | API rate limit으로 실패 |
+| ❌ | SAP | 재검증 필요 | 66% | API rate limit으로 실패 |
+| ❌ | Open-LLM-VTuber | 재검증 필요 | - | API rate limit으로 중단 |
+
+### 비교 대상 소개
+
+| 시스템 | Stars | 분류 | 메모리 방식 | 왜 비교하나 |
+|--------|------:|------|-----------|-----------|
+| **Naia** | - | AI 데스크탑 동반자 | KG + 감쇠 + 재공고화 + mem0 벡터 | 우리 시스템 |
+| **mem0** | 24K+ | 메모리 라이브러리 | 벡터 검색 + LLM fact 추출 | 우리 백엔드. 레이어 없이 raw 성능 |
+| **Letta** | 14K+ | Agent 메모리 프레임워크 | 계층적 메모리 (core/archival/recall) | Agent 메모리 분야 최강. MemGPT 후속 |
+| **SillyTavern** | 24K+ | 캐릭터 챗/롤플레이 | vectra + transformers.js 임베딩 | 가장 성숙한 캐릭터 기억 |
+| **OpenClaw** | 210K+ | AI 게이트웨이 | Markdown + 벡터 인덱스 | Naia가 사용하는 게이트웨이 |
+| **SAP** | - | 벡터 검색 | FAISS 기반 | 전통적 벡터 검색 기준선 |
+| **Open-LLM-VTuber** | 4.1K | AI VTuber | Letta 기반 | VTuber 분야 직접 경쟁자 |
+| **AIRI** | 36K | AI VTuber/캐릭터 | 미구현 (Alaya 제안만) | 기여 대상, baseline |
 
 **1000 Facts vs 500 Facts 차이:**
 - **1000 Facts**: 가중(weighted) 점수. 검색비율 1% (1000개 중 10개). 가중치 적용으로 어려운 카테고리(시맨틱 검색, 환각 방지 등)가 2배 비중. 240개 쿼리, 12개 카테고리.
