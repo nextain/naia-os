@@ -11,7 +11,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, platform } from "node:os";
 import { resolve } from "node:path";
@@ -84,9 +84,24 @@ function setPlatformEnv() {
 	}
 }
 
+// ─── 5. Deep link handler → dev build ───────────────────────────────────────
+
+function setDevDeepLinkHandler() {
+	if (!isLinux) return;
+	const desktopFile = join(homedir(), ".local/share/applications/naia-shell-handler.desktop");
+	const debugBin = resolve("../shell/src-tauri/target/debug/naia-shell");
+	const content = `[Desktop Entry]\nType=Application\nName=Naia Deep Link Handler\nExec="${debugBin}" %u\nMimeType=x-scheme-handler/naia;\nNoDisplay=true\n`;
+	try {
+		writeFileSync(desktopFile, content);
+		execSync("update-desktop-database ~/.local/share/applications/ 2>/dev/null", { stdio: "ignore" });
+		console.log("[dev-setup] Deep link handler → dev build");
+	} catch { /* non-critical */ }
+}
+
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 killStale();
 ensureGateway();
 buildAgent();
 setPlatformEnv();
+await setDevDeepLinkHandler();
