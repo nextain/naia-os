@@ -12,28 +12,19 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 
 | 순위 | 시스템 | Core | 비고 |
 |:----:|--------|:----:|------|
-| **1** | **Naia** | **65%** | KG + 감쇠 + 재공고화 |
-| 2 | OpenClaw | 55% | 게이트웨이 메모리 |
-| 3 | Letta | 47% | 계층적 메모리 (MemGPT) |
-| 4 | SillyTavern | 46% | vectra + 로컬 임베딩 |
-| - | AIRI (미구현) | 18% | 메모리 없음 baseline |
-| ❌ | mem0 | 재검증 필요 | API rate limit으로 검색 실패 |
-| ❌ | SAP | 재검증 필요 | API rate limit으로 인코딩 746/1000 실패 |
-| ❌ | Open-LLM-VTuber | 재검증 필요 | API rate limit으로 중단 |
+| 순위 | 시스템 | 1000 Facts (weighted) | 500 Facts (unweighted) | 비고 |
+|:----:|--------|:--------------------:|:---------------------:|------|
+| **1** | **Naia** | **65%** | 70-72% | KG + 감쇠 + 재공고화 |
+| 2 | OpenClaw | 55% | 65% | 게이트웨이 메모리 |
+| 3 | Letta | 47% | - | 계층적 메모리 (MemGPT) |
+| 4 | SillyTavern | 46% | - | vectra + 로컬 임베딩 |
+| - | AIRI (미구현) | 18% | - | 메모리 없음 baseline |
+| ❌ | mem0 | 재검증 필요 | 74% | API rate limit으로 검색 실패 |
+| ❌ | SAP | 재검증 필요 | 66% | API rate limit으로 인코딩 실패 |
+| ❌ | Open-LLM-VTuber | 재검증 필요 | - | API rate limit으로 중단 |
 
+※ 1000 facts는 가중(weighted) 점수, 500 facts는 비가중(unweighted) 점수. 직접 비교 시 주의.
 ※ mem0, SAP, Open-LLM-VTuber는 Gemini API 동시 호출 rate limit(429)으로 정상 결과 아님. DB 캐시 구현 후 단독 재검증 예정.
-
-### 참고: 500 Facts 결과 (이전 벤치마크, unweighted)
-
-| 순위 | 시스템 | 500 Facts | 비고 |
-|:----:|--------|:---------:|------|
-| 1 | mem0 | 74% | 벡터 검색만 |
-| 2 | Naia | 70-72% | Gemini 70%, Qwen3 72% |
-| 3 | SAP | 66% | FAISS |
-| 4 | OpenClaw | 65% | 게이트웨이 |
-
-※ 500 facts 결과는 unweighted (가중치 미적용) 점수. 1000 facts는 weighted 점수. 직접 비교 시 주의.
-※ 500 facts에서는 mem0가 Naia를 앞섰으나, scoring 공식 변경 + 가중치 적용 이전 결과.
 
 ---
 
