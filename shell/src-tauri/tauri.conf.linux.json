@@ -11,7 +11,8 @@
 			},
 			"appimage": {
 				"bundleMediaFramework": false
-			}
+			},
+			"mimeTypes": ["text/markdown", "text/x-markdown"]
 		}
 	}
 }

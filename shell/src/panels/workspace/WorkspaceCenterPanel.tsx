@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadConfig, saveConfig } from "../../lib/config";
@@ -619,6 +620,23 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		});
 		return unsub;
 	}, [naia]);
+
+	// ── File open from OS (double-click .md file via file association) ─
+	useEffect(() => {
+		const unlisten = listen<{ path: string; name: string }>(
+			"file_open",
+			(event) => {
+				const { path } = event.payload;
+				Logger.info("WorkspaceCenterPanel", "File opened from OS", { path });
+				openFile(path);
+				setEditorBadge("");
+				setActiveTab("editor");
+			},
+		);
+		return () => {
+			unlisten.then((fn) => fn());
+		};
+	}, [openFile]);
 
 	// ── Naia tool: skill_workspace_classify_dirs ─────────────────────────
 	useEffect(() => {

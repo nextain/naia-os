@@ -12,7 +12,16 @@
 			"digestAlgorithm": "sha256",
 			"nsis": {
 				"installMode": "currentUser"
-			}
+			},
+			"fileAssociations": [
+				{
+					"ext": ["md"],
+					"mimeType": "text/markdown",
+					"name": "Markdown Document",
+					"description": "Naia Markdown Viewer",
+					"role": "Viewer"
+				}
+			]
 		}
 	}
 }
