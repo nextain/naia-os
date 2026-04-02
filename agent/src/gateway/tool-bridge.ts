@@ -28,7 +28,7 @@ import { bootstrapDefaultSkills, loadCustomSkills } from "../skills/loader.js";
 import { SkillRegistry } from "../skills/registry.js";
 import { GatewayRequestError } from "./client.js";
 import { executeSessionsSpawn } from "./sessions-spawn.js";
-import type { GatewayAdapter } from "./types.js";
+import type { CommandExecutor, GatewayAdapter } from "./types.js";
 
 export type { ToolDefinition };
 
@@ -86,7 +86,7 @@ bootstrapDefaultSkills(customSkillsDir, bundledSkillsDir);
 loadCustomSkills(skillRegistry, customSkillsDir);
 
 // --- Gateway tool safety metadata ---
-import { ALWAYS_TRUE, ALWAYS_FALSE } from "../skills/registry.js";
+import { ALWAYS_FALSE, ALWAYS_TRUE } from "../skills/registry.js";
 // Reuse typed safety predicate constants from registry (fail-closed defaults)
 
 skillRegistry.registerToolSafety("execute_command", {
@@ -410,13 +410,13 @@ function getStringField(
 	return typeof value === "string" ? value : undefined;
 }
 
-interface CommandResult {
+interface RpcCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr?: string;
 }
 
-function parseCommandResult(payload: unknown, depth = 0): CommandResult {
+function parseRpcCommandResult(payload: unknown, depth = 0): RpcCommandResult {
 	const rec = asRecord(payload);
 	if (!rec) {
 		return {
@@ -429,7 +429,7 @@ function parseCommandResult(payload: unknown, depth = 0): CommandResult {
 	if (depth < 3) {
 		const nested = asRecord(rec.result) ?? asRecord(rec.payload);
 		if (nested) {
-			return parseCommandResult(nested, depth + 1);
+			return parseRpcCommandResult(nested, depth + 1);
 		}
 	}
 
@@ -451,7 +451,7 @@ function parseCommandResult(payload: unknown, depth = 0): CommandResult {
 	return { exitCode, stdout, stderr };
 }
 
-function toToolResult(result: CommandResult): ToolResult {
+function toToolResult(result: RpcCommandResult): ToolResult {
 	return {
 		success: result.exitCode === 0,
 		output: result.stdout || result.stderr || "",
@@ -512,7 +512,7 @@ async function runExecBash(
 		command,
 		workdir: workdir || undefined,
 	});
-	return toToolResult(parseCommandResult(payload));
+	return toToolResult(parseRpcCommandResult(payload));
 }
 
 async function runNodeInvoke(
@@ -539,7 +539,7 @@ async function runNodeInvoke(
 		},
 	});
 
-	return toToolResult(parseCommandResult(payload));
+	return toToolResult(parseRpcCommandResult(payload));
 }
 
 async function runShellCommand(
@@ -634,6 +634,142 @@ export interface ExecuteToolContext {
 	writeLine?: (data: unknown) => void;
 	requestId?: string;
 	disabledSkills?: string[];
+	/** Command executor for shell tools (execute_command, read_file, etc.) */
+	executor?: CommandExecutor;
+}
+
+/**
+ * Build a CommandExecutor that routes through the Gateway RPC.
+ * Used as fallback when no NativeCommandExecutor is provided.
+ */
+function buildGatewayShellExecutor(client: GatewayAdapter): CommandExecutor {
+	return {
+		async execute(command, options) {
+			return runShellCommand(client, command, options?.cwd);
+		},
+	};
+}
+
+/**
+ * Execute a command-based tool (execute_command, read_file, write_file,
+ * search_files, apply_diff) using the provided CommandExecutor.
+ * Decoupled from Gateway — works with any executor implementation.
+ */
+async function executeCommandTool(
+	executor: CommandExecutor,
+	toolName: string,
+	args: Record<string, unknown>,
+): Promise<ToolResult> {
+	switch (toolName) {
+		case "execute_command": {
+			const command = args.command as string;
+			if (isBlockedCommand(command)) {
+				return {
+					success: false,
+					output: "",
+					error: `Blocked: "${command}" is not allowed for safety reasons`,
+				};
+			}
+			const workdir = args.workdir as string | undefined;
+			return executor.execute(command, workdir ? { cwd: workdir } : undefined);
+		}
+
+		case "read_file": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
+			return executor.execute(`cat ${shellEscape(path)}`);
+		}
+
+		case "write_file": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
+			const escapedPath = shellEscape(path);
+			const escapedContent = shellEscape(args.content as string);
+			const result = await executor.execute(
+				`mkdir -p "$(dirname ${escapedPath})" && printf '%s' ${escapedContent} > ${escapedPath}`,
+			);
+			if (!result.success) {
+				return result;
+			}
+			return { success: true, output: `File written: ${path}` };
+		}
+
+		case "search_files": {
+			const pattern = args.pattern as string;
+			const searchPath = (args.path as string) || "~";
+			const patternErr = validatePath(pattern);
+			const pathErr = validatePath(searchPath);
+			if (patternErr || pathErr) {
+				return {
+					success: false,
+					output: "",
+					error: patternErr || pathErr || "Invalid input",
+				};
+			}
+			const command = args.content
+				? `grep -rl ${shellEscape(pattern)} ${shellEscape(searchPath)} 2>/dev/null | head -20`
+				: `find ${shellEscape(searchPath)} -name ${shellEscape(pattern)} 2>/dev/null | head -20`;
+			const result = await executor.execute(command);
+			if (!result.success) {
+				return result;
+			}
+			return { success: true, output: result.output || "No matches found" };
+		}
+
+		case "apply_diff": {
+			const path = args.path as string;
+			const pathErr = validatePath(path);
+			if (pathErr) {
+				return { success: false, output: "", error: pathErr };
+			}
+			const search = args.search as string;
+			const replace = args.replace as string;
+			if (!search) {
+				return {
+					success: false,
+					output: "",
+					error: "search text cannot be empty",
+				};
+			}
+			try {
+				const readResult = await executor.execute(`cat ${shellEscape(path)}`);
+				if (!readResult.success) return readResult;
+
+				const content = readResult.output || "";
+				if (!content.includes(search)) {
+					return {
+						success: false,
+						output: "",
+						error: "Search text not found in file",
+					};
+				}
+				const newContent = content.replace(search, replace);
+				const escapedPath = shellEscape(path);
+				const escapedContent = shellEscape(newContent);
+				const writeResult = await executor.execute(
+					`printf '%s' ${escapedContent} > ${escapedPath}`,
+				);
+				if (!writeResult.success) return writeResult;
+
+				return { success: true, output: `Applied diff to ${path}` };
+			} catch (err) {
+				return { success: false, output: "", error: String(err) };
+			}
+		}
+
+		default:
+			return {
+				success: false,
+				output: "",
+				error: `Unknown command tool: ${toolName}`,
+			};
+	}
 }
 
 /** Execute a tool call (gateway tools need client; skills may not) */
@@ -653,83 +789,36 @@ export async function executeTool(
 		});
 	}
 
-	// Gateway tools require connected client
+	// Command-based tools: use executor if available, fall back to gateway RPC
+	const executor = ctx?.executor;
+	const COMMAND_TOOLS = [
+		"execute_command",
+		"read_file",
+		"write_file",
+		"search_files",
+		"apply_diff",
+	];
+	if (COMMAND_TOOLS.includes(toolName)) {
+		let exec: CommandExecutor | undefined = executor;
+		if (!exec && client?.isConnected()) {
+			exec = buildGatewayShellExecutor(client);
+		}
+		if (!exec) {
+			return {
+				success: false,
+				output: "",
+				error: "No command executor available (gateway not connected)",
+			};
+		}
+		return executeCommandTool(exec, toolName, args);
+	}
+
+	// Gateway-only tools require connected client
 	if (!client?.isConnected()) {
 		return { success: false, output: "", error: "Gateway not connected" };
 	}
 
 	switch (toolName) {
-		case "execute_command": {
-			const command = args.command as string;
-			if (isBlockedCommand(command)) {
-				return {
-					success: false,
-					output: "",
-					error: `Blocked: "${command}" is not allowed for safety reasons`,
-				};
-			}
-			return runShellCommand(
-				client,
-				command,
-				args.workdir as string | undefined,
-			);
-		}
-
-		case "read_file": {
-			const path = args.path as string;
-			const pathErr = validatePath(path);
-			if (pathErr) {
-				return { success: false, output: "", error: pathErr };
-			}
-			return runShellCommand(client, `cat ${shellEscape(path)}`);
-		}
-
-		case "write_file": {
-			const path = args.path as string;
-			const pathErr = validatePath(path);
-			if (pathErr) {
-				return { success: false, output: "", error: pathErr };
-			}
-			const escapedPath = shellEscape(path);
-			const escapedContent = shellEscape(args.content as string);
-			const result = await runShellCommand(
-				client,
-				`mkdir -p "$(dirname ${escapedPath})" && printf '%s' ${escapedContent} > ${escapedPath}`,
-			);
-			if (!result.success) {
-				return result;
-			}
-			return {
-				success: true,
-				output: `File written: ${path}`,
-			};
-		}
-
-		case "search_files": {
-			const pattern = args.pattern as string;
-			const searchPath = (args.path as string) || "~";
-			const patternErr = validatePath(pattern);
-			const pathErr = validatePath(searchPath);
-			if (patternErr || pathErr) {
-				return {
-					success: false,
-					output: "",
-					error: patternErr || pathErr || "Invalid input",
-				};
-			}
-			const command = args.content
-				? `grep -rl ${shellEscape(pattern)} ${shellEscape(searchPath)} 2>/dev/null | head -20`
-				: `find ${shellEscape(searchPath)} -name ${shellEscape(pattern)} 2>/dev/null | head -20`;
-			const result = await runShellCommand(client, command);
-			if (!result.success) {
-				return result;
-			}
-			return {
-				success: true,
-				output: result.output || "No matches found",
-			};
-		}
-
 		case "web_search": {
 			try {
 				let result: unknown;
@@ -768,55 +857,6 @@ export async function executeTool(
 					output: "",
 					error: `Web search failed: ${String(err)}`,
 				};
-			}
-		}
-
-		case "apply_diff": {
-			const path = args.path as string;
-			const pathErr = validatePath(path);
-			if (pathErr) {
-				return { success: false, output: "", error: pathErr };
-			}
-			const search = args.search as string;
-			const replace = args.replace as string;
-			if (!search) {
-				return {
-					success: false,
-					output: "",
-					error: "search text cannot be empty",
-				};
-			}
-			try {
-				// Read file, replace, write back
-				const readResult = await runShellCommand(
-					client,
-					`cat ${shellEscape(path)}`,
-				);
-				if (!readResult.success) return readResult;
-
-				const content = readResult.output || "";
-				if (!content.includes(search)) {
-					return {
-						success: false,
-						output: "",
-						error: "Search text not found in file",
-					};
-				}
-				const newContent = content.replace(search, replace);
-				const escapedPath = shellEscape(path);
-				const escapedContent = shellEscape(newContent);
-				const writeResult = await runShellCommand(
-					client,
-					`printf '%s' ${escapedContent} > ${escapedPath}`,
-				);
-				if (!writeResult.success) return writeResult;
-
-				return {
-					success: true,
-					output: `Applied diff to ${path}`,
-				};
-			} catch (err) {
-				return { success: false, output: "", error: String(err) };
 			}
 		}
 

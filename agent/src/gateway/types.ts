@@ -49,9 +49,18 @@ export interface CommandResult {
 	error?: string;
 }
 
+/** Options for CommandExecutor.execute() */
+export interface CommandExecuteOptions {
+	/** Working directory for the command. */
+	cwd?: string;
+}
+
 /** Abstract interface for executing shell commands. */
 export interface CommandExecutor {
-	execute(command: string): Promise<CommandResult>;
+	execute(
+		command: string,
+		options?: CommandExecuteOptions,
+	): Promise<CommandResult>;
 }
 
 /**

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { CommandExecutor, CommandResult, GatewayAdapter } from "./types.js";
+import type {
+	CommandExecuteOptions,
+	CommandExecutor,
+	CommandResult,
+	GatewayAdapter,
+} from "./types.js";
 
 /**
  * Resolve the first paired node ID from the Gateway.
@@ -47,13 +52,20 @@ function parseCommandPayload(payload: unknown): CommandResult {
 export class GatewayCommandExecutor implements CommandExecutor {
 	constructor(private readonly client: GatewayAdapter) {}
 
-	async execute(command: string): Promise<CommandResult> {
+	async execute(
+		command: string,
+		options?: CommandExecuteOptions,
+	): Promise<CommandResult> {
 		const methods = this.client.availableMethods;
+		const workdir = options?.cwd;
 
 		// Try exec.bash first
 		if (methods.includes("exec.bash")) {
 			try {
-				const payload = await this.client.request("exec.bash", { command });
+				const payload = await this.client.request("exec.bash", {
+					command,
+					workdir: workdir || undefined,
+				});
 				return parseCommandPayload(payload);
 			} catch {
 				// Fall through to node.invoke
@@ -75,7 +87,10 @@ export class GatewayCommandExecutor implements CommandExecutor {
 					nodeId,
 					idempotencyKey: randomUUID(),
 					command: "system.run",
-					params: { command: ["bash", "-lc", command] },
+					params: {
+						command: ["bash", "-lc", command],
+						cwd: workdir || undefined,
+					},
 				});
 				return parseCommandPayload(payload);
 			} catch (err) {

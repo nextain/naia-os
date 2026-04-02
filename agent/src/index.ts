@@ -6,6 +6,7 @@ import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
 import { createGatewayEventHandler } from "./gateway/event-handler.js";
+import { NativeCommandExecutor } from "./gateway/native-executor.js";
 import { defaultPathResolver } from "./gateway/path-resolver.js";
 import {
 	executeTool,
@@ -98,6 +99,9 @@ function resolveMemoryAdapter(): MemoryAdapter {
 const memoryAdapter = resolveMemoryAdapter();
 const memorySystem = new MemorySystem({ adapter: memoryAdapter });
 memorySystem.startConsolidation();
+
+/** Native command executor — works without Gateway connection */
+const nativeExecutor = new NativeCommandExecutor();
 
 const EMOTION_TAG_RE = /^\[(?:HAPPY|SAD|ANGRY|SURPRISED|NEUTRAL|THINK)]\s*/;
 const MAX_TOOL_ITERATIONS = 10;
@@ -536,6 +540,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				writeLine,
 				requestId,
 				disabledSkills,
+				executor: nativeExecutor,
 			});
 
 			if (result.success) return result;
@@ -572,6 +577,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 					writeLine,
 					requestId,
 					disabledSkills,
+					executor: nativeExecutor,
 				});
 			} catch {
 				// Keep original failure result if reconnect/retry also fails.
@@ -994,6 +1000,7 @@ export async function handleToolRequest(req: ToolRequest): Promise<void> {
 			writeLine,
 			requestId,
 			disabledSkills,
+			executor: nativeExecutor,
 		});
 
 		writeLine({
