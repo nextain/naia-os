@@ -58,7 +58,7 @@ function getEmbedderConfig(
 					baseURL: OLLAMA_BASE,
 					model: "qwen3-embedding",
 				},
-				dimension: 2048,
+				dimension: 4096,
 			};
 		case "bge-m3":
 			return {
