@@ -242,6 +242,9 @@ async function callRest(
 			messages,
 			modalities: ["audio"],
 			max_tokens: MAX_TOKENS,
+			// MiniCPM-o requires TTS template to generate <|tts_bos|>/<|tts_eos|>
+			// boundary tokens for proper Thinker→Talker conditioning
+			chat_template_kwargs: { use_tts_template: true },
 		}),
 	});
 
@@ -251,13 +254,31 @@ async function callRest(
 	}
 
 	const data = await resp.json();
-	const choice = data.choices?.[0];
-	if (!choice?.message?.audio?.data) {
+	// vllm-omni returns two choices: choices[0] = text, choices[1] = audio
+	const choices = data.choices ?? [];
+	const audioChoice = choices.find(
+		(c: Record<string, unknown>) =>
+			(c as { message?: { audio?: { data?: string } } }).message?.audio
+				?.data,
+	) as { message: { audio: { data: string; transcript?: string }; content?: string } } | undefined;
+	const textChoice = choices.find(
+		(c: Record<string, unknown>) =>
+			(c as { message?: { content?: string } }).message?.content,
+	) as { message: { content?: string } } | undefined;
+
+	if (!audioChoice) {
 		throw new Error("vllm-omni: no audio in response");
 	}
+
+	// Transcript: prefer audio.transcript, fall back to text choice content
+	const transcript =
+		audioChoice.message.audio.transcript ??
+		textChoice?.message?.content?.replace(/<think>[\s\S]*?<\/think>\s*/g, "") ??
+		"";
+
 	return {
-		audioData: choice.message.audio.data as string,
-		transcript: (choice.message.audio.transcript as string) ?? "",
+		audioData: audioChoice.message.audio.data,
+		transcript,
 	};
 }
 

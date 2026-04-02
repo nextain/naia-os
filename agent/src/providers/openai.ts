@@ -38,6 +38,7 @@ export function createOpenAIProvider(
 						model,
 						temperature: 0.7,
 						messages: toOpenAIMessages(messages, systemPrompt),
+						chat_template_kwargs: { use_tts_template: true },
 					}),
 					signal: signal ?? undefined,
 				});
