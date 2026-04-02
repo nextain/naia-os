@@ -23,7 +23,7 @@ import { JikimeAdkAdapter } from "./adapter-jikime-adk.js";
 import { JikimeMemAdapter } from "./adapter-jikime-mem.js";
 import { LettaAdapter } from "./adapter-letta.js";
 import { Mem0Adapter } from "./adapter-mem0.js";
-import { NaiaAdapter } from "./adapter-naia.js";
+import { type EmbeddingBackend, NaiaAdapter } from "./adapter-naia.js";
 import { NoMemoryAdapter } from "./adapter-no-memory.js";
 import { OpenClawAdapter } from "./adapter-openclaw.js";
 import { OpenLLMVTuberAdapter } from "./adapter-open-llm-vtuber.js";
@@ -50,6 +50,7 @@ function parseArgs() {
 	let llm: "gemini" | "qwen3" = "qwen3";
 	let skipEncode = false;
 	let lang = "ko";
+	let embedder = "gemini";
 
 	for (const arg of args) {
 		if (arg.startsWith("--adapters="))
@@ -62,16 +63,17 @@ function parseArgs() {
 		if (arg.startsWith("--llm=")) llm = arg.split("=")[1] as any;
 		if (arg === "--skip-encode") skipEncode = true;
 		if (arg.startsWith("--lang=")) lang = arg.split("=")[1];
+		if (arg.startsWith("--embedder=")) embedder = arg.split("=")[1];
 	}
-	return { adapterNames, judge, runs, categories, llm, skipEncode, lang };
+	return { adapterNames, judge, runs, categories, llm, skipEncode, lang, embedder };
 }
 
 // ─── Adapter Factory ────────────────────────────────────────────────────────
 
-function createAdapter(name: string, apiKey: string): BenchmarkAdapter {
+function createAdapter(name: string, apiKey: string, embedder?: string): BenchmarkAdapter {
 	switch (name) {
 		case "naia":
-			return new NaiaAdapter(apiKey);
+			return new NaiaAdapter(apiKey, (embedder ?? "gemini") as EmbeddingBackend);
 		case "mem0":
 			return new Mem0Adapter(apiKey);
 		case "openclaw":
@@ -372,6 +374,7 @@ async function main() {
 	console.log(`║  LLM: ${config.llm.padEnd(49)}║`);
 	console.log(`║  Runs: ${String(config.runs).padEnd(48)}║`);
 	console.log(`║  Lang: ${config.lang.padEnd(48)}║`);
+	console.log(`║  Embedder: ${config.embedder.padEnd(44)}║`);
 	if (config.skipEncode) console.log("║  ⚡ Skip-encode mode (using cached DB)              ║");
 	console.log("╚══════════════════════════════════════════════════════════╝\n");
 
@@ -390,7 +393,7 @@ async function main() {
 
 		let adapter: BenchmarkAdapter;
 		try {
-			adapter = createAdapter(adapterName, apiKey);
+			adapter = createAdapter(adapterName, apiKey, config.embedder);
 		} catch (err: any) {
 			console.error(`  ❌ Failed to create adapter: ${err.message}`);
 			continue;

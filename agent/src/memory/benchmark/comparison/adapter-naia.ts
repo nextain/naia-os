@@ -1,5 +1,11 @@
 /**
  * Naia MemorySystem(Mem0Adapter) benchmark adapter.
+ *
+ * Supports multiple embedding backends:
+ * - gemini: Gemini API (gemini-embedding-001, 3072d)
+ * - solar: Upstage Solar API (embedding-query/passage, 4096d)
+ * - qwen3: ollama local (qwen3-embedding, 2048d)
+ * - bge-m3: ollama local (bge-m3, 1024d)
  */
 import { randomUUID } from "node:crypto";
 import { Mem0Adapter } from "../../adapters/mem0.js";
@@ -7,49 +13,116 @@ import { MemorySystem } from "../../index.js";
 import type { BenchmarkAdapter } from "./types.js";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
+const UPSTAGE_BASE = "https://api.upstage.ai/v1/";
+const OLLAMA_BASE = "http://localhost:11434/v1/";
 const THROTTLE_MS = 2000;
 
+export type EmbeddingBackend = "gemini" | "solar" | "qwen3" | "bge-m3";
+
+interface EmbedderConfig {
+	provider: string;
+	config: Record<string, any>;
+	dimension: number;
+}
+
+function getEmbedderConfig(
+	backend: EmbeddingBackend,
+	apiKey: string,
+): EmbedderConfig {
+	switch (backend) {
+		case "gemini":
+			return {
+				provider: "openai",
+				config: {
+					apiKey,
+					baseURL: GEMINI_BASE,
+					model: "gemini-embedding-001",
+				},
+				dimension: 3072,
+			};
+		case "solar":
+			return {
+				provider: "openai",
+				config: {
+					apiKey: process.env.UPSTAGE_KEY ?? apiKey,
+					baseURL: UPSTAGE_BASE,
+					model: "embedding-passage",
+				},
+				dimension: 4096,
+			};
+		case "qwen3":
+			return {
+				provider: "openai",
+				config: {
+					apiKey: "ollama",
+					baseURL: OLLAMA_BASE,
+					model: "qwen3-embedding",
+				},
+				dimension: 2048,
+			};
+		case "bge-m3":
+			return {
+				provider: "openai",
+				config: {
+					apiKey: "ollama",
+					baseURL: OLLAMA_BASE,
+					model: "bge-m3",
+				},
+				dimension: 1024,
+			};
+	}
+}
+
 export class NaiaAdapter implements BenchmarkAdapter {
-	readonly name = "naia";
-	readonly description =
-		"MemorySystem(Mem0Adapter) — importance gating + decay + reconsolidation + mem0 vector search";
+	readonly name: string;
+	readonly description: string;
 
 	private system: MemorySystem | null = null;
 	private apiKey: string;
+	private embedBackend: EmbeddingBackend;
 
-	constructor(apiKey: string) {
+	constructor(apiKey: string, embedBackend: EmbeddingBackend = "gemini") {
 		this.apiKey = apiKey;
+		this.embedBackend = embedBackend;
+		this.name = embedBackend === "gemini" ? "naia" : `naia-${embedBackend}`;
+		this.description = `MemorySystem(Mem0Adapter) — embed: ${embedBackend}`;
 	}
 
 	async init(cacheId?: string): Promise<void> {
 		const dbPath = cacheId
-			? `/tmp/mem0-bench-naia-${cacheId}`
-			: `/tmp/mem0-bench-naia-${randomUUID()}`;
+			? `/tmp/mem0-bench-${this.name}-${cacheId}`
+			: `/tmp/mem0-bench-${this.name}-${randomUUID()}`;
+		const embedder = getEmbedderConfig(this.embedBackend, this.apiKey);
 		const mem0Config = {
 			embedder: {
-				provider: "openai",
-				config: {
-					apiKey: this.apiKey,
-					baseURL: GEMINI_BASE,
-					model: "gemini-embedding-001",
-				},
+				provider: embedder.provider,
+				config: embedder.config,
 			},
 			vectorStore: {
 				provider: "memory",
 				config: {
 					collectionName: "bench",
-					dimension: 3072,
+					dimension: embedder.dimension,
 					dbPath: `${dbPath}-vec.db`,
 				},
 			},
-			llm: {
-				provider: "openai",
-				config: {
-					apiKey: this.apiKey,
-					baseURL: GEMINI_BASE,
-					model: "gemini-2.5-flash",
-				},
-			},
+			llm: this.embedBackend === "gemini" || this.embedBackend === "solar"
+				? {
+						provider: "openai",
+						config: {
+							apiKey: this.apiKey,
+							baseURL: GEMINI_BASE,
+							model: "gemini-2.5-flash",
+						},
+					}
+				: {
+						provider: "openai",
+						config: {
+							apiKey: "ollama",
+							baseURL: OLLAMA_BASE,
+							model: "qwen3:8b",
+						},
+					},
 			historyDbPath: `${dbPath}-hist.db`,
 		};
 		const adapter = new Mem0Adapter({ mem0Config, userId: "bench" });
