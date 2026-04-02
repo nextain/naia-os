@@ -35,6 +35,8 @@ function getEmbedderConfig(
 	switch (backend) {
 		case "gemini":
 			// Use gateway (Vertex AI) if available, else direct AI Studio
+			// Note: OpenAI SDK truncates text-embedding-004 to 192d by default,
+			// so we set dimension to match (or pass dimensions param explicitly)
 			return GATEWAY_KEY
 				? {
 						provider: "openai",
@@ -44,7 +46,7 @@ function getEmbedderConfig(
 							model: "vertexai:text-embedding-004",
 							user: GATEWAY_USER,
 						},
-						dimension: 768,
+						dimension: 192,
 					}
 				: {
 						provider: "openai",
