@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { GatewayCommandExecutor } from "../gateway/command-executor.js";
 import type { GatewayAdapter } from "../gateway/types.js";
 import type { GatewayEvent } from "../gateway/types.js";
+import { McpClientConnection } from "../mcp/client.js";
 import type { SkillRegistry } from "./registry.js";
 import type {
 	SkillDefinition,
@@ -14,9 +15,15 @@ import type {
 interface SkillManifest {
 	name: string;
 	description: string;
-	type: "gateway" | "command";
+	type: "gateway" | "command" | "mcp";
 	gatewaySkill?: string;
 	command?: string;
+	/** MCP server configuration (for type: "mcp") */
+	mcp?: {
+		command: string;
+		args?: string[];
+		env?: Record<string, string>;
+	};
 	tier?: number;
 	parameters?: Record<string, unknown>;
 	/** Static safety declarations (optional, default false / fail-closed). */
@@ -259,18 +266,30 @@ export function bootstrapDefaultSkills(
 	}
 }
 
+/** Promise that resolves when all MCP server connections are ready */
+let mcpReadyResolve: () => void;
+export const mcpReady: Promise<void> = new Promise((r) => {
+	mcpReadyResolve = r;
+});
+
 export function loadCustomSkills(
 	registry: SkillRegistry,
 	skillsDir: string,
 ): void {
-	if (!fs.existsSync(skillsDir)) return;
+	if (!fs.existsSync(skillsDir)) {
+		mcpReadyResolve();
+		return;
+	}
 
 	let entries: fs.Dirent[];
 	try {
 		entries = fs.readdirSync(skillsDir, { withFileTypes: true });
 	} catch {
+		mcpReadyResolve();
 		return;
 	}
+
+	const mcpPromises: Promise<void>[] = [];
 
 	for (const entry of entries) {
 		if (!entry.isDirectory()) continue;
@@ -288,11 +307,19 @@ export function loadCustomSkills(
 		}
 
 		if (!manifest.name || !manifest.description || !manifest.type) continue;
-		if (manifest.type !== "gateway" && manifest.type !== "command") continue;
+		if (!["gateway", "command", "mcp"].includes(manifest.type)) continue;
 
 		const name = manifest.name.startsWith("skill_")
 			? manifest.name
 			: `skill_${manifest.name}`;
+
+		// MCP type: discover tools from MCP server and register each
+		if (manifest.type === "mcp" && manifest.mcp) {
+			mcpPromises.push(
+				loadMcpSkills(registry, manifest, name, path.join(skillsDir, entry.name)),
+			);
+			continue;
+		}
 
 		const isGateway = manifest.type === "gateway";
 		const handler = isGateway
@@ -328,4 +355,110 @@ export function loadCustomSkills(
 			// Skip duplicates or invalid names
 		}
 	}
+
+	// Resolve mcpReady when all MCP connections complete (or immediately if none)
+	if (mcpPromises.length > 0) {
+		Promise.all(mcpPromises).then(() => mcpReadyResolve());
+	} else {
+		mcpReadyResolve();
+	}
+}
+
+/** Active MCP client connections (kept alive for the process lifetime) */
+const mcpConnections: McpClientConnection[] = [];
+
+/** Close all active MCP client connections. Call on process shutdown. */
+export async function closeAllMcpConnections(): Promise<void> {
+	await Promise.all(mcpConnections.map((c) => c.close()));
+	mcpConnections.length = 0;
+}
+
+/**
+ * Connect to an MCP server, discover its tools, and register each as a skill.
+ * Tool names are prefixed with the manifest name for namespacing.
+ */
+async function loadMcpSkills(
+	registry: SkillRegistry,
+	manifest: SkillManifest,
+	namePrefix: string,
+	source: string,
+): Promise<void> {
+	const mcp = manifest.mcp;
+	if (!mcp) return;
+
+	const conn = new McpClientConnection({
+		name: manifest.name,
+		command: mcp.command,
+		args: mcp.args,
+		env: mcp.env,
+	});
+
+	try {
+		await conn.connect();
+		const tools = await conn.listTools();
+		mcpConnections.push(conn);
+
+		for (const tool of tools) {
+			const skillName = `${namePrefix}_${tool.name}`;
+			const handler = makeMcpToolHandler(conn, tool.name);
+			const skill: SkillDefinition = {
+				name: skillName,
+				description: tool.description ?? `MCP tool: ${tool.name}`,
+				parameters: tool.inputSchema,
+				execute: handler,
+				tier: manifest.tier ?? 2,
+				requiresGateway: false,
+				source,
+				...(manifest.isConcurrencySafe != null && {
+					isConcurrencySafe: () => manifest.isConcurrencySafe!,
+				}),
+				...(manifest.isDestructive != null && {
+					isDestructive: () => manifest.isDestructive!,
+				}),
+				...(manifest.isReadOnly != null && {
+					isReadOnly: () => manifest.isReadOnly!,
+				}),
+			};
+			try {
+				registry.register(skill);
+			} catch {
+				// Skip duplicates
+			}
+		}
+	} catch (err) {
+		process.stderr.write(
+			`[naia-agent] MCP server "${manifest.name}" failed: ${err instanceof Error ? err.message : String(err)}\n`,
+		);
+	}
+}
+
+/**
+ * Create a SkillHandler that calls an MCP tool and converts the result.
+ */
+function makeMcpToolHandler(
+	conn: McpClientConnection,
+	toolName: string,
+): (
+	args: Record<string, unknown>,
+	ctx: SkillExecutionContext,
+) => Promise<SkillResult> {
+	return async (args) => {
+		try {
+			const result = await conn.callTool(toolName, args);
+			const text = result.content
+				.map((c) => c.text ?? JSON.stringify(c))
+				.join("\n");
+			return {
+				success: !result.isError,
+				output: text || "(no output)",
+				error: result.isError ? text : undefined,
+			};
+		} catch (err) {
+			return {
+				success: false,
+				output: "",
+				error: err instanceof Error ? err.message : String(err),
+			};
+		}
+	};
 }

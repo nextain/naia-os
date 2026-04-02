@@ -13,6 +13,7 @@ import {
 	getAllTools,
 	skillRegistry,
 } from "./gateway/tool-bridge.js";
+import { closeAllMcpConnections } from "./skills/loader.js";
 import {
 	getToolDescription,
 	getToolTier,
@@ -1205,26 +1206,16 @@ function main(): void {
 		}
 	});
 
-	rl.on("close", () => {
-		memorySystem
-			.close()
-			.catch(() => {})
-			.finally(() => process.exit(0));
-	});
-
-	// Graceful shutdown — flush memory before exit
-	process.on("SIGTERM", () => {
-		memorySystem
-			.close()
-			.catch(() => {})
-			.finally(() => process.exit(0));
-	});
-	process.on("SIGINT", () => {
-		memorySystem
-			.close()
-			.catch(() => {})
-			.finally(() => process.exit(0));
-	});
+	// Graceful shutdown — flush memory + close MCP connections before exit
+	const shutdown = () => {
+		Promise.all([
+			memorySystem.close().catch(() => {}),
+			closeAllMcpConnections().catch(() => {}),
+		]).finally(() => process.exit(0));
+	};
+	rl.on("close", shutdown);
+	process.on("SIGTERM", shutdown);
+	process.on("SIGINT", shutdown);
 
 	// Signal readiness
 	writeLine({ type: "ready" });

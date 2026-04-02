@@ -15,9 +15,11 @@
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.39.0",
 		"@google/genai": "^1.42.0",
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"msedge-tts": "^2.0.4",
 		"openai": "^4.80.0",
-		"ws": "^8.19.0"
+		"ws": "^8.19.0",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",
