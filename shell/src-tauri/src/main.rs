@@ -30,6 +30,12 @@ fn main() {
     #[cfg(target_os = "linux")]
     {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        // Force X11 backend for GTK/WebKitGTK — required for Chrome X11 reparenting
+        // (browser panel embedding). Without this, Tauri runs on Wayland and cannot
+        // be found by X11 window search, breaking the embed flow.
+        if std::env::var("GDK_BACKEND").is_err() {
+            std::env::set_var("GDK_BACKEND", "x11");
+        }
     }
 
     naia_shell_lib::run()
