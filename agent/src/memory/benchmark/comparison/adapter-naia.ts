@@ -13,6 +13,9 @@ import { MemorySystem } from "../../index.js";
 import type { BenchmarkAdapter } from "./types.js";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
+const GATEWAY_BASE = process.env.GATEWAY_URL ?? "";
+const GATEWAY_KEY = process.env.GATEWAY_MASTER_KEY ?? "";
+const GATEWAY_USER = "benchmark";
 const UPSTAGE_BASE = "https://api.upstage.ai/v1/";
 const OLLAMA_BASE = "http://localhost:11434/v1/";
 const THROTTLE_MS = 2000;
@@ -31,15 +34,23 @@ function getEmbedderConfig(
 ): EmbedderConfig {
 	switch (backend) {
 		case "gemini":
-			return {
-				provider: "openai",
-				config: {
-					apiKey,
-					baseURL: GEMINI_BASE,
-					model: "gemini-embedding-001",
-				},
-				dimension: 3072,
-			};
+			// Use gateway (Vertex AI) if available, else direct AI Studio
+			return GATEWAY_KEY
+				? {
+						provider: "openai",
+						config: {
+							apiKey: GATEWAY_KEY,
+							baseURL: `${GATEWAY_BASE}/v1/`,
+							model: "vertexai:text-embedding-004",
+							user: GATEWAY_USER,
+						},
+						dimension: 768,
+					}
+				: {
+						provider: "openai",
+						config: { apiKey, baseURL: GEMINI_BASE, model: "gemini-embedding-001" },
+						dimension: 3072,
+					};
 		case "solar":
 			return {
 				provider: "openai",
@@ -106,23 +117,33 @@ export class NaiaAdapter implements BenchmarkAdapter {
 					dbPath: `${dbPath}-vec.db`,
 				},
 			},
-			llm: this.embedBackend === "gemini" || this.embedBackend === "solar"
+			llm: GATEWAY_KEY
 				? {
 						provider: "openai",
 						config: {
-							apiKey: this.apiKey,
-							baseURL: GEMINI_BASE,
-							model: "gemini-2.5-flash",
+							apiKey: GATEWAY_KEY,
+							baseURL: `${GATEWAY_BASE}/v1/`,
+							model: "vertexai:gemini-2.5-flash",
+							user: GATEWAY_USER,
 						},
 					}
-				: {
-						provider: "openai",
-						config: {
-							apiKey: "ollama",
-							baseURL: OLLAMA_BASE,
-							model: "qwen3:8b",
+				: this.embedBackend === "qwen3" || this.embedBackend === "bge-m3"
+					? {
+							provider: "openai",
+							config: {
+								apiKey: "ollama",
+								baseURL: OLLAMA_BASE,
+								model: "qwen3:8b",
+							},
+						}
+					: {
+							provider: "openai",
+							config: {
+								apiKey: this.apiKey,
+								baseURL: GEMINI_BASE,
+								model: "gemini-2.5-flash",
+							},
 						},
-					},
 			historyDbPath: `${dbPath}-hist.db`,
 		};
 		const adapter = new Mem0Adapter({ mem0Config, userId: "bench" });

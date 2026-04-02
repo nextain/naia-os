@@ -135,24 +135,39 @@ async function callOllama(
 	return "";
 }
 
+/**
+ * Call Gemini via gateway (if GATEWAY_URL + GATEWAY_MASTER_KEY set) or direct API.
+ * Gateway uses Vertex AI (higher quota), direct uses AI Studio.
+ */
 async function callGemini(
 	apiKey: string,
 	messages: Array<{ role: string; content: string }>,
 	maxTokens: number,
 ): Promise<string> {
+	const gwUrl = process.env.GATEWAY_URL;
+	const gwKey = process.env.GATEWAY_MASTER_KEY;
+	const useGateway = !!(gwUrl && gwKey);
+
+	const url = useGateway
+		? `${gwUrl}/v1/chat/completions`
+		: `${GEMINI_BASE}chat/completions`;
+	const authKey = useGateway ? gwKey : apiKey;
+	const model = useGateway ? "vertexai:gemini-2.5-flash" : "gemini-2.5-flash";
+
 	for (let attempt = 0; attempt < 3; attempt++) {
 		await new Promise((r) => setTimeout(r, THROTTLE_MS));
 		try {
-			const res = await fetch(`${GEMINI_BASE}chat/completions`, {
+			const res = await fetch(url, {
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${apiKey}`,
+					Authorization: `Bearer ${authKey}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					model: "gemini-2.5-flash",
+					model,
 					messages,
 					max_tokens: maxTokens,
+					...(useGateway && { user: "benchmark" }),
 				}),
 			});
 			if (!res.ok) {
