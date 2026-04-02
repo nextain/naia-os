@@ -18,7 +18,7 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 | 2 | OpenClaw | 55% | 65% | 게이트웨이 메모리 |
 | 3 | Letta | 47% | - | 계층적 메모리 (MemGPT) |
 | 4 | SillyTavern | 46% | - | vectra + 로컬 임베딩 |
-| - | AIRI (미구현) | 18% | - | 메모리 없음 baseline |
+| - | AIRI | 18% | - | 메모리 시스템 미구현 상태. 메모리 없이 LLM 추측만으로 답한 결과 (baseline) |
 | ❌ | mem0 | 재검증 필요 | 74% | API rate limit으로 검색 실패 |
 | ❌ | SAP | 재검증 필요 | 66% | API rate limit으로 인코딩 실패 |
 | ❌ | Open-LLM-VTuber | 재검증 필요 | - | API rate limit으로 중단 |
