@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import {
 	type RecognitionResult,
@@ -88,6 +88,12 @@ import { SettingsTab } from "./SettingsTab";
 import { SkillsTab } from "./SkillsTab";
 import { ToolActivity } from "./ToolActivity";
 import { WorkProgressPanel } from "./WorkProgressPanel";
+import {
+	type AtMentionHandle,
+	type AtMentionResult,
+	AtMentionPopover,
+	isWorkspaceAvailable,
+} from "./AtMentionPopover";
 
 type TabId =
 	| "chat"
@@ -310,6 +316,13 @@ export function ChatPanel() {
 	const historyIndexRef = useRef(-1);
 	/** Snapshot of current input before the user starts browsing history */
 	const historyDraftRef = useRef("");
+
+	// ── @ mention popover ────────────────────────────────────────────────
+	const [atMentionOpen, setAtMentionOpen] = useState(false);
+	const [atMentionQuery, setAtMentionQuery] = useState("");
+	/** Character index where @ was typed (to replace @query on selection) */
+	const atMentionStartRef = useRef(-1);
+	const atMentionRef = useRef<AtMentionHandle>(null);
 
 	// Pipeline voice state (Vosk STT → LLM → sentence TTS → audio queue)
 	const pipelineActiveRef = useRef(false);
@@ -1745,7 +1758,97 @@ export function ChatPanel() {
 		}
 	}
 
+	// ── @ mention: track input changes ──────────────────────────────────
+	const handleInputChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			const value = e.target.value;
+			setInput(value);
+
+			// Detect @ trigger
+			const cursorPos = e.target.selectionStart ?? value.length;
+
+			if (atMentionOpen) {
+				// Update query: text between @ and cursor
+				const start = atMentionStartRef.current;
+				if (start >= 0 && cursorPos > start) {
+					const q = value.slice(start + 1, cursorPos);
+					// Close if space right after @ or cursor moved before @
+					if (q.includes(" ") && q.indexOf(" ") === 0) {
+						setAtMentionOpen(false);
+						setAtMentionQuery("");
+						atMentionStartRef.current = -1;
+					} else {
+						setAtMentionQuery(q);
+					}
+				} else {
+					// Cursor moved before @, close popover
+					setAtMentionOpen(false);
+					setAtMentionQuery("");
+					atMentionStartRef.current = -1;
+				}
+			} else {
+				// Check if @ was just typed (the char before cursor is @)
+				if (
+					cursorPos > 0 &&
+					value[cursorPos - 1] === "@" &&
+					isWorkspaceAvailable()
+				) {
+					// Only trigger if @ is at start or preceded by whitespace
+					const charBefore =
+						cursorPos >= 2 ? value[cursorPos - 2] : undefined;
+					if (!charBefore || /\s/.test(charBefore)) {
+						setAtMentionOpen(true);
+						setAtMentionQuery("");
+						atMentionStartRef.current = cursorPos - 1;
+					}
+				}
+			}
+		},
+		[atMentionOpen],
+	);
+
+	// ── @ mention: handle selection ─────────────────────────────────────
+	const handleAtMentionSelect = useCallback(
+		(item: AtMentionResult) => {
+			const start = atMentionStartRef.current;
+			if (start < 0) return;
+			const el = inputRef.current;
+			const cursorPos = el?.selectionStart ?? input.length;
+			// Replace @query with @relative/path
+			const before = input.slice(0, start);
+			const after = input.slice(cursorPos);
+			const mention = `@${item.rel} `;
+			const newValue = before + mention + after;
+			setInput(newValue);
+			setAtMentionOpen(false);
+			setAtMentionQuery("");
+			atMentionStartRef.current = -1;
+			// Move cursor after the inserted mention
+			requestAnimationFrame(() => {
+				const pos = before.length + mention.length;
+				inputRef.current?.setSelectionRange(pos, pos);
+				inputRef.current?.focus();
+			});
+		},
+		[input],
+	);
+
+	const handleAtMentionClose = useCallback(() => {
+		setAtMentionOpen(false);
+		setAtMentionQuery("");
+		atMentionStartRef.current = -1;
+	}, []);
+
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+		// ── @ mention keyboard navigation (intercept before other handlers)
+		if (atMentionOpen && atMentionRef.current) {
+			const handled = atMentionRef.current.handleKeyDown(e);
+			if (handled) {
+				e.preventDefault();
+				return;
+			}
+		}
+
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			handleSend();
@@ -2070,10 +2173,18 @@ export function ChatPanel() {
 				{pipelineActiveRef.current && sttPartial && (
 					<div className="stt-partial">{sttPartial}</div>
 				)}
+				{atMentionOpen && (
+					<AtMentionPopover
+						ref={atMentionRef}
+						query={atMentionQuery}
+						onSelect={handleAtMentionSelect}
+						onClose={handleAtMentionClose}
+					/>
+				)}
 				<textarea
 					ref={inputRef}
 					value={input}
-					onChange={(e) => setInput(e.target.value)}
+					onChange={handleInputChange}
 					onKeyDown={handleKeyDown}
 					placeholder={
 						pipelineActiveRef.current
