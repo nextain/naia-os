@@ -26,7 +26,9 @@ import { Mem0Adapter } from "./adapter-mem0.js";
 import { NaiaAdapter } from "./adapter-naia.js";
 import { NoMemoryAdapter } from "./adapter-no-memory.js";
 import { OpenClawAdapter } from "./adapter-openclaw.js";
+import { OpenLLMVTuberAdapter } from "./adapter-open-llm-vtuber.js";
 import { SapAdapter } from "./adapter-sap.js";
+import { SillyTavernAdapter } from "./adapter-sillytavern.js";
 import { ZepAdapter } from "./adapter-zep.js";
 import type {
 	BenchmarkAdapter,
@@ -45,7 +47,9 @@ function parseArgs() {
 	let judge: "claude-cli" | "keyword" = "claude-cli";
 	let runs = 1;
 	let categories: string[] | null = null;
-	let llm: "gemini" | "qwen3" = "gemini";
+	let llm: "gemini" | "qwen3" = "qwen3";
+	let skipEncode = false;
+	let lang = "ko";
 
 	for (const arg of args) {
 		if (arg.startsWith("--adapters="))
@@ -56,8 +60,10 @@ function parseArgs() {
 		if (arg.startsWith("--categories="))
 			categories = arg.split("=")[1].split(",");
 		if (arg.startsWith("--llm=")) llm = arg.split("=")[1] as any;
+		if (arg === "--skip-encode") skipEncode = true;
+		if (arg.startsWith("--lang=")) lang = arg.split("=")[1];
 	}
-	return { adapterNames, judge, runs, categories, llm };
+	return { adapterNames, judge, runs, categories, llm, skipEncode, lang };
 }
 
 // ─── Adapter Factory ────────────────────────────────────────────────────────
@@ -80,16 +86,15 @@ function createAdapter(name: string, apiKey: string): BenchmarkAdapter {
 			return new SapAdapter(apiKey);
 		case "jikime-adk":
 			return new JikimeAdkAdapter();
+		case "sillytavern":
+			return new SillyTavernAdapter();
 		case "airi":
 			return new NoMemoryAdapter(
 				"airi",
 				"project-airi — memory WIP (stub), no search",
 			);
 		case "open-llm-vtuber":
-			return new NoMemoryAdapter(
-				"open-llm-vtuber",
-				"Open-LLM-VTuber — chat history only, no persistent memory",
-			);
+			return new OpenLLMVTuberAdapter();
 		default:
 			throw new Error(`Unknown adapter: ${name}`);
 	}
@@ -366,10 +371,13 @@ async function main() {
 	console.log(`║  Judge: ${config.judge.padEnd(47)}║`);
 	console.log(`║  LLM: ${config.llm.padEnd(49)}║`);
 	console.log(`║  Runs: ${String(config.runs).padEnd(48)}║`);
+	console.log(`║  Lang: ${config.lang.padEnd(48)}║`);
+	if (config.skipEncode) console.log("║  ⚡ Skip-encode mode (using cached DB)              ║");
 	console.log("╚══════════════════════════════════════════════════════════╝\n");
 
-	const factBankPath = join(import.meta.dirname, "..", "fact-bank.json");
-	const templatesPath = join(import.meta.dirname, "..", "query-templates.json");
+	const langSuffix = config.lang === "ko" ? "" : `.${config.lang}`;
+	const factBankPath = join(import.meta.dirname, "..", `fact-bank${langSuffix}.json`);
+	const templatesPath = join(import.meta.dirname, "..", `query-templates${langSuffix}.json`);
 	const factBank = JSON.parse(readFileSync(factBankPath, "utf-8"));
 	const templates = JSON.parse(readFileSync(templatesPath, "utf-8"));
 
@@ -657,29 +665,53 @@ async function main() {
 		`  ${"GRADE".padEnd(25)} ${allResults.map((r) => r.grade.padStart(10)).join(" ")}`,
 	);
 
-	// Save report
+	// Save report — per-adapter files to avoid overwrite in parallel runs
 	const reportDir = join(import.meta.dirname, "../../../..", "reports");
 	mkdirSync(reportDir, { recursive: true });
-	const reportPath = join(
-		reportDir,
-		`memory-comparison-${new Date().toISOString().slice(0, 10)}.json`,
-	);
+	const date = new Date().toISOString().slice(0, 10);
+
+	// Save individual adapter reports
+	for (const result of allResults) {
+		const adapterPath = join(
+			reportDir,
+			`memory-comparison-${result.adapter}-${date}.json`,
+		);
+		writeFileSync(
+			adapterPath,
+			JSON.stringify(
+				{
+					timestamp: new Date().toISOString(),
+					version: "comparison-v2",
+					judge: config.judge,
+					llm: config.llm,
+					runs: config.runs,
+					results: [result],
+				},
+				null,
+				2,
+			),
+		);
+		console.log(`  Report (${result.adapter}): ${adapterPath}`);
+	}
+
+	// Also save combined report
+	const combinedPath = join(reportDir, `memory-comparison-${date}.json`);
 	writeFileSync(
-		reportPath,
+		combinedPath,
 		JSON.stringify(
 			{
 				timestamp: new Date().toISOString(),
-				version: "comparison-v1",
+				version: "comparison-v2",
 				judge: config.judge,
+				llm: config.llm,
 				runs: config.runs,
-				model: "gemini-2.5-flash",
 				results: allResults,
 			},
 			null,
 			2,
 		),
 	);
-	console.log(`\n  Report: ${reportPath}\n`);
+	console.log(`  Report (combined): ${combinedPath}\n`);
 }
 
 main().catch(console.error);

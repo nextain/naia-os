@@ -71,9 +71,10 @@ export class NaiaAdapter implements BenchmarkAdapter {
 			project: "benchmark",
 			topK,
 		});
+		const fmt = (ts: number) => new Date(ts).toISOString().slice(0, 10);
 		const raw = [
-			...result.facts.map((f) => f.content),
-			...result.episodes.map((e) => e.content),
+			...result.facts.map((f) => `[${fmt(f.updatedAt)}] ${f.content}`),
+			...result.episodes.map((e) => `[${fmt(e.timestamp)}] ${e.content}`),
 		];
 		return [...new Set(raw)];
 	}
