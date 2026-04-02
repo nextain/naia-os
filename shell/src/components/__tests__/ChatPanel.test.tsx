@@ -27,6 +27,10 @@ vi.mock("../../lib/chat-service", () => ({
 			},
 		),
 	cancelChat: vi.fn().mockResolvedValue(undefined),
+	directToolCall: vi.fn().mockResolvedValue({ success: false }),
+	fetchAgentSkills: vi.fn().mockResolvedValue([]),
+	requestTts: vi.fn().mockResolvedValue(undefined),
+	sendPanelToolResult: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock Tauri APIs (needed by approval flow)

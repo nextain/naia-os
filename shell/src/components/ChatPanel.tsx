@@ -340,6 +340,10 @@ export function ChatPanel() {
 	const sttBufferRef = useRef("");
 	const ttsPlayingRef = useRef(false);
 	const ttsCooldownUntilRef = useRef(0);
+	/** Timer for focus-after-tab-switch; cleared on unmount to prevent stale focus */
+	const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	/** Timer for pipeline STT cooldown transition; cleared in cleanupPipeline */
+	const sttCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [ttsPlaying, setTtsPlaying] = useState(false);
 	const [sttPartial, setSttPartial] = useState("");
 	const [sttState, setSttState] = useState<
@@ -459,10 +463,20 @@ export function ChatPanel() {
 			const message = (e as CustomEvent<string>).detail;
 			setInput(message);
 			setActiveTab("chat");
-			setTimeout(() => inputRef.current?.focus(), 50);
+			if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+			focusTimerRef.current = setTimeout(() => {
+				inputRef.current?.focus();
+				focusTimerRef.current = null;
+			}, 50);
 		};
 		window.addEventListener("naia:ask-ai", handler);
-		return () => window.removeEventListener("naia:ask-ai", handler);
+		return () => {
+			window.removeEventListener("naia:ask-ai", handler);
+			if (focusTimerRef.current) {
+				clearTimeout(focusTimerRef.current);
+				focusTimerRef.current = null;
+			}
+		};
 	}, []);
 
 	// Discord messages are now shown in the dedicated Channels tab (ChannelsTab)
@@ -1084,6 +1098,10 @@ export function ChatPanel() {
 			clearTimeout(sttDebounceRef.current);
 			sttDebounceRef.current = null;
 		}
+		if (sttCooldownTimerRef.current) {
+			clearTimeout(sttCooldownTimerRef.current);
+			sttCooldownTimerRef.current = null;
+		}
 		sttBufferRef.current = "";
 		setSttPartial("");
 		setSttState("idle");
@@ -1173,7 +1191,11 @@ export function ChatPanel() {
 						ttsCooldownUntilRef.current = Date.now() + 800;
 						// Brief "waiting" state during cooldown, then back to listening
 						setSttState("initializing");
-						setTimeout(() => setSttState("listening"), 800);
+						if (sttCooldownTimerRef.current) clearTimeout(sttCooldownTimerRef.current);
+						sttCooldownTimerRef.current = setTimeout(() => {
+							setSttState("listening");
+							sttCooldownTimerRef.current = null;
+						}, 800);
 					},
 				});
 				audioQueueRef.current = queue;
@@ -2017,8 +2039,10 @@ export function ChatPanel() {
 					onAskAI={(message) => {
 						setInput(message);
 						setActiveTab("chat");
-						setTimeout(() => {
+						if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+						focusTimerRef.current = setTimeout(() => {
 							inputRef.current?.focus();
+							focusTimerRef.current = null;
 						}, 50);
 					}}
 				/>
@@ -2030,8 +2054,10 @@ export function ChatPanel() {
 					onAskAI={(message) => {
 						setInput(message);
 						setActiveTab("chat");
-						setTimeout(() => {
+						if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+						focusTimerRef.current = setTimeout(() => {
 							inputRef.current?.focus();
+							focusTimerRef.current = null;
 						}, 50);
 					}}
 				/>

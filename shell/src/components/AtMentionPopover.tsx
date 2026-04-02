@@ -13,7 +13,7 @@ import {
 	useState,
 } from "react";
 import { loadConfig } from "../lib/config";
-import { collectFiles, fuzzyMatch } from "../lib/file-search";
+import { collectFiles, fuzzyMatch, getFileIcon } from "../lib/file-search";
 import { panelRegistry } from "../lib/panel-registry";
 
 /** Max items visible in the dropdown */
@@ -54,38 +54,11 @@ function getWorkspaceRoot(): string {
 	return cfg?.workspaceRoot || "";
 }
 
-/** Get icon for entry */
+/** Get icon for entry — delegates to shared getFileIcon, with folder override */
 function getIcon(rel: string, isDir: boolean): string {
 	if (isDir) return "\uD83D\uDCC1"; // folder emoji
-	const ext = rel.split(".").pop()?.toLowerCase() ?? "";
-	switch (ext) {
-		case "ts":
-		case "tsx":
-			return "\uD83D\uDCD8"; // blue book
-		case "js":
-		case "jsx":
-			return "\uD83D\uDCD9"; // orange book
-		case "json":
-			return "\uD83D\uDCCB"; // clipboard
-		case "css":
-		case "scss":
-			return "\uD83C\uDFA8"; // palette
-		case "md":
-			return "\uD83D\uDCDD"; // memo
-		case "rs":
-			return "\u2699\uFE0F"; // gear
-		case "py":
-			return "\uD83D\uDC0D"; // snake
-		case "yaml":
-		case "yml":
-		case "toml":
-			return "\u2699\uFE0F"; // gear
-		case "sh":
-		case "bash":
-			return "\uD83D\uDCBB"; // computer
-		default:
-			return "\uD83D\uDCC4"; // page
-	}
+	const name = rel.split("/").pop() ?? rel;
+	return getFileIcon(name);
 }
 
 // ── Shared file cache ───────────────────────────────────────────────────────

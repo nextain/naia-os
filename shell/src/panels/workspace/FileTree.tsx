@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type DirEntry, getFileIcon } from "../../lib/file-search";
 import { Logger } from "../../lib/logger";
 import { WORKSPACE_ROOT } from "./constants";
 
@@ -24,14 +25,8 @@ function relativePath(base: string, target: string): string {
 	return target.slice(normalizedBase.length + 1);
 }
 
-export interface DirEntry {
-	name: string;
-	path: string;
-	is_dir: boolean;
-	children?: DirEntry[] | null;
-	/** Classification category (Phase 4) */
-	category?: string;
-}
+// Re-export DirEntry from file-search for consumers that imported from FileTree
+export type { DirEntry } from "../../lib/file-search";
 
 interface FileTreeProps {
 	/** Called when a file is selected */
@@ -202,33 +197,6 @@ function TreeNode({
 			)}
 		</div>
 	);
-}
-
-function getFileIcon(name: string): string {
-	const ext = name.split(".").pop()?.toLowerCase() ?? "";
-	const icons: Record<string, string> = {
-		ts: "📄",
-		tsx: "⚛️",
-		js: "📄",
-		jsx: "⚛️",
-		rs: "🦀",
-		md: "📝",
-		json: "{}",
-		yaml: "📋",
-		yml: "📋",
-		toml: "📋",
-		py: "🐍",
-		sh: "💻",
-		css: "🎨",
-		html: "🌐",
-		svg: "🖼️",
-		png: "🖼️",
-		jpg: "🖼️",
-		gif: "🖼️",
-		env: "🔒",
-		lock: "🔒",
-	};
-	return icons[ext] ?? "📄";
 }
 
 export function FileTree({

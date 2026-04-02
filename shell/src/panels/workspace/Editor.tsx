@@ -661,10 +661,14 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 						if (isMd && viewMode !== "preview") {
 							const prev = viewMode;
 							setViewMode("preview");
-							// Wait for React to render preview, then print, then restore
+							// Double rAF: first frame commits React state, second ensures
+							// DOM is painted before printing. Single rAF may fire before
+							// React flushes the preview content.
 							requestAnimationFrame(() => {
-								window.print();
-								setViewMode(prev);
+								requestAnimationFrame(() => {
+									window.print();
+									setViewMode(prev);
+								});
 							});
 						} else {
 							window.print();

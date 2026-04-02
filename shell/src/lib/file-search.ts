@@ -135,6 +135,37 @@ function choseongMatch(query: string, target: string): boolean {
 	return qi === query.length;
 }
 
+// ── File icon mapping ──────────────────────────────────────────────────────
+
+/** Return an emoji icon for a filename based on its extension.
+ *  Used by FileTree, AtMentionPopover, and QuickOpen. */
+export function getFileIcon(name: string): string {
+	const ext = name.split(".").pop()?.toLowerCase() ?? "";
+	const icons: Record<string, string> = {
+		ts: "📄",
+		tsx: "⚛️",
+		js: "📄",
+		jsx: "⚛️",
+		rs: "🦀",
+		md: "📝",
+		json: "{}",
+		yaml: "📋",
+		yml: "📋",
+		toml: "📋",
+		py: "🐍",
+		sh: "💻",
+		css: "🎨",
+		html: "🌐",
+		svg: "🖼️",
+		png: "🖼️",
+		jpg: "🖼️",
+		gif: "🖼️",
+		env: "🔒",
+		lock: "🔒",
+	};
+	return icons[ext] ?? "📄";
+}
+
 // ── Fuzzy matching ──────────────────────────────────────────────────────────
 
 function parseExtFilter(query: string): string | null {

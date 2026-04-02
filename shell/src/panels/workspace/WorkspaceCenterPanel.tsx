@@ -512,11 +512,20 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				goForward();
 			}
 		};
+		// Bind mousedown as well to intercept WebKitGTK default back/forward
+		// navigation before it triggers. mouseup alone may fire too late.
+		const onMouseDown = (e: MouseEvent) => {
+			if (e.button === 3 || e.button === 4) {
+				e.preventDefault();
+			}
+		};
 		window.addEventListener("keydown", onKeyDown);
 		window.addEventListener("mouseup", onMouseUp);
+		window.addEventListener("mousedown", onMouseDown);
 		return () => {
 			window.removeEventListener("keydown", onKeyDown);
 			window.removeEventListener("mouseup", onMouseUp);
+			window.removeEventListener("mousedown", onMouseDown);
 		};
 	}, [goBack, goForward]);
 
