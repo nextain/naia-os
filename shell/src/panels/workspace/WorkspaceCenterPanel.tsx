@@ -473,10 +473,16 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		setEditorBadge("");
 	}, [openFile]);
 
-	// ── Ctrl+P — Quick Open ──────────────────────────────────────────────
+	/** Send a file path to the chat input via the naia:ask-ai custom event. */
+	const handleSendToChat = useCallback((path: string) => {
+		window.dispatchEvent(new CustomEvent("naia:ask-ai", { detail: path }));
+	}, []);
+
+	// ── Ctrl+P — Quick Open (only when workspace panel is active) ───────
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+				if (usePanelStore.getState().activePanel !== "workspace") return;
 				e.preventDefault();
 				setQuickOpenVisible((prev) => !prev);
 			}
@@ -867,6 +873,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 						activeDirs={activeDirs}
 						classifiedDirs={classifiedDirs ?? undefined}
 						workspaceRoot={resolvedRoot}
+						onSendToChat={handleSendToChat}
 					/>
 				</div>
 			</div>

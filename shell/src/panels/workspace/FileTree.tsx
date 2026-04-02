@@ -4,6 +4,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Logger } from "../../lib/logger";
 import { WORKSPACE_ROOT } from "./constants";
 
+// ─── Context menu types ──────────────────────────────────────────────────────
+
+interface ContextMenuState {
+	x: number;
+	y: number;
+	entryPath: string;
+}
+
+/**
+ * Compute a relative path from `base` to `target`.
+ * Falls back to `target` if it doesn't start with `base`.
+ */
+function relativePath(base: string, target: string): string {
+	const normalizedBase = base.replace(/\/$/, "");
+	if (!normalizedBase || !target.startsWith(normalizedBase + "/")) {
+		return target;
+	}
+	return target.slice(normalizedBase.length + 1);
+}
+
 export interface DirEntry {
 	name: string;
 	path: string;
@@ -24,6 +44,8 @@ interface FileTreeProps {
 	classifiedDirs?: Array<{ name: string; path: string; category: string }>;
 	/** Actual workspace root (runtime override or compile-time fallback). */
 	workspaceRoot?: string;
+	/** Called when user selects "Naia에게 보내기" from context menu */
+	onSendToChat?: (path: string) => void;
 }
 
 interface TreeNodeProps {
@@ -32,6 +54,7 @@ interface TreeNodeProps {
 	onFileSelect: (path: string) => void;
 	openFilePath?: string;
 	activeDirs?: string[];
+	onContextMenu?: (e: React.MouseEvent, entryPath: string) => void;
 }
 
 /** Strip trailing slash for path comparison */
@@ -45,6 +68,7 @@ function TreeNode({
 	onFileSelect,
 	openFilePath,
 	activeDirs,
+	onContextMenu: handleContextMenu,
 }: TreeNodeProps) {
 	const [expanded, setExpanded] = useState(false);
 	const [children, setChildren] = useState<DirEntry[] | null>(null);
@@ -140,6 +164,11 @@ function TreeNode({
 					.join(" ")}
 				style={{ paddingLeft: `${indent + 8}px` }}
 				onClick={toggle}
+				onContextMenu={(e) => {
+					e.preventDefault();
+					e.stopPropagation();
+					handleContextMenu?.(e, entry.path);
+				}}
 				title={entry.path}
 			>
 				<span className="workspace-tree__icon">{icon}</span>
@@ -166,6 +195,7 @@ function TreeNode({
 							onFileSelect={onFileSelect}
 							openFilePath={openFilePath}
 							activeDirs={activeDirs}
+							onContextMenu={handleContextMenu}
 						/>
 					))}
 				</div>
@@ -207,6 +237,7 @@ export function FileTree({
 	activeDirs,
 	classifiedDirs,
 	workspaceRoot = WORKSPACE_ROOT,
+	onSendToChat,
 }: FileTreeProps) {
 	const [entries, setEntries] = useState<DirEntry[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -214,6 +245,71 @@ export function FileTree({
 	// Monotonically increasing ID — prevents stale invoke responses from
 	// overwriting a fresher result when multiple loadEntries calls are in-flight.
 	const fetchIdRef = useRef(0);
+
+	// ── Context menu state ───────────────────────────────────────────────
+	const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
+	const ctxMenuRef = useRef<HTMLDivElement>(null);
+
+	const openContextMenu = useCallback(
+		(e: React.MouseEvent, entryPath: string) => {
+			// Clamp position so the menu doesn't overflow the viewport
+			const x = Math.min(e.clientX, window.innerWidth - 220);
+			const y = Math.min(e.clientY, window.innerHeight - 120);
+			setCtxMenu({ x, y, entryPath });
+		},
+		[],
+	);
+
+	const closeContextMenu = useCallback(() => setCtxMenu(null), []);
+
+	// Close on outside click, Escape, or scroll
+	useEffect(() => {
+		if (!ctxMenu) return;
+
+		const onClickOutside = (e: MouseEvent) => {
+			if (
+				ctxMenuRef.current &&
+				!ctxMenuRef.current.contains(e.target as Node)
+			) {
+				closeContextMenu();
+			}
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") closeContextMenu();
+		};
+		const onScroll = () => closeContextMenu();
+
+		document.addEventListener("mousedown", onClickOutside);
+		document.addEventListener("keydown", onKeyDown);
+		window.addEventListener("scroll", onScroll, true);
+		return () => {
+			document.removeEventListener("mousedown", onClickOutside);
+			document.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("scroll", onScroll, true);
+		};
+	}, [ctxMenu, closeContextMenu]);
+
+	const handleCopyRelative = useCallback(() => {
+		if (!ctxMenu) return;
+		const rel = relativePath(workspaceRoot, ctxMenu.entryPath);
+		navigator.clipboard.writeText(rel).catch(() => {});
+		closeContextMenu();
+	}, [ctxMenu, workspaceRoot, closeContextMenu]);
+
+	const handleCopyAbsolute = useCallback(() => {
+		if (!ctxMenu) return;
+		navigator.clipboard.writeText(ctxMenu.entryPath).catch(() => {});
+		closeContextMenu();
+	}, [ctxMenu, closeContextMenu]);
+
+	const handleSendToChat = useCallback(() => {
+		if (!ctxMenu) return;
+		const rel = relativePath(workspaceRoot, ctxMenu.entryPath);
+		onSendToChat?.(rel);
+		closeContextMenu();
+	}, [ctxMenu, workspaceRoot, onSendToChat, closeContextMenu]);
+
+	// ── Data loading ─────────────────────────────────────────────────────
 
 	const loadEntries = useCallback(async () => {
 		const id = ++fetchIdRef.current;
@@ -259,6 +355,42 @@ export function FileTree({
 			if (debounceRef.current) clearTimeout(debounceRef.current);
 		};
 	}, [loadEntries, debouncedLoadEntries]);
+
+	// ── Context menu portal ──────────────────────────────────────────────
+	const contextMenuEl = ctxMenu ? (
+		<div
+			ref={ctxMenuRef}
+			className="workspace-ctx-menu"
+			style={{ left: ctxMenu.x, top: ctxMenu.y }}
+		>
+			<button
+				type="button"
+				className="workspace-ctx-menu__item"
+				onClick={handleCopyRelative}
+			>
+				상대경로 복사
+			</button>
+			<button
+				type="button"
+				className="workspace-ctx-menu__item"
+				onClick={handleCopyAbsolute}
+			>
+				절대경로 복사
+			</button>
+			{onSendToChat && (
+				<>
+					<div className="workspace-ctx-menu__divider" />
+					<button
+						type="button"
+						className="workspace-ctx-menu__item"
+						onClick={handleSendToChat}
+					>
+						Naia에게 보내기
+					</button>
+				</>
+			)}
+		</div>
+	) : null;
 
 	if (loading) {
 		return (
@@ -327,11 +459,13 @@ export function FileTree({
 									onFileSelect={onFileSelect}
 									openFilePath={openFilePath}
 									activeDirs={activeDirs}
+									onContextMenu={openContextMenu}
 								/>
 							))}
 						</div>
 					);
 				})}
+				{contextMenuEl}
 			</div>
 		);
 	}
@@ -346,8 +480,10 @@ export function FileTree({
 					onFileSelect={onFileSelect}
 					openFilePath={openFilePath}
 					activeDirs={activeDirs}
+					onContextMenu={openContextMenu}
 				/>
 			))}
+			{contextMenuEl}
 		</div>
 	);
 }

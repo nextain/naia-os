@@ -5574,6 +5574,43 @@ body.resizing-row {
 	user-select: none;
 }
 
+/* ─── FileTree Context Menu ────────────────────────────────────────────────── */
+
+.workspace-ctx-menu {
+	position: fixed;
+	z-index: 9999;
+	min-width: 180px;
+	padding: 4px 0;
+	background: var(--surface-bg, #1a1a2e);
+	border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+	border-radius: 6px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+	font-size: 12px;
+}
+
+.workspace-ctx-menu__item {
+	display: block;
+	width: 100%;
+	padding: 6px 12px;
+	background: none;
+	border: none;
+	color: var(--text-primary, #e0e0e0);
+	text-align: left;
+	cursor: pointer;
+	white-space: nowrap;
+	font-size: 12px;
+}
+
+.workspace-ctx-menu__item:hover {
+	background: var(--hover-bg, rgba(255, 255, 255, 0.08));
+}
+
+.workspace-ctx-menu__divider {
+	height: 1px;
+	margin: 4px 8px;
+	background: var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
 /* ─── SessionDashboard ─────────────────────────────────────────────────────── */
 
 .workspace-dashboard {
