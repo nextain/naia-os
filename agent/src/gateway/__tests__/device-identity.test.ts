@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DefaultPathResolver } from "../path-resolver.js";
 import type { DeviceIdentity } from "../types.js";
 
 // We'll mock os.homedir to point to a temp directory
@@ -46,6 +47,16 @@ describe("loadDeviceIdentity", () => {
 		expect(identity?.privateKeyPem).toContain("PRIVATE KEY");
 	});
 
+	it("default call uses DefaultPathResolver", () => {
+		const spy = vi.spyOn(
+			DefaultPathResolver.prototype,
+			"deviceIdentityPath",
+		);
+		loadDeviceIdentity();
+		expect(spy).toHaveBeenCalled();
+		spy.mockRestore();
+	});
+
 	it("returns undefined when identity file does not exist", () => {
 		const identity = loadDeviceIdentity();
 		expect(identity).toBeUndefined();
@@ -69,6 +80,41 @@ describe("loadDeviceIdentity", () => {
 		);
 
 		const identity = loadDeviceIdentity();
+		expect(identity).toBeUndefined();
+	});
+
+	it("accepts a custom PathResolver via DI", () => {
+		// Write identity to a non-default location
+		const customDir = join(tempHome, "custom", "identity");
+		mkdirSync(customDir, { recursive: true });
+		writeFileSync(
+			join(customDir, "device.json"),
+			JSON.stringify({
+				deviceId: "custom-device",
+				publicKeyPem:
+					"-----BEGIN PUBLIC KEY-----\ncustom\n-----END PUBLIC KEY-----\n",
+				privateKeyPem:
+					"-----BEGIN PRIVATE KEY-----\ncustom\n-----END PRIVATE KEY-----\n",
+			}),
+		);
+
+		const customResolver = {
+			deviceIdentityPath: () => join(customDir, "device.json"),
+			configCandidates: () => [],
+		};
+
+		const identity = loadDeviceIdentity(customResolver);
+		expect(identity).toBeDefined();
+		expect(identity?.id).toBe("custom-device");
+	});
+
+	it("returns undefined when custom PathResolver points to missing file", () => {
+		const customResolver = {
+			deviceIdentityPath: () => join(tempHome, "nonexistent", "device.json"),
+			configCandidates: () => [],
+		};
+
+		const identity = loadDeviceIdentity(customResolver);
 		expect(identity).toBeUndefined();
 	});
 });

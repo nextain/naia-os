@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import type { DeviceIdentity } from "./types.js";
+import { defaultPathResolver } from "./path-resolver.js";
+import type { DeviceIdentity, PathResolver } from "./types.js";
 
 /**
- * Load OpenClaw device identity from ~/.openclaw/identity/device.json.
+ * Load device identity from the path resolved by PathResolver.
  * Returns undefined if the file is missing, malformed, or incomplete.
  */
-export function loadDeviceIdentity(): DeviceIdentity | undefined {
-	const identityPath = join(homedir(), ".openclaw", "identity", "device.json");
+export function loadDeviceIdentity(
+	resolver: PathResolver = defaultPathResolver,
+): DeviceIdentity | undefined {
+	const identityPath = resolver.deviceIdentityPath();
 	try {
 		const raw = JSON.parse(readFileSync(identityPath, "utf-8"));
 		const deviceId = raw.deviceId;

@@ -6,6 +6,7 @@ import * as readline from "node:readline";
 import { GatewayClient } from "./gateway/client.js";
 import { loadDeviceIdentity } from "./gateway/device-identity.js";
 import { createGatewayEventHandler } from "./gateway/event-handler.js";
+import { defaultPathResolver } from "./gateway/path-resolver.js";
 import {
 	executeTool,
 	getAllTools,
@@ -58,11 +59,8 @@ mkdirSync(join(homedir(), ".naia", "memory"), { recursive: true });
 
 /** Resolve memory adapter from config. Defaults to LocalAdapter. */
 function resolveMemoryAdapter(): MemoryAdapter {
-	// Check OpenClaw config for memory adapter setting
-	const configCandidates = [
-		join(homedir(), ".openclaw", "openclaw.json"),
-		join(homedir(), ".naia", "openclaw", "openclaw.json"),
-	];
+	// Check config for memory adapter setting
+	const configCandidates = defaultPathResolver.configCandidates();
 	for (const path of configCandidates) {
 		try {
 			const raw = JSON.parse(readFileSync(path, "utf-8")) as {
@@ -131,10 +129,7 @@ function resolveGatewayToken(token?: string): string {
 }
 
 function resolveFallbackGatewayToken(): string {
-	const candidates = [
-		join(homedir(), ".openclaw", "openclaw.json"),
-		join(homedir(), ".naia", "openclaw", "openclaw.json"),
-	];
+	const candidates = defaultPathResolver.configCandidates();
 	for (const path of candidates) {
 		try {
 			const raw = JSON.parse(readFileSync(path, "utf-8")) as {

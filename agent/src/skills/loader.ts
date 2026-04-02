@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { GatewayCommandExecutor } from "../gateway/command-executor.js";
 import type { GatewayAdapter } from "../gateway/types.js";
 import type { GatewayEvent } from "../gateway/types.js";
 import type { SkillRegistry } from "./registry.js";
@@ -24,94 +25,6 @@ interface SkillManifest {
 	isReadOnly?: boolean;
 }
 
-/**
- * Resolve the first paired node ID from the Gateway.
- */
-async function resolveNodeId(
-	client: GatewayAdapter,
-): Promise<string | undefined> {
-	if (!client.availableMethods.includes("node.list")) return undefined;
-	try {
-		const payload = await client.request("node.list", {});
-		const nodes = (payload as Record<string, unknown>)?.nodes;
-		if (!Array.isArray(nodes) || nodes.length === 0) return undefined;
-		const node = nodes[0] as Record<string, unknown>;
-		return (node.id ?? node.nodeId) as string | undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-/**
- * Execute a shell command via exec.bash (if available) or node.invoke fallback.
- */
-async function runCommand(
-	client: GatewayAdapter,
-	command: string,
-): Promise<SkillResult> {
-	const methods = client.availableMethods;
-
-	// Try exec.bash first
-	if (methods.includes("exec.bash")) {
-		try {
-			const payload = await client.request("exec.bash", { command });
-			return parseCommandPayload(payload);
-		} catch (err) {
-			// Fall through to node.invoke
-		}
-	}
-
-	// Fallback: node.invoke
-	if (methods.includes("node.invoke")) {
-		const nodeId = await resolveNodeId(client);
-		if (!nodeId) {
-			return { success: false, output: "", error: "No paired node available" };
-		}
-		try {
-			const payload = await client.request("node.invoke", {
-				nodeId,
-				idempotencyKey: randomUUID(),
-				command: "system.run",
-				params: { command: ["bash", "-lc", command] },
-			});
-			return parseCommandPayload(payload);
-		} catch (err) {
-			return {
-				success: false,
-				output: "",
-				error: err instanceof Error ? err.message : String(err),
-			};
-		}
-	}
-
-	return {
-		success: false,
-		output: "",
-		error: "No command execution RPC available (exec.bash/node.invoke)",
-	};
-}
-
-function parseCommandPayload(payload: unknown): SkillResult {
-	const rec = payload as Record<string, unknown> | null;
-	// Unwrap nested result/payload from node.invoke
-	const inner = (rec?.result ?? rec?.payload ?? rec) as Record<
-		string,
-		unknown
-	> | null;
-	const actual = inner && typeof inner === "object" ? inner : rec;
-	const stdout =
-		(actual && typeof actual.stdout === "string" ? actual.stdout : "") ||
-		(actual && typeof actual.output === "string" ? actual.output : "") ||
-		(typeof payload === "string" ? payload : JSON.stringify(payload));
-	const exitCode =
-		actual && typeof actual.exitCode === "number" ? actual.exitCode : 0;
-	return {
-		success: exitCode === 0,
-		output: stdout,
-		error: exitCode !== 0 ? String(actual?.stderr ?? "") : undefined,
-	};
-}
-
 function makeCommandHandler(
 	command: string,
 ): (
@@ -126,7 +39,8 @@ function makeCommandHandler(
 				error: "Gateway connection required for command execution",
 			};
 		}
-		return runCommand(ctx.gateway, command);
+		const executor = new GatewayCommandExecutor(ctx.gateway);
+		return executor.execute(command);
 	};
 }
 

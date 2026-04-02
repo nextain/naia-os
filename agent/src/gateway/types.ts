@@ -42,6 +42,28 @@ export interface GatewayEvent {
 
 export type GatewayFrame = GatewayRequest | GatewayResponse | GatewayEvent;
 
+/** Result from command execution via CommandExecutor. */
+export interface CommandResult {
+	success: boolean;
+	output: string;
+	error?: string;
+}
+
+/** Abstract interface for executing shell commands. */
+export interface CommandExecutor {
+	execute(command: string): Promise<CommandResult>;
+}
+
+/**
+ * Resolves platform-specific paths for Gateway configuration and identity.
+ */
+export interface PathResolver {
+	/** Path to device identity JSON file. */
+	deviceIdentityPath(): string;
+	/** Ordered candidate paths for Gateway config (first match wins). */
+	configCandidates(): string[];
+}
+
 /** Device identity for Gateway authentication */
 export interface DeviceIdentity {
 	id: string;
