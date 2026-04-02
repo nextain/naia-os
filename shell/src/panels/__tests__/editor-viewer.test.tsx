@@ -355,4 +355,41 @@ describe("Editor — file type helpers (via render behaviour)", () => {
 			expect(screen.getByText(/파일을 열 수 없습니다/)).toBeInTheDocument(),
 		);
 	});
+
+	it("shows reload button in editor header", async () => {
+		mockInvoke.mockResolvedValueOnce("hello world");
+		render(<Editor filePath="/docs/test.txt" />);
+		await waitFor(() =>
+			expect(screen.getByTitle("디스크에서 다시 읽기")).toBeInTheDocument(),
+		);
+		expect(screen.getByTitle("디스크에서 다시 읽기").textContent).toBe("↻");
+	});
+
+	it("reload button re-reads file from disk", async () => {
+		mockInvoke.mockResolvedValueOnce("original content");
+		render(<Editor filePath="/docs/test.txt" />);
+		await waitFor(() =>
+			expect(screen.getByTitle("디스크에서 다시 읽기")).toBeInTheDocument(),
+		);
+		// Second call returns updated content
+		mockInvoke.mockResolvedValueOnce("updated content");
+		fireEvent.click(screen.getByTitle("디스크에서 다시 읽기"));
+		await waitFor(() =>
+			expect(mockInvoke).toHaveBeenCalledWith("workspace_read_file", {
+				path: "/docs/test.txt",
+			}),
+		);
+	});
+
+	it("markdown files open in preview mode by default", async () => {
+		mockInvoke.mockResolvedValueOnce("# Hello");
+		render(<Editor filePath="/docs/readme.md" />);
+		await waitFor(() =>
+			// Preview mode shows "편집" button to switch to edit mode
+			expect(screen.getByTitle("편집 모드로 전환")).toBeInTheDocument(),
+		);
+		// The preview div should be rendered
+		const preview = document.querySelector(".workspace-editor__preview");
+		expect(preview).toBeInTheDocument();
+	});
 });

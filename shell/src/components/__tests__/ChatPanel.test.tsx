@@ -449,4 +449,62 @@ describe("ChatPanel", () => {
 		await new Promise((r) => setTimeout(r, 50));
 		expect(input.value).toBe("두번째");
 	});
+
+	it("navigates history with ArrowUp/ArrowDown and restores draft", async () => {
+		render(<ChatPanel />);
+		const input = screen.getByPlaceholderText(
+			/메시지|message/i,
+		) as HTMLTextAreaElement;
+
+		// Send two messages
+		fireEvent.change(input, { target: { value: "첫번째" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		await new Promise((r) => setTimeout(r, 50));
+
+		fireEvent.change(input, { target: { value: "두번째" } });
+		fireEvent.keyDown(input, { key: "Enter" });
+		await new Promise((r) => setTimeout(r, 50));
+
+		// Type a draft (not sent)
+		fireEvent.change(input, { target: { value: "작성 중" } });
+
+		// Set cursor to position 0 for ArrowUp to work
+		Object.defineProperty(input, "selectionStart", {
+			value: 0,
+			writable: true,
+		});
+		Object.defineProperty(input, "selectionEnd", { value: 0, writable: true });
+
+		// ArrowUp → most recent ("두번째")
+		fireEvent.keyDown(input, { key: "ArrowUp" });
+		await new Promise((r) => setTimeout(r, 50));
+		expect(input.value).toBe("두번째");
+
+		// ArrowUp → older ("첫번째")
+		fireEvent.keyDown(input, { key: "ArrowUp" });
+		await new Promise((r) => setTimeout(r, 50));
+		expect(input.value).toBe("첫번째");
+
+		// ArrowDown → back to "두번째"
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		await new Promise((r) => setTimeout(r, 50));
+		expect(input.value).toBe("두번째");
+
+		// ArrowDown → restore draft "작성 중"
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		await new Promise((r) => setTimeout(r, 50));
+		expect(input.value).toBe("작성 중");
+	});
+
+	it("ArrowDown does nothing when not browsing history", () => {
+		render(<ChatPanel />);
+		const input = screen.getByPlaceholderText(
+			/메시지|message/i,
+		) as HTMLTextAreaElement;
+
+		fireEvent.change(input, { target: { value: "some text" } });
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		// Value should remain unchanged
+		expect(input.value).toBe("some text");
+	});
 });

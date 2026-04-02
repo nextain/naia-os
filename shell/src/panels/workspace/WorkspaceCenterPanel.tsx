@@ -15,6 +15,67 @@ import { SessionDashboard } from "./SessionDashboard";
 import { Terminal } from "./Terminal";
 import { ACTIVE_THRESHOLD_SECONDS, WORKSPACE_ROOT } from "./constants";
 
+// ─── File navigation history ─────────────────────────────────────────────────
+
+/**
+ * Hook that wraps file path state with back/forward navigation history.
+ * Mirrors browser-style history: navigating to a new file while mid-history
+ * truncates the forward stack.
+ */
+function useFileNavHistory() {
+	const [openFilePath, openFileRaw] = useState("");
+	/** Full ordered history of visited file paths */
+	const historyRef = useRef<string[]>([]);
+	/** Current position within historyRef (-1 = no history) */
+	const indexRef = useRef(-1);
+	/** Flag to suppress history push when navigating via back/forward */
+	const navigatingRef = useRef(false);
+
+	/** Open a file — called by all file-open paths (tree click, session click, API, etc.) */
+	const openFile = useCallback((path: string) => {
+		if (!path) {
+			openFileRaw("");
+			return;
+		}
+		if (navigatingRef.current) {
+			// Navigation via back/forward — don't modify history
+			navigatingRef.current = false;
+			openFileRaw(path);
+			return;
+		}
+		// Skip duplicate consecutive entries
+		if (
+			historyRef.current.length > 0 &&
+			historyRef.current[indexRef.current] === path
+		) {
+			return;
+		}
+		// Truncate forward history when opening a new file mid-history
+		historyRef.current = historyRef.current.slice(0, indexRef.current + 1);
+		historyRef.current.push(path);
+		indexRef.current = historyRef.current.length - 1;
+		openFileRaw(path);
+	}, []);
+
+	/** Navigate backward in history */
+	const goBack = useCallback(() => {
+		if (indexRef.current <= 0) return;
+		indexRef.current--;
+		navigatingRef.current = true;
+		openFile(historyRef.current[indexRef.current]);
+	}, [openFile]);
+
+	/** Navigate forward in history */
+	const goForward = useCallback(() => {
+		if (indexRef.current >= historyRef.current.length - 1) return;
+		indexRef.current++;
+		navigatingRef.current = true;
+		openFile(historyRef.current[indexRef.current]);
+	}, [openFile]);
+
+	return { openFilePath, openFile, goBack, goForward };
+}
+
 // ─── Panel API ───────────────────────────────────────────────────────────────
 
 /**
@@ -90,7 +151,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			setActiveWorkspaceRoot(selected);
 		}
 	}, []);
-	const [openFilePath, setOpenFilePath] = useState("");
+	const { openFilePath, openFile, goBack, goForward } = useFileNavHistory();
 	const [editorBadge, setEditorBadge] = useState("");
 	const [sessions, setSessions] = useState<SessionInfo[]>([]);
 	// Terminal tab management
@@ -401,16 +462,16 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		}
 
 		if (fileToOpen) {
-			setOpenFilePath(fileToOpen);
+			openFile(fileToOpen);
 		}
-	}, []);
+	}, [openFile]);
 
 	// ── File select from tree ─────────────────────────────────────────────
 	const handleFileSelect = useCallback((path: string) => {
-		setOpenFilePath(path);
+		openFile(path);
 		// Clear badge when directly selecting a file
 		setEditorBadge("");
-	}, []);
+	}, [openFile]);
 
 	// ── Ctrl+P — Quick Open ──────────────────────────────────────────────
 	useEffect(() => {
@@ -423,6 +484,35 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		window.addEventListener("keydown", handler);
 		return () => window.removeEventListener("keydown", handler);
 	}, []);
+
+	// ── File navigation: back/forward (Ctrl+←/→, mouse buttons 3/4) ─────
+	useEffect(() => {
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (!(e.ctrlKey || e.metaKey)) return;
+			if (e.key === "ArrowLeft") {
+				e.preventDefault();
+				goBack();
+			} else if (e.key === "ArrowRight") {
+				e.preventDefault();
+				goForward();
+			}
+		};
+		const onMouseUp = (e: MouseEvent) => {
+			if (e.button === 3) {
+				e.preventDefault();
+				goBack();
+			} else if (e.button === 4) {
+				e.preventDefault();
+				goForward();
+			}
+		};
+		window.addEventListener("keydown", onKeyDown);
+		window.addEventListener("mouseup", onMouseUp);
+		return () => {
+			window.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("mouseup", onMouseUp);
+		};
+	}, [goBack, goForward]);
 
 	// Hide Chrome X11 embed while Quick Open overlay is visible
 	useEffect(() => {
@@ -439,7 +529,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 	useEffect(() => {
 		panelRegistry.updateApi("workspace", {
 			openFile: (path: string) => {
-				setOpenFilePath(path);
+				openFile(path);
 				setEditorBadge("");
 			},
 			focusSession: (dir: string) => {
@@ -508,7 +598,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 		const unsub = naia.onToolCall("skill_workspace_open_file", (args) => {
 			const path = String(args.path ?? "");
 			if (!path) return "Error: path is required";
-			setOpenFilePath(path);
+			openFile(path);
 			setEditorBadge("");
 			return `Opened: ${path}`;
 		});
@@ -653,7 +743,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 			if (args.open_recent_file === true) {
 				if (session.recent_file) {
 					const fullPath = `${session.path}/${session.recent_file}`;
-					setOpenFilePath(fullPath);
+					openFile(fullPath);
 					setEditorBadge(
 						session.progress?.issue && session.progress?.phase
 							? `${session.progress.issue} · ${session.progress.phase}`
@@ -880,7 +970,7 @@ export function WorkspaceCenterPanel({ naia }: PanelCenterProps) {
 				<QuickOpen
 					workspaceRoot={resolvedRoot}
 					onSelect={(path) => {
-						setOpenFilePath(path);
+						openFile(path);
 						setEditorBadge("");
 						setActiveTab("editor");
 					}}

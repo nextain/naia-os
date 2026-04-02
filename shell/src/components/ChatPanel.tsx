@@ -488,9 +488,10 @@ export function ChatPanel() {
 		const text = (overrideText ?? input).trim();
 		if (!text) return;
 
-		// Record in input history (deduplicate consecutive duplicates)
+		// Record in input history (deduplicate consecutive duplicates, FIFO max 50)
 		const hist = inputHistoryRef.current;
 		if (hist.length === 0 || hist[hist.length - 1] !== text) {
+			if (hist.length >= 50) hist.shift();
 			hist.push(text);
 		}
 		historyIndexRef.current = -1;

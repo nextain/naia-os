@@ -170,6 +170,7 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 	const [viewMode, setViewMode] = useState<ViewMode>("editor");
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState("");
+	const [reloading, setReloading] = useState(false);
 	/** Error message from a failed file load; null = no error. Shown in UI instead of editor. */
 	const [loadError, setLoadError] = useState<string | null>(null);
 	/** Ref mirror of loadError for synchronous updateListener access */
@@ -371,6 +372,36 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 		[filePath, readOnly],
 	);
 
+	// ── Reload from disk ──────────────────────────────────────────────────
+	const reloadFile = useCallback(async () => {
+		if (!filePath) return;
+		// Images and PDFs use blob URLs — no text reload needed
+		if (isImageFile(filePath) || isPdfFile(filePath)) return;
+		setReloading(true);
+		try {
+			const text = await invoke<string>("workspace_read_file", {
+				path: filePath,
+			});
+			justLoadedRef.current = true;
+			loadErrorRef.current = false;
+			setLoadError(null);
+			setContent(text);
+			Logger.info("Editor", "File reloaded", {
+				path: filePath,
+				length: text.length,
+			});
+		} catch (e) {
+			loadErrorRef.current = true;
+			setLoadError(String(e));
+			Logger.error("Editor", "Reload failed", {
+				path: filePath,
+				error: String(e),
+			});
+		} finally {
+			setReloading(false);
+		}
+	}, [filePath]);
+
 	// ── Setup CodeMirror ──────────────────────────────────────────────────
 	// biome-ignore lint/correctness/useExhaustiveDependencies: content intentionally excluded (synced via dispatch)
 	useEffect(() => {
@@ -535,6 +566,14 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			<div className="workspace-editor workspace-editor--error">
 				<div className="workspace-editor__header">
 					<span className="workspace-editor__filename">{shortName}</span>
+					<button
+						type="button"
+						className="workspace-editor__view-btn workspace-editor__copy-path-btn"
+						onClick={() => void navigator.clipboard.writeText(filePath)}
+						title="경로 복사"
+					>
+						📋
+					</button>
 				</div>
 				<div className="workspace-editor__load-error">
 					파일을 열 수 없습니다: {loadError}
@@ -548,7 +587,24 @@ export function Editor({ filePath, badge, readOnly = false }: EditorProps) {
 			{/* Header bar */}
 			<div className="workspace-editor__header">
 				<span className="workspace-editor__filename">{shortName}</span>
+				<button
+					type="button"
+					className="workspace-editor__view-btn workspace-editor__copy-path-btn"
+					onClick={() => void navigator.clipboard.writeText(filePath)}
+					title="경로 복사"
+				>
+					📋
+				</button>
 				{badge && <span className="workspace-editor__badge">{badge}</span>}
+				<button
+					type="button"
+					className="workspace-editor__view-btn workspace-editor__reload-btn"
+					onClick={() => void reloadFile()}
+					disabled={reloading}
+					title="디스크에서 다시 읽기"
+				>
+					{reloading ? "…" : "↻"}
+				</button>
 				{saving && <span className="workspace-editor__saving">저장 중…</span>}
 				{saveError && (
 					<span className="workspace-editor__error" title={saveError}>
