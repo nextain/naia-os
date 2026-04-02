@@ -406,19 +406,25 @@ export function OnboardingWizard({
 	async function handleLabLogin() {
 		setLabWaiting(true);
 		setLabTimeout(false);
+		const loginUrl = `https://naia.nextain.io/${getLocale()}/login?redirect=desktop`;
 		try {
-			await openUrl(
-				`https://naia.nextain.io/${getLocale()}/login?redirect=desktop`,
-			);
+			// Try embedded browser first (avoids Flatpak sandbox deep link issues)
+			const { panelRegistry } = await import("../lib/panel-registry");
+			const browserApi = panelRegistry.getApi<{ navigate: (url: string) => void; activatePanel: () => void }>("browser");
+			if (browserApi?.navigate) {
+				browserApi.navigate(loginUrl);
+				browserApi.activatePanel();
+			} else {
+				await openUrl(loginUrl);
+			}
 		} catch {
-			setLabWaiting(false);
-			return;
+			try { await openUrl(loginUrl); } catch { /* ignore */ }
 		}
-		// Timeout after 30s
+		// Timeout after 60s (embedded browser may take longer)
 		setTimeout(() => {
 			setLabWaiting(false);
 			setLabTimeout(true);
-		}, 30_000);
+		}, 60_000);
 	}
 
 	async function handleValidate() {
