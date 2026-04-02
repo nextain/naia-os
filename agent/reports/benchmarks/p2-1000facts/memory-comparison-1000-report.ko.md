@@ -49,7 +49,13 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 
 기존 메모리 벤치마크(LoCoMo, LongMemEval)는 영어 학술용으로, **한국어 개인 AI 동반자**에 맞는 평가 도구가 없었습니다.
 
-Naia는 "나를 기억하는 AI"를 핵심 가치로 하므로, 실제 사용 시나리오를 반영한 자체 벤치마크를 설계했습니다.
+Naia는 "나를 기억하는 AI"를 핵심 가치로 하며, **"신경과학 기반 다중 기억 저장소를 이용한 AI 에이전트 장기 기억 관리 시스템 및 방법"** 특허 기술(출원 준비 중)의 실시예 검증을 위해 본 벤치마크를 설계했습니다.
+
+특허 핵심 구성요소와 벤치마크 대응:
+- **KG (헤비안 지식그래프)**: spreading activation으로 연관 기억 활성화 → proactive_recall, semantic_search 카테고리에서 검증
+- **감쇠 (에빙하우스 망각곡선)**: 중요도 조절 시간 기반 기억 강도 관리 → unchanged_persistence, direct_recall 카테고리에서 검증
+- **재공고화 (reconsolidation)**: 모순 감지 및 기억 자동 갱신 → contradiction_direct, contradiction_indirect 카테고리에서 검증
+- **다축 중요도 게이팅**: 노이즈 필터링 → noise_resilience, abstention 카테고리에서 검증
 
 ### 설계 원칙
 - **실사용 시나리오**: 가상 사용자 "김하늘"의 일상 대화 1000개를 기억하고 검색
