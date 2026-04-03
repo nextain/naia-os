@@ -256,7 +256,7 @@ git push → GitHub Actions → ghcr.io/luke-n-alpha/naia-os:latest
 > **결과물**: 데몬으로 항상 실행. 외부 채널에서도 접근 가능.
 > **전략**: Gateway 먼저 → Phase 3 실행 검증 → 이후 신규 기능
 
-### 4-0. OpenClaw Gateway 로컬 설정 (선행) ✅
+### 4-0. Naia Gateway 로컬 설정 (선행) ✅
 
 **작업:**
 - OpenClaw 설치 + 설정 (`setup-openclaw.sh` 이미 존재) ✅

@@ -11,7 +11,7 @@
 
 ### Hybrid Approach
 
-Borrow **optimal patterns only** from 3 reference projects. OpenClaw Gateway daemon installation is deferred to Phase 4. Phase 3 executes tools directly inside the Agent process.
+Borrow **optimal patterns only** from 3 reference projects. Naia Gateway daemon installation is deferred to Phase 4. Phase 3 executes tools directly inside the Agent process.
 
 | Source | Borrowed | Not Borrowed |
 |--------|----------|-------------|

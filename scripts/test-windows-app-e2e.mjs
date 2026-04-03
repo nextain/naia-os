@@ -7,7 +7,7 @@
  *
  * Prerequisites:
  *   - Built naia-shell.exe at shell/src-tauri/target/release/naia-shell.exe
- *   - NaiaEnv distro registered with Node.js + OpenClaw provisioned
+ *   - NaiaEnv distro registered with Node.js + Naia Gateway provisioned
  *   - WSL features enabled (VirtualMachinePlatform + WSL)
  *
  * What this tests:
@@ -103,7 +103,7 @@ function checkPreconditions() {
 		execSync("taskkill /F /IM naia-shell.exe 2>NUL", { stdio: "ignore" });
 	} catch { /* ignore */ }
 	try {
-		execSync("wsl -d NaiaEnv -- pkill -f openclaw 2>/dev/null", { stdio: "ignore" });
+		execSync("wsl -d NaiaEnv -- pkill -f naia-node 2>/dev/null", { stdio: "ignore" });
 	} catch { /* ignore */ }
 
 	return true;
@@ -376,7 +376,7 @@ function cleanup() {
 
 	// Kill gateway in WSL
 	try {
-		execSync("wsl -d NaiaEnv -- pkill -f openclaw 2>/dev/null", { stdio: "ignore" });
+		execSync("wsl -d NaiaEnv -- pkill -f naia-node 2>/dev/null", { stdio: "ignore" });
 		log("  WSL openclaw processes killed");
 	} catch { /* ignore */ }
 

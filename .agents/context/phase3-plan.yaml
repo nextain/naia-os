@@ -3,7 +3,7 @@ mirror: ".users/context/ko/phase3-openclaw-hybrid-plan.md"
 
 approach: hybrid
   # Phase 3: tools run inside Agent process (no gateway daemon)
-  # Phase 4: add OpenClaw Gateway for channels/skills
+  # Phase 4: add Naia Gateway for channels/skills
 
 origins:
   project-careti:

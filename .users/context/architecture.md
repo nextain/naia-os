@@ -50,7 +50,7 @@ OpenClaw's daemon + execution + channels + skills ecosystem (runtime backend)
 └──────────────────────┬──────────────────────────────────┘
                        │ WebSocket (ws://127.0.0.1:18789)
 ┌──────────────────────▼──────────────────────────────────┐
-│  OpenClaw Gateway (systemd user service)                │
+│  Naia Gateway (systemd user service)                │
 │  Role: Execution, security, channels, skills, memory    │
 │  Source: OpenClaw ecosystem (npm: openclaw)              │
 │  Auth: device identity + token scopes (protocol v3)     │
@@ -338,7 +338,7 @@ Skill management: built-in skills, Gateway skills, and install flow. *(Updated: 
 
 ### Gateway Skills
 
-- **Source**: OpenClaw Gateway `skills.status` RPC
+- **Source**: Naia Gateway `skills.status` RPC
 - **Response fields**: `name`, `description`, `eligible`, `missing[]`, `install[]` (`{ id, kind, label }`)
 - **Install kinds**: `brew`, `node`, `go`, `uv`, `download`
 
@@ -400,7 +400,7 @@ Skill management: built-in skills, Gateway skills, and install flow. *(Updated: 
 
 ## Gateway Connection Protocol
 
-How Naia Agent connects to OpenClaw Gateway:
+How Naia Agent connects to Naia Gateway:
 
 ```
 1. WebSocket connection: ws://127.0.0.1:18789
@@ -522,11 +522,11 @@ Independent TTS provider registry — used in pipeline mode and chat auto-TTS. O
 
 | Provider | Route | Auth |
 |----------|-------|------|
-| **edge** | agent → OpenClaw gateway → Edge TTS | none (free) |
+| **edge** | agent → Naia Gateway → Edge TTS | none (free) |
 | **nextain** | agent → any-llm gateway → Google Cloud TTS | naiaKey |
-| **google** | agent → OpenClaw gateway → Google Cloud TTS | Google API key |
-| **openai** | agent → OpenClaw gateway → OpenAI TTS | OpenAI API key |
-| **elevenlabs** | agent → OpenClaw gateway → ElevenLabs | ElevenLabs API key |
+| **google** | agent → Naia Gateway → Google Cloud TTS | Google API key |
+| **openai** | agent → Naia Gateway → OpenAI TTS | OpenAI API key |
+| **elevenlabs** | agent → Naia Gateway → ElevenLabs | ElevenLabs API key |
 
 **naiaKey routing:** TTS auth is independent of LLM provider selection. `ChatRequest` carries `naiaKey` as top-level field.
 

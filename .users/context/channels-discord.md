@@ -62,7 +62,7 @@ When PC comes online → Shell checks Discord history → processes unread messa
 - `skill_naia_discord` skill (send/status/history)
 - Forwards Gateway events to Shell (`channel.message` / `channels.message` → `discord_message`)
 
-### OpenClaw Gateway
+### Naia Gateway
 - **Role**: Local daemon for tool execution only — NOT for Discord
 - **Discord plugin**: DISABLED
 - Bot token in `openclaw.json` is for Shell REST API access only

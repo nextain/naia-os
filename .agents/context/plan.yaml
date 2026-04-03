@@ -108,7 +108,7 @@ phases:
     strategy: "Gateway first → Phase 3 runtime verification → then new features"
     tasks:
       step_4_0:
-        name: "OpenClaw Gateway local setup"
+        name: "Naia Gateway local setup"
         description: "Get Gateway running locally to unlock Phase 3 runtime verification"
         status: "complete"
         items:

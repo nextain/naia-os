@@ -2,7 +2,7 @@
 
 ## 개요
 
-Shell(Tauri 앱) 사용자 설정을 OpenClaw Gateway 부트스트랩 파일에 동기화하는 아키텍처입니다.
+Shell(Tauri 앱) 사용자 설정을 Naia Gateway 부트스트랩 파일에 동기화하는 아키텍처입니다.
 이를 통해 Discord DM, TTS 등 Gateway 기능이 Shell과 동일한 페르소나/인증 정보를 사용합니다.
 
 ## 동기화 시점

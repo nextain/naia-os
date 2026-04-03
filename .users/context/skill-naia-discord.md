@@ -7,7 +7,7 @@
 ## Overview
 
 Discord message send/receive skill for the Naia agent.
-Sends and receives DM/channel messages through the OpenClaw Gateway's Discord channel.
+Sends and receives DM/channel messages through the Naia Gateway's Discord channel.
 
 ## Actions
 

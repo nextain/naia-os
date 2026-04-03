@@ -50,7 +50,7 @@ OpenClaw의 데몬+실행+채널+스킬 생태계 (런타임 백엔드)
 └──────────────────────┬──────────────────────────────────┘
                        │ WebSocket (ws://127.0.0.1:18789)
 ┌──────────────────────▼──────────────────────────────────┐
-│  OpenClaw Gateway (systemd user service)                │
+│  Naia Gateway (systemd user service)                │
 │  역할: 명령 실행, 보안, 채널, 스킬, 메모리             │
 │  출처: OpenClaw 생태계 (npm: openclaw)                  │
 │  인증: 디바이스 ID + 토큰 스코프 (protocol v3)          │
@@ -338,7 +338,7 @@ CREATE TABLE facts (id TEXT PK, key TEXT UNIQUE, value TEXT,
 
 ### Gateway 스킬
 
-- **소스**: OpenClaw Gateway `skills.status` RPC
+- **소스**: Naia Gateway `skills.status` RPC
 - **응답 필드**: `name`, `description`, `eligible`, `missing[]`, `install[]` (`{ id, kind, label }`)
 - **설치 종류**: `brew`, `node`, `go`, `uv`, `download`
 
@@ -400,7 +400,7 @@ CREATE TABLE facts (id TEXT PK, key TEXT UNIQUE, value TEXT,
 
 ## Gateway 연결 프로토콜
 
-Naia Agent가 OpenClaw Gateway에 연결하는 과정:
+Naia Agent가 Naia Gateway에 연결하는 과정:
 
 ```
 1. WebSocket 연결: ws://127.0.0.1:18789
@@ -522,11 +522,11 @@ Omni 모델이 활성화되면 STT/TTS 프로바이더 설정은 비활성화된
 
 | 프로바이더 | 경로 | 인증 |
 |-----------|------|------|
-| **edge** | agent → OpenClaw gateway → Edge TTS | 없음 (무료) |
+| **edge** | agent → Naia Gateway → Edge TTS | 없음 (무료) |
 | **nextain** | agent → any-llm gateway → Google Cloud TTS | naiaKey |
-| **google** | agent → OpenClaw gateway → Google Cloud TTS | Google API key |
-| **openai** | agent → OpenClaw gateway → OpenAI TTS | OpenAI API key |
-| **elevenlabs** | agent → OpenClaw gateway → ElevenLabs | ElevenLabs API key |
+| **google** | agent → Naia Gateway → Google Cloud TTS | Google API key |
+| **openai** | agent → Naia Gateway → OpenAI TTS | OpenAI API key |
+| **elevenlabs** | agent → Naia Gateway → ElevenLabs | ElevenLabs API key |
 
 **naiaKey 라우팅:** TTS 인증은 LLM 프로바이더 선택과 독립적. `ChatRequest`가 `naiaKey`를 최상위 필드로 전달.
 

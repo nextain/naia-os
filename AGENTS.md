@@ -23,7 +23,7 @@ Load additional context from `.agents/context/` on demand as needed.
 │   ├── architecture.yaml   # Architecture (agent/gateway/Rust)
 │   ├── distribution.yaml   # Distribution (Flatpak/ISO/AppImage)
 │   ├── bazzite-rebranding.yaml # Bazzite rebranding guide
-│   ├── gateway-sync.yaml  # OpenClaw sync
+│   ├── gateway-sync.yaml  # Gateway sync
 │   └── ...                 # Full list: see project-index.yaml
 ├── workflows/              # Workflows (on-demand)
 └── skills/                 # Skill definitions

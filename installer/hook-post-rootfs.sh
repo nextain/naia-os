@@ -227,7 +227,7 @@ echo "[naia] ostreecontainer flow configured (kickstart + 5 post-scripts + paylo
 
 # ==============================================================================
 # 3. Anaconda pre-install cleanup wrapper
-#    Stop Naia Shell, OpenClaw Gateway, and other runtime processes before
+#    Stop Naia Shell, Naia Gateway, and other runtime processes before
 #    Anaconda starts. Cleans up transient files (sockets, PID files, locks).
 # ==============================================================================
 
@@ -240,8 +240,8 @@ echo "[naia] Stopping runtime processes before installation..."
 # 1. Stop Naia Shell (Flatpak)
 flatpak kill io.nextain.naia 2>/dev/null || true
 
-# 2. Stop OpenClaw Gateway (Node.js)
-pkill -f "openclaw.*gateway" 2>/dev/null || true
+# 2. Stop Naia Gateway (Node.js)
+pkill -f "naia.*gateway" 2>/dev/null || true
 
 # 3. Clean up transient runtime files
 LIVEUSER_HOME="/var/home/liveuser"

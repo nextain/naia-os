@@ -44,7 +44,7 @@ mirror_pairs:
   - agents: .agents/context/gateway-sync.yaml
     users: .users/context/gateway-sync.md
     users_ko: .users/context/ko/gateway-sync.md
-    description: Shell → OpenClaw gateway config sync architecture (provider, model, persona, SOUL.md, chat routing)
+    description: Shell → Naia Gateway config sync architecture (provider, model, persona, SOUL.md, chat routing)
 
   - agents: .agents/context/skill-naia-discord.yaml
     users: .users/context/skill-naia-discord.md
