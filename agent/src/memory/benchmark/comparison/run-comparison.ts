@@ -9,7 +9,7 @@ import { execSync } from "node:child_process";
  *   pnpm exec tsx src/memory/benchmark/comparison/run-comparison.ts [options]
  *
  * Options:
- *   --adapters=naia,mem0,openclaw,letta,zep   (default: naia,mem0)
+ *   --adapters=naia,mem0,letta,zep   (default: naia,mem0)
  *   --judge=claude-cli|keyword                (default: claude-cli)
  *   --runs=N                                  (runs per test, default: 1)
  *   --skip-encode                             (skip encoding, assume already done)
@@ -25,7 +25,6 @@ import { LettaAdapter } from "./adapter-letta.js";
 import { Mem0Adapter } from "./adapter-mem0.js";
 import { type EmbeddingBackend, NaiaAdapter } from "./adapter-naia.js";
 import { NoMemoryAdapter } from "./adapter-no-memory.js";
-import { OpenClawAdapter } from "./adapter-openclaw.js";
 import { OpenLLMVTuberAdapter } from "./adapter-open-llm-vtuber.js";
 import { SapAdapter } from "./adapter-sap.js";
 import { SillyTavernAdapter } from "./adapter-sillytavern.js";
@@ -76,8 +75,6 @@ function createAdapter(name: string, apiKey: string, embedder?: string): Benchma
 			return new NaiaAdapter(apiKey, (embedder ?? "gemini") as EmbeddingBackend);
 		case "mem0":
 			return new Mem0Adapter(apiKey);
-		case "openclaw":
-			return new OpenClawAdapter();
 		case "letta":
 			return new LettaAdapter();
 		case "zep":

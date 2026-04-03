@@ -46,7 +46,7 @@ export class GatewayClient implements GatewayAdapter {
 	}
 
 	/**
-	 * Connect to OpenClaw Gateway with protocol v3 handshake.
+	 * Connect to Naia Gateway with protocol v3 handshake.
 	 *
 	 * Flow:
 	 * 1. Open WebSocket

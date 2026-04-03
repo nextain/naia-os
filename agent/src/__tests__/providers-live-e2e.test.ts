@@ -3,7 +3,7 @@
  *
  * Prerequisites:
  *   - API keys in shell/.env (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, XAI_API_KEY, ZHIPU_API_KEY)
- *   - For Gateway tool-loop tests: OpenClaw Gateway running on localhost:18789
+ *   - For Gateway tool-loop tests: Naia Gateway running on localhost:18789
  *
  * These tests are opt-in and skipped by default.
  * Run manually:
@@ -259,7 +259,7 @@ describe.skipIf(!LIVE_E2E)("Live Provider E2E", () => {
 
 function loadGatewayToken(): string | null {
 	const candidates = [
-		join(homedir(), ".openclaw", "openclaw.json"),
+		join(homedir(), ".naia", "gateway.json"),
 		join(homedir(), ".naia", "openclaw", "openclaw.json"),
 	];
 	for (const p of candidates) {

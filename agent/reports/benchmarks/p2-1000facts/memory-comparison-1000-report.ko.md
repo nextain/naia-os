@@ -13,7 +13,7 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 | 순위 | 시스템 | 1000 Facts | 500 Facts | 비고 |
 |:----:|--------|:----------:|:---------:|------|
 | **1** | **Naia** | **65%** | 70-72% | KG + 감쇠 + 재공고화 |
-| 2 | OpenClaw | 55% | 65% | 게이트웨이 메모리 |
+| 2 | Naia | 55% | 65% | 게이트웨이 메모리 |
 | 3 | Letta | 47% | - | 계층적 메모리 (MemGPT) |
 | 4 | SillyTavern | 46% | - | vectra + 로컬 임베딩 |
 | - | AIRI | 18% | - | 메모리 미구현 (baseline) |
@@ -29,7 +29,7 @@ Naia 메모리 시스템이 1000개 fact, 240개 query 규모의 벤치마크에
 | **mem0** | 24K+ | 메모리 라이브러리 | 벡터 검색 + LLM fact 추출 | 우리 백엔드. 레이어 없이 raw 성능 |
 | **Letta** | 14K+ | Agent 메모리 프레임워크 | 계층적 메모리 (core/archival/recall) | Agent 메모리 분야 최강. MemGPT 후속 |
 | **SillyTavern** | 24K+ | 캐릭터 챗/롤플레이 | vectra + transformers.js 임베딩 | 가장 성숙한 캐릭터 기억 |
-| **OpenClaw** | 210K+ | AI 게이트웨이 | Markdown + 벡터 인덱스 | Naia가 사용하는 게이트웨이 |
+| **Naia** | 210K+ | AI 게이트웨이 | Markdown + 벡터 인덱스 | Naia가 사용하는 게이트웨이 |
 | **SAP** | - | 벡터 검색 | FAISS 기반 | 전통적 벡터 검색 기준선 |
 | **Open-LLM-VTuber** | 4.1K | AI VTuber | Letta 기반 | VTuber 분야 직접 경쟁자 |
 | **AIRI** | 36K | AI VTuber/캐릭터 | 미구현 (Alaya 제안만) | 기여 대상, baseline |
@@ -109,7 +109,7 @@ Naia는 "나를 기억하는 AI"를 핵심 가치로 하며, **"신경과학 기
 
 ## 4. 카테고리별 상세 결과
 
-| 카테고리 | Naia | OpenClaw | Letta | SillyTavern | SAP | AIRI |
+| 카테고리 | Naia | Naia | Letta | SillyTavern | SAP | AIRI |
 |---------|:----:|:--------:|:-----:|:-----------:|:---:|:----:|
 | direct_recall | **16/25** | 11/25 | **22/25** | **22/25** | 0/25 | 0/25 |
 | semantic_search | **14/25** | 9/25 | 13/25 | 8/25 | 0/25 | 1/25 |

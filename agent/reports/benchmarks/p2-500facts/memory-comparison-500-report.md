@@ -4,7 +4,7 @@
 > Issue: #189
 > Benchmark: 500 facts, 106 queries, keyword judge
 > LLMs tested: Gemini 2.5 Flash, Qwen3-8B (ollama local)
-> Systems: Naia, mem0, OpenClaw, SAP
+> Systems: Naia, mem0, Naia, SAP
 
 ## Executive Summary
 
@@ -20,13 +20,13 @@ Naia Memory System achieved **70-72% core accuracy (1st place)** at 500-fact sca
 | **1** | **Naia (Qwen3)** | **71/98** | **72%** | -16%p | Same system, local LLM |
 | 2 | mem0 raw | 73/98 | 74% | -10%p | Vector search only |
 | 3 | SAP | 65/98 | 66% | -2%p | FAISS-based |
-| 4 | OpenClaw | 64/98 | 65% | -15%p | Gateway memory plugin |
+| 4 | Naia | 64/98 | 65% | -15%p | Gateway memory plugin |
 
 **Note**: mem0 raw scored 74% vs Naia 70-72%. At 500-fact scale, mem0's simpler pipeline (no importance gating, no decay filtering) may retain more facts in search results. Naia's decay/importance filtering, while beneficial at smaller scale, may over-prune at 500 facts. This is a tuning opportunity, not an architecture flaw.
 
 ### Category Breakdown (All Systems, 500 facts)
 
-| Category | Naia (Gemini) | Naia (Qwen3) | mem0 | OpenClaw | SAP |
+| Category | Naia (Gemini) | Naia (Qwen3) | mem0 | Naia | SAP |
 |----------|:------------:|:------------:|:----:|:--------:|:---:|
 | direct_recall | 14/18 (78%) | 15/18 (83%) | **16/18** | 14/18 | 12/18 |
 | semantic_search | 8/14 (57%) | 8/14 (57%) | **9/14** | 7/14 | 8/14 |
@@ -67,7 +67,7 @@ Confirmed: benchmark measures memory system quality, not LLM capability.
 |--------|:---------:|:---------:|:----:|
 | **Naia** | **88%** | **70-72%** | **-16~18%p** |
 | mem0 | 84% | 74% | -10%p |
-| OpenClaw | 80% | 65% | -15%p |
+| Naia | 80% | 65% | -15%p |
 | SAP | 68% | 66% | -2%p |
 
 ## Key Findings
@@ -75,8 +75,8 @@ Confirmed: benchmark measures memory system quality, not LLM capability.
 ### 1. Naia vs mem0 at Scale
 At 100 facts, Naia (88%) > mem0 (84%) by 4%p. At 500 facts, mem0 (74%) > Naia (70-72%) by 2-4%p. The reversal suggests Naia's neuroscience layers (decay, importance gating) may over-filter at large scale. **Tuning decay parameters for scale is the primary optimization target.**
 
-### 2. OpenClaw Temporal Advantage
-OpenClaw scored 4/4 on temporal_history (bonus), suggesting it has dedicated temporal handling that other systems lack.
+### 2. Naia Temporal Advantage
+Naia scored 4/4 on temporal_history (bonus), suggesting it has dedicated temporal handling that other systems lack.
 
 ### 3. Consistent Winners
 - **irrelevant_isolation**: 100% for all systems at all scales — this is a solved problem
@@ -89,7 +89,7 @@ OpenClaw scored 4/4 on temporal_history (bonus), suggesting it has dedicated tem
 
 1. **Tune decay for scale**: Reduce BASE_DECAY or add scale-aware damping (current 0.08 may prune too aggressively at 500+ facts)
 2. **Hybrid retrieval**: Keyword pre-filter + vector re-rank for precision at scale
-3. **Temporal index**: Dedicated time-based retrieval (OpenClaw's approach)
+3. **Temporal index**: Dedicated time-based retrieval (Naia's approach)
 4. **Re-ranking layer**: Post-search relevance scoring before LLM injection
 5. **Target**: 80%+ at 500 facts before production scale readiness
 

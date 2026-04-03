@@ -1,9 +1,9 @@
 /**
- * E2E tests: Naia Agent ↔ OpenClaw Gateway (live connection)
+ * E2E tests: Naia Agent ↔ Naia Gateway (live connection)
  *
  * Prerequisites:
- *   - OpenClaw Gateway running on localhost:18789
- *   - Device paired with operator token in ~/.openclaw/identity/device.json
+ *   - Naia Gateway running on localhost:18789
+ *   - Device paired with operator token in ~/.naia/identity/device.json
  *
  * These tests verify:
  *   1. Protocol v3 handshake (challenge → connect → hello-ok)
@@ -38,13 +38,18 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function loadGatewayToken(): string | null {
-	const configPath = join(homedir(), ".openclaw", "openclaw.json");
-	try {
-		const config = JSON.parse(readFileSync(configPath, "utf-8"));
-		return config.gateway?.auth?.token || null;
-	} catch {
-		return null;
+	const candidates = [
+		join(homedir(), ".naia", "gateway.json"),
+		join(homedir(), ".naia", "openclaw", "openclaw.json"),
+	];
+	for (const configPath of candidates) {
+		try {
+			const config = JSON.parse(readFileSync(configPath, "utf-8"));
+			const token = config.gateway?.auth?.token;
+			if (token) return token;
+		} catch {}
 	}
+	return null;
 }
 
 const gatewayToken = loadGatewayToken();

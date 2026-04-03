@@ -16,7 +16,7 @@ describe("voicewake-proxy", () => {
 				switch (method) {
 					case "voicewake.get":
 						respond.ok({
-							triggers: ["낸", "openclaw", "hey alpha"],
+							triggers: ["낸", "naia", "hey alpha"],
 						});
 						break;
 					case "voicewake.set":
@@ -50,7 +50,7 @@ describe("voicewake-proxy", () => {
 		it("returns current wake triggers", async () => {
 			const result = await getVoiceWakeTriggers(client);
 
-			expect(result.triggers).toEqual(["낸", "openclaw", "hey alpha"]);
+			expect(result.triggers).toEqual(["낸", "naia", "hey alpha"]);
 		});
 	});
 

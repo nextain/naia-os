@@ -447,7 +447,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 		const wantGatewayForTts =
 			!!gatewayUrl &&
 			!!ttsVoice &&
-			(ttsEngine === "openclaw" || ttsEngine === "auto");
+			(ttsEngine === "gateway" || ttsEngine === "auto");
 		const wantGateway = wantGatewayForTools || wantGatewayForTts;
 		let gatewayConnected = false;
 
@@ -840,7 +840,7 @@ export async function handleChatRequest(req: ChatRequest): Promise<void> {
 				const effectiveNaiaKey = reqNaiaKey || providerConfig.naiaKey;
 				const selectedProvider =
 					ttsProvider ||
-					(ttsEngine === "openclaw" ? "edge" : undefined) ||
+					(ttsEngine === "gateway" ? "edge" : undefined) ||
 					"edge";
 				let audioSent = false;
 

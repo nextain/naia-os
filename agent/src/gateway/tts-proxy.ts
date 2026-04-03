@@ -115,7 +115,7 @@ export async function disableTts(
 
 /**
  * Update messages.tts.* via config.patch.
- * OpenClaw requires baseHash for config writes when config exists.
+ * Gateway requires baseHash for config writes when config exists.
  */
 async function patchMessagesTts(
 	client: GatewayAdapter,
@@ -134,7 +134,7 @@ async function patchMessagesTts(
 	await client.request("config.patch", params);
 }
 
-/** Set OpenClaw auto TTS mode (messages.tts.auto) */
+/** Set Gateway auto TTS mode (messages.tts.auto) */
 export async function setTtsAutoMode(
 	client: GatewayAdapter,
 	auto: TtsAutoMode,
@@ -143,7 +143,7 @@ export async function setTtsAutoMode(
 	return { auto };
 }
 
-/** Set OpenClaw output mode (messages.tts.mode) */
+/** Set Gateway output mode (messages.tts.mode) */
 export async function setTtsOutputMode(
 	client: GatewayAdapter,
 	mode: TtsMode,

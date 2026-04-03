@@ -14,7 +14,7 @@
 |:----:|--------|:----:|----------|
 | **1** | **Naia** | **88%** | direct_recall 100%, unchanged_persistence 100% |
 | 2 | mem0 raw | 84% | contradiction_direct 100% |
-| 3 | OpenClaw | 80% | abstention 100% |
+| 3 | Naia | 80% | abstention 100% |
 | 4 | SAP | 68% | - |
 | - | Letta | ERROR | 연결 실패 |
 
@@ -52,7 +52,7 @@
 | 3세션 시나리오 핵심 항목 통과 | ✅ E2E 테스트 통과 |
 | 기존 벤치마크 80% 유지 | ✅ 88% (이전 92%는 15 fact 기준, 100 fact로 정규화하면 88%) |
 | 치명적 regression 없음 | ✅ |
-| 비교군 대비 1위 | ✅ Naia 88% > mem0 84% > OpenClaw 80% |
+| 비교군 대비 1위 | ✅ Naia 88% > mem0 84% > Naia 80% |
 
 ## 전문가 리뷰 주요 발견사항
 

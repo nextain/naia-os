@@ -16,8 +16,8 @@ const LIVE_E2E = process.env.CAFE_LIVE_GATEWAY_E2E === "1";
 
 function loadGatewayToken(): string | null {
 	const candidates = [
+		join(homedir(), ".naia", "gateway.json"),
 		join(homedir(), ".naia", "openclaw", "openclaw.json"),
-		join(homedir(), ".openclaw", "openclaw.json"),
 	];
 	for (const path of candidates) {
 		try {

@@ -33,9 +33,6 @@ importers:
       '@biomejs/biome':
         specifier: ^1.9.0
         version: 1.9.4
-      '@mem0/openclaw-mem0':
-        specifier: ^0.4.0
-        version: 0.4.0(@anthropic-ai/sdk@0.39.0)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260317.1)(@google/genai@1.42.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)))(@langchain/core@1.1.36(openai@4.104.0(ws@8.19.0)(zod@4.3.6))(ws@8.19.0))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.100.1)(@types/jest@29.5.14)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(groq-sdk@0.3.0)(neo4j-driver@5.28.3)(ollama@0.5.18)(pg@8.20.0)(redis@4.7.1)(ws@8.19.0)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
@@ -397,9 +394,6 @@ packages:
     resolution: {integrity: sha512-9NWsdzU3uZD13lJwunXK0t6SIwew+UwcbHggW5yUdaiMmzKeNkDpp1lRD6p49N8+D0Vv4qmQBEKB4Ukh2jfnvw==}
     engines: {node: '>=20'}
 
-  '@mem0/openclaw-mem0@0.4.0':
-    resolution: {integrity: sha512-BUfCmlz4vI6PZS3jHHWizJCVP+riK90BVfwsaVyENtj0LEgQoymzr/THbx2Ye59YLOuFB/eHYsnpRFWEVOIHlw==}
-
   '@mistralai/mistralai@1.15.1':
     resolution: {integrity: sha512-fb995eiz3r0KsBGtRjFV+/iLbX+UpfalxpF+YitT3R6ukrPD4PN+FGwwmYcRFhNAzVzDUtTVxQYnjQWEnwV5nw==}
 
@@ -629,9 +623,6 @@ packages:
 
   '@sinclair/typebox@0.27.10':
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
-
-  '@sinclair/typebox@0.34.47':
-    resolution: {integrity: sha512-ZGIBQ+XDvO5JQku9wmwtabcVTHJsgSWAHYtVuM9pBNNR5E88v6Jcj/llpmsjivig5X8A8HHOb4/mbEKPS5EvAw==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -2444,7 +2435,7 @@ snapshots:
       mustache: 4.2.0
       p-queue: 6.6.2
       uuid: 11.1.0
-      zod: 3.25.76
+      zod: 4.3.6
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-proto'
@@ -2452,38 +2443,11 @@ snapshots:
       - openai
       - ws
 
-  '@mem0/openclaw-mem0@0.4.0(@anthropic-ai/sdk@0.39.0)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260317.1)(@google/genai@1.42.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)))(@langchain/core@1.1.36(openai@4.104.0(ws@8.19.0)(zod@4.3.6))(ws@8.19.0))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.100.1)(@types/jest@29.5.14)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(groq-sdk@0.3.0)(neo4j-driver@5.28.3)(ollama@0.5.18)(pg@8.20.0)(redis@4.7.1)(ws@8.19.0)':
-    dependencies:
-      '@sinclair/typebox': 0.34.47
-      mem0ai: 2.4.2(@anthropic-ai/sdk@0.39.0)(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260317.1)(@google/genai@1.42.0(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)))(@langchain/core@1.1.36(openai@4.104.0(ws@8.19.0)(zod@4.3.6))(ws@8.19.0))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.100.1)(@types/jest@29.5.14)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(groq-sdk@0.3.0)(neo4j-driver@5.28.3)(ollama@0.5.18)(pg@8.20.0)(redis@4.7.1)(ws@8.19.0)
-    transitivePeerDependencies:
-      - '@anthropic-ai/sdk'
-      - '@azure/identity'
-      - '@azure/search-documents'
-      - '@cloudflare/workers-types'
-      - '@google/genai'
-      - '@langchain/core'
-      - '@mistralai/mistralai'
-      - '@qdrant/js-client-rest'
-      - '@supabase/supabase-js'
-      - '@types/jest'
-      - '@types/pg'
-      - better-sqlite3
-      - cloudflare
-      - debug
-      - encoding
-      - groq-sdk
-      - neo4j-driver
-      - ollama
-      - pg
-      - redis
-      - ws
-
   '@mistralai/mistralai@1.15.1':
     dependencies:
       ws: 8.19.0
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod: 4.3.6
+      zod-to-json-schema: 3.25.1(zod@4.3.6)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -2651,8 +2615,6 @@ snapshots:
   '@sevinf/maybe@0.5.0': {}
 
   '@sinclair/typebox@0.27.10': {}
-
-  '@sinclair/typebox@0.34.47': {}
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -4247,10 +4209,6 @@ snapshots:
   xtend@4.0.2: {}
 
   yallist@4.0.0: {}
-
-  zod-to-json-schema@3.25.1(zod@3.25.76):
-    dependencies:
-      zod: 3.25.76
 
   zod-to-json-schema@3.25.1(zod@4.3.6):
     dependencies:

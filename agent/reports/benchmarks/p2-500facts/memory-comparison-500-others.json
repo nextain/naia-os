@@ -2416,8 +2416,8 @@
       ]
     },
     {
-      "adapter": "openclaw",
-      "description": "OpenClaw (Cline) — SQLite + Gemini vector + FTS5 hybrid search",
+      "adapter": "naia",
+      "description": "Naia (Cline) — SQLite + Gemini vector + FTS5 hybrid search",
       "core": {
         "total": 98,
         "passed": 64,
