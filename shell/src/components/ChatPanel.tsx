@@ -411,7 +411,24 @@ export function ChatPanel() {
 		// Startup sync: ensure Gateway has latest config
 		const cfg = loadConfig();
 		if (cfg) {
-			syncToGateway(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
+			syncToGateway(
+				cfg.provider,
+				cfg.model,
+				cfg.apiKey,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				cfg.ollamaHost,
+			).catch(() => {});
 		}
 
 		// Start Discord relay polling (if Discord is linked)

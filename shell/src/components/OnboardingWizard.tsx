@@ -286,6 +286,7 @@ export function OnboardingWizard({
 						undefined,
 						undefined,
 						key,
+						restored.ollamaHost,
 					);
 
 					// Push to Lab if not yet saved online

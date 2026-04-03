@@ -1504,6 +1504,7 @@ export function SettingsTab() {
 					undefined,
 					undefined,
 					nextNaiaKey,
+					current?.ollamaHost,
 				);
 				await restartGateway();
 
