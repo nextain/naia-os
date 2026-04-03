@@ -2460,6 +2460,7 @@ export function SettingsTab() {
 																undefined,
 																undefined,
 																undefined, // naiaKey cleared
+																updated.ollamaHost,
 															);
 															await restartGateway();
 														}
@@ -2811,6 +2812,7 @@ export function SettingsTab() {
 															undefined,
 															undefined,
 															undefined, // naiaKey cleared
+															updated.ollamaHost,
 														);
 														await restartGateway();
 													}

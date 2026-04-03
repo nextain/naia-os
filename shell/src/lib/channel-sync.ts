@@ -194,6 +194,7 @@ async function syncGatewayChannels(
 			config.ttsEnabled ? "always" : "off",
 			undefined,
 			config.naiaKey,
+			config.ollamaHost,
 		);
 		await restartGateway();
 		Logger.info("channel-sync", "Gateway config updated with channel IDs", {

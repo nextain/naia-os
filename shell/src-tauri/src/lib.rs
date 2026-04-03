@@ -1761,7 +1761,7 @@ async fn reset_window_state(app: AppHandle) -> Result<(), String> {
 fn reset_gateway_data() -> Result<String, String> {
     let home = home_dir();
     let base_dirs = [
-        format!("{}/.openclaw", home), // backward compat
+        format!("{}/.openclaw", home), // primary (existing installs)
         format!("{}/.naia/openclaw", home),
     ];
 
@@ -1788,7 +1788,7 @@ fn reset_gateway_data() -> Result<String, String> {
 }
 
 /// Read Discord bot token.
-/// Priority: Shell local config (naia-discord.json) → OpenClaw config (openclaw.json).
+/// Priority: Shell local config (naia-discord.json) → Gateway config (openclaw.json).
 /// This separates the primary path from Gateway dependency (#154).
 #[tauri::command]
 fn read_discord_bot_token() -> Result<String, String> {

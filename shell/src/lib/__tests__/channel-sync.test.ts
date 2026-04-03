@@ -208,6 +208,7 @@ describe("syncLinkedChannels", () => {
 			"off", // ttsAuto (ttsEnabled unset → "off")
 			undefined, // ttsMode
 			"gw-test-lab-key",
+			undefined, // ollamaHost (not set in seedConfig)
 		);
 		expect(restartGateway).toHaveBeenCalled();
 
