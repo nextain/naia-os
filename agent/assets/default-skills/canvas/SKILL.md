@@ -1,3 +1,8 @@
+---
+name: canvas
+description: Display HTML content on connected Naia nodes (games, visualizations, dashboards). Supports present, hide, navigate, eval, and snapshot actions via the canvas gateway skill.
+---
+
 # Canvas Skill
 
 Display HTML content on connected OpenClaw nodes (Mac app, iOS, Android).
