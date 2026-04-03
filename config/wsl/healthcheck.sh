@@ -13,12 +13,12 @@ else
     exit 1
 fi
 
-# OpenClaw
-OPENCLAW_MJS="/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs"
-if [ -f "$OPENCLAW_MJS" ]; then
-    echo "[OK] OpenClaw found at $OPENCLAW_MJS"
+# Naia Gateway
+GATEWAY_MJS="/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs"
+if [ -f "$GATEWAY_MJS" ]; then
+    echo "[OK] Naia Gateway found at $GATEWAY_MJS"
 else
-    echo "[FAIL] OpenClaw not found at $OPENCLAW_MJS"
+    echo "[FAIL] Naia Gateway not found at $GATEWAY_MJS"
     exit 1
 fi
 
