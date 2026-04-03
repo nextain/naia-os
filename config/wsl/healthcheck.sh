@@ -1,5 +1,5 @@
 #!/bin/bash
-# NaiaEnv health check — verifies Gateway prerequisites are available
+# NaiaEnv health check — verifies Naia Agent prerequisites are available
 
 set -e
 
@@ -13,20 +13,12 @@ else
     exit 1
 fi
 
-# Naia Gateway
-GATEWAY_MJS="/opt/naia/openclaw/node_modules/openclaw/openclaw.mjs"
-if [ -f "$GATEWAY_MJS" ]; then
-    echo "[OK] Naia Gateway found at $GATEWAY_MJS"
-else
-    echo "[FAIL] Naia Gateway not found at $GATEWAY_MJS"
-    exit 1
-fi
-
-# Network — check if localhost is reachable from WSL
+# Network — check if an optional external gateway is running on port 18789
+# (/__openclaw__/canvas/ endpoint is backward-compatible with OpenClaw-based gateways)
 if curl -sf --max-time 2 http://127.0.0.1:18789/__openclaw__/canvas/ &>/dev/null; then
-    echo "[OK] Gateway already running on port 18789"
+    echo "[OK] External gateway already running on port 18789"
 else
-    echo "[INFO] Gateway not running (will be started by Naia Shell)"
+    echo "[INFO] No external gateway running (Naia Agent built into Naia Shell — this is normal)"
 fi
 
 echo "=== Health Check Complete ==="

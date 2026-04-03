@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# install-gateway.sh — Install Naia Gateway (OpenClaw-compatible) for Naia Shell standalone packages
+# install-gateway.sh — Verify Node.js prerequisites for Naia Agent
 # Safe to run multiple times (idempotent).
 # Usage: bash install-gateway.sh
+#
+# Note: Naia Agent (TypeScript) is the built-in runtime — no additional
+# gateway installation is required. OpenClaw is an optional external gateway
+# that can be connected via Settings → Gateway URL.
 
 set -euo pipefail
 
@@ -15,13 +19,9 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-GATEWAY_DIR="$HOME/.naia/openclaw"  # backward-compat path
-CONFIG_DIR="$HOME/.openclaw"
-CONFIG_FILE="$CONFIG_DIR/openclaw.json"  # backward-compat path
+CONFIG_DIR="$HOME/.openclaw"           # backward-compat path (kept for existing installs)
 WORKSPACE_DIR="$CONFIG_DIR/workspace"
-GATEWAY_BIN="$GATEWAY_DIR/node_modules/openclaw/openclaw.mjs"  # backward-compat path
 REQUIRED_NODE_MAJOR=22
-GATEWAY_VERSION="2026.2.22-2"
 GATEWAY_PORT=18789
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ die() {
 }
 
 # ── Step 1: Check Node.js ────────────────────────────────────────────────────
-step "Step 1/5: Checking Node.js"
+step "Step 1/2: Checking Node.js"
 
 NODE_CMD=""
 
@@ -110,112 +110,29 @@ else
     exit 1
 fi
 
-# Verify npm
-if ! command -v npm &>/dev/null; then
-    die "npm not found. It should come with Node.js. Please reinstall Node.js."
-fi
-info "npm $(npm --version)"
+# ── Step 2: Ensure workspace directory exists ────────────────────────────────
+step "Step 2/2: Setting up workspace directory"
 
-# ── Step 2: Create installation directory ────────────────────────────────────
-step "Step 2/5: Setting up installation directory"
-
-mkdir -p "$GATEWAY_DIR"
-success "Directory: $GATEWAY_DIR"
-
-# ── Step 3: Create package.json and install ──────────────────────────────────
-step "Step 3/5: Installing Naia Gateway $GATEWAY_VERSION"
-
-PACKAGE_JSON="$GATEWAY_DIR/package.json"
-
-# Always write package.json to ensure correct version
-cat > "$PACKAGE_JSON" <<EOF
-{
-  "name": "naia-openclaw-gateway",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Naia Gateway for Naia Shell",
-  "dependencies": {
-    "openclaw": "$GATEWAY_VERSION"
-  }
-}
-EOF
-info "Created package.json (openclaw@$GATEWAY_VERSION)"
-
-# Run npm install
-info "Running npm install (this may take a minute)..."
-(cd "$GATEWAY_DIR" && npm install --production --no-fund --no-audit 2>&1) | while IFS= read -r line; do
-    # Show progress but suppress noise
-    if [[ "$line" == *"added"* ]] || [[ "$line" == *"packages"* ]]; then
-        info "$line"
-    fi
-done
-
-# ── Step 4: Verify installation ──────────────────────────────────────────────
-step "Step 4/5: Verifying installation"
-
-if [[ ! -f "$GATEWAY_BIN" ]]; then
-    die "Naia Gateway not found at $GATEWAY_BIN. Installation may have failed."
-fi
-
-GATEWAY_VER=$(node "$GATEWAY_BIN" --version 2>/dev/null || echo "unknown")
-success "Naia Gateway installed: $GATEWAY_VER"
-success "Binary: $GATEWAY_BIN"
-
-# ── Step 5: Create config ────────────────────────────────────────────────────
-step "Step 5/5: Setting up configuration"
-
-mkdir -p "$CONFIG_DIR"
 mkdir -p "$WORKSPACE_DIR"
-
-if [[ -f "$CONFIG_FILE" ]]; then
-    warn "Config already exists: $CONFIG_FILE (skipping)"
-    info "Delete it and re-run this script to regenerate."
-else
-    # SoT: config/defaults/gateway-bootstrap.json
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    BOOTSTRAP="${SCRIPT_DIR}/../config/defaults/openclaw-bootstrap.json"  # TODO: rename to gateway-bootstrap.json
-    if [[ -f "$BOOTSTRAP" ]]; then
-        cp "$BOOTSTRAP" "$CONFIG_FILE"
-    else
-        warn "Bootstrap template not found at $BOOTSTRAP, using fallback"
-        cat > "$CONFIG_FILE" <<'EOF'
-{
-  "gateway": {
-    "mode": "local",
-    "port": 18789,
-    "bind": "loopback",
-    "auth": { "mode": "token" },
-    "reload": { "mode": "off" }
-  },
-  "agents": {
-    "defaults": {
-      "workspace": "~/.openclaw/workspace"
-    }
-  }
-}
-EOF
-    fi
-    success "Created config: $CONFIG_FILE"
-fi
+success "Workspace: $WORKSPACE_DIR"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}============================================${RESET}"
-echo -e "${GREEN}${BOLD}  Naia Gateway installed successfully!  ${RESET}"
+echo -e "${GREEN}${BOLD}  Naia Agent prerequisites verified!    ${RESET}"
 echo -e "${GREEN}${BOLD}============================================${RESET}"
 echo ""
-echo -e "  ${BOLD}To start the gateway:${RESET}"
+echo -e "  ${BOLD}Naia Agent is built into Naia Shell — no separate installation needed.${RESET}"
+echo -e "  Simply launch Naia Shell and the agent starts automatically."
 echo ""
-echo -e "    ${CYAN}node ~/.naia/openclaw/node_modules/openclaw/openclaw.mjs gateway run --bind loopback --port $GATEWAY_PORT${RESET}"
+echo -e "  ${BOLD}Optional: connect an external OpenClaw gateway${RESET}"
+echo -e "    1. Install OpenClaw separately (see https://github.com/nextain/naia-os)"
+echo -e "    2. Start it on port $GATEWAY_PORT:"
+echo -e "       ${CYAN}openclaw gateway run --bind loopback --port $GATEWAY_PORT${RESET}"
+echo -e "    3. In Naia Shell → Settings → set Gateway URL:"
+echo -e "       ${CYAN}http://127.0.0.1:$GATEWAY_PORT${RESET}"
 echo ""
-echo -e "  ${BOLD}To verify it's running:${RESET}"
+echo -e "  ${BOLD}To verify an external gateway is running:${RESET}"
 echo ""
 echo -e "    ${CYAN}curl -s http://127.0.0.1:$GATEWAY_PORT/__openclaw__/canvas/${RESET}"
-echo ""
-echo -e "  ${BOLD}Then launch Naia Shell${RESET} — it will connect to the gateway automatically."
-echo ""
-echo -e "  ${BOLD}Files:${RESET}"
-echo -e "    Binary:  $GATEWAY_BIN"
-echo -e "    Config:  $CONFIG_FILE"
-echo -e "    Data:    $WORKSPACE_DIR"
 echo ""

@@ -1,8 +1,9 @@
 # NaiaEnv — Minimal WSL2 distro for Naia OS Tier 2
 # Builds a rootfs tar.gz that can be imported via: wsl --import NaiaEnv <path> <tar>
 #
-# Contents: Node.js 22 + Naia Gateway (OpenClaw-compatible) + basic tools
-# Target size: ~250MB compressed
+# Contents: Node.js 22 + basic tools (Naia Agent is built into Naia Shell)
+# OpenClaw is an optional external gateway — not installed here.
+# Target size: ~200MB compressed
 
 FROM ubuntu:24.04
 
@@ -22,18 +23,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Naia Gateway — install to /opt/naia/openclaw/ (backward-compat path)
-RUN mkdir -p /opt/naia/openclaw \
-    && cd /opt/naia/openclaw \
-    && npm init -y \
-    && npm install openclaw@latest \
-    && npm cache clean --force
-
 # WSL configuration
 COPY wsl.conf /etc/wsl.conf
 
 # Default user setup (WSL uses root by default for imported distros)
-RUN echo 'export PATH="/opt/naia/openclaw/node_modules/.bin:$PATH"' >> /root/.bashrc
+RUN echo '# Naia Agent is built into Naia Shell — no gateway installation needed.' >> /root/.bashrc
 
 # Health check script
 COPY healthcheck.sh /opt/naia/healthcheck.sh

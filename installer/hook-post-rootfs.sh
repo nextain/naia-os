@@ -244,6 +244,8 @@ flatpak kill io.nextain.naia 2>/dev/null || true
 pkill -f "naia.*gateway" 2>/dev/null || true
 
 # 3. Clean up transient runtime files
+# ~/.openclaw/ is a backward-compat path kept for users who had openclaw installed.
+# Naia Agent (built into Naia Shell) no longer requires openclaw as a runtime.
 LIVEUSER_HOME="/var/home/liveuser"
 rm -rf "${LIVEUSER_HOME}/.openclaw/"*.lock 2>/dev/null || true
 rm -rf "${LIVEUSER_HOME}/.openclaw/"*.pid 2>/dev/null || true
