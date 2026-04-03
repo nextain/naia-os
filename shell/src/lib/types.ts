@@ -74,7 +74,7 @@ export interface AgentRequest {
 	systemPrompt?: string;
 	ttsVoice?: string;
 	ttsApiKey?: string;
-	ttsEngine?: "auto" | "openclaw" | "google";
+	ttsEngine?: "auto" | "gateway" | "google";
 	enableTools?: boolean;
 	gatewayUrl?: string;
 	gatewayToken?: string;

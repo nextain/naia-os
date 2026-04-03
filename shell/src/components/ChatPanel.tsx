@@ -48,7 +48,7 @@ import {
 } from "../lib/llm";
 import { Logger } from "../lib/logger";
 import { type MicStream, createMicStream } from "../lib/mic-stream";
-import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
+import { restartGateway, syncToGateway } from "../lib/gateway-sync";
 import { panelRegistry } from "../lib/panel-registry";
 import { type MemoryContext, buildSystemPrompt } from "../lib/persona";
 import {
@@ -408,10 +408,10 @@ export function ChatPanel() {
 			discoverAndPersistDiscordDmChannel().catch(() => {});
 		}
 
-		// Startup sync: ensure SOUL.md has latest config for OpenClaw channels
+		// Startup sync: ensure Gateway has latest config
 		const cfg = loadConfig();
 		if (cfg) {
-			syncToOpenClaw(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
+			syncToGateway(cfg.provider, cfg.model, cfg.apiKey).catch(() => {});
 		}
 
 		// Start Discord relay polling (if Discord is linked)

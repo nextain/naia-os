@@ -4,7 +4,7 @@ import { loadConfig, saveConfig } from "./config";
 import { openDmChannel } from "./discord-api";
 import { getLocale } from "./i18n";
 import { Logger } from "./logger";
-import { restartGateway, syncToOpenClaw } from "./openclaw-sync";
+import { restartGateway, syncToGateway } from "./gateway-sync";
 import { buildSystemPrompt } from "./persona";
 
 const LINKED_CHANNELS_API =
@@ -88,7 +88,7 @@ async function fetchLinkedChannels(
  * Flow:
  * 1. Fetch linked channels from BFF
  * 2. If discord channel found → discover DM channel ID (always refresh)
- * 3. Persist to config + sync to OpenClaw Gateway + restart
+ * 3. Persist to config + sync to Naia Gateway + restart
  */
 export async function syncLinkedChannels(): Promise<void> {
 	const config = loadConfig();
@@ -149,18 +149,18 @@ export async function syncLinkedChannels(): Promise<void> {
 		});
 	}
 
-	// Sync to openclaw.json + restart so Gateway picks up the channel ID
+	// Sync to gateway.json + restart so Gateway picks up the channel ID
 	if (dmChannelId) {
-		await syncOpenClawWithChannels(discordUserId, dmChannelId);
+		await syncGatewayChannels(discordUserId, dmChannelId);
 	}
 }
 
 /**
- * Sync discord channel IDs to openclaw.json and restart Gateway.
+ * Sync discord channel IDs to gateway.json and restart Gateway.
  * This ensures the persistent config includes the DM channel ID
  * so it survives Gateway restarts.
  */
-async function syncOpenClawWithChannels(
+async function syncGatewayChannels(
 	discordUserId: string,
 	dmChannelId: string,
 ): Promise<void> {
@@ -178,7 +178,7 @@ async function syncOpenClawWithChannels(
 			discordDmChannelId: dmChannelId,
 		});
 
-		await syncToOpenClaw(
+		await syncToGateway(
 			config.provider ?? "gemini",
 			config.model ?? "",
 			config.apiKey,
@@ -196,12 +196,12 @@ async function syncOpenClawWithChannels(
 			config.naiaKey,
 		);
 		await restartGateway();
-		Logger.info("channel-sync", "OpenClaw config updated with channel IDs", {
+		Logger.info("channel-sync", "Gateway config updated with channel IDs", {
 			discordUserId,
 			dmChannelId,
 		});
 	} catch (err) {
-		Logger.warn("channel-sync", "Failed to sync channels to OpenClaw", {
+		Logger.warn("channel-sync", "Failed to sync channels to Gateway", {
 			error: String(err),
 		});
 	}

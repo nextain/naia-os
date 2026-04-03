@@ -49,7 +49,7 @@ import {
 	listLlmProviders,
 } from "../lib/llm";
 import { Logger } from "../lib/logger";
-import { restartGateway, syncToOpenClaw } from "../lib/openclaw-sync";
+import { restartGateway, syncToGateway } from "../lib/gateway-sync";
 import {
 	DEFAULT_PERSONA,
 	FORMALITY_LOCALES,
@@ -766,7 +766,7 @@ export function SettingsTab() {
 	);
 	const [ttsProvider, setTtsProvider] = useState<TtsProviderId>(
 		existing?.ttsProvider ??
-			(existing?.ttsEngine === "openclaw"
+			(existing?.ttsEngine === "gateway"
 				? "edge"
 				: existing?.ttsEngine === "google"
 					? "google"
@@ -1478,7 +1478,7 @@ export function SettingsTab() {
 					});
 				}
 
-				// Sync to OpenClaw (no API key for Lab proxy)
+				// Sync to Gateway (no API key for Lab proxy)
 				const naiaFullPrompt = buildSystemPrompt(current?.persona, {
 					agentName: current?.agentName,
 					userName: current?.userName,
@@ -1488,7 +1488,7 @@ export function SettingsTab() {
 					discordDefaultUserId: current?.discordDefaultUserId,
 					discordDmChannelId: current?.discordDmChannelId,
 				});
-				await syncToOpenClaw(
+				await syncToGateway(
 					"nextain",
 					nextModel,
 					undefined,
@@ -1659,8 +1659,8 @@ export function SettingsTab() {
 			const cfg = loadConfig();
 			if (!cfg) return;
 			if (naiaKey && naiaUserId) pushConfigToLab(naiaKey, naiaUserId, cfg);
-			// Also sync TTS settings to OpenClaw gateway config
-			syncToOpenClaw(
+			// Also sync TTS settings to Gateway config
+			syncToGateway(
 				cfg.provider,
 				cfg.model,
 				undefined,
@@ -1894,7 +1894,7 @@ export function SettingsTab() {
 		if (resetClearHistory) {
 			useChatStore.getState().newConversation();
 			resetGatewaySession().catch(() => {});
-			invoke("reset_openclaw_data").catch(() => {});
+			invoke("reset_gateway_data").catch(() => {});
 		}
 		setLocale("ko");
 		document.documentElement.setAttribute("data-theme", "espresso");
@@ -1973,7 +1973,7 @@ export function SettingsTab() {
 		const defaultVrm = DEFAULT_AVATAR_MODEL;
 		// Derive ttsEngine from ttsProvider for agent compatibility
 		// Only "google" uses direct Google TTS; all others (including nextain) use Gateway
-		const derivedTtsEngine = ttsProvider === "google" ? "google" : "openclaw";
+		const derivedTtsEngine = ttsProvider === "google" ? "google" : "gateway";
 		const newConfig = {
 			...existing,
 			provider,
@@ -1993,7 +1993,7 @@ export function SettingsTab() {
 			ttsEnabled,
 			ttsVoice,
 			ttsProvider,
-			ttsEngine: derivedTtsEngine as "google" | "openclaw",
+			ttsEngine: derivedTtsEngine as "google" | "gateway",
 			googleApiKey:
 				ttsProvider === "google" && gatewayTtsApiKey.trim()
 					? gatewayTtsApiKey.trim()
@@ -2041,7 +2041,7 @@ export function SettingsTab() {
 		setSaved(true);
 		setTimeout(() => setSaved(false), 2000);
 
-		// Sync provider/model + full system prompt to OpenClaw gateway config
+		// Sync provider/model + full system prompt to Gateway config
 		const fullPrompt = buildSystemPrompt(newConfig.persona, {
 			agentName: newConfig.agentName,
 			userName: newConfig.userName,
@@ -2051,7 +2051,7 @@ export function SettingsTab() {
 			discordDefaultUserId: newConfig.discordDefaultUserId,
 			discordDmChannelId: newConfig.discordDmChannelId,
 		});
-		syncToOpenClaw(
+		syncToGateway(
 			newConfig.provider,
 			newConfig.model,
 			resolvedApiKey,
@@ -2444,7 +2444,7 @@ export function SettingsTab() {
 														// Sync cleared Discord config to Gateway
 														const updated = loadConfig();
 														if (updated) {
-															await syncToOpenClaw(
+															await syncToGateway(
 																updated.provider || "gemini",
 																updated.model || getDefaultLlmModel("gemini"),
 																updated.apiKey,
@@ -2795,7 +2795,7 @@ export function SettingsTab() {
 													// Sync cleared Discord config to Gateway
 													const updated = loadConfig();
 													if (updated) {
-														await syncToOpenClaw(
+														await syncToGateway(
 															updated.provider || "gemini",
 															updated.model || getDefaultLlmModel("gemini"),
 															updated.apiKey,

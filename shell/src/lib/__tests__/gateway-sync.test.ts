@@ -14,18 +14,18 @@ vi.mock("../config", () => ({
 vi.mock("../i18n", () => ({ getLocale: () => "ko" }));
 vi.mock("../logger", () => ({ Logger: { warn: vi.fn(), info: vi.fn() } }));
 
-import { syncToOpenClaw } from "../openclaw-sync";
+import { syncToGateway } from "../gateway-sync";
 
 beforeEach(() => {
 	mockInvoke.mockClear();
 	mockLoadConfig.mockReturnValue(null);
 });
 
-describe("syncToOpenClaw", () => {
+describe("syncToGateway", () => {
 	it("passes provider and model to Tauri command", async () => {
-		await syncToOpenClaw("gemini", "gemini-3-flash-preview");
+		await syncToGateway("gemini", "gemini-3-flash-preview");
 		expect(mockInvoke).toHaveBeenCalledWith(
-			"sync_openclaw_config",
+			"sync_gateway_config",
 			expect.objectContaining({
 				params: expect.objectContaining({
 					provider: "gemini",
@@ -35,8 +35,8 @@ describe("syncToOpenClaw", () => {
 		);
 	});
 
-	it("TTS settings are always null (TTS handled by Shell, not OpenClaw)", async () => {
-		await syncToOpenClaw("gemini", "gemini-3-flash-preview");
+	it("TTS settings are always null (TTS handled by Shell, not Gateway)", async () => {
+		await syncToGateway("gemini", "gemini-3-flash-preview");
 
 		const callArgs = mockInvoke.mock.calls[0];
 		const params = callArgs[1].params;
@@ -47,7 +47,7 @@ describe("syncToOpenClaw", () => {
 	});
 
 	it("persona does not include facts (handled by Agent MemorySystem)", async () => {
-		await syncToOpenClaw("gemini", "gemini-3-flash-preview");
+		await syncToGateway("gemini", "gemini-3-flash-preview");
 
 		const callArgs = mockInvoke.mock.calls[0];
 		const persona: string = callArgs[1].params.persona;
@@ -60,7 +60,7 @@ describe("syncToOpenClaw", () => {
 			userName: "Luke",
 		});
 
-		await syncToOpenClaw(
+		await syncToGateway(
 			"gemini",
 			"gemini-3-flash-preview",
 			undefined, // apiKey
@@ -85,7 +85,7 @@ describe("syncToOpenClaw", () => {
 			discordDefaultUserId: "config-discord-id",
 		});
 
-		await syncToOpenClaw(
+		await syncToGateway(
 			"gemini",
 			"gemini-3-flash-preview",
 			undefined, // apiKey

@@ -5,13 +5,13 @@ import { Logger } from "./logger";
 import { buildSystemPrompt } from "./persona";
 
 /**
- * Best-effort sync of Shell provider settings to OpenClaw gateway config.
+ * Best-effort sync of Shell provider settings to Naia Gateway config.
  * Errors are logged but never block the UI.
  *
  * Builds the full system prompt with persona/locale context.
  * User facts are handled by Agent MemorySystem (sessionRecall) — not included here.
  */
-export async function syncToOpenClaw(
+export async function syncToGateway(
 	provider: string,
 	model: string,
 	apiKey?: string,
@@ -41,7 +41,7 @@ export async function syncToOpenClaw(
 			discordDmChannelId: discordDmChannelId || cfg?.discordDmChannelId,
 		});
 
-		await invoke("sync_openclaw_config", {
+		await invoke("sync_gateway_config", {
 			params: {
 				provider,
 				model,
@@ -61,14 +61,14 @@ export async function syncToOpenClaw(
 			},
 		});
 	} catch (err) {
-		Logger.warn("openclaw-sync", "Failed to sync OpenClaw config", {
+		Logger.warn("gateway-sync", "Failed to sync gateway config", {
 			error: String(err),
 		});
 	}
 }
 
 /**
- * Restart the OpenClaw gateway so it reads fresh config from openclaw.json.
+ * Restart the Naia Gateway so it reads fresh config from gateway.json.
  * Best-effort — errors are logged but never block the UI.
  *
  * Debounced: multiple calls within 2s collapse to a single restart.
@@ -94,7 +94,7 @@ export function restartGateway(): Promise<void> {
 				try {
 					await invoke("restart_gateway");
 				} catch (err) {
-					Logger.warn("openclaw-sync", "Failed to restart gateway", {
+					Logger.warn("gateway-sync", "Failed to restart gateway", {
 						error: String(err),
 					});
 				} finally {

@@ -12,7 +12,7 @@ interface SendChatOptions {
 	naiaKey?: string;
 	ttsVoice?: string;
 	ttsApiKey?: string;
-	ttsEngine?: "auto" | "openclaw" | "google";
+	ttsEngine?: "auto" | "gateway" | "google";
 	ttsProvider?: "google" | "edge" | "openai" | "elevenlabs" | "nextain";
 	systemPrompt?: string;
 	enableTools?: boolean;

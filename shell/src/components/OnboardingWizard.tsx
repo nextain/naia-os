@@ -22,7 +22,7 @@ import {
 	listLlmProviders,
 } from "../lib/llm";
 import { Logger } from "../lib/logger";
-import { syncToOpenClaw } from "../lib/openclaw-sync";
+import { syncToGateway } from "../lib/gateway-sync";
 import { FORMALITY_LOCALES, buildSystemPrompt } from "../lib/persona";
 import { saveSecretKey } from "../lib/secure-store";
 import type { ProviderId } from "../lib/types";
@@ -260,7 +260,7 @@ export function OnboardingWizard({
 					saveConfig(restored);
 					await saveSecretKey("naiaKey", key);
 
-					// Sync to OpenClaw gateway
+					// Sync to Naia Gateway
 					const fullPrompt = buildSystemPrompt(restored.persona, {
 						agentName: restored.agentName,
 						userName: restored.userName,
@@ -270,7 +270,7 @@ export function OnboardingWizard({
 						discordDefaultUserId: restored.discordDefaultUserId,
 						discordDmChannelId: restored.discordDmChannelId,
 					});
-					syncToOpenClaw(
+					syncToGateway(
 						restored.provider,
 						restored.model,
 						restored.apiKey,
@@ -498,7 +498,7 @@ export function OnboardingWizard({
 		saveConfig(config);
 		if (naiaKey) void saveSecretKey("naiaKey", naiaKey);
 
-		// Sync provider/model + full system prompt to OpenClaw gateway config
+		// Sync provider/model + full system prompt to Naia Gateway config
 		const fullPrompt = buildSystemPrompt(config.persona, {
 			agentName: config.agentName,
 			userName: config.userName,
@@ -508,7 +508,7 @@ export function OnboardingWizard({
 			discordDefaultUserId: config.discordDefaultUserId,
 			discordDmChannelId: config.discordDmChannelId,
 		});
-		syncToOpenClaw(
+		syncToGateway(
 			config.provider,
 			config.model,
 			config.apiKey,

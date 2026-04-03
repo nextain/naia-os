@@ -15,7 +15,7 @@ const STEP_LABELS: Record<string, string> = {
 	import: "wslProgress.import",
 	provision: "wslProgress.provision",
 	provision_node: "wslProgress.provisionNode",
-	provision_openclaw: "wslProgress.provisionOpenclaw",
+	provision_gateway: "wslProgress.provisionGateway",
 	provision_config: "wslProgress.provisionConfig",
 	provision_verify: "wslProgress.provisionVerify",
 };
