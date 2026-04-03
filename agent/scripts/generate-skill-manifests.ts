@@ -8,6 +8,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const CLAWHUB_SKILLS_DIR = path.join(
 	os.homedir(),
@@ -15,6 +16,13 @@ const CLAWHUB_SKILLS_DIR = path.join(
 	"openclaw",
 	"node_modules",
 	"openclaw",
+	"skills",
+);
+
+/** Alternative source: ref-openclaw local checkout (used with --source flag) */
+const REF_OPENCLAW_SKILLS_DIR = path.join(
+	path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url)))),
+	"ref-openclaw",
 	"skills",
 );
 
@@ -165,20 +173,33 @@ export {
 	inferTier,
 	SKIP_BUILT_IN,
 	CLAWHUB_SKILLS_DIR,
+	REF_OPENCLAW_SKILLS_DIR,
 };
 export type { SkillFrontmatter };
 
 // --- Main (only when executed directly, not imported) ---
 
 function main() {
-	if (!fs.existsSync(CLAWHUB_SKILLS_DIR)) {
-		console.error(`ClawHub skills not found at: ${CLAWHUB_SKILLS_DIR}`);
+	// --source <path> overrides default ClawHub skills dir
+	const sourceArgIdx = process.argv.indexOf("--source");
+	const skillsDir =
+		sourceArgIdx !== -1 && process.argv[sourceArgIdx + 1]
+			? process.argv[sourceArgIdx + 1]
+			: process.argv.includes("--ref-openclaw")
+				? REF_OPENCLAW_SKILLS_DIR
+				: CLAWHUB_SKILLS_DIR;
+
+	if (!fs.existsSync(skillsDir)) {
+		console.error(`Skills source not found at: ${skillsDir}`);
+		console.error(
+			"Use --source <path> or --ref-openclaw to specify skills directory",
+		);
 		process.exit(1);
 	}
 
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-	const entries = fs.readdirSync(CLAWHUB_SKILLS_DIR, {
+	const entries = fs.readdirSync(skillsDir, {
 		withFileTypes: true,
 	});
 	let generated = 0;
@@ -192,7 +213,7 @@ function main() {
 			continue;
 		}
 
-		const skillMdPath = path.join(CLAWHUB_SKILLS_DIR, entry.name, "SKILL.md");
+		const skillMdPath = path.join(skillsDir, entry.name, "SKILL.md");
 		if (!fs.existsSync(skillMdPath)) {
 			console.warn(`  SKIP ${entry.name}: no SKILL.md`);
 			skipped++;

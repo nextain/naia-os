@@ -367,7 +367,33 @@ export function SkillsTab({
 						{t("skills.gatewayLoading")}
 					</div>
 				)}
+
+				<ClawHubBanner />
 			</div>
+		</div>
+	);
+}
+
+function ClawHubBanner() {
+	return (
+		<div className="clawhub-banner">
+			<div className="clawhub-banner-icon">🐙</div>
+			<div className="clawhub-banner-content">
+				<div className="clawhub-banner-title">
+					{t("skills.clawHubTitle")}
+				</div>
+				<div className="clawhub-banner-desc">
+					{t("skills.clawHubDesc")}
+				</div>
+			</div>
+			<a
+				className="clawhub-banner-link"
+				href="https://clawhub.com"
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				{t("skills.clawHubVisit")}
+			</a>
 		</div>
 	);
 }

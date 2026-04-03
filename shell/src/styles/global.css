@@ -3875,6 +3875,58 @@ body.resizing-row {
 	padding: 8px;
 }
 
+/* ClawHub Banner */
+.clawhub-banner {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 12px 0 4px;
+	padding: 10px 12px;
+	background: var(--espresso-light, rgba(255,255,255,0.04));
+	border: 1px solid var(--cream-dim, rgba(255,255,255,0.12));
+	border-radius: 8px;
+}
+
+.clawhub-banner-icon {
+	font-size: 20px;
+	flex-shrink: 0;
+}
+
+.clawhub-banner-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.clawhub-banner-title {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--cream, #e8d5b7);
+	margin-bottom: 2px;
+}
+
+.clawhub-banner-desc {
+	font-size: 11px;
+	color: var(--cream-dim, rgba(232,213,183,0.6));
+	line-height: 1.4;
+}
+
+.clawhub-banner-link {
+	flex-shrink: 0;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--accent, #c8a96e);
+	text-decoration: none;
+	padding: 4px 8px;
+	border: 1px solid var(--accent, #c8a96e);
+	border-radius: 4px;
+	white-space: nowrap;
+}
+
+.clawhub-banner-link:hover {
+	background: var(--accent, #c8a96e);
+	color: var(--espresso, #1a1008);
+}
+
 /* Onboarding Wizard */
 .onboarding-overlay {
 	flex: 1;

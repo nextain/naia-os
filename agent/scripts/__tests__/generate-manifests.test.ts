@@ -9,6 +9,12 @@ import {
 	parseFrontmatter,
 } from "../generate-skill-manifests.js";
 
+/** Path to bundled default-skills for testing new skills */
+const DEFAULT_SKILLS_DIR = path.resolve(
+	import.meta.dirname,
+	"../../assets/default-skills",
+);
+
 /** Path to ref-moltbot skills for integration testing */
 const REF_SKILLS_DIR = path.resolve(
 	import.meta.dirname,
@@ -126,6 +132,41 @@ describe("generateManifest", () => {
 		expect(manifest.tier).toBe(2);
 		expect(manifest.parameters).toBeDefined();
 	});
+});
+
+describe("bundled new skills (gh-issues, xurl)", () => {
+	for (const skillName of ["gh-issues", "xurl"]) {
+		describe(skillName, () => {
+			const skillDir = path.join(DEFAULT_SKILLS_DIR, skillName);
+
+			it("has SKILL.md", () => {
+				expect(fs.existsSync(path.join(skillDir, "SKILL.md"))).toBe(true);
+			});
+
+			it("has skill.json with required fields", () => {
+				const jsonPath = path.join(skillDir, "skill.json");
+				expect(fs.existsSync(jsonPath)).toBe(true);
+				const manifest = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+				expect(manifest.name).toBe(skillName);
+				expect(manifest.description).toBeTruthy();
+				expect(manifest.type).toBe("gateway");
+				expect(manifest.gatewaySkill).toBe(skillName);
+				expect(typeof manifest.tier).toBe("number");
+				expect(manifest.parameters).toBeTruthy();
+			});
+
+			it("SKILL.md frontmatter is parseable", () => {
+				const content = fs.readFileSync(
+					path.join(skillDir, "SKILL.md"),
+					"utf-8",
+				);
+				const fm = parseFrontmatter(content);
+				expect(fm).not.toBeNull();
+				expect(fm?.name).toBe(skillName);
+				expect(fm?.description).toBeTruthy();
+			});
+		});
+	}
 });
 
 describe.skipIf(!hasRefMoltbot)(
