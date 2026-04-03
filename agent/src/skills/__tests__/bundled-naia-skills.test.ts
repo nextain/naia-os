@@ -18,7 +18,7 @@ const ASSETS_DIR = join(import.meta.dirname, "../../../assets/default-skills");
 /**
  * The 13 Naia-exclusive built-in skills that need bundled skill.json files.
  * These are NOT in Rust's hard-coded list and NOT already covered by
- * existing OpenClaw gateway skills.
+ * existing gateway skills.
  *
  * Rust hard-coded (7): time, system_status, memo, weather,
  *   notify_slack, notify_discord, skill_manager

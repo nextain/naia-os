@@ -95,7 +95,7 @@ runtime_architecture:
     └──────────────────────┬──────────────────────────────────┘
                            │ WebSocket (ws://127.0.0.1:18789)
     ┌──────────────────────▼──────────────────────────────────┐
-    │  OpenClaw Gateway (systemd user service)                │
+    │  Naia Gateway (systemd user service)                │
     │  Role: Execution, security, channels, skills, memory    │
     │  Source: OpenClaw ecosystem (npm: openclaw)              │
     │  Auth: device identity + token scopes (protocol v3)     │
@@ -237,7 +237,7 @@ memory_architecture:
     workspace:
       name: "Workspace Bootstrap Files"
       storage: "~/.openclaw/workspace/ (SOUL.md, IDENTITY.md, USER.md)"
-      sync: "Shell writes these via sync_openclaw_config (lib.rs) on settings change"
+      sync: "Shell writes these via sync_gateway_config (lib.rs) on settings change"
       note: "Regenerable from Shell settings — not primary data"
 
   data_flow: |
@@ -249,7 +249,7 @@ memory_architecture:
        → System prompt sent to Agent with user facts injected
 
     2. DURING SESSION
-       Agent ↔ OpenClaw Gateway: messages stored in session transcript (*.jsonl)
+       Agent ↔ Naia Gateway: messages stored in session transcript (*.jsonl)
        OpenClaw: memory_search tool available for LLM to query past sessions
        Shell: Zustand store holds current messages for UI
 
@@ -313,7 +313,7 @@ skill_system:
     rule: "All 4 locations must list the same 20 skills. Adding a new built-in requires updating all 4."
 
   gateway_skills:
-    source: "OpenClaw Gateway skills.status RPC"
+    source: "Naia Gateway skills.status RPC"
     response_fields:
       - "name, description, eligible, missing[]"
       - "install[]: { id, kind, label } — available installer specs per skill"
@@ -537,7 +537,7 @@ gateway_adapter_abstraction:
   rationale: "OpenAI acquired OpenClaw — protocol change risk. Abstraction layer isolates impact."
 
 gateway_client_protocol:
-  description: "How Naia Agent connects to OpenClaw Gateway"
+  description: "How Naia Agent connects to Naia Gateway"
   steps:
     1_ws_connect: "WebSocket connect to ws://127.0.0.1:18789"
     2_challenge: "Receive connect.challenge event with nonce"
@@ -756,7 +756,7 @@ voice_architecture:
     engine_selection: |
       ttsEngine is derived from ttsProvider:
       - google, nextain → "google" engine (direct Google Cloud TTS)
-      - edge, openai, elevenlabs → "openclaw" engine (via OpenClaw gateway)
+      - edge, openai, elevenlabs → "openclaw" engine (via Naia Gateway)
     settings_ui: "TTS provider dropdown + API key input + voice picker (auto-discovery from registry)"
     pricing:
       edge: "Free"
@@ -834,7 +834,7 @@ voice_architecture:
       - Tools DISABLED in pipeline mode (prevents tool loops blocking TTS)
       - Agent auto-TTS DISABLED (frontend handles per-sentence TTS via SentenceChunker)
       - Emotion tags ([HAPPY] etc.) and emoji stripped before TTS
-    openclaw_separation: "STT/TTS fully decoupled from OpenClaw Gateway. Shell handles all STT/TTS directly via agent IPC. Gateway used only for LLM routing + skills/tools."
+    openclaw_separation: "STT/TTS fully decoupled from Naia Gateway. Shell handles all STT/TTS directly via agent IPC. Gateway used only for LLM routing + skills/tools."
     naia_cloud:
       tts_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/speech"
       stt_endpoint: "https://naia-gateway-181404717065.asia-northeast3.run.app/v1/audio/transcriptions"

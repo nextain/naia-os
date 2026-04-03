@@ -83,7 +83,7 @@ Every push = new ISO. BlueBuild + GitHub Actions auto-builds on every push.
 
 ### Sub-phases
 
-**4-0. OpenClaw Gateway local setup** -- Complete
+**4-0. Naia Gateway local setup** -- Complete
 - Gateway install, local start, WebSocket connection verified
 - Auto-lifecycle: Tauri manages Gateway process (spawn/health/shutdown)
 

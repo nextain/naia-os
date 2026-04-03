@@ -64,10 +64,10 @@ export async function listGatewaySessions(
 	}
 }
 
-/** OpenClaw heartbeat prompt prefix — messages starting with this are system polls, not user chat */
+/** Gateway heartbeat prompt prefix — messages starting with this are system polls, not user chat */
 const HEARTBEAT_PREFIX = "Read HEARTBEAT.md if it exists";
 
-/** Returns true if a message is an OpenClaw heartbeat exchange (should be hidden from UI) */
+/** Returns true if a message is a Gateway heartbeat exchange (should be hidden from UI) */
 function isHeartbeatMessage(role: string, text: string): boolean {
 	if (role === "user" && text.startsWith(HEARTBEAT_PREFIX)) return true;
 	if (role === "assistant" && /^HEARTBEAT_OK\b/.test(text.trim())) return true;

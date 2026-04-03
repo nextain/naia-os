@@ -68,11 +68,11 @@ pub(crate) fn kill_stale_gateway() {
     );
 }
 
-/// Kill OpenClaw processes inside WSL (gateway + node host).
+/// Kill Naia Gateway processes inside WSL (gateway + node host).
 /// On Windows, killing `wsl.exe` does NOT kill the `node` process inside WSL.
-pub(crate) fn kill_wsl_openclaw_processes() {
+pub(crate) fn kill_wsl_gateway_processes() {
     if super::wsl::is_distro_registered("NaiaEnv") {
-        super::wsl::kill_openclaw_processes("NaiaEnv");
+        super::wsl::kill_naia_processes("NaiaEnv");
     }
 }
 
@@ -515,11 +515,11 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
-    // Step 4: Provision NaiaEnv (install Node.js + OpenClaw if missing)
+    // Step 4: Provision NaiaEnv (install Node.js + Naia Gateway if missing)
     if super::wsl::is_distro_registered("NaiaEnv") {
         if !super::wsl::is_provisioned("NaiaEnv") {
-            emit_setup_progress(app_handle, "provision", "Installing Node.js + OpenClaw (2~5 min)...");
-            crate::log_both("[Naia] Provisioning NaiaEnv (Node.js + OpenClaw)...");
+            emit_setup_progress(app_handle, "provision", "Installing Node.js + Naia Gateway (2~5 min)...");
+            crate::log_both("[Naia] Provisioning NaiaEnv (Node.js + Naia Gateway)...");
             super::wsl::provision_distro("NaiaEnv", Some(app_handle))?;
             crate::log_both("[Naia] NaiaEnv provisioned successfully");
         } else {
@@ -532,7 +532,7 @@ pub(crate) fn setup_wsl_environment(app_handle: &tauri::AppHandle) -> Result<Str
     }
 }
 
-/// Copy device identity and auth token from WSL NaiaEnv to Windows-side `~/.openclaw/`.
+/// Copy device identity and auth token from WSL NaiaEnv to Windows-side config dir.
 /// Without this, agent-core on Windows cannot complete the Gateway WebSocket handshake
 /// (Gateway requires device identity even with --allow-unconfigured).
 pub(crate) fn sync_wsl_identity_to_windows(distro_name: &str) {
@@ -552,23 +552,23 @@ pub(crate) fn sync_wsl_identity_to_windows(distro_name: &str) {
         _ => crate::log_verbose("[Naia] No device identity found in WSL (may not be paired yet)"),
     }
 
-    // Copy openclaw.json (auth token, gateway config)
+    // Copy gateway config (auth token, gateway config)
     let config_dir = format!("{}/.openclaw", home);
     let _ = std::fs::create_dir_all(&config_dir);
     match super::wsl::run_in_distro(distro_name, "cat /root/.openclaw/openclaw.json 2>/dev/null") {
         Ok(content) if !content.trim().is_empty() => {
             let dest = format!("{}/openclaw.json", config_dir);
             match std::fs::write(&dest, content.trim()) {
-                Ok(_) => crate::log_both("[Naia] OpenClaw config synced from WSL to Windows"),
+                Ok(_) => crate::log_both("[Naia] Gateway config synced from WSL to Windows"),
                 Err(e) => crate::log_verbose(&format!("[Naia] Failed to write openclaw.json: {}", e)),
             }
         }
-        _ => crate::log_verbose("[Naia] No openclaw.json found in WSL"),
+        _ => crate::log_verbose("[Naia] No gateway config found in WSL"),
     }
 }
 
-/// Whether to skip OpenClaw config sync (Windows: always skip — config lives in WSL).
-pub(crate) fn should_skip_openclaw_sync() -> bool {
+/// Whether to skip Gateway config sync (Windows: always skip — config lives in WSL).
+pub(crate) fn should_skip_gateway_sync() -> bool {
     true
 }
 

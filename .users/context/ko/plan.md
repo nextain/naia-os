@@ -256,7 +256,7 @@ git push → GitHub Actions → ghcr.io/luke-n-alpha/naia-os:latest
 > **결과물**: 데몬으로 항상 실행. 외부 채널에서도 접근 가능.
 > **전략**: Gateway 먼저 → Phase 3 실행 검증 → 이후 신규 기능
 
-### 4-0. OpenClaw Gateway 로컬 설정 (선행) ✅
+### 4-0. Naia Gateway 로컬 설정 (선행) ✅
 
 **작업:**
 - OpenClaw 설치 + 설정 (`setup-openclaw.sh` 이미 존재) ✅
@@ -483,7 +483,7 @@ interface MemoryProcessor {
 - Discord DM 봇 ✅ — Naia 전용 DM 봇 (naia-discord 스킬), OAuth 연동
   - `discord-auth.ts`: OAuth → `discoverDmChannelId()` → Shell config 저장
   - `naia-discord.ts`: DM 전용 스킬 (send/status/history)
-  - `openclaw-sync.ts`: `syncDiscordToGateway()` → Gateway runtime config.patch
+  - `gateway-sync.ts`: `syncDiscordToGateway()` → Gateway runtime config.patch
 - Gateway에 `provider_account_id` 컬럼 + `GET /v1/auth/lookup` 엔드포인트 추가 ✅
 - 연동 설정 UI (settings/integrations) ✅
 

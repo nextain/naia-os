@@ -24,7 +24,7 @@ import {
 } from "./lib/config";
 import { persistDiscordDefaults } from "./lib/discord-auth";
 import { startIframeBridge } from "./lib/iframe-bridge";
-import { restartGateway } from "./lib/openclaw-sync";
+import { restartGateway } from "./lib/gateway-sync";
 import { loadInstalledPanels } from "./lib/panel-loader";
 import { panelRegistry } from "./lib/panel-registry";
 import { type UpdateInfo, checkForUpdate } from "./lib/updater";

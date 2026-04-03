@@ -13,7 +13,7 @@ import { safeRefresh } from "../helpers/settings.js";
  *
  * Requires:
  *   - LAB_KEY + LAB_USER_ID env vars
- *   - Discord bot token in openclaw config
+ *   - Discord bot token in Naia config
  *   - naia.nextain.io BFF reachable
  *
  * Skips gracefully if credentials are missing.

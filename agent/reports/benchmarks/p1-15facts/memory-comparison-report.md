@@ -21,7 +21,7 @@
 |----------|:-----------:|--------------------------|-----------|
 | **Letta (MemGPT)** | 21.8K | 상태 유지 AI 에이전트 플랫폼 | 3단계 메모리 (핵심/보관/회상) |
 | **Naia** | — | 개인 AI OS (우리 프로젝트) | 4-Store + 벡터 검색 |
-| **OpenClaw (Cline)** | 59.6K | IDE 자율 코딩 에이전트 | SQLite + 벡터 + 텍스트 하이브리드 |
+| **Naia (Cline)** | 59.6K | IDE 자율 코딩 에이전트 | SQLite + 벡터 + 텍스트 하이브리드 |
 | **Super Agent Party** | 2.0K | 올인원 AI 동반자 | mem0 + FAISS 벡터 |
 | **mem0** | 51.4K | 범용 AI 메모리 라이브러리 | 벡터 DB + LLM 팩트 추출 |
 | **jikime-adk** | 5 | 레거시 코드 현대화 도구 | SQLite 텍스트 검색 |
@@ -102,7 +102,7 @@
 |:----:|----------|:--------------:|:------:|:----:|------|
 | 1 | **Letta (MemGPT)** | 49/51 | **96%** | A | 3단계 메모리 아키텍처 |
 | 2 | **Naia** | 47/51 | **92%** | A | 4-Store 아키텍처 |
-| 3 | **OpenClaw** | 43/51 | **84%** | B | 하이브리드 검색 |
+| 3 | **Naia** | 43/51 | **84%** | B | 하이브리드 검색 |
 | 4 | **Super Agent Party** | 43/51 | **84%** | B | mem0+FAISS |
 | 5 | **mem0** | 42/51 | **82%** | B | 벡터 검색만 |
 | 6 | jikime-adk | 17/51 | 33% | F | 텍스트 검색만 |
@@ -112,7 +112,7 @@
 
 ### 4.2 카테고리별 비교 (상위 5개만)
 
-| 카테고리 | Letta | Naia | OpenClaw | SAP | mem0 |
+| 카테고리 | Letta | Naia | Naia | SAP | mem0 |
 |----------|:-----:|:----:|:--------:|:---:|:----:|
 | 직접 회상 (9) | **9** | **9** | **9** | 8 | 8 |
 | 의미 검색 (9) | **9** | **9** | **9** | 7 | 8 |
@@ -145,7 +145,7 @@
   - "에디터 설정 도와줘"라고 했을 때, 사용자가 Neovim 쓴다는 걸 기억하고 알아서 반영하는 능력
   - Naia는 기억은 있지만 "알아서 적용"하는 빈도가 낮음
 
-### 5.3 OpenClaw이 의외로 강하다
+### 5.3 Naia이 의외로 강하다
 
 - 59.6K 스타의 코딩 에이전트가 84%로 B등급
 - 하이브리드 검색 (벡터 70% + 텍스트 30%)이 효과적
@@ -221,7 +221,7 @@ interface BenchmarkAdapter {
 
 ```bash
 GEMINI_API_KEY=... pnpm exec tsx src/memory/benchmark/comparison/run-comparison.ts \
-  --adapters=naia,mem0,letta,openclaw,sap \
+  --adapters=naia,mem0,letta,naia,sap \
   --judge=keyword --runs=1
 ```
 

@@ -4,7 +4,7 @@ set -euo pipefail
 # test-liveinst-wrapper.sh — Verify the Anaconda pre-install wrapper
 # Runs inside a live session (or VM) to validate that the wrapper:
 #   1. Exists and is executable
-#   2. Correctly stops Naia Shell, OpenClaw Gateway, fcitx5
+#   2. Correctly stops Naia Shell, Naia Gateway, fcitx5
 #   3. Cleans up transient runtime files
 #   4. Desktop entry points to the wrapper (not raw liveinst)
 #
@@ -49,7 +49,7 @@ WRAPPER="/usr/libexec/naia-liveinst-wrapper.sh"
 check "Wrapper script exists" test -f "$WRAPPER"
 check "Wrapper script is executable" test -x "$WRAPPER"
 check "Wrapper contains flatpak kill" grep -q "flatpak kill io.nextain.naia" "$WRAPPER"
-check "Wrapper contains pkill openclaw" grep -q "pkill.*openclaw" "$WRAPPER"
+check "Wrapper contains pkill naia-node" grep -q "pkill.*naia-node" "$WRAPPER"
 check "Wrapper contains pkill fcitx5" grep -q "pkill.*fcitx5" "$WRAPPER"
 check "Wrapper execs liveinst" grep -q "exec /usr/bin/liveinst" "$WRAPPER"
 
@@ -94,7 +94,7 @@ chmod +x "$TMPWRAPPER"
 
 # Start mock processes that simulate what the wrapper should kill
 # (Using sleep with recognizable names via bash -c)
-bash -c 'exec -a "openclaw gateway run" sleep 60' &
+bash -c 'exec -a "naia gateway run" sleep 60' &
 MOCK_GW_PID=$!
 
 bash -c 'exec -a "fcitx5" sleep 60' &

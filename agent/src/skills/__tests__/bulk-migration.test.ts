@@ -7,7 +7,7 @@ import { SkillRegistry } from "../registry.js";
 
 const SKILLS_DIR = path.join(os.homedir(), ".naia", "skills");
 
-/** All 51 OpenClaw built-in skill names */
+/** All 51 bundled built-in skill names */
 const EXPECTED_SKILLS = [
 	"1password",
 	"apple-notes",
@@ -62,7 +62,7 @@ const EXPECTED_SKILLS = [
 	"weather",
 ];
 
-describe("bulk skill migration (51 OpenClaw skills)", () => {
+describe("bulk skill migration (51 bundled skills)", () => {
 	let registry: SkillRegistry;
 
 	beforeAll(() => {

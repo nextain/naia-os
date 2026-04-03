@@ -5,10 +5,10 @@ import { DefaultPathResolver, defaultPathResolver } from "../path-resolver.js";
 import type { PathResolver } from "../types.js";
 
 describe("DefaultPathResolver", () => {
-	it("returns device identity path under ~/.openclaw/", () => {
+	it("returns device identity path under ~/.naia/", () => {
 		const resolver = new DefaultPathResolver();
 		expect(resolver.deviceIdentityPath()).toBe(
-			join(homedir(), ".openclaw", "identity", "device.json"),
+			join(homedir(), ".naia", "identity", "device.json"),
 		);
 	});
 
@@ -16,7 +16,7 @@ describe("DefaultPathResolver", () => {
 		const resolver = new DefaultPathResolver();
 		const candidates = resolver.configCandidates();
 		expect(candidates).toHaveLength(2);
-		expect(candidates[0]).toBe(join(homedir(), ".openclaw", "openclaw.json"));
+		expect(candidates[0]).toBe(join(homedir(), ".naia", "gateway.json"));
 		expect(candidates[1]).toBe(
 			join(homedir(), ".naia", "openclaw", "openclaw.json"),
 		);

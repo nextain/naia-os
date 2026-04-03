@@ -25,8 +25,8 @@ describe("loadDeviceIdentity", () => {
 		rmSync(tempHome, { recursive: true, force: true });
 	});
 
-	it("loads valid device identity from ~/.openclaw/identity/device.json", () => {
-		const identityDir = join(tempHome, ".openclaw", "identity");
+	it("loads valid device identity from ~/.naia/identity/device.json (migrated path)", () => {
+		const identityDir = join(tempHome, ".naia", "identity");
 		mkdirSync(identityDir, { recursive: true });
 		writeFileSync(
 			join(identityDir, "device.json"),
@@ -63,7 +63,7 @@ describe("loadDeviceIdentity", () => {
 	});
 
 	it("returns undefined for malformed JSON", () => {
-		const identityDir = join(tempHome, ".openclaw", "identity");
+		const identityDir = join(tempHome, ".naia", "identity");
 		mkdirSync(identityDir, { recursive: true });
 		writeFileSync(join(identityDir, "device.json"), "not json");
 
@@ -72,7 +72,7 @@ describe("loadDeviceIdentity", () => {
 	});
 
 	it("returns undefined when required fields are missing", () => {
-		const identityDir = join(tempHome, ".openclaw", "identity");
+		const identityDir = join(tempHome, ".naia", "identity");
 		mkdirSync(identityDir, { recursive: true });
 		writeFileSync(
 			join(identityDir, "device.json"),

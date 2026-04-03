@@ -237,7 +237,7 @@ describe("gateway-sessions", () => {
 			const messages = await getGatewayHistory("agent:main:main");
 
 			// HEARTBEAT_OK + greeting mixed → HEARTBEAT_OK으로 시작하므로 필터됨 (시스템 폴링으로 간주)
-			// 실제로는 OpenClaw가 greeting을 별도 메시지로 보냄
+			// 실제로는 Gateway가 greeting을 별도 메시지로 보냄
 			expect(messages).toHaveLength(0);
 		});
 	});

@@ -186,12 +186,12 @@ describe("chat-service", () => {
 			history: [],
 			onChunk: vi.fn(),
 			requestId: "req-tts-engine",
-			ttsEngine: "openclaw",
+			ttsEngine: "gateway",
 		});
 
 		const sentMessage = mockInvoke.mock.calls[0][1].message;
 		const parsed = JSON.parse(sentMessage);
-		expect(parsed.ttsEngine).toBe("openclaw");
+		expect(parsed.ttsEngine).toBe("gateway");
 	});
 
 	it("forwards webhook URLs to agent request", async () => {

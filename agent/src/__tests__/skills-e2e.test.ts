@@ -2,8 +2,8 @@
  * E2E tests: Skills system (live Gateway connection)
  *
  * Prerequisites:
- *   - OpenClaw Gateway running on localhost:18789
- *   - Device paired with operator token in ~/.openclaw/identity/device.json
+ *   - Naia Gateway running on localhost:18789
+ *   - Device paired with operator token in ~/.naia/identity/device.json
  *   - `cargo tauri dev` or standalone Gateway running
  *
  * Run:
@@ -27,13 +27,18 @@ const GATEWAY_URL = "ws://localhost:18789";
 const LIVE_E2E = process.env.CAFE_LIVE_GATEWAY_E2E === "1";
 
 function loadGatewayToken(): string | null {
-	const configPath = join(homedir(), ".naia", "openclaw", "openclaw.json");
-	try {
-		const config = JSON.parse(readFileSync(configPath, "utf-8"));
-		return config.gateway?.auth?.token || null;
-	} catch {
-		return null;
+	const candidates = [
+		join(homedir(), ".naia", "gateway.json"),
+		join(homedir(), ".naia", "openclaw", "openclaw.json"),
+	];
+	for (const configPath of candidates) {
+		try {
+			const config = JSON.parse(readFileSync(configPath, "utf-8"));
+			const token = config.gateway?.auth?.token;
+			if (token) return token;
+		} catch {}
 	}
+	return null;
 }
 
 const gatewayToken = loadGatewayToken();

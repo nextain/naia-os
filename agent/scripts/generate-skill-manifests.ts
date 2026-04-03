@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Generate skill.json manifests from OpenClaw SKILL.md files.
+ * Generate skill.json manifests from ClawHub SKILL.md files.
  * Reads frontmatter from each skill's SKILL.md, creates ~/.naia/skills/{name}/skill.json.
  *
  * Usage: npx tsx agent/scripts/generate-skill-manifests.ts
@@ -9,7 +9,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const OPENCLAW_SKILLS_DIR = path.join(
+const CLAWHUB_SKILLS_DIR = path.join(
 	os.homedir(),
 	".naia",
 	"openclaw",
@@ -164,20 +164,21 @@ export {
 	generateManifest,
 	inferTier,
 	SKIP_BUILT_IN,
+	CLAWHUB_SKILLS_DIR,
 };
 export type { SkillFrontmatter };
 
 // --- Main (only when executed directly, not imported) ---
 
 function main() {
-	if (!fs.existsSync(OPENCLAW_SKILLS_DIR)) {
-		console.error(`OpenClaw skills not found at: ${OPENCLAW_SKILLS_DIR}`);
+	if (!fs.existsSync(CLAWHUB_SKILLS_DIR)) {
+		console.error(`ClawHub skills not found at: ${CLAWHUB_SKILLS_DIR}`);
 		process.exit(1);
 	}
 
 	fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-	const entries = fs.readdirSync(OPENCLAW_SKILLS_DIR, {
+	const entries = fs.readdirSync(CLAWHUB_SKILLS_DIR, {
 		withFileTypes: true,
 	});
 	let generated = 0;
@@ -191,7 +192,7 @@ function main() {
 			continue;
 		}
 
-		const skillMdPath = path.join(OPENCLAW_SKILLS_DIR, entry.name, "SKILL.md");
+		const skillMdPath = path.join(CLAWHUB_SKILLS_DIR, entry.name, "SKILL.md");
 		if (!fs.existsSync(skillMdPath)) {
 			console.warn(`  SKIP ${entry.name}: no SKILL.md`);
 			skipped++;

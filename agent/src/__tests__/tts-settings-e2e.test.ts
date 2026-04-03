@@ -2,13 +2,13 @@
  * E2E tests: TTS Settings + Gateway TTS Pipeline
  *
  * Prerequisites:
- *   - OpenClaw Gateway running on localhost:18789
+ *   - Naia Gateway running on localhost:18789
  *   - Device paired with operator token
  *
  * Verifies:
  *   1. Gateway TTS RPC methods work (status, providers, convert)
  *   2. Naia provider → always uses Gateway TTS (not Google direct)
- *   3. TTS engine selection logic: openclaw vs "nextain cloud tts" (google)
+ *   3. TTS engine selection logic: gateway vs "nextain cloud tts" (google)
  *   4. Config save/load for TTS settings
  *
  * Run:
@@ -35,8 +35,8 @@ const LIVE_E2E = process.env.CAFE_LIVE_GATEWAY_E2E === "1";
 
 function loadGatewayToken(): string | null {
 	const paths = [
+		join(homedir(), ".naia", "gateway.json"),
 		join(homedir(), ".naia", "openclaw", "openclaw.json"),
-		join(homedir(), ".openclaw", "openclaw.json"),
 	];
 	for (const p of paths) {
 		try {

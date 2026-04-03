@@ -86,7 +86,7 @@ export interface AppConfig {
 	ttsProvider?: TtsProviderId;
 	/** Naia Cloud TTS backend engine (e.g. "google-chirp3-hd"). */
 	naiaCloudTtsBackend?: string;
-	ttsEngine?: "auto" | "openclaw" | "google";
+	ttsEngine?: "auto" | "gateway" | "google";
 	persona?: string;
 	enableTools?: boolean;
 	gatewayUrl?: string;

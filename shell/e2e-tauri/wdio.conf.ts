@@ -147,7 +147,7 @@ export const config = {
 			execSync("pkill -9 -f naia-shell 2>/dev/null || true", {
 				stdio: "ignore",
 			});
-			execSync("pkill -9 -f openclaw-node 2>/dev/null || true", {
+			execSync("pkill -9 -f naia-node 2>/dev/null || true", {
 				stdio: "ignore",
 			});
 			execSync("pkill -9 -f tauri-driver 2>/dev/null || true", {
@@ -201,7 +201,7 @@ export const config = {
 		// Kill ALL processes spawned by Tauri app and E2E infrastructure.
 		// Without this, ports 4444/4445 stay occupied and next spec's session fails.
 		try {
-			execSync("pkill -f openclaw-node 2>/dev/null || true", {
+			execSync("pkill -f naia-node 2>/dev/null || true", {
 				stdio: "ignore",
 			});
 			execSync("pkill -f naia-shell 2>/dev/null || true", { stdio: "ignore" });

@@ -26,7 +26,7 @@ describe("skill_diagnostics", () => {
 					case "status":
 						respond.ok({
 							status: "running",
-							gateway: "openclaw-0.1.0",
+							gateway: "naia-0.1.0",
 							connectedClients: 2,
 						});
 						break;

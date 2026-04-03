@@ -63,7 +63,7 @@ Gateway는 연결된 프로바이더 계정을 `CaretUser.metadata_.linked_accou
 
 DM 채널 ID 해결 후, `channel-sync.ts`가 단일 **await** 동기화 수행:
 
-- **영구 설정** (`syncOpenClawWithChannels`): `syncToOpenClaw()` + `restartGateway()`로 `openclaw.json` 기록 — Gateway 재시작 시에도 유지
+- **영구 설정** (`syncOpenClawWithChannels`): `syncToGateway()` + `restartGateway()`로 `openclaw.json` 기록 — Gateway 재시작 시에도 유지
 
 > **참고:** 기존 런타임 패치(`syncDiscordToGateway` → `skill_config` 도구 호출)는 `openclaw.json` 동시 쓰기 race condition 방지를 위해 제거됨.
 

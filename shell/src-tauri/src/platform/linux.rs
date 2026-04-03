@@ -62,7 +62,7 @@ pub(crate) fn cleanup_orphan_processes() {
 pub(crate) fn kill_stale_gateway() {
     let _ = Command::new("pkill")
         .arg("-f")
-        .arg("openclaw.*gateway")
+        .arg("naia.*gateway")
         .output();
 }
 
@@ -115,11 +115,11 @@ pub(crate) fn setup_wsl_environment(_app_handle: &tauri::AppHandle) -> Result<St
     Err("WSL setup is only available on Windows".to_string())
 }
 
-/// Kill OpenClaw processes inside WSL (Linux: no-op — no WSL on Linux).
-pub(crate) fn kill_wsl_openclaw_processes() {}
+/// Kill Naia Gateway processes inside WSL (Linux: no-op — no WSL on Linux).
+pub(crate) fn kill_wsl_gateway_processes() {}
 
-/// Whether to skip OpenClaw config sync (Linux: never skip).
-pub(crate) fn should_skip_openclaw_sync() -> bool {
+/// Whether to skip Gateway config sync (Linux: never skip).
+pub(crate) fn should_skip_gateway_sync() -> bool {
     false
 }
 

@@ -43,13 +43,13 @@ describe("diagnostics-proxy", () => {
 					case "status":
 						respond.ok({
 							status: "running",
-							gateway: "openclaw",
+							gateway: "naia",
 							connectedClients: 3,
 						});
 						break;
 					case "logs.tail":
 						respond.ok({
-							file: "/tmp/openclaw/test.log",
+							file: "/tmp/naia/test.log",
 							cursor: params.cursor ?? 1000,
 							size: 1000,
 							lines: params.cursor
@@ -119,7 +119,7 @@ describe("diagnostics-proxy", () => {
 			const result = await getGatewayStatus(client);
 
 			expect(result.status).toBe("running");
-			expect(result.gateway).toBe("openclaw");
+			expect(result.gateway).toBe("naia");
 			expect(result.connectedClients).toBe(3);
 		});
 	});
@@ -128,7 +128,7 @@ describe("diagnostics-proxy", () => {
 		it("returns log lines and cursor on initial poll", async () => {
 			const result = await pollLogsTail(client);
 
-			expect(result.file).toBe("/tmp/openclaw/test.log");
+			expect(result.file).toBe("/tmp/naia/test.log");
 			expect(result.cursor).toBe(1000);
 			expect(result.lines).toHaveLength(1);
 		});

@@ -146,13 +146,13 @@ Functions using HOME (10 sites):
   log_dir()                  — ~/.naia/logs/
   run_dir()                  — ~/.naia/run/
   find_node_binary()         — ~/.nvm/versions/node/
-  find_openclaw_paths()      — ~/.naia/openclaw/, ~/.openclaw/
-  ensure_openclaw_config()   — ~/.openclaw/workspace/
+  find_gateway_paths()      — ~/.naia/openclaw/, ~/.openclaw/
+  ensure_gateway_config()   — ~/.openclaw/workspace/
   list_skills()              — ~/.naia/skills/
-  read_openclaw_memory_files() — ~/.openclaw/workspace/memory/
-  reset_openclaw_data()      — ~/.naia/, ~/.openclaw/
+  read_gateway_memory_files() — ~/.openclaw/workspace/memory/
+  reset_gateway_data()      — ~/.naia/, ~/.openclaw/
   read_discord_bot_token()   — ~/.openclaw/
-  sync_openclaw_config()     — ~/.openclaw/openclaw.json
+  sync_gateway_config()     — ~/.openclaw/openclaw.json
 
   Windows: HOME usually NOT set (USERPROFILE instead)
   FIX: 1. Add `dirs = "5"` to Cargo.toml dependencies
@@ -179,7 +179,7 @@ Dot-directory mapping:
 
 ```
 find_node_binary():     "/app/bin/node" (Flatpak Node.js)
-find_openclaw_paths():  "/app/lib/naia-os/openclaw/...", "/usr/share/naia/openclaw/..."
+find_gateway_paths():  "/app/lib/naia-os/openclaw/...", "/usr/share/naia/openclaw/..."
 load_bootstrap_config():"/app/lib/naia-os/openclaw-bootstrap.json"
 spawn_agent_core():     "/app/lib/naia-os/agent/dist/index.js" (2 sites)
   Linux/SteamOS: Relevant (Flatpak distribution)
@@ -217,7 +217,7 @@ spawn_gateway() → Command::new(node_bin) for Gateway process
 spawn_node_host() → Command::new(node_bin) for Node Host
   Linux/macOS/SteamOS: Direct spawn (current behavior)
 
-  Windows: MUST NOT call find_openclaw_paths() on Tier 1 — it only knows
+  Windows: MUST NOT call find_gateway_paths() on Tier 1 — it only knows
   Linux paths and would emit confusing "OpenClaw not installed" error.
 
   FIX: Platform + tier conditional:
@@ -237,10 +237,10 @@ spawn_node_host() → Command::new(node_bin) for Node Host
         }
     }
 
-  ensure_openclaw_config() + sync_openclaw_config():
+  ensure_gateway_config() + sync_gateway_config():
     Both need #[cfg(unix)] gate or Tier check — on Windows Tier 1,
     no OpenClaw config should be created. On Tier 2, config lives inside WSL.
-    sync_openclaw_config() calls ensure_openclaw_config() and writes to ~/.openclaw/ — must skip entirely on Tier 1.
+    sync_gateway_config() calls ensure_gateway_config() and writes to ~/.openclaw/ — must skip entirely on Tier 1.
 ```
 
 #### A8. MINOR: WebKit-specific (already handled, 3 items)
@@ -658,8 +658,8 @@ Ollama setup in WSL distro:
 | 13 | Config | tauri.conf.windows.json | New file: NSIS/MSI targets, node.exe resource |
 | 14 | CI | release-app.yml | Refactor: shared build-frontend + build-windows job |
 | 15 | CI | build-windows job | Windows runner: download frontend-dist + cargo tauri build (agent has no native modules — shared build OK) |
-| 16 | Rust | spawn_gateway() | Windows Tier 1: early return without find_openclaw_paths() (avoid confusing error) |
-| 17 | Rust | ensure_openclaw_config() + sync_openclaw_config() | #[cfg(unix)] gate or Tier check — skip on Windows Tier 1 |
+| 16 | Rust | spawn_gateway() | Windows Tier 1: early return without find_gateway_paths() (avoid confusing error) |
+| 17 | Rust | ensure_gateway_config() + sync_gateway_config() | #[cfg(unix)] gate or Tier check — skip on Windows Tier 1 |
 
 ### Should Do (P1) — Full feature parity
 
@@ -668,7 +668,7 @@ Ollama setup in WSL distro:
 | 18 | Rust | NEW wsl.rs | WSL management module (with install guide UX) |
 | 19 | Rust | spawn_gateway() | Gateway spawn: WSL bridge for Tier 2 |
 | 20 | Rust | find_node_binary() | Node.js discovery: bundled node.exe, NVM for Windows, fnm |
-| 21 | Rust | find_openclaw_paths() | WSL-aware OpenClaw path resolution for Tier 2 |
+| 21 | Rust | find_gateway_paths() | WSL-aware OpenClaw path resolution for Tier 2 |
 | 22 | CI | release-app.yml | build-wsl-distro job |
 | 23 | CI | release-app.yml | MSIX packaging (makeappx.exe + signtool.exe) for MS Store |
 | 24 | Config | .wslconfig template | WSL resource config (mirrored networking, memory) |
@@ -752,7 +752,7 @@ All platform-specific Rust code has been extracted from `lib.rs` into `src/platf
 #### Phase 1d: Windows Tier 1 flow (items 16–17) — code written, partial verify
 
 - [x] `spawn_gateway()` — Windows Tier 1/2 via WSL detection
-- [x] `sync_openclaw_config()` — skip on Windows (config lives in WSL)
+- [x] `sync_gateway_config()` — skip on Windows (config lives in WSL)
 
 **Checkpoint 1d**:
 - [x] Windows Tier 1: app runs, API key set, chat works (manual test 2026-03-09)

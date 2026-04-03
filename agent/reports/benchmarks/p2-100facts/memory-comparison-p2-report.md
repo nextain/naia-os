@@ -16,7 +16,7 @@ Naia Memory System achieved **88% core accuracy (1st place)** among 5 tested sys
 |:----:|--------|:----------:|:------:|:-----:|-------|
 | **1** | **Naia** | **86/98** | **88%** | B* | KG activation + decay + reconsolidation |
 | 2 | mem0 raw | 82/98 | 84% | F* | Vector search only |
-| 3 | OpenClaw | 78/98 | 80% | B | Gateway memory plugin |
+| 3 | Naia | 78/98 | 80% | B | Gateway memory plugin |
 | 4 | SAP | 67/98 | 68% | C | FAISS-based |
 | - | Letta | - | - | ERROR | Connection failed |
 
@@ -24,7 +24,7 @@ Naia Memory System achieved **88% core accuracy (1st place)** among 5 tested sys
 
 ### Category Breakdown
 
-| Category | Weight | Naia | mem0 | OpenClaw | SAP |
+| Category | Weight | Naia | mem0 | Naia | SAP |
 |----------|:------:|:----:|:----:|:--------:|:---:|
 | direct_recall | 1 | **18/18** | 17/18 | 14/18 | 13/18 |
 | semantic_search | 2 | **12/14** | 13/14 | 11/14 | 7/14 |
@@ -59,7 +59,7 @@ Naia Memory System achieved **88% core accuracy (1st place)** among 5 tested sys
 |--------|:-:|:-:|:-:|
 | Naia | 92% | **88%** | -4%p (harder test) |
 | mem0 | 82% | **84%** | +2%p |
-| OpenClaw | 84% | **80%** | -4%p |
+| Naia | 84% | **80%** | -4%p |
 | Search ratio (topK=10) | 67% | **10%** | Real search |
 
 Score drops are expected — 100 facts requires genuine search precision versus 15 facts which was near-exhaustive scan.

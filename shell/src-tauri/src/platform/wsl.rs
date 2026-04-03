@@ -178,7 +178,7 @@ pub(crate) fn run_in_distro(name: &str, command: &str) -> Result<String, String>
     }
 }
 
-/// Spawn OpenClaw Gateway inside a WSL distro (returns a Child handle).
+/// Spawn Naia Gateway inside a WSL distro (returns a Child handle).
 pub(crate) fn spawn_gateway_in_wsl(
     name: &str,
     port: u16,
@@ -205,7 +205,7 @@ pub(crate) fn spawn_gateway_in_wsl(
     cmd.spawn().map_err(|e| e.to_string())
 }
 
-/// Spawn OpenClaw Node Host inside a WSL distro (returns a Child handle).
+/// Spawn Naia Node Host inside a WSL distro (returns a Child handle).
 pub(crate) fn spawn_node_host_in_wsl(
     name: &str,
     port: u16,
@@ -234,7 +234,7 @@ pub(crate) fn spawn_node_host_in_wsl(
 }
 
 /// Auto-approve pending device pairing requests in the WSL Gateway.
-/// Parses `openclaw devices list` CLI output to find pending request UUIDs,
+/// Parses `naia devices list` CLI output to find pending request UUIDs,
 /// then approves each one so the Agent can connect without manual intervention.
 pub(crate) fn auto_approve_pending_devices(name: &str) {
     // Run device list with a timeout to prevent hanging restart_gateway.
@@ -347,18 +347,18 @@ fn extract_uuid(s: &str) -> Option<String> {
     None
 }
 
-/// Kill OpenClaw processes (gateway + node host) running inside a WSL distro.
+/// Kill Naia Gateway processes (gateway + node host) running inside a WSL distro.
 /// This ensures the `node` processes inside WSL are actually terminated,
 /// not just the `wsl.exe` bridge on Windows.
-pub(crate) fn kill_openclaw_processes(name: &str) {
+pub(crate) fn kill_naia_processes(name: &str) {
     let mut cmd = Command::new("wsl");
-    cmd.args(["-d", name, "--", "pkill", "-f", "openclaw"]);
+    cmd.args(["-d", name, "--", "pkill", "-f", "naia-node"]);
     super::hide_console(&mut cmd);
     match cmd.output() {
         Ok(o) => {
             if o.status.success() {
                 crate::log_verbose(&format!(
-                    "[Naia] Killed OpenClaw processes inside WSL distro '{}'",
+                    "[Naia] Killed Naia Gateway processes inside WSL distro '{}'",
                     name
                 ));
             }
@@ -382,7 +382,7 @@ pub(crate) fn terminate_distro(name: &str) {
     let _ = cmd.output();
 }
 
-/// Check if a distro has Node.js + OpenClaw provisioned.
+/// Check if a distro has Node.js + Naia Gateway provisioned.
 pub(crate) fn is_provisioned(name: &str) -> bool {
     let mut cmd = Command::new("wsl");
     cmd.args([
@@ -402,7 +402,7 @@ fn emit_provision_progress(app: Option<&tauri::AppHandle>, step: &str, detail: &
     }
 }
 
-/// Provision a distro with Node.js 22 + OpenClaw.
+/// Provision a distro with Node.js 22 + Naia Gateway.
 /// Runs the equivalent of config/wsl/Dockerfile steps inside an existing distro.
 pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Result<(), String> {
     // Step 1: Install Node.js 22
@@ -416,15 +416,15 @@ pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Re
         "node -v"
     ), "Node.js install")?;
 
-    // Step 2: Install OpenClaw
-    emit_provision_progress(app, "provision_openclaw", "Installing OpenClaw...");
-    crate::log_both("[Naia] Installing OpenClaw in WSL...");
+    // Step 2: Install Naia Gateway
+    emit_provision_progress(app, "provision_gateway", "Installing Naia Gateway...");
+    crate::log_both("[Naia] Installing Naia Gateway in WSL...");
     run_provision_step(name, concat!(
         "mkdir -p /opt/naia/openclaw && ",
         "cd /opt/naia/openclaw && ",
         "npm init -y --quiet 2>/dev/null && ",
-        "npm install openclaw@latest --quiet"
-    ), "OpenClaw install")?;
+        "npm install @naia/gateway@latest --quiet"
+    ), "Naia Gateway install")?;
 
     // Step 3: Configure PATH
     emit_provision_progress(app, "provision_config", "Configuring environment...");
@@ -440,8 +440,8 @@ pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Re
         "wsl.conf"
     )?;
 
-    // Step 5: Configure OpenClaw gateway.mode=local
-    crate::log_both("[Naia] Setting gateway.mode=local in OpenClaw config...");
+    // Step 5: Configure Naia Gateway mode=local
+    crate::log_both("[Naia] Setting gateway.mode=local in Naia Gateway config...");
     run_provision_step(name, concat!(
         "node -e \"",
         "const fs=require('fs');",
@@ -454,15 +454,15 @@ pub(crate) fn provision_distro(name: &str, app: Option<&tauri::AppHandle>) -> Re
         "fs.writeFileSync(p,JSON.stringify(c,null,2));",
         "console.log('gateway.mode=local set');",
         "\""
-    ), "OpenClaw gateway.mode config")?;
+    ), "gateway.mode config")?;
 
     // Verify
     emit_provision_progress(app, "provision_verify", "Verifying installation...");
     if is_provisioned(name) {
-        crate::log_both("[Naia] Provisioning verified — OpenClaw available");
+        crate::log_both("[Naia] Provisioning verified — Naia Gateway available");
         Ok(())
     } else {
-        Err("Provisioning completed but OpenClaw not found at expected path".to_string())
+        Err("Provisioning completed but Naia Gateway not found at expected path".to_string())
     }
 }
 

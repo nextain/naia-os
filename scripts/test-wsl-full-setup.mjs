@@ -73,7 +73,7 @@ function fail(msg) {
 function cleanup() {
 	console.log("\n=== Cleanup ===");
 	// Kill any gateway process
-	wslRun("pkill -f openclaw 2>/dev/null || true");
+	wslRun("pkill -f naia-node 2>/dev/null || true");
 	// Terminate distro
 	wsl(["--terminate", DISTRO]);
 	// Unregister distro
@@ -172,7 +172,7 @@ console.log("\n=== Step 2: Create test distro (simulates NaiaEnv import) ===");
 	}
 }
 
-// ── Step 3: Install Node.js + OpenClaw inside WSL ───────────────────────
+// ── Step 3: Install Node.js + Naia Gateway inside WSL ───────────────────────
 
 console.log("\n=== Step 3: Setup inside WSL (simulates Dockerfile) ===");
 {

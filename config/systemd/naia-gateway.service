@@ -1,6 +1,6 @@
 [Unit]
-Description=Naia Gateway (OpenClaw)
-Documentation=https://github.com/nichochar/openclaw
+Description=Naia Gateway
+Documentation=https://github.com/nextain/naia-os
 After=network-online.target
 Wants=network-online.target
 

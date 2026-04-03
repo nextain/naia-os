@@ -22,7 +22,7 @@ Memory, personality, settings — all stored on your machine.
 A truly personal AI, free from cloud dependency.
 
 **Always With You**
-Chat via Discord DM even when you're away. OpenClaw runs 24/7 in the background —
+Chat via Discord DM even when you're away. Naia Gateway runs 24/7 in the background —
 your AI stays alive, receiving messages and doing work.
 
 **AI-Guarded Open Source**
@@ -34,7 +34,7 @@ Source code under Apache 2.0, AI context under CC-BY-SA 4.0.
 - **AppImage** — Single executable file. Run directly without installation.
 
 These packages include the Naia Shell UI.
-AI features (chat, voice, tools, skills) require OpenClaw running alongside — see the setup guide on our website.
+AI features (chat, voice, tools, skills) require Naia Gateway running alongside — see the setup guide on our website.
 
 Want the full experience with everything pre-configured? Try **Naia OS** — a bootable USB image with AI + gaming OS ready out of the box.
 

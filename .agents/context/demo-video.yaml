@@ -132,7 +132,7 @@ mock_data_reference:
   extended_for_demo:
     - "tool_request handler (directToolCall for skill_sessions, skill_agents, skill_diagnostics)"
     - "discord_api mock (channels status)"
-    - "sync_openclaw_config (returns undefined)"
+    - "sync_gateway_config (returns undefined)"
     - "Chat streaming simulation (SSE-style delayed responses)"
 
 known_issues:

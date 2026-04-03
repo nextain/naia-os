@@ -2,7 +2,7 @@
  * E2E test: Gateway chat.send event format discovery & validation.
  *
  * Prerequisites:
- *   - OpenClaw Gateway running on localhost:18789
+ *   - Naia Gateway running on localhost:18789
  *   - Device paired with operator token
  *
  * Run manually:
@@ -22,8 +22,8 @@ const LIVE_E2E = process.env.CAFE_LIVE_GATEWAY_E2E === "1";
 
 function loadGatewayToken(): string | null {
 	const candidates = [
+		join(homedir(), ".naia", "gateway.json"),
 		join(homedir(), ".naia", "openclaw", "openclaw.json"),
-		join(homedir(), ".openclaw", "openclaw.json"),
 	];
 	for (const path of candidates) {
 		try {

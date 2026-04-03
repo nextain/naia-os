@@ -15,7 +15,7 @@ import { safeRefresh } from "../helpers/settings.js";
  *
  * Requires:
  *   - LAB_KEY + LAB_USER_ID env vars
- *   - Discord bot token in openclaw config (for openDmChannel via Rust)
+ *   - Discord bot token in Naia config (for openDmChannel via Rust)
  *   - naia.nextain.io BFF reachable
  *
  * Skips gracefully if credentials are missing.

@@ -1,6 +1,6 @@
 /**
  * Shared mock Gateway server for tests.
- * Automatically handles OpenClaw protocol v3 handshake:
+ * Automatically handles Naia Gateway protocol v3 handshake:
  *   1. Sends connect.challenge on connection
  *   2. Validates connect request
  *   3. Responds with hello-ok (methods list)

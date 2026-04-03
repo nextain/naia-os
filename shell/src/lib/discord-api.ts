@@ -1,7 +1,7 @@
 /**
  * Discord REST API client.
  * All HTTP calls go through Rust (`discord_api` command) to bypass CORS.
- * Bot token is read from OpenClaw config on the Rust side.
+ * Bot token is read from Naia Gateway config on the Rust side.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { Logger } from "./logger";

@@ -175,15 +175,15 @@ async function resolveTarget(
 }
 
 /**
- * Ensure a Discord user ID is in the OpenClaw allowlist so they can DM back.
+ * Ensure a Discord user ID is in the Naia allowlist so they can DM back.
  * Silently ignores errors to avoid blocking message sends.
  */
 export async function ensureDiscordAllowlisted(
 	userId: string,
-	openclawDir?: string,
+	naiaDir?: string,
 ): Promise<void> {
 	try {
-		const base = openclawDir ?? join(homedir(), ".openclaw");
+		const base = naiaDir ?? join(homedir(), ".naia");
 		const filePath = join(base, "credentials", "discord-allowFrom.json");
 
 		let data: { version: number; allowFrom: string[] } = {

@@ -35,7 +35,7 @@
         <ul>
           <li>OS base image switched to bazzite-nvidia-open (RTX GPU out of the box)</li>
           <li>GNOME Platform/Sdk runtime upgraded from 49 to 50</li>
-          <li>OpenClaw gateway updated to 2026.3.28</li>
+          <li>Naia Gateway updated to 2026.3.28</li>
           <li>Full CI green: all lint, type-check, and test failures resolved</li>
           <li>Windows and Flatpak release pipeline fixes</li>
         </ul>

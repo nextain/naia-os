@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-gateway.sh — Install OpenClaw gateway for Naia Shell standalone packages
+# install-gateway.sh — Install Naia Gateway (OpenClaw-compatible) for Naia Shell standalone packages
 # Safe to run multiple times (idempotent).
 # Usage: bash install-gateway.sh
 
@@ -15,13 +15,13 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-OPENCLAW_DIR="$HOME/.naia/openclaw"
+GATEWAY_DIR="$HOME/.naia/openclaw"  # backward-compat path
 CONFIG_DIR="$HOME/.openclaw"
-CONFIG_FILE="$CONFIG_DIR/openclaw.json"
+CONFIG_FILE="$CONFIG_DIR/openclaw.json"  # backward-compat path
 WORKSPACE_DIR="$CONFIG_DIR/workspace"
-OPENCLAW_BIN="$OPENCLAW_DIR/node_modules/openclaw/openclaw.mjs"
+GATEWAY_BIN="$GATEWAY_DIR/node_modules/openclaw/openclaw.mjs"  # backward-compat path
 REQUIRED_NODE_MAJOR=22
-OPENCLAW_VERSION="2026.2.22-2"
+GATEWAY_VERSION="2026.2.22-2"
 GATEWAY_PORT=18789
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -119,13 +119,13 @@ info "npm $(npm --version)"
 # ── Step 2: Create installation directory ────────────────────────────────────
 step "Step 2/5: Setting up installation directory"
 
-mkdir -p "$OPENCLAW_DIR"
-success "Directory: $OPENCLAW_DIR"
+mkdir -p "$GATEWAY_DIR"
+success "Directory: $GATEWAY_DIR"
 
 # ── Step 3: Create package.json and install ──────────────────────────────────
-step "Step 3/5: Installing OpenClaw $OPENCLAW_VERSION"
+step "Step 3/5: Installing Naia Gateway $GATEWAY_VERSION"
 
-PACKAGE_JSON="$OPENCLAW_DIR/package.json"
+PACKAGE_JSON="$GATEWAY_DIR/package.json"
 
 # Always write package.json to ensure correct version
 cat > "$PACKAGE_JSON" <<EOF
@@ -133,17 +133,17 @@ cat > "$PACKAGE_JSON" <<EOF
   "name": "naia-openclaw-gateway",
   "version": "1.0.0",
   "private": true,
-  "description": "OpenClaw gateway for Naia Shell",
+  "description": "Naia Gateway for Naia Shell",
   "dependencies": {
-    "openclaw": "$OPENCLAW_VERSION"
+    "openclaw": "$GATEWAY_VERSION"
   }
 }
 EOF
-info "Created package.json (openclaw@$OPENCLAW_VERSION)"
+info "Created package.json (openclaw@$GATEWAY_VERSION)"
 
 # Run npm install
 info "Running npm install (this may take a minute)..."
-(cd "$OPENCLAW_DIR" && npm install --production --no-fund --no-audit 2>&1) | while IFS= read -r line; do
+(cd "$GATEWAY_DIR" && npm install --production --no-fund --no-audit 2>&1) | while IFS= read -r line; do
     # Show progress but suppress noise
     if [[ "$line" == *"added"* ]] || [[ "$line" == *"packages"* ]]; then
         info "$line"
@@ -153,13 +153,13 @@ done
 # ── Step 4: Verify installation ──────────────────────────────────────────────
 step "Step 4/5: Verifying installation"
 
-if [[ ! -f "$OPENCLAW_BIN" ]]; then
-    die "OpenClaw not found at $OPENCLAW_BIN. Installation may have failed."
+if [[ ! -f "$GATEWAY_BIN" ]]; then
+    die "Naia Gateway not found at $GATEWAY_BIN. Installation may have failed."
 fi
 
-OPENCLAW_VER=$(node "$OPENCLAW_BIN" --version 2>/dev/null || echo "unknown")
-success "OpenClaw installed: $OPENCLAW_VER"
-success "Binary: $OPENCLAW_BIN"
+GATEWAY_VER=$(node "$GATEWAY_BIN" --version 2>/dev/null || echo "unknown")
+success "Naia Gateway installed: $GATEWAY_VER"
+success "Binary: $GATEWAY_BIN"
 
 # ── Step 5: Create config ────────────────────────────────────────────────────
 step "Step 5/5: Setting up configuration"
@@ -171,9 +171,9 @@ if [[ -f "$CONFIG_FILE" ]]; then
     warn "Config already exists: $CONFIG_FILE (skipping)"
     info "Delete it and re-run this script to regenerate."
 else
-    # SoT: config/defaults/openclaw-bootstrap.json
+    # SoT: config/defaults/gateway-bootstrap.json
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    BOOTSTRAP="${SCRIPT_DIR}/../config/defaults/openclaw-bootstrap.json"
+    BOOTSTRAP="${SCRIPT_DIR}/../config/defaults/openclaw-bootstrap.json"  # TODO: rename to gateway-bootstrap.json
     if [[ -f "$BOOTSTRAP" ]]; then
         cp "$BOOTSTRAP" "$CONFIG_FILE"
     else
@@ -201,7 +201,7 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}============================================${RESET}"
-echo -e "${GREEN}${BOLD}  OpenClaw Gateway installed successfully!  ${RESET}"
+echo -e "${GREEN}${BOLD}  Naia Gateway installed successfully!  ${RESET}"
 echo -e "${GREEN}${BOLD}============================================${RESET}"
 echo ""
 echo -e "  ${BOLD}To start the gateway:${RESET}"
@@ -215,7 +215,7 @@ echo ""
 echo -e "  ${BOLD}Then launch Naia Shell${RESET} — it will connect to the gateway automatically."
 echo ""
 echo -e "  ${BOLD}Files:${RESET}"
-echo -e "    Binary:  $OPENCLAW_BIN"
+echo -e "    Binary:  $GATEWAY_BIN"
 echo -e "    Config:  $CONFIG_FILE"
 echo -e "    Data:    $WORKSPACE_DIR"
 echo ""

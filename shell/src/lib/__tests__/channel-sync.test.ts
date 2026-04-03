@@ -6,9 +6,9 @@ vi.mock("@tauri-apps/api/core", () => ({
 	invoke: vi.fn(),
 }));
 
-// Mock openclaw-sync (fire-and-forget calls)
-vi.mock("../openclaw-sync", () => ({
-	syncToOpenClaw: vi.fn().mockResolvedValue(undefined),
+// Mock gateway-sync (fire-and-forget calls)
+vi.mock("../gateway-sync", () => ({
+	syncToGateway: vi.fn().mockResolvedValue(undefined),
 	restartGateway: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -20,7 +20,7 @@ vi.mock("../persona", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { syncLinkedChannels } from "../channel-sync";
 import { loadConfig } from "../config";
-import { restartGateway, syncToOpenClaw } from "../openclaw-sync";
+import { restartGateway, syncToGateway } from "../gateway-sync";
 
 const mockedInvoke = invoke as unknown as ReturnType<typeof vi.fn>;
 
@@ -177,7 +177,7 @@ describe("syncLinkedChannels", () => {
 		fetchSpy.mockRestore();
 	});
 
-	it("calls syncToOpenClaw with DM channel ID and restarts gateway", async () => {
+	it("calls syncToGateway with DM channel ID and restarts gateway", async () => {
 		seedConfig();
 		const discordUserId = "865850174651498506";
 		const dmChannelId = "1234567890123456789";
@@ -192,7 +192,7 @@ describe("syncLinkedChannels", () => {
 
 		await syncLinkedChannels();
 
-		expect(syncToOpenClaw).toHaveBeenCalledWith(
+		expect(syncToGateway).toHaveBeenCalledWith(
 			"gemini",
 			"gemini-2.5-flash",
 			"test-key",
@@ -208,6 +208,7 @@ describe("syncLinkedChannels", () => {
 			"off", // ttsAuto (ttsEnabled unset → "off")
 			undefined, // ttsMode
 			"gw-test-lab-key",
+			undefined, // ollamaHost (not set in seedConfig)
 		);
 		expect(restartGateway).toHaveBeenCalled();
 

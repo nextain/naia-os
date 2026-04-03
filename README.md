@@ -71,7 +71,7 @@ This isn't just another AI tool. It's an operating system where your AI lives, g
 - **70+ Skills** — 7 built-in + 63 custom + 5,700+ ClawHub community skills
 - **Voice** — 5 TTS providers + STT + lip-sync. Give your AI the voice you want.
 - **14 Languages** — Korean, English, Japanese, Chinese, French, German, Russian, and more
-- **Always-On** — OpenClaw gateway daemon keeps your AI running in the background
+- **Always-On** — Naia Gateway daemon keeps your AI running in the background
 - **Channel Integration** — Talk to your AI via Discord DM, anytime, anywhere
 - **4-Tier Security** — T0 (read) to T3 (dangerous), per-tool approval, audit logs
 - **Personalization** — Name, personality, speech style, avatar, theme (8 types)
@@ -132,7 +132,7 @@ Naia is built on top of the [OpenClaw](https://github.com/openclaw-ai/openclaw) 
 └──────────────┬───────────────────────────────────┘
                │ WebSocket (ws://127.0.0.1:18789)
 ┌──────────────▼───────────────────────────────────┐
-│  OpenClaw Gateway (systemd user daemon)          │
+│  Naia Gateway (systemd user daemon)          │
 │  88 RPC methods │ Tool exec │ Channels │ Memory  │
 └──────────────────────────────────────────────────┘
 ```
@@ -155,7 +155,7 @@ naia-os/
 │   ├── src/tts/        #   TTS providers (Edge, Google, OpenAI, etc.)
 │   ├── src/skills/     #   Built-in skills (13 Naia-specific TypeScript)
 │   └── assets/         #   Bundled skills (64 skill.json)
-├── gateway/            # OpenClaw Gateway bridge
+├── gateway/            # Naia Gateway bridge
 ├── flatpak/            # Flatpak packaging (io.nextain.naia)
 ├── recipes/            # BlueBuild OS image recipes
 ├── config/             # OS configuration (systemd, wrapper scripts)
@@ -211,7 +211,7 @@ A dual documentation structure for AI agents and human developers. `.agents/` co
 |---|---|---|
 | [`context/agents-rules.json`](.agents/context/agents-rules.json) | [`context/agents-rules.md`](.users/context/ko/agents-rules.md) | Project rules — Source of Truth (SoT) |
 | [`context/project-index.yaml`](.agents/context/project-index.yaml) | — | Context index + mirroring rules |
-| [`context/openclaw-sync.yaml`](.agents/context/openclaw-sync.yaml) | [`context/openclaw-sync.md`](.users/context/ko/openclaw-sync.md) | OpenClaw Gateway synchronization |
+| [`context/gateway-sync.yaml`](.agents/context/gateway-sync.yaml) | [`context/gateway-sync.md`](.users/context/ko/gateway-sync.md) | Gateway synchronization |
 | [`context/channels-discord.yaml`](.agents/context/channels-discord.yaml) | [`context/channels-discord.md`](.users/context/ko/channels-discord.md) | Discord integration architecture |
 | [`context/update-pipeline.yaml`](.agents/context/update-pipeline.yaml) | [`context/update-pipeline.md`](.users/context/update-pipeline.md) | OS update pipeline, testing, rollback |
 | [`workflows/development-cycle.yaml`](.agents/workflows/development-cycle.yaml) | [`workflows/development-cycle.md`](.users/workflows/development-cycle.md) | Development cycle (PLAN→BUILD→VERIFY) |
@@ -258,7 +258,7 @@ cd ../shell && pnpm run tauri dev
 ```
 
 When the app launches, it automatically:
-1. OpenClaw Gateway health check — reuse if running, otherwise auto-spawn
+1. Naia Gateway health check — reuse if running, otherwise auto-spawn
 2. Agent Core spawn (Node.js, stdio connection)
 3. On app exit, only auto-spawned Gateway is terminated
 

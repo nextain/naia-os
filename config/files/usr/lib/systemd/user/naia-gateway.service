@@ -1,6 +1,6 @@
 [Unit]
-Description=Naia OpenClaw Gateway
-Documentation=https://docs.openclaw.ai
+Description=Naia Gateway
+Documentation=https://github.com/nextain/naia-os
 After=network-online.target
 Wants=network-online.target
 
@@ -9,7 +9,6 @@ Type=simple
 ExecStart=/usr/bin/node %h/.naia/openclaw/node_modules/openclaw/openclaw.mjs gateway run --bind loopback --port 18789 --allow-unconfigured
 Environment=HOME=%h
 Environment=PATH=%h/.local/bin:%h/.config/nvm/versions/node/v22/bin:/usr/local/bin:/usr/bin:/bin
-Environment=OPENCLAW_CONFIG_PATH=%h/.openclaw/openclaw.json
 WorkingDirectory=%h/.naia/openclaw
 Restart=on-failure
 RestartSec=5

@@ -1,7 +1,7 @@
-description: Shell → OpenClaw gateway config synchronization architecture.
+description: Shell → Naia Gateway config synchronization architecture.
 
 purpose: >
-  Keep OpenClaw bootstrap files (openclaw.json, auth-profiles.json, SOUL.md,
+  Keep Naia Gateway bootstrap files (gateway config, auth-profiles.json, SOUL.md,
   IDENTITY.md, USER.md) in sync with Shell user settings so that Gateway
   interactions (Discord DM, TTS, etc.) use the same persona and credentials
   as the Shell.
@@ -13,7 +13,7 @@ trigger_points:
   - App startup (session load useEffect in ChatPanel)
   - After session summarization (summarizePreviousSession)
   - After auto fact extraction (every 10 messages / visibilitychange)
-  - After reverse sync from OpenClaw memory files
+  - After reverse sync from Gateway memory files
 
 sync_items:
   - target: openclaw.json
@@ -40,7 +40,7 @@ sync_items:
       - Known facts about the user (from Shell facts DB)
       - Language/locale instructions
     note: >
-      syncToOpenClaw() is self-contained — always loads config + facts internally.
+      syncToGateway() is self-contained — always loads config + facts internally.
       Caller's _systemPrompt parameter is ignored. This ensures ALL sync paths
       (settings, startup, auto-extraction) include facts consistently.
 
@@ -51,7 +51,7 @@ sync_items:
     content: "userName value"
 
 key_files:
-  - shell/src/lib/openclaw-sync.ts          # syncToOpenClaw() — self-contained
+  - shell/src/lib/gateway-sync.ts           # syncToGateway() — self-contained
   - shell/src/lib/memory-sync.ts            # reverse sync (OpenClaw → Shell facts)
   - shell/src/lib/memory-processor.ts       # extractFacts(), summarizeSession()
   - shell/src/lib/persona.ts                # buildSystemPrompt()
@@ -59,7 +59,7 @@ key_files:
   - shell/src/components/ChatPanel.tsx       # auto-extraction triggers
   - shell/src/components/SettingsTab.tsx     # handleSave trigger
   - shell/src/components/OnboardingWizard.tsx # handleComplete trigger
-  - shell/src-tauri/src/lib.rs              # sync_openclaw_config, read_openclaw_memory_files
+  - shell/src-tauri/src/lib.rs              # sync_gateway_config, read_gateway_memory_files
 
 chat_routing:
   description: Chat messages can be routed through Gateway for unified sessions
@@ -96,11 +96,11 @@ session_sot:
 memory_sync:
   description: >
     Dual-origin memory architecture: Shell owns facts (who the user is),
-    OpenClaw owns sessions (what happened). Memory sync bridges both.
+    Gateway owns sessions (what happened). Memory sync bridges both.
 
-  shell_to_openclaw:
-    description: Facts are injected into SOUL.md via syncToOpenClaw()
-    flow: getAllFacts() → buildSystemPrompt(facts) → sync_openclaw_config(persona)
+  shell_to_gateway:
+    description: Facts are injected into SOUL.md via syncToGateway()
+    flow: getAllFacts() → buildSystemPrompt(facts) → sync_gateway_config(persona)
     triggers:
       - App startup
       - Settings save
@@ -119,47 +119,47 @@ memory_sync:
     tracking: lastExtractedIdx ref in ChatPanel (reset on remount)
     file: shell/src/components/ChatPanel.tsx
 
-  openclaw_to_shell:
+  gateway_to_shell:
     description: >
-      Reverse sync: reads OpenClaw workspace/memory/*.md files,
+      Reverse sync: reads Gateway workspace/memory/*.md files,
       extracts facts via LLM, upserts into Shell facts DB.
-    flow: read_openclaw_memory_files(since_ms) → extractFacts() → upsertFact() → syncToOpenClaw()
+flow: read_gateway_memory_files(since_ms) → extractFacts() → upsertFact() → syncToGateway()
     schedule: 5s after app start, then every 30 minutes
     file: shell/src/lib/memory-sync.ts
-    rust_command: read_openclaw_memory_files (reads ~/.openclaw/workspace/memory/*.md)
+rust_command: read_gateway_memory_files (reads ~/.openclaw/workspace/memory/*.md)
 
   session_memory_hook:
     description: >
-      OpenClaw internal hook that saves conversations to workspace/memory/*.md.
-      Enabled via bootstrap config and ensure_openclaw_config() patches.
-    config_path: hooks.internal.entries.session-memory.enabled = true
-    sot: config/defaults/openclaw-bootstrap.json
+      Gateway internal hook that saves conversations to workspace/memory/*.md.
+      Enabled via bootstrap config and ensure_gateway_config() patches.
+config_path: hooks.internal.entries.session-memory.enabled = true
+sot: config/defaults/gateway-bootstrap.json
 
 bootstrap:
   description: >
-    First-launch config creation for Flatpak/ISO installs where install-gateway.sh
-    does not run. ensure_openclaw_config() in lib.rs is the single bootstrap path.
-  function: ensure_openclaw_config (lib.rs)
+First-launch config creation for Flatpak/ISO installs where install-gateway.sh
+does not run. ensure_gateway_config() in lib.rs is the single bootstrap path.
+  function: ensure_gateway_config (lib.rs)
   called_from:
     - spawn_gateway (before launching Gateway process)
-    - sync_openclaw_config (before reading/writing config)
+    - sync_gateway_config (before reading/writing config)
   behavior:
     no_config: Creates full minimal config matching install-gateway.sh defaults
     existing_config_missing_mode: Patches gateway.mode=local into existing file
     existing_config_ok: No-op
   required_fields:
-    - gateway.mode: "local"       # OpenClaw refuses to start without this
+    - gateway.mode: "local"       # Gateway refuses to start without this
     - gateway.port: 18789
     - gateway.bind: "loopback"
     - gateway.auth.mode: "token"
     - gateway.reload.mode: "off"  # Prevent file-watcher race conditions
-    - agents.defaults.workspace: "~/.openclaw/workspace"
+    - agents.defaults.workspace: "~/.openclaw/workspace"  # backward-compat path
     - session.dmScope: "per-channel-peer"
     - hooks.internal.enabled: true
     - hooks.internal.entries.session-memory.enabled: true
 
 constraints:
-  - OpenClaw source code is NOT modifiable
+  - Gateway source code is NOT modifiable (backward-compat paths retained)
   - Sync is best-effort; errors are logged but never block UI
   - SOUL.md receives the FULL system prompt (emotion tags + name + context)
-  - gateway.mode=local is REQUIRED — without it OpenClaw exits immediately
+  - gateway.mode=local is REQUIRED — without it Gateway exits immediately

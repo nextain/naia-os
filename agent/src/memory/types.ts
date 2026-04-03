@@ -170,7 +170,6 @@ export interface ConsolidationResult {
  * Abstract memory adapter — gateway-independent.
  *
  * LocalAdapter (JSON file) is always functional.
- * OpenClawAdapter delegates to GatewayAdapter.memory when available.
  * Future adapters (cloud, distributed) can be added without changing consumers.
  */
 export interface MemoryAdapter {

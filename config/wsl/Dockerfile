@@ -1,7 +1,7 @@
 # NaiaEnv — Minimal WSL2 distro for Naia OS Tier 2
 # Builds a rootfs tar.gz that can be imported via: wsl --import NaiaEnv <path> <tar>
 #
-# Contents: Node.js 22 + OpenClaw Gateway + basic tools
+# Contents: Node.js 22 + Naia Gateway (OpenClaw-compatible) + basic tools
 # Target size: ~250MB compressed
 
 FROM ubuntu:24.04
@@ -22,7 +22,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# OpenClaw Gateway — install to /opt/naia/openclaw/
+# Naia Gateway — install to /opt/naia/openclaw/ (backward-compat path)
 RUN mkdir -p /opt/naia/openclaw \
     && cd /opt/naia/openclaw \
     && npm init -y \
