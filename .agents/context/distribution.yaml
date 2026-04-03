@@ -115,7 +115,7 @@ formats:
       description: "Atomic guard prevents concurrent Gateway restarts"
       mechanism: "compare_exchange on restarting_gateway AtomicBool (SeqCst)"
       reason: "Deep link auth can trigger multiple restartGateway calls; without guard, Gateway killed mid-spawn"
-      frontend_debounce: "2s debounce + inflight promise in openclaw-sync.ts"
+      frontend_debounce: "2s debounce + inflight promise in gateway-sync.ts"
     identity_sync:
       description: "Device identity + openclaw.json copied from WSL NaiaEnv to Windows ~/.openclaw/"
       trigger: "sync_wsl_identity_to_windows() called after auto_approve_pending_devices in both spawn + reuse paths"

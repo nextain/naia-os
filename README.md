@@ -211,7 +211,7 @@ A dual documentation structure for AI agents and human developers. `.agents/` co
 |---|---|---|
 | [`context/agents-rules.json`](.agents/context/agents-rules.json) | [`context/agents-rules.md`](.users/context/ko/agents-rules.md) | Project rules — Source of Truth (SoT) |
 | [`context/project-index.yaml`](.agents/context/project-index.yaml) | — | Context index + mirroring rules |
-| [`context/openclaw-sync.yaml`](.agents/context/openclaw-sync.yaml) | [`context/openclaw-sync.md`](.users/context/ko/openclaw-sync.md) | OpenClaw Gateway synchronization |
+| [`context/gateway-sync.yaml`](.agents/context/gateway-sync.yaml) | [`context/gateway-sync.md`](.users/context/ko/gateway-sync.md) | Gateway synchronization |
 | [`context/channels-discord.yaml`](.agents/context/channels-discord.yaml) | [`context/channels-discord.md`](.users/context/ko/channels-discord.md) | Discord integration architecture |
 | [`context/update-pipeline.yaml`](.agents/context/update-pipeline.yaml) | [`context/update-pipeline.md`](.users/context/update-pipeline.md) | OS update pipeline, testing, rollback |
 | [`workflows/development-cycle.yaml`](.agents/workflows/development-cycle.yaml) | [`workflows/development-cycle.md`](.users/workflows/development-cycle.md) | Development cycle (PLAN→BUILD→VERIFY) |

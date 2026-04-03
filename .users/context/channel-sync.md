@@ -63,7 +63,7 @@ The `GET /v1/auth/lookup` endpoint now returns `linked_accounts` in its response
 
 After DM channel ID is resolved, `channel-sync.ts` performs a single **awaited** sync:
 
-- **Persistent config** (`syncOpenClawWithChannels`): Writes to `openclaw.json` via `syncToOpenClaw()` + `restartGateway()` — survives Gateway restarts
+- **Persistent config** (`syncOpenClawWithChannels`): Writes to `openclaw.json` via `syncToGateway()` + `restartGateway()` — survives Gateway restarts
 
 > **Note:** The previous runtime patch (`syncDiscordToGateway` via `skill_config` tool call) was removed to prevent race conditions from concurrent file writes to `openclaw.json`.
 

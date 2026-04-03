@@ -46,8 +46,8 @@ architecture:
 
   locale_propagation:
     - "ChatPanel.buildMemoryContext() — loads config.locale || getLocale()"
-    - "SettingsTab save — passes locale to buildSystemPrompt + syncToOpenClaw"
-    - "OnboardingWizard — passes locale to buildSystemPrompt + syncToOpenClaw"
+    - "SettingsTab save — passes locale to buildSystemPrompt + syncToGateway"
+    - "OnboardingWizard — passes locale to buildSystemPrompt + syncToGateway"
     - "channel-sync — passes locale to buildSystemPrompt"
 
 key_files:

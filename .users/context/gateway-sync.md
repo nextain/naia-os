@@ -1,8 +1,8 @@
-# OpenClaw Config Synchronization
+# Naia Gateway Config Synchronization
 
 ## Overview
 
-Synchronizes Shell (Tauri app) user settings to OpenClaw Gateway bootstrap files.
+Synchronizes Shell (Tauri app) user settings to Naia Gateway bootstrap files.
 This ensures Gateway features (Discord DM, TTS, etc.) use the same persona and credentials as the Shell.
 
 ## Sync Triggers
@@ -15,7 +15,7 @@ This ensures Gateway features (Discord DM, TTS, etc.) use the same persona and c
 | App startup | `ChatPanel.tsx` | session load useEffect |
 | After session summarization | `ChatPanel.tsx` | `summarizePreviousSession()` |
 | After auto fact extraction | `ChatPanel.tsx` | every 10 messages / visibilitychange |
-| After reverse sync | `memory-sync.ts` | `syncFromOpenClawMemory()` |
+| After reverse sync | `memory-sync.ts` | `syncFromGatewayMemory()` |
 
 ## Sync Items
 
@@ -42,7 +42,7 @@ Full output from `buildSystemPrompt()`:
 - **Known facts about the user (from Shell facts DB)**
 - Language/locale instructions
 
-> **Key**: `syncToOpenClaw()` is self-contained — always loads config + facts internally.
+> **Key**: `syncToGateway()` is self-contained — always loads config + facts internally.
 > Caller's `_systemPrompt` parameter is ignored. All sync paths include facts consistently.
 
 ### 4. `IDENTITY.md` / `USER.md`
@@ -71,8 +71,8 @@ Facts are extracted automatically during conversation without requiring "New Con
 ### OpenClaw to Shell (reverse sync)
 
 Reads `workspace/memory/*.md` files saved by OpenClaw's `session-memory` hook:
-- `read_openclaw_memory_files(since_ms)` Rust command reads files
-- LLM extracts facts -> `upsertFact()` -> `syncToOpenClaw()`
+- `read_gateway_memory_files(since_ms)` Rust command reads files
+- LLM extracts facts -> `upsertFact()` -> `syncToGateway()`
 - Runs 5s after app start + every 30 minutes
 
 ### session-memory Hook
@@ -92,7 +92,7 @@ Agent field: `ChatRequest.routeViaGateway` (boolean)
 
 ## Key Files
 
-- `shell/src/lib/openclaw-sync.ts` — `syncToOpenClaw()` (self-contained)
+- `shell/src/lib/gateway-sync.ts` — `syncToGateway()` (self-contained)
 - `shell/src/lib/memory-sync.ts` — reverse sync (OpenClaw -> Shell)
 - `shell/src/lib/memory-processor.ts` — `extractFacts()`, `summarizeSession()`
 - `shell/src/lib/persona.ts` — `buildSystemPrompt()`
@@ -100,7 +100,7 @@ Agent field: `ChatRequest.routeViaGateway` (boolean)
 - `shell/src/components/ChatPanel.tsx` — auto-extraction triggers
 - `shell/src/components/SettingsTab.tsx` — handleSave trigger
 - `shell/src/components/OnboardingWizard.tsx` — handleComplete trigger
-- `shell/src-tauri/src/lib.rs` — `sync_openclaw_config`, `read_openclaw_memory_files`
+- `shell/src-tauri/src/lib.rs` — `sync_gateway_config`, `read_gateway_memory_files`
 
 ## Constraints
 

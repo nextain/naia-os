@@ -298,7 +298,7 @@ phases:
           naia_changes:
             - "discord-auth.ts: OAuth login → discoverDmChannelId() → Shell config 저장"
             - "naia-discord.ts: DM 전용 스킬 (send/status/history)"
-            - "openclaw-sync.ts: syncDiscordToGateway() → Gateway runtime config.patch"
+            - "gateway-sync.ts: syncDiscordToGateway() → Gateway runtime config.patch"
             - "settings/integrations: Discord 연동 상태 UI"
       step_4_6:
         name: "systemd auto-start integration"

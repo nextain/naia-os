@@ -249,7 +249,7 @@ Memory lives in **two systems** that serve different purposes and connect at ses
 | Item | Details |
 |------|---------|
 | **Storage** | `~/.openclaw/workspace/` (`SOUL.md`, `IDENTITY.md`, `USER.md`) |
-| **Sync** | Shell writes these via `sync_openclaw_config` (`lib.rs`) on settings change |
+| **Sync** | Shell writes these via `sync_gateway_config` (`lib.rs`) on settings change |
 | **Note** | Regenerable from Shell settings — not primary data |
 
 ### Data Flow (How the Two Systems Connect)

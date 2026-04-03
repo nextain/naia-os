@@ -237,7 +237,7 @@ memory_architecture:
     workspace:
       name: "Workspace Bootstrap Files"
       storage: "~/.openclaw/workspace/ (SOUL.md, IDENTITY.md, USER.md)"
-      sync: "Shell writes these via sync_openclaw_config (lib.rs) on settings change"
+      sync: "Shell writes these via sync_gateway_config (lib.rs) on settings change"
       note: "Regenerable from Shell settings — not primary data"
 
   data_flow: |

@@ -41,9 +41,9 @@ mirror_pairs:
     users_ko: .users/context/ko/testing.md
     description: Concrete testing strategy per module, E2E scenarios, phase verification
 
-  - agents: .agents/context/openclaw-sync.yaml
-    users: .users/context/openclaw-sync.md
-    users_ko: .users/context/ko/openclaw-sync.md
+  - agents: .agents/context/gateway-sync.yaml
+    users: .users/context/gateway-sync.md
+    users_ko: .users/context/ko/gateway-sync.md
     description: Shell → OpenClaw gateway config sync architecture (provider, model, persona, SOUL.md, chat routing)
 
   - agents: .agents/context/skill-naia-discord.yaml
@@ -228,7 +228,7 @@ on_demand_loading:
     - .agents/context/architecture.yaml (when working on agent/gateway integration, Rust backend, or panel system — ALWAYS read before gateway/Rust/panel work)
     - .agents/context/careti-reuse.yaml (when porting code from careti)
     - .agents/context/testing.yaml (when writing or running tests)
-    - .agents/context/openclaw-sync.yaml (when working on OpenClaw sync or persona/settings)
+    - .agents/context/gateway-sync.yaml (when working on OpenClaw sync or persona/settings)
     - .agents/context/skill-naia-discord.yaml (when working on Discord skill or messaging)
     - .agents/context/channels-discord.yaml (when working on Discord integration, OAuth, or Shell conversation sync)
     - .agents/context/distribution.yaml (when building, releasing, or deploying — Flatpak, ISO, Flathub)

@@ -483,7 +483,7 @@ interface MemoryProcessor {
 - Discord DM 봇 ✅ — Naia 전용 DM 봇 (naia-discord 스킬), OAuth 연동
   - `discord-auth.ts`: OAuth → `discoverDmChannelId()` → Shell config 저장
   - `naia-discord.ts`: DM 전용 스킬 (send/status/history)
-  - `openclaw-sync.ts`: `syncDiscordToGateway()` → Gateway runtime config.patch
+  - `gateway-sync.ts`: `syncDiscordToGateway()` → Gateway runtime config.patch
 - Gateway에 `provider_account_id` 컬럼 + `GET /v1/auth/lookup` 엔드포인트 추가 ✅
 - 연동 설정 UI (settings/integrations) ✅
 
