@@ -40,13 +40,15 @@ export class SillyTavernAdapter implements BenchmarkAdapter {
 	private pipeline: any = null;
 	private factCounter = 0;
 
-	async init(): Promise<void> {
+	async init(cacheId?: string): Promise<void> {
 		// Dynamic imports — optional benchmark deps
 		const vectra = await import("vectra");
 		const { pipeline: createPipeline } = await import("@huggingface/transformers");
 
-		// Create isolated temp index (matches SillyTavern's per-collection LocalIndex pattern)
-		this.indexPath = `/tmp/sillytavern-bench-${randomUUID()}`;
+		// cacheId: fixed path for --skip-encode reuse. Without it, use random UUID (fresh index).
+		this.indexPath = cacheId
+			? `/tmp/sillytavern-bench-${cacheId}`
+			: `/tmp/sillytavern-bench-${randomUUID()}`;
 		this.store = new vectra.LocalIndex(this.indexPath);
 
 		if (!(await this.store.isIndexCreated())) {

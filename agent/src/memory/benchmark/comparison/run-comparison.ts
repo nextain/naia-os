@@ -19,7 +19,6 @@ import { execSync } from "node:child_process";
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { JikimeAdkAdapter } from "./adapter-jikime-adk.js";
 import { JikimeMemAdapter } from "./adapter-jikime-mem.js";
 import { LettaAdapter } from "./adapter-letta.js";
 import { Mem0Adapter } from "./adapter-mem0.js";
@@ -83,8 +82,6 @@ function createAdapter(name: string, apiKey: string, embedder?: string): Benchma
 			return new JikimeMemAdapter();
 		case "sap":
 			return new SapAdapter(apiKey);
-		case "jikime-adk":
-			return new JikimeAdkAdapter();
 		case "sillytavern":
 			return new SillyTavernAdapter();
 		case "airi":
@@ -375,11 +372,13 @@ async function main() {
 	const config = parseArgs();
 
 	const apiKey = process.env.GEMINI_API_KEY ?? "";
+	const hasGateway = !!(process.env.GATEWAY_URL && process.env.GATEWAY_MASTER_KEY);
 	const needsGemini =
 		config.embedder === "gemini" || config.llm === "gemini";
-	if (needsGemini && !apiKey) {
+	// Gateway (Vertex AI) can replace direct Gemini API key
+	if (needsGemini && !apiKey && !hasGateway) {
 		console.error(
-			"GEMINI_API_KEY required (or use --llm=qwen3 --embedder=qwen3|bge-m3|solar)",
+			"GEMINI_API_KEY required (or set GATEWAY_URL + GATEWAY_MASTER_KEY to use gateway)",
 		);
 		process.exit(1);
 	}

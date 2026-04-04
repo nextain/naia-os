@@ -1,10 +1,20 @@
 /**
  * Raw mem0 OSS benchmark adapter — no Naia layer.
+ *
+ * LLM/Embedding backend selection (priority order):
+ *   1. Gateway (GATEWAY_URL + GATEWAY_MASTER_KEY env vars) — Vertex AI, no rate limits
+ *   2. Direct AI Studio (GEMINI_API_KEY) — 1500 RPD free tier, may rate-limit
+ *
+ * Set env vars to use gateway:
+ *   GATEWAY_URL=https://your-gateway GATEWAY_MASTER_KEY=your-key
  */
 import { randomUUID } from "node:crypto";
 import type { BenchmarkAdapter } from "./types.js";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/";
+const GATEWAY_BASE = process.env.GATEWAY_URL ?? "";
+const GATEWAY_KEY = process.env.GATEWAY_MASTER_KEY ?? "";
+const GATEWAY_USER = "benchmark";
 const THROTTLE_MS = 2000;
 
 export class Mem0Adapter implements BenchmarkAdapter {
@@ -19,33 +29,55 @@ export class Mem0Adapter implements BenchmarkAdapter {
 		this.apiKey = apiKey;
 	}
 
-	async init(): Promise<void> {
+	async init(cacheId?: string): Promise<void> {
 		const { Memory } = await import("mem0ai/oss");
-		const dbPath = `/tmp/mem0-bench-raw-${randomUUID()}`;
+		// cacheId: fixed path for --skip-encode reuse. Without it, use random UUID (fresh DB).
+		const dbPath = cacheId
+			? `/tmp/mem0-bench-mem0-${cacheId}`
+			: `/tmp/mem0-bench-raw-${randomUUID()}`;
+
+		const useGateway = !!(GATEWAY_BASE && GATEWAY_KEY);
+
+		// EmbeddingConfig/LLMConfig types omit `user` but the openai provider accepts it
 		this.mem0 = new Memory({
 			embedder: {
 				provider: "openai",
-				config: {
-					apiKey: this.apiKey,
-					baseURL: GEMINI_BASE,
-					model: "gemini-embedding-001",
-				},
+				config: (useGateway
+					? {
+							apiKey: GATEWAY_KEY,
+							baseURL: `${GATEWAY_BASE}/v1/`,
+							model: "vertexai:text-embedding-004",
+							user: GATEWAY_USER,
+						}
+					: {
+							apiKey: this.apiKey,
+							baseURL: GEMINI_BASE,
+							model: "gemini-embedding-001",
+						}) as any,
 			},
 			vectorStore: {
 				provider: "memory",
 				config: {
 					collectionName: "bench",
-					dimension: 3072,
+					// gateway: text-embedding-004 default dim=768; direct: gemini-embedding-001 dim=3072
+					dimension: useGateway ? 768 : 3072,
 					dbPath: `${dbPath}-vec.db`,
 				},
 			},
 			llm: {
 				provider: "openai",
-				config: {
-					apiKey: this.apiKey,
-					baseURL: GEMINI_BASE,
-					model: "gemini-2.5-flash",
-				},
+				config: (useGateway
+					? {
+							apiKey: GATEWAY_KEY,
+							baseURL: `${GATEWAY_BASE}/v1/`,
+							model: "vertexai:gemini-2.5-flash",
+							user: GATEWAY_USER,
+						}
+					: {
+							apiKey: this.apiKey,
+							baseURL: GEMINI_BASE,
+							model: "gemini-2.5-flash",
+						}) as any,
 			},
 			historyDbPath: `${dbPath}-hist.db`,
 		});
@@ -54,8 +86,15 @@ export class Mem0Adapter implements BenchmarkAdapter {
 	async addFact(content: string): Promise<boolean> {
 		if (!this.mem0) throw new Error("Not initialized");
 		await new Promise((r) => setTimeout(r, THROTTLE_MS));
-		await this.mem0.add([{ role: "user", content }], { userId: "bench" });
-		return true;
+		try {
+			await this.mem0.add([{ role: "user", content }], { userId: "bench" });
+			return true;
+		} catch (err: any) {
+			// mem0 internal errors (e.g. "Memory with ID undefined not found") indicate
+			// that the update/dedup phase failed — the fact may not be stored correctly.
+			console.error(`  mem0 addFact error: ${err?.message?.slice(0, 100)}`);
+			return false;
+		}
 	}
 
 	async search(query: string, topK: number): Promise<string[]> {
