@@ -211,6 +211,22 @@ docs:
     - "Language: English (public docs)"
   note: "docs/ is for standalone documents not suited to .agents/ or .users/ context structure"
 
+submodules:
+  alpha-memory:
+    path: alpha-memory/
+    repo: nextain/alpha-memory
+    url: https://github.com/nextain/alpha-memory
+    description: Cognitive memory architecture + benchmark suite (extracted from agent/src/memory)
+    entry_points:
+      - alpha-memory/README.md
+      - alpha-memory/.agents/context/project-index.yaml
+      - alpha-memory/.users/context/project-index.md
+    context:
+      agents: alpha-memory/.agents/context/
+      users_en: alpha-memory/.users/context/
+      users_ko: alpha-memory/.users/context/ko/
+    note: Read alpha-memory/.agents/context/project-index.yaml when working on memory system or benchmarks
+
 work_logs:
   location: work-logs/
   convention: "YYYYMMDD-NN-<topic>.md"
