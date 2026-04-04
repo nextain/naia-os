@@ -1,4 +1,4 @@
-> **한국어 버전입니다** | [ko/testing-strategy.md](ko/testing-strategy.md)
+> **English**: [../testing-strategy.md](../testing-strategy.md) (원본이 이미 한국어)
 
 # 테스트 전략 + 교훈
 

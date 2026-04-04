@@ -1,5 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 
+> **English**: [../issue-driven-development.md](../issue-driven-development.md)
+
 # 이슈 기반 개발 사이클 (Issue-Driven Development)
 
 > 미러: `.agents/workflows/issue-driven-development.yaml`

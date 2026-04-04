@@ -8,6 +8,7 @@
 			"resources/node.exe": "node.exe",
 			"resources/libvosk.dll": "libvosk.dll"
 		},
+		"publisher": "Nextain Inc.",
 		"windows": {
 			"certificateThumbprint": null,
 			"digestAlgorithm": "sha256",

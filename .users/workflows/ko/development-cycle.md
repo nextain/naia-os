@@ -1,4 +1,4 @@
-> **한국어 버전입니다** | [ko/development-cycle.md](ko/development-cycle.md)
+> **English**: [../development-cycle.md](../development-cycle.md) (원본이 이미 한국어)
 
 # 개발 사이클: PLAN → CHECK → BUILD → VERIFY → CLEAN → COMMIT
 

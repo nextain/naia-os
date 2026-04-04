@@ -1,5 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-SA-4.0 -->
 
+> **한국어**: [ko/issue-driven-development.md](ko/issue-driven-development.md)
+
 # Issue-Driven Development Cycle
 
 > Mirror: `.agents/workflows/issue-driven-development.yaml`
