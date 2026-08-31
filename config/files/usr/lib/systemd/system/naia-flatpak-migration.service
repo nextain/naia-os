@@ -1,0 +1,13 @@
+[Unit]
+Description=Retire the Flatpak Naia Shell in favour of the layered RPM
+Documentation=https://github.com/nextain/naia-shell/issues/516
+After=flatpak-system-helper.service network-online.target
+ConditionPathExists=!/var/lib/naia/flatpak-migration-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/naia-flatpak-migration
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

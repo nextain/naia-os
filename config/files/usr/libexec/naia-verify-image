@@ -81,6 +81,38 @@ do
 done
 ok "all installer assets baked into the image"
 
+# --- GTK backend selection --------------------------------------------------
+# naia-shell forces GDK_BACKEND=x11 whenever GDK_BACKEND is unset and DISPLAY is
+# set. On KDE Wayland, XWayland provides DISPLAY, so the binary puts itself on
+# X11 and its main window maps at 1x1 — running, connected, invisible. The
+# Flatpak build had a launcher wrapper for this; the RPM calls the binary
+# directly, so the session environment has to make the choice instead.
+#
+# Every automated check passes without this file. That is exactly why it is
+# asserted here.
+GDK_ENV="${ROOT}/usr/etc/xdg/plasma-workspace/env/naia-gdk-backend.sh"
+[ -f "$GDK_ENV" ] || fail "GTK backend selection missing at $GDK_ENV — the shell would force x11 and map a 1x1 window on KDE Wayland"
+grep -q 'GDK_BACKEND=wayland' "$GDK_ENV" || fail "backend selection never selects wayland"
+grep -q 'GDK_BACKEND=x11' "$GDK_ENV" || fail "backend selection never selects x11"
+(
+    out="$(env -i sh -c "export XDG_SESSION_TYPE=wayland; . '$GDK_ENV'; printf %s \"\$GDK_BACKEND\"")"
+    [ "$out" = "wayland" ] || { echo "[verify] FAIL: wayland session resolves to '$out', not wayland" >&2; exit 1; }
+    out="$(env -i sh -c "export XDG_SESSION_TYPE=x11; . '$GDK_ENV'; printf %s \"\$GDK_BACKEND\"")"
+    [ "$out" = "x11" ] || { echo "[verify] FAIL: x11 session resolves to '$out', not x11" >&2; exit 1; }
+) || exit 1
+ok "GTK backend selection present and resolves correctly for both session types"
+
+# --- Flatpak retirement -----------------------------------------------------
+# Machines updating from an image that shipped the Flatpak keep it in mutable
+# /var/lib/flatpak, which no image update touches. Without this unit the user
+# goes on launching the old shell from the old exported desktop entry and
+# nothing reports a problem.
+[ -x "${ROOT}/usr/libexec/naia-flatpak-migration" ] \
+    || fail "${ROOT}/usr/libexec/naia-flatpak-migration missing — machines updating from the Flatpak image would keep running the old shell"
+[ -f "${ROOT}/usr/lib/systemd/system/naia-flatpak-migration.service" ] \
+    || fail "naia-flatpak-migration.service missing"
+ok "Flatpak retirement path present"
+
 # --- Autostart --------------------------------------------------------------
 [ -f ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop ] || fail "autostart entry missing"
 grep -q 'naia-shell' ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop \

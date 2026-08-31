@@ -24,6 +24,12 @@ env:
   # in cosign.pub. Renaming the image or rotating the key orphans every machine
   # already in the field — they stop receiving updates with a signature error.
   IMAGE_NAME: naia-os
+  # BlueBuild pushes and signs whatever tag it is told to build. Installed
+  # machines poll `latest`, so `latest` must never name an image that has not
+  # passed the smoke test — a client can stage a bad image between the push and
+  # the test. The build therefore publishes `staging` and only retags to
+  # `latest` after the same digest passes.
+  STAGING_TAG: staging
 
 jobs:
   build:
@@ -33,39 +39,13 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      digest: ${{ steps.promote.outputs.digest }}
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # The recipe layers the shell straight from a naia-shell release asset
-      # URL. If that asset is not anonymously downloadable the BlueBuild step
-      # fails deep inside rpm-ostree with a generic message, so resolve it here
-      # where the error names the actual problem.
-      #
-      # A draft release will fail this check: draft assets require an
-      # authorization token, and the recipe cannot carry one. Publish the
-      # release as a prerelease instead — GitHub's "latest" pointer skips
-      # prereleases, so releases/latest/download/latest.json keeps serving the
-      # current Windows updater feed.
-      - name: Resolve the layered shell RPM
-        run: |
-          set -euo pipefail
-          RPM_URL="$(grep -oE 'https://github\.com/[^ ]+\.rpm' recipes/recipe.yml | head -1)"
-          test -n "$RPM_URL" || { echo "::error::recipe.yml declares no shell RPM URL"; exit 1; }
-          echo "Shell RPM: $RPM_URL"
-          CODE="$(curl -sIL -o /dev/null -w '%{http_code}' "$RPM_URL")"
-          test "$CODE" = "200" || {
-            echo "::error::Shell RPM is not anonymously downloadable (HTTP $CODE): $RPM_URL"
-            echo "::error::A draft release cannot be consumed here. Publish it as a prerelease."
-            exit 1
-          }
-          BYTES="$(curl -sIL -o /dev/null -w '%{size_download}\n%{header_json}' "$RPM_URL" | tail -1 | jq -r '."content-length"[0] // "0"')"
-          echo "Content-Length: $BYTES"
-          test "$BYTES" -gt 100000000 || {
-            echo "::error::Shell RPM is implausibly small ($BYTES bytes) — expected >100MB"
-            exit 1
-          }
 
       - name: Read the Naia OS version
         id: version
@@ -76,6 +56,72 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Naia OS version: $VERSION"
 
+      # The recipe layers the shell straight from a naia-shell release asset
+      # URL. Two things can go wrong there that rpm-ostree would report only as
+      # a generic download failure, so check both here where the error can name
+      # the actual problem.
+      #
+      # Reachability: a draft release's assets require an authorization token
+      # and the recipe cannot carry one. Publish as a prerelease instead —
+      # GitHub's "latest" pointer skips prereleases, so
+      # releases/latest/download/latest.json keeps serving the Windows feed.
+      #
+      # Content: a GitHub release asset is not immutable. The same tag and file
+      # name can be replaced. Pinning the URL pins the name, not the bytes, so
+      # compare against the SHA-256 the release publishes in artifacts.sha256.
+      # Without this a swapped asset would be downloaded, layered, signed with
+      # the production key, and shipped to installed machines.
+      - name: Resolve and pin the layered shell RPM
+        run: |
+          set -euo pipefail
+          RPM_URL="$(grep -oE 'https://github\.com/[^ ]+\.rpm' recipes/recipe.yml | head -1)"
+          test -n "$RPM_URL" || { echo "::error::recipe.yml declares no shell RPM URL"; exit 1; }
+          echo "Shell RPM: $RPM_URL"
+
+          CODE="$(curl -sIL -o /dev/null -w '%{http_code}' "$RPM_URL")"
+          test "$CODE" = "200" || {
+            echo "::error::Shell RPM is not anonymously downloadable (HTTP $CODE): $RPM_URL"
+            echo "::error::A draft release cannot be consumed here. Publish it as a prerelease."
+            exit 1
+          }
+
+          MANIFEST_URL="${RPM_URL%/*}/artifacts.sha256"
+          curl -sfL "$MANIFEST_URL" -o artifacts.sha256 || {
+            echo "::error::Release publishes no artifacts.sha256 at $MANIFEST_URL"
+            echo "::error::The RPM cannot be pinned to its bytes without it."
+            exit 1
+          }
+          RPM_NAME="${RPM_URL##*/}"
+          EXPECTED="$(awk -v n="$RPM_NAME" '$2 ~ n {print $1}' artifacts.sha256 | head -1)"
+          test -n "$EXPECTED" || {
+            echo "::error::artifacts.sha256 has no entry for $RPM_NAME"
+            cat artifacts.sha256
+            exit 1
+          }
+
+          curl -sfL "$RPM_URL" -o shell.rpm
+          ACTUAL="$(sha256sum shell.rpm | awk '{print $1}')"
+          echo "expected: $EXPECTED"
+          echo "actual:   $ACTUAL"
+          test "$EXPECTED" = "$ACTUAL" || {
+            echo "::error::Shell RPM bytes do not match the SHA-256 the release published."
+            echo "::error::The asset was replaced after it was verified. Refusing to sign it."
+            exit 1
+          }
+
+          # The layering precondition, re-checked against the bytes about to be
+          # layered rather than against whatever was checked at release time.
+          rpm -qp --list shell.rpm | awk -F/ '{print "/"$2}' | sort -u > roots.txt
+          if [ "$(cat roots.txt)" != "/usr" ]; then
+            echo "::error::Shell RPM installs outside /usr — rpm-ostree cannot layer it:"
+            cat roots.txt
+            exit 1
+          fi
+          rm -f shell.rpm
+          echo "Shell RPM pinned and verified."
+
+      # Builds and signs into STAGING_TAG. Nothing installed in the field polls
+      # that tag.
       - name: Build Image
         uses: blue-build/github-action@v1
         with:
@@ -83,21 +129,44 @@ jobs:
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
+          tags: ${{ env.STAGING_TAG }}
 
-      # The in-image gate (config/scripts/verify-naia-image.sh) already ran
-      # during the build. This re-runs the same predicate against the published
-      # image, which catches anything the layering lost between the build
-      # context and the final container.
-      - name: Smoke test the published image
+      # The in-image gate already ran during the build. This re-runs the same
+      # predicate against the published staging image, which catches anything
+      # lost between the build context and the final container.
+      - name: Smoke test the staging image
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           podman run --rm --entrypoint /bin/bash \
-            "${IMAGE_REGISTRY}/${IMAGE_NAME}:latest" \
+            "${IMAGE_REGISTRY}/${IMAGE_NAME}:${STAGING_TAG}" \
             /usr/libexec/naia-verify-image
 
-      - name: Report
-        if: github.event_name != 'pull_request'
+      # Only a digest that passed the smoke test becomes `latest`. Retagging
+      # moves the tag to the same digest, so the cosign signature made during
+      # the build still covers it.
+      - name: Promote the tested digest to latest
+        id: promote
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          echo "Built ${IMAGE_REGISTRY}/${IMAGE_NAME}:latest"
+          set -euo pipefail
+          echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          SRC="${IMAGE_REGISTRY}/${IMAGE_NAME}:${STAGING_TAG}"
+          DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${SRC}")"
+          test -n "$DIGEST" || { echo "::error::could not resolve staging digest"; exit 1; }
+          echo "Promoting $DIGEST to latest"
+          skopeo copy --all \
+            "docker://${IMAGE_REGISTRY}/${IMAGE_NAME}@${DIGEST}" \
+            "docker://${IMAGE_REGISTRY}/${IMAGE_NAME}:latest"
+          PROMOTED="$(skopeo inspect --format '{{.Digest}}' "docker://${IMAGE_REGISTRY}/${IMAGE_NAME}:latest")"
+          test "$PROMOTED" = "$DIGEST" || {
+            echo "::error::latest resolves to $PROMOTED, not the tested $DIGEST"
+            exit 1
+          }
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        if: always()
+        run: |
           echo "Naia OS ${{ steps.version.outputs.version }}"
+          echo "Promoted digest: ${{ steps.promote.outputs.digest }}"

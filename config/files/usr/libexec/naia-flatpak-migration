@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Retire the Flatpak-installed Naia Shell on machines updating from an image
+# that shipped it.
+#
+# The shell moved from a Flatpak bundle to a layered RPM. The RPM arrives with
+# the image update, but the old Flatpak lives in /var/lib/flatpak, which is
+# mutable and survives every rpm-ostree update. Left alone it keeps its exported
+# desktop entry in the menu, so the user goes on launching the old shell and
+# never sees the new one. Nothing would report an error.
+#
+# Uninstall the app, not its data: ~/.var/app/io.nextain.naia holds real user
+# state, and `flatpak uninstall` without --delete-data leaves it in place.
+
+set -uo pipefail
+
+APP_ID="io.nextain.naia"
+STAMP="/var/lib/naia/flatpak-migration-done"
+
+if [ -e "$STAMP" ]; then
+    exit 0
+fi
+
+if ! command -v flatpak >/dev/null 2>&1; then
+    mkdir -p "$(dirname "$STAMP")" && : > "$STAMP"
+    exit 0
+fi
+
+if flatpak info --system "$APP_ID" >/dev/null 2>&1; then
+    echo "[naia] retiring the Flatpak shell — the RPM at /usr/bin/naia-shell replaces it"
+    # Keep user data. Only the application goes.
+    if flatpak uninstall --system --noninteractive "$APP_ID"; then
+        echo "[naia] removed system Flatpak $APP_ID (user data under ~/.var/app kept)"
+    else
+        # Do not stamp: a failed removal must be retried on the next boot rather
+        # than leaving the user permanently on the old shell.
+        echo "[naia] WARNING: could not remove system Flatpak $APP_ID — will retry next boot" >&2
+        exit 1
+    fi
+else
+    echo "[naia] no system Flatpak $APP_ID present"
+fi
+
+mkdir -p "$(dirname "$STAMP")" && : > "$STAMP"

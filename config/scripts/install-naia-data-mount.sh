@@ -24,3 +24,13 @@ chmod 0755 /usr/libexec/naia-adk-link
 systemctl enable var-naia.mount
 
 echo "[naia] Persistent data mount registered (var-naia.mount enabled)"
+
+# The shell moved from a Flatpak bundle to a layered RPM. Machines updating from
+# an older image still carry the Flatpak in mutable /var/lib/flatpak, which no
+# image update touches — so without this the user keeps launching the old shell
+# and nothing reports a problem. Enabling here rather than in a separate script
+# keeps every systemctl call in one place, after the files module.
+chmod 0755 /usr/libexec/naia-flatpak-migration
+systemctl enable naia-flatpak-migration.service
+
+echo "[naia] Flatpak retirement unit registered (naia-flatpak-migration.service enabled)"

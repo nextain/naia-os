@@ -9,6 +9,9 @@ on:
 env:
   IMAGE_NAME: naia-os
   IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  R2_PUBLIC: https://pub-affd0538517845d98ce44a5aec11dd98.r2.dev
+  R2_BUCKET: s3://naia-releases
+  ISO_KEY: naia-os-live-amd64.iso
 
 jobs:
   build-iso:
@@ -36,28 +39,46 @@ jobs:
           test -n "$VERSION" || { echo "::error::naia-os-version is empty"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "stamp=$(date -u +%Y%m%dT%H%M%SZ)" >> "$GITHUB_OUTPUT"
+
+      # Resolve `latest` to a digest once, here, and build against that digest
+      # for the rest of the job. Passing the tag to titanoboa would let a
+      # scheduled or manual image build move `latest` between this job starting
+      # and titanoboa pulling, so the ISO would ship an image that never passed
+      # a smoke test while the workflow history claims otherwise.
+      - name: Pin the image digest
+        id: image
+        run: |
+          set -euo pipefail
+          REF="${IMAGE_REGISTRY}/${IMAGE_NAME}"
+          DIGEST="$(skopeo inspect --format '{{.Digest}}' "docker://${REF}:latest")"
+          test -n "$DIGEST" || { echo "::error::could not resolve ${REF}:latest"; exit 1; }
+          echo "ref=${REF}@${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Building an ISO around ${REF}@${DIGEST}"
 
       # The post-rootfs hook reads its branding assets from inside the image and
-      # asserts the layered shell is present. Prove the image satisfies both
-      # before spending ~40 minutes building an ISO around it.
-      - name: Verify the source image before building an ISO around it
+      # assumes the layered shell is there. Prove both against the pinned digest
+      # before spending ~40 minutes wrapping an ISO around it.
+      - name: Verify the pinned image
         run: |
           set -euo pipefail
           podman run --rm --entrypoint /bin/bash \
-            "${IMAGE_REGISTRY}/${IMAGE_NAME}:latest" \
+            "${{ steps.image.outputs.ref }}" \
             /usr/libexec/naia-verify-image
 
       - name: Build ISO
         id: build
         uses: nextain/titanoboa@main
         with:
-          image-ref: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ steps.image.outputs.ref }}
           hook-post-rootfs: ${{ github.workspace }}/installer/hook-post-rootfs.sh
           flatpaks-list: ${{ github.workspace }}/installer/flatpaks
           iso-dest: ${{ github.workspace }}/naia-os-live-amd64.iso
           compression: squashfs
 
       - name: Generate Checksum
+        id: checksum
         run: |
           set -euo pipefail
           ISO_PATH="${{ steps.build.outputs.iso-dest }}"
@@ -72,6 +93,8 @@ jobs:
           }
           sha256sum "$ISO_PATH" > "${ISO_PATH}-CHECKSUM"
           cat "${ISO_PATH}-CHECKSUM"
+          echo "sha256=$(awk '{print $1}' < "${ISO_PATH}-CHECKSUM")" >> "$GITHUB_OUTPUT"
+          echo "bytes=$BYTES" >> "$GITHUB_OUTPUT"
 
       - name: Upload ISO as Artifact
         uses: actions/upload-artifact@v4
@@ -83,7 +106,22 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Upload ISO to Cloudflare R2
+      # Publishing to R2 means overwriting two objects that cannot be swapped
+      # atomically: the ISO and its checksum. Three things follow.
+      #
+      # Backups are timestamped, never a single `previous/` that a later run can
+      # overwrite. The old pipeline copied into a fixed `previous/` with
+      # `|| true`, so a run that published a broken pair could then overwrite the
+      # last good backup with it — and in fact `previous/` is empty today, which
+      # means those copies were failing silently all along.
+      #
+      # `previous/` is still written, because release notes point at it, but only
+      # after the timestamped copy exists.
+      #
+      # And the publish is verified against the served bytes afterwards; if that
+      # fails, the timestamped backup is restored before the job goes red.
+      - name: Publish to Cloudflare R2
+        id: publish
         if: github.ref == 'refs/heads/main'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -93,38 +131,57 @@ jobs:
         run: |
           set -euo pipefail
           ISO_PATH="${{ steps.build.outputs.iso-dest }}"
-          # Back up the currently served ISO before overwriting it. This is the
-          # only rollback path for people downloading from the public URL, so a
-          # failed backup must stop the upload rather than be swallowed.
-          aws s3 cp s3://naia-releases/naia-os-live-amd64.iso \
-                    s3://naia-releases/previous/naia-os-live-amd64.iso --no-progress
-          aws s3 cp s3://naia-releases/naia-os-live-amd64.iso-CHECKSUM \
-                    s3://naia-releases/previous/naia-os-live-amd64.iso-CHECKSUM --no-progress
-          aws s3 cp "$ISO_PATH" s3://naia-releases/naia-os-live-amd64.iso --no-progress
-          aws s3 cp "${ISO_PATH}-CHECKSUM" s3://naia-releases/naia-os-live-amd64.iso-CHECKSUM --no-progress
+          BACKUP="${R2_BUCKET}/previous/${{ steps.version.outputs.stamp }}"
+
+          if aws s3 ls "${R2_BUCKET}/${ISO_KEY}" >/dev/null 2>&1; then
+            echo "Backing up the currently served pair to ${BACKUP}/"
+            aws s3 cp "${R2_BUCKET}/${ISO_KEY}" "${BACKUP}/${ISO_KEY}" --no-progress
+            aws s3 cp "${R2_BUCKET}/${ISO_KEY}-CHECKSUM" "${BACKUP}/${ISO_KEY}-CHECKSUM" --no-progress
+            aws s3 cp "${BACKUP}/${ISO_KEY}" "${R2_BUCKET}/previous/${ISO_KEY}" --no-progress
+            aws s3 cp "${BACKUP}/${ISO_KEY}-CHECKSUM" "${R2_BUCKET}/previous/${ISO_KEY}-CHECKSUM" --no-progress
+            echo "backup=${BACKUP}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing published yet — no backup to take."
+            echo "backup=" >> "$GITHUB_OUTPUT"
+          fi
+
+          aws s3 cp "$ISO_PATH" "${R2_BUCKET}/${ISO_KEY}" --no-progress
+          aws s3 cp "${ISO_PATH}-CHECKSUM" "${R2_BUCKET}/${ISO_KEY}-CHECKSUM" --no-progress
 
       # The published bytes are what users get; the runner's copy is not
-      # evidence. Compare the served checksum against what was just built.
+      # evidence. A cache-busting query keeps the CDN from answering with the
+      # object this step is supposed to be checking.
       - name: Verify the published ISO
+        id: verify
         if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          BASE="https://pub-affd0538517845d98ce44a5aec11dd98.r2.dev"
-          curl -sfL "${BASE}/naia-os-live-amd64.iso-CHECKSUM" -o served-CHECKSUM
-          BUILT="$(awk '{print $1}' < "${{ steps.build.outputs.iso-dest }}-CHECKSUM")"
-          SERVED="$(awk '{print $1}' < served-CHECKSUM)"
-          echo "built:  $BUILT"
-          echo "served: $SERVED"
-          test "$BUILT" = "$SERVED" || {
-            echo "::error::Published checksum does not match the ISO that was just built"
-            exit 1
-          }
-          SIZE="$(curl -sIL "${BASE}/naia-os-live-amd64.iso" | grep -i '^content-length:' | tail -1 | tr -dc '0-9')"
-          echo "served size: $SIZE"
-          test "$SIZE" = "$(stat -c %s "${{ steps.build.outputs.iso-dest }}")" || {
-            echo "::error::Published ISO size does not match the built ISO"
-            exit 1
-          }
+          BUST="?v=${{ steps.version.outputs.stamp }}"
+          curl -sfL "${R2_PUBLIC}/${ISO_KEY}-CHECKSUM${BUST}" -o served-CHECKSUM
+          SERVED_SUM="$(awk '{print $1}' < served-CHECKSUM)"
+          SERVED_SIZE="$(curl -sIL "${R2_PUBLIC}/${ISO_KEY}${BUST}" | grep -i '^content-length:' | tail -1 | tr -dc '0-9')"
+          echo "built  sha256=${{ steps.checksum.outputs.sha256 }} bytes=${{ steps.checksum.outputs.bytes }}"
+          echo "served sha256=${SERVED_SUM} bytes=${SERVED_SIZE}"
+          test "$SERVED_SUM" = "${{ steps.checksum.outputs.sha256 }}" \
+            || { echo "::error::Served checksum does not match the ISO just built"; exit 1; }
+          test "$SERVED_SIZE" = "${{ steps.checksum.outputs.bytes }}" \
+            || { echo "::error::Served ISO size does not match the ISO just built"; exit 1; }
+
+      # A failed publish must not leave users on a mismatched ISO/checksum pair.
+      - name: Roll back a failed publish
+        if: failure() && steps.publish.outcome == 'success' && steps.publish.outputs.backup != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
+          AWS_REGION: auto
+        run: |
+          set -euo pipefail
+          BACKUP="${{ steps.publish.outputs.backup }}"
+          echo "::warning::Restoring the previously served ISO from ${BACKUP}"
+          aws s3 cp "${BACKUP}/${ISO_KEY}" "${R2_BUCKET}/${ISO_KEY}" --no-progress
+          aws s3 cp "${BACKUP}/${ISO_KEY}-CHECKSUM" "${R2_BUCKET}/${ISO_KEY}-CHECKSUM" --no-progress
+          echo "::warning::Rolled back. The public ISO is the previous build."
 
       - name: Draft the ISO release
         if: github.ref == 'refs/heads/main'
@@ -135,13 +192,18 @@ jobs:
           body: |
             Naia OS ${{ steps.version.outputs.version }} live ISO.
 
-            ISO: https://pub-affd0538517845d98ce44a5aec11dd98.r2.dev/naia-os-live-amd64.iso
-            Checksum: https://pub-affd0538517845d98ce44a5aec11dd98.r2.dev/naia-os-live-amd64.iso-CHECKSUM
+            Image: `${{ steps.image.outputs.ref }}`
 
-            The previous ISO stays reachable under `previous/` on the same host
-            until the next build overwrites it.
+            ISO: ${{ env.R2_PUBLIC }}/${{ env.ISO_KEY }}
+            Checksum: ${{ env.R2_PUBLIC }}/${{ env.ISO_KEY }}-CHECKSUM
 
-            This ISO has been built and its published bytes verified against the
-            build. It has not been booted. Boot it before announcing it.
+            The pair this build replaced is kept at
+            `previous/${{ steps.version.outputs.stamp }}/`, and the most recent
+            one is also mirrored at `previous/`.
+
+            **Not verified booted.** The image passed its assertions and the
+            published bytes match the build. Nobody has started this ISO on
+            hardware. Boot it, and confirm the Naia window is actually visible
+            and not a 1x1 stub, before announcing it.
           files: ${{ steps.build.outputs.iso-dest }}-CHECKSUM
           draft: true
