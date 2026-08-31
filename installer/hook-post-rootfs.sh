@@ -672,6 +672,16 @@ echo "[naia] /run expansion service installed"
 # 13. Cleanup
 # ==============================================================================
 
-rm -rf "${SRC}"
+# SRC used to be a temporary clone in /tmp, and this line removed it. It now
+# points at /usr/share/naia — content the image ships — so deleting it here
+# stripped the assets and the image-ref out of the live rootfs. Repurposing the
+# variable without auditing its uses did that; the build stayed green because
+# everything that reads it had already run.
+#
+# Nothing to clean up: there is no temporary directory any more.
+[ -d "${SRC}" ] || { echo "[naia] FATAL: ${SRC} vanished during the hook" >&2; exit 1; }
+[ -f "${SRC}/image-ref" ] || { echo "[naia] FATAL: ${SRC}/image-ref vanished during the hook" >&2; exit 1; }
+echo "[naia] image payload intact at ${SRC}"
+
 systemctl disable rpm-ostree-countme.timer 2>/dev/null || true
 dnf clean all
