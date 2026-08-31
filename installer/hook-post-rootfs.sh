@@ -447,6 +447,51 @@ mkdir -p /etc/xdg/autostart
 cp /usr/etc/xdg/autostart/naia-fcitx5-setup.desktop /etc/xdg/autostart/ 2>/dev/null || true
 
 # ==============================================================================
+# 6b. Live session — /usr/etc is not /etc here
+#     On an installed ostree system, /etc is populated from /usr/etc, so config
+#     shipped there arrives where XDG and Plasma look for it. The live ISO has
+#     no such deployment step: /usr/etc is an ordinary directory that nothing
+#     reads. Anything the live session must see has to be copied into /etc.
+#
+#     Measured, not assumed. Booting the ISO with these two files only in
+#     /usr/etc gave: GDK_BACKEND empty, no naia-shell.desktop in
+#     /etc/xdg/autostart, the shell launching from the menu with a task-manager
+#     entry and no visible window. Relaunching the same binary in the same
+#     session with GDK_BACKEND=wayland rendered the onboarding screen at full
+#     size. The line above, copying only fcitx5, was the surviving trace of this
+#     same trap.
+#
+#     These are hard failures. A live session that boots to an invisible shell
+#     is worse than one that fails to build.
+# ==============================================================================
+
+GDK_ENV_SRC="/usr/etc/xdg/plasma-workspace/env/naia-gdk-backend.sh"
+GDK_ENV_DST="/etc/xdg/plasma-workspace/env/naia-gdk-backend.sh"
+if [ ! -f "${GDK_ENV_SRC}" ]; then
+    echo "[naia] FATAL: ${GDK_ENV_SRC} missing — the image did not ship the GTK backend selection." >&2
+    exit 1
+fi
+mkdir -p "$(dirname "${GDK_ENV_DST}")"
+cp "${GDK_ENV_SRC}" "${GDK_ENV_DST}"
+chmod 0755 "${GDK_ENV_DST}"
+echo "[naia] GTK backend selection installed for the live session"
+
+AUTOSTART_SRC="/usr/etc/xdg/autostart/naia-shell.desktop"
+if [ ! -f "${AUTOSTART_SRC}" ]; then
+    echo "[naia] FATAL: ${AUTOSTART_SRC} missing — the image did not ship the autostart entry." >&2
+    exit 1
+fi
+cp "${AUTOSTART_SRC}" /etc/xdg/autostart/
+echo "[naia] Naia Shell autostart installed for the live session"
+
+# Assert what the live session will actually read, not what the image shipped.
+for f in "${GDK_ENV_DST}" /etc/xdg/autostart/naia-shell.desktop; do
+    [ -f "$f" ] || { echo "[naia] FATAL: $f not in place after copy" >&2; exit 1; }
+done
+grep -q 'GDK_BACKEND=wayland' "${GDK_ENV_DST}" \
+    || { echo "[naia] FATAL: backend selection never selects wayland" >&2; exit 1; }
+
+# ==============================================================================
 # 7. Live session — wallpaper (Plasma update script)
 # ==============================================================================
 

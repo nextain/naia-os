@@ -59,6 +59,27 @@ layering is the base system's own mechanism, and the RPM already ships
 `libvosk.so` with a `RUNPATH` that resolves it. The Flatpak path stays relevant
 only if Naia is ever published on Flathub, which is a separate concern.
 
+## /usr/etc is not /etc in the live session
+
+On an installed ostree system, `/etc` is populated from `/usr/etc`, so config
+shipped there lands where XDG and Plasma look. **The live ISO has no such step**
+— `/usr/etc` is an ordinary directory that nothing reads. `XDG_CONFIG_DIRS` in
+the live session is `…/.config/kdedefaults:/etc/xdg:/usr/share/kde-settings/…`,
+and `/usr/etc/xdg` is not on it.
+
+Anything the live session must see is copied into `/etc` by
+`installer/hook-post-rootfs.sh`, and the hook fails hard if the source is
+missing. The GTK backend selection and the Naia autostart entry both go through
+that path.
+
+This was found by booting the ISO, not by reading it. With the two files only in
+`/usr/etc`, the live session had `GDK_BACKEND` unset, no `naia-shell.desktop` in
+`/etc/xdg/autostart`, and launching Naia from the menu produced a task-manager
+entry with no visible window. Relaunching the same binary in the same session
+with `GDK_BACKEND=wayland` rendered the onboarding screen at full size. The
+image gate could not see any of it: the files were exactly where the image put
+them.
+
 ## The gate
 
 `config/files/usr/libexec/naia-verify-image` asserts that the image contains what
