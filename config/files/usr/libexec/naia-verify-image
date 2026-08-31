@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# verify-naia-image.sh — in-build assertion that the image actually contains
+# what it claims to.
+#
+# The pipeline this replaces shipped an ISO whose live session had no shell:
+# the Flatpak install step ended in `|| true`, so a failed install produced a
+# green build and a dead launcher. Every check here is a hard failure. Nothing
+# in this file may end in `|| true`.
+#
+# Runs after the rpm-ostree and files modules.
+
+set -euo pipefail
+
+# ROOT lets the same predicate run against a fixture tree instead of /, so this
+# gate can be proven to both fail and pass before it ever reaches CI. The image
+# build leaves it unset.
+ROOT="${ROOT:-}"
+RPM_ROOT_ARG=()
+[ -n "$ROOT" ] && RPM_ROOT_ARG=(--root "$(readlink -f "$ROOT")")
+
+fail() {
+    echo "[verify] FAIL: $*" >&2
+    exit 1
+}
+
+ok() { echo "[verify] ok: $*"; }
+
+# --- The layered shell ------------------------------------------------------
+# The RPM package is named `naia`; the binary it installs is `naia-shell`.
+# These differ, and asserting the wrong one is a false RED.
+rpm "${RPM_ROOT_ARG[@]+"${RPM_ROOT_ARG[@]}"}" -q naia >/dev/null 2>&1 || fail "naia RPM is not layered into the image"
+ok "naia RPM layered: $(rpm "${RPM_ROOT_ARG[@]+"${RPM_ROOT_ARG[@]}"}" -q naia)"
+
+[ -x ${ROOT}/usr/bin/naia-shell ] || fail "${ROOT}/usr/bin/naia-shell missing or not executable"
+ok "${ROOT}/usr/bin/naia-shell is executable"
+
+# The shell links against a vendored libvosk.so resolved through RUNPATH
+# ($ORIGIN/../lib/Naia). A missing or unresolvable library crashes the app on
+# launch with no window and no log the user would see, so resolve it here.
+[ -f ${ROOT}/usr/lib/Naia/libvosk.so ] || fail "${ROOT}/usr/lib/Naia/libvosk.so missing"
+if ldd "${ROOT}/usr/bin/naia-shell" 2>&1 | grep -q "not found"; then
+    echo "[verify] unresolved libraries:" >&2
+    ldd "${ROOT}/usr/bin/naia-shell" 2>&1 | grep "not found" >&2
+    fail "naia-shell has unresolved shared libraries"
+fi
+ok "naia-shell dynamic dependencies all resolve"
+
+[ -f ${ROOT}/usr/lib/Naia/node ] || fail "${ROOT}/usr/lib/Naia/node (bundled agent runtime) missing"
+ok "bundled node runtime present"
+
+# --- The desktop entry the launchers point at -------------------------------
+# branding.sh pins "applications:Naia.desktop" to the taskbar and the ISO hook
+# prepends it to Kickoff favorites. KDE drops an unknown launcher silently, so
+# a rename in the RPM would go unnoticed until a user looked at the taskbar.
+[ -f ${ROOT}/usr/share/applications/Naia.desktop ] \
+    || fail "${ROOT}/usr/share/applications/Naia.desktop missing — taskbar pin and Kickoff favorite would silently point at nothing"
+grep -q '^Exec=naia-shell' ${ROOT}/usr/share/applications/Naia.desktop \
+    || fail "Naia.desktop Exec= does not launch naia-shell"
+ok "Naia.desktop present and launches naia-shell"
+
+# --- Branding ---------------------------------------------------------------
+grep -q '^ID=naia-os' ${ROOT}/usr/lib/os-release || fail "os-release not rebranded (ID != naia-os)"
+grep -q '^NAIA_VERSION=' ${ROOT}/usr/lib/os-release || fail "os-release has no NAIA_VERSION"
+ok "os-release rebranded: $(grep '^PRETTY_NAME=' ${ROOT}/usr/lib/os-release)"
+
+# --- Installer assets the ISO hook reads ------------------------------------
+# The hook runs later, inside the extracted image, and reads these from disk.
+# It used to clone them from a repository that has since become a tombstone.
+for asset in \
+    ${ROOT}/usr/share/naia/assets/installer/sidebar-logo.png \
+    ${ROOT}/usr/share/naia/assets/installer/sidebar-bg.png \
+    ${ROOT}/usr/share/naia/assets/installer/topbar-bg.png \
+    ${ROOT}/usr/share/naia/assets/installer/anaconda_header.png \
+    ${ROOT}/usr/share/naia/assets/installer/anaconda-installer.svg \
+    ${ROOT}/usr/share/naia/assets/installer/fedora.css \
+    ${ROOT}/usr/share/naia/assets/installer/live-wallpaper.jpg \
+    ${ROOT}/usr/share/naia/assets/installer/start-here.svg \
+    ${ROOT}/usr/share/naia/assets/logos/text-mix-naia-logo.png
+do
+    [ -f "$asset" ] || fail "installer asset missing: $asset"
+done
+ok "all installer assets baked into the image"
+
+# --- Autostart --------------------------------------------------------------
+[ -f ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop ] || fail "autostart entry missing"
+grep -q 'naia-shell' ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop \
+    || fail "autostart entry does not reference naia-shell"
+ok "autostart entry present"
+
+# --- No Flatpak residue -----------------------------------------------------
+# The shell moved from a Flatpak bundle to a layered RPM. A leftover reference
+# would launch nothing.
+if grep -rl 'io\.nextain\.naia' "${ROOT}/usr/share/plasma" "${ROOT}/etc/xdg" "${ROOT}/usr/etc/xdg" 2>/dev/null | grep -q .; then
+    grep -rl 'io\.nextain\.naia' "${ROOT}/usr/share/plasma" "${ROOT}/etc/xdg" "${ROOT}/usr/etc/xdg" 2>/dev/null >&2
+    fail "stale Flatpak app-id references remain in the image"
+fi
+ok "no stale io.nextain.naia references"
+
+echo "[verify] all image assertions passed"

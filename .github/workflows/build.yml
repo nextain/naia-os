@@ -1,0 +1,103 @@
+name: Build Naia OS image
+
+on:
+  schedule:
+    - cron: "0 6 * * 3" # every Wednesday 6:00 UTC — pick up Bazzite base updates
+  push:
+    branches: [main]
+    paths:
+      - "recipes/**"
+      - "config/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "recipes/**"
+      - "config/**"
+  workflow_dispatch:
+
+env:
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  # The image name and the cosign key are load-bearing, not cosmetic. Installed
+  # machines track ostree-image-signed:docker://ghcr.io/nextain/naia-os:latest
+  # and their /etc/containers/policy.json pins that repository to the public key
+  # in cosign.pub. Renaming the image or rotating the key orphans every machine
+  # already in the field — they stop receiving updates with a signature error.
+  IMAGE_NAME: naia-os
+
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The recipe layers the shell straight from a naia-shell release asset
+      # URL. If that asset is not anonymously downloadable the BlueBuild step
+      # fails deep inside rpm-ostree with a generic message, so resolve it here
+      # where the error names the actual problem.
+      #
+      # A draft release will fail this check: draft assets require an
+      # authorization token, and the recipe cannot carry one. Publish the
+      # release as a prerelease instead — GitHub's "latest" pointer skips
+      # prereleases, so releases/latest/download/latest.json keeps serving the
+      # current Windows updater feed.
+      - name: Resolve the layered shell RPM
+        run: |
+          set -euo pipefail
+          RPM_URL="$(grep -oE 'https://github\.com/[^ ]+\.rpm' recipes/recipe.yml | head -1)"
+          test -n "$RPM_URL" || { echo "::error::recipe.yml declares no shell RPM URL"; exit 1; }
+          echo "Shell RPM: $RPM_URL"
+          CODE="$(curl -sIL -o /dev/null -w '%{http_code}' "$RPM_URL")"
+          test "$CODE" = "200" || {
+            echo "::error::Shell RPM is not anonymously downloadable (HTTP $CODE): $RPM_URL"
+            echo "::error::A draft release cannot be consumed here. Publish it as a prerelease."
+            exit 1
+          }
+          BYTES="$(curl -sIL -o /dev/null -w '%{size_download}\n%{header_json}' "$RPM_URL" | tail -1 | jq -r '."content-length"[0] // "0"')"
+          echo "Content-Length: $BYTES"
+          test "$BYTES" -gt 100000000 || {
+            echo "::error::Shell RPM is implausibly small ($BYTES bytes) — expected >100MB"
+            exit 1
+          }
+
+      - name: Read the Naia OS version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < config/files/usr/share/naia/naia-os-version)"
+          test -n "$VERSION" || { echo "::error::naia-os-version is empty"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Naia OS version: $VERSION"
+
+      - name: Build Image
+        uses: blue-build/github-action@v1
+        with:
+          recipe: recipe.yml
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+
+      # The in-image gate (config/scripts/verify-naia-image.sh) already ran
+      # during the build. This re-runs the same predicate against the published
+      # image, which catches anything the layering lost between the build
+      # context and the final container.
+      - name: Smoke test the published image
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          podman run --rm --entrypoint /bin/bash \
+            "${IMAGE_REGISTRY}/${IMAGE_NAME}:latest" \
+            /usr/libexec/naia-verify-image
+
+      - name: Report
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Built ${IMAGE_REGISTRY}/${IMAGE_NAME}:latest"
+          echo "Naia OS ${{ steps.version.outputs.version }}"

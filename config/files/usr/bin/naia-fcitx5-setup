@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Naia OS - First-login fcitx5 setup
+# Runs once to configure fcitx5 input method based on system locale
+set -euo pipefail
+
+MARKER="$HOME/.config/naia-fcitx5-configured"
+
+# Only run once
+if [ -f "$MARKER" ]; then
+    exit 0
+fi
+
+mkdir -p "$HOME/.config"
+
+# 1. Set fcitx5 as KDE Plasma Wayland virtual keyboard
+KWINRC="$HOME/.config/kwinrc"
+if [ -f "$KWINRC" ]; then
+    if grep -q '^\[Wayland\]' "$KWINRC"; then
+        if grep -q '^InputMethod=' "$KWINRC"; then
+            sed -i 's|^InputMethod=.*|InputMethod=/usr/share/applications/org.fcitx.Fcitx5.wayland.desktop|' "$KWINRC"
+        else
+            sed -i '/^\[Wayland\]/a InputMethod=/usr/share/applications/org.fcitx.Fcitx5.wayland.desktop' "$KWINRC"
+        fi
+    else
+        printf '\n[Wayland]\nInputMethod=/usr/share/applications/org.fcitx.Fcitx5.wayland.desktop\n' >> "$KWINRC"
+    fi
+else
+    cat > "$KWINRC" <<'EOF'
+[Wayland]
+InputMethod=/usr/share/applications/org.fcitx.Fcitx5.wayland.desktop
+EOF
+fi
+
+# 2. Set fcitx5 profile based on system locale
+FCITX_PROFILE="$HOME/.config/fcitx5/profile"
+if [ ! -f "$FCITX_PROFILE" ]; then
+    mkdir -p "$HOME/.config/fcitx5"
+
+    case "${LANG:-en_US.UTF-8}" in
+        ko*)
+            cat > "$FCITX_PROFILE" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=hangul
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+
+[GroupOrder]
+0=Default
+EOF
+            ;;
+        ja*)
+            cat > "$FCITX_PROFILE" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=anthy
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=anthy
+Layout=
+
+[GroupOrder]
+0=Default
+EOF
+            ;;
+        zh*)
+            cat > "$FCITX_PROFILE" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=pinyin
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=pinyin
+Layout=
+
+[GroupOrder]
+0=Default
+EOF
+            ;;
+        *)
+            # Non-CJK: keyboard only, no input method
+            cat > "$FCITX_PROFILE" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[GroupOrder]
+0=Default
+EOF
+            ;;
+    esac
+fi
+
+# 3. Mark as configured
+touch "$MARKER"

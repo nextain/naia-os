@@ -1,0 +1,68 @@
+name: naia-os
+description: Naia - Personal AI OS with virtual avatar
+base-image: ghcr.io/ublue-os/bazzite-nvidia-open
+image-version: latest
+
+modules:
+  - type: rpm-ostree
+    install:
+      # Naia Shell — layered from the published naia-shell release RPM.
+      # Pinned to an exact tag, never :latest: the image must record which
+      # shell version it shipped. Bump this URL to ship a new shell.
+      # The RPM installs entirely under /usr (46184 files, no scriptlets),
+      # which is what makes rpm-ostree layering possible at all.
+      - https://github.com/nextain/naia-shell/releases/download/v0.2.2/Naia-0.2.2-1.x86_64.rpm
+      # Flatpak runtime — still needed for the default-flatpaks module below
+      # (Discord). Naia Shell itself no longer uses Flatpak.
+      - flatpak
+      # Korean input
+      - fcitx5
+      - fcitx5-hangul
+      - fcitx5-configtool
+      - fcitx5-gtk
+      - fcitx5-qt
+      - google-noto-sans-cjk-vf-fonts
+      # Utilities
+      - jq
+      - sqlite
+      - podman
+
+  # The files module runs BEFORE every script. branding.sh reads what it
+  # delivers — the version file, the start-here icon sizes it symlinks over
+  # Bazzite's, the Plymouth theme directory. In the previous ordering those
+  # reads all sat behind `if [ -f ... ]` guards against files that did not
+  # exist yet, so they silently did nothing and the build stayed green.
+  - type: files
+    files:
+      - source: usr
+        destination: /usr
+
+  - type: script
+    scripts:
+      - branding.sh
+
+  # Needs /usr/lib/systemd/system/var-naia.mount in place before
+  # systemctl enable can resolve it.
+  - type: script
+    scripts:
+      - install-naia-data-mount.sh
+
+  # Asserts that the layered shell, the branding, and the installer assets are
+  # all actually present. A build that reaches this point with any of them
+  # missing exits non-zero instead of shipping an image whose launcher points
+  # at nothing. Nothing in it ends in `|| true`.
+  - type: script
+    scripts:
+      - verify-naia-image.sh
+
+  - type: default-flatpaks
+    configurations:
+      - scope: system
+        repo:
+          url: https://flathub.org/repo/flathub.flatpakrepo
+          name: flathub
+          title: Flathub
+        install:
+          - com.discordapp.Discord
+
+  - type: signing

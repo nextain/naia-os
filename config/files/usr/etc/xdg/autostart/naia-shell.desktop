@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Naia
+Comment=Personal AI avatar shell
+# Naia Shell is layered into the image as an RPM (/usr/bin/naia-shell), not a
+# Flatpak. The guard keeps the session from erroring on an image built without
+# the shell layer; verify-naia-image.sh is what actually fails such a build.
+Exec=sh -c 'command -v naia-shell >/dev/null 2>&1 && exec naia-shell || true'
+Icon=naia-shell
+Type=Application
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel
