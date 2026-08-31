@@ -118,17 +118,43 @@ echo "[naia] os-release: set ID=fedora, VARIANT_ID=kinoite for Anaconda"
 #     BlueBuild bakes Bazzite's values; we need our image URL.
 # ==============================================================================
 
+# The image name is per-variant — the NVIDIA build and the AMD build are
+# different repositories, and a machine installed from one must not be pointed
+# at the other. Each recipe ships its own /usr/share/naia/image-ref, so this
+# reads the value instead of hardcoding one and silently sending, say, a BC-250
+# to the NVIDIA image for the rest of its life.
+NAIA_IMAGE_REF_FILE="/usr/share/naia/image-ref"
+if [ ! -f "${NAIA_IMAGE_REF_FILE}" ]; then
+    echo "[naia] FATAL: ${NAIA_IMAGE_REF_FILE} missing — the image did not declare which repository it came from." >&2
+    exit 1
+fi
+NAIA_IMAGE="$(tr -d '[:space:]' < "${NAIA_IMAGE_REF_FILE}")"
+case "${NAIA_IMAGE}" in
+    ghcr.io/*/*) : ;;
+    *) echo "[naia] FATAL: implausible image ref '${NAIA_IMAGE}'" >&2; exit 1 ;;
+esac
+NAIA_IMAGE_NAME="${NAIA_IMAGE##*/}"
+echo "[naia] image ref: ${NAIA_IMAGE} (name ${NAIA_IMAGE_NAME})"
+
 IMAGE_INFO="/usr/share/ublue-os/image-info.json"
 if [ -f "$IMAGE_INFO" ]; then
     # Read current values and replace
     tmpjson=$(mktemp)
-    jq '
-        .["image-name"] = "naia-os" |
-        .["image-ref"] = "ostree-image-signed:docker://ghcr.io/nextain/naia-os" |
+    jq --arg name "${NAIA_IMAGE_NAME}" --arg ref "ostree-image-signed:docker://${NAIA_IMAGE}" '
+        .["image-name"] = $name |
+        .["image-ref"] = $ref |
         .["image-tag"] = "latest" |
         .["image-branch"] = "latest"
     ' "$IMAGE_INFO" > "$tmpjson" && mv "$tmpjson" "$IMAGE_INFO"
-    echo "[naia] image-info.json updated: image-ref → ghcr.io/nextain/naia-os:latest"
+    echo "[naia] image-info.json updated: image-ref → ${NAIA_IMAGE}:latest"
+
+    # The installer reads this back. If the write did not take, the machine
+    # would install and then track whatever Bazzite value was baked in.
+    got="$(jq -r '."image-ref"' < "$IMAGE_INFO")"
+    test "$got" = "ostree-image-signed:docker://${NAIA_IMAGE}" || {
+        echo "[naia] FATAL: image-info.json did not take the new ref (got '$got')" >&2
+        exit 1
+    }
 fi
 
 # ==============================================================================

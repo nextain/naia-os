@@ -119,6 +119,30 @@ grep -q 'naia-shell' ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop \
     || fail "autostart entry does not reference naia-shell"
 ok "autostart entry present"
 
+# --- Automatic updates ------------------------------------------------------
+# Every Naia OS machine should pick up new images the same way, whether it is an
+# NVIDIA desktop or a BC-250. uupd is Bazzite's bootc-aware updater and ships in
+# the base, but "ships in the base" is an assumption until something checks it —
+# and a machine that silently stops updating looks exactly like one with nothing
+# to update. That is how the first image sat at a June build for two months.
+[ -f "${ROOT}/usr/lib/systemd/system/uupd.timer" ] \
+    || fail "uupd.timer missing — this image would never update itself"
+[ -x "${ROOT}/usr/bin/uupd" ] || fail "${ROOT}/usr/bin/uupd missing"
+ok "automatic updates present (uupd)"
+
+# --- Which repository this image came from -----------------------------------
+# The NVIDIA and AMD builds are separate repositories, and an installed machine
+# pins the one it came from. The ISO hook reads this to point the installer at
+# the right image; without it a BC-250 would be sent to the NVIDIA build.
+IMAGE_REF_FILE="${ROOT}/usr/share/naia/image-ref"
+[ -f "$IMAGE_REF_FILE" ] || fail "$IMAGE_REF_FILE missing — the image does not declare its own repository"
+IMAGE_REF="$(tr -d '[:space:]' < "$IMAGE_REF_FILE")"
+case "$IMAGE_REF" in
+    ghcr.io/nextain/naia-os|ghcr.io/nextain/naia-os-amd) : ;;
+    *) fail "unexpected image ref '$IMAGE_REF'" ;;
+esac
+ok "image ref declared: $IMAGE_REF"
+
 # --- No Flatpak residue -----------------------------------------------------
 # The shell moved from a Flatpak bundle to a layered RPM. A leftover reference
 # would launch nothing.

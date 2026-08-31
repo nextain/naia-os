@@ -30,6 +30,31 @@ Naia-X.Y.Z-1.x86_64.rpm  →  recipes/recipe.yml
                             titanoboa live ISO           →  R2 download
 ```
 
+## Two variants
+
+| recipe | base | image | for |
+| --- | --- | --- | --- |
+| `recipes/recipe.yml` | `bazzite-nvidia-open` | `ghcr.io/nextain/naia-os` | NVIDIA desktops |
+| `recipes/recipe-amd.yml` | `bazzite` | `ghcr.io/nextain/naia-os-amd` | AMD, first target the BC-250 |
+
+They are separate repositories, not tags, because an installed machine pins the
+repository it came from. Each ships its own `/usr/share/naia/image-ref`, and the
+ISO hook reads it rather than hardcoding a name — otherwise a BC-250 installed
+from the AMD ISO would spend the rest of its life pulling the NVIDIA image.
+
+The AMD variant exists because the NVIDIA image carries a driver stack with
+nothing to bind to on AMD hardware, and its akmods and nvidia services fail at
+every boot. The BC-250 is a PS5-derived Oberon APU (gfx1013 / Cyan Skillfish);
+Bazzite's patched kernel already carries what that board needs, so plain
+`bazzite` is the right base rather than a hand-built one.
+
+## Updates
+
+Both variants inherit `uupd`, Bazzite's bootc-aware updater, from the base, and
+the gate asserts it is present. A machine that silently stops updating looks
+exactly like one with nothing to update — which is how the previous image sat at
+a June build for two months while the pipeline was dead.
+
 ## Three things that must not change casually
 
 **The image name.** Installed machines track

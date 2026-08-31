@@ -1,6 +1,19 @@
-name: naia-os
-description: Naia - Personal AI OS with virtual avatar
-base-image: ghcr.io/ublue-os/bazzite-nvidia-open
+# AMD variant — plain Bazzite, no NVIDIA driver stack.
+#
+# The default recipe builds on bazzite-nvidia-open. On AMD hardware that ships a
+# driver stack with nothing to bind to, and its akmods and nvidia services fail
+# at every boot. The first target for this variant is the AMD BC-250: a PS5-derived
+# Oberon APU, gfx1013 / Cyan Skillfish. Bazzite's patched kernel already carries
+# what that board needs for its clock range, which is why the plain image is the
+# right base rather than a hand-built one.
+#
+# This is a separate image repository, not a tag: ghcr.io/nextain/naia-os-amd.
+# Machines pin the repository they were installed from, so the two must not share
+# a name.
+
+name: naia-os-amd
+description: Naia - Personal AI OS with virtual avatar (AMD graphics)
+base-image: ghcr.io/ublue-os/bazzite
 image-version: latest
 
 modules:
@@ -42,7 +55,7 @@ modules:
   # installed from the AMD build must never be pointed at the NVIDIA one.
   - type: files
     files:
-      - source: variant/nvidia/usr
+      - source: variant/amd/usr
         destination: /usr
 
   - type: script
