@@ -7,6 +7,13 @@ This repository is the distribution layer only. The shell itself lives in
 as a published release RPM — that release asset URL is the entire interface
 between the two.
 
+**The build automation lives in `naia-shell`, not here.** `SIGNING_SECRET` — the
+private half of `cosign.pub` — is a secret of that repository and cannot be read
+back out, and it exists nowhere else. An image signed with any other key would be
+rejected by every machine in the field. So the `Naia OS image`, `Naia OS ISO` and
+`Naia OS ISO promote` workflows run there and check this repository out. This
+repository holds no credentials and needs none.
+
 ## How a build flows
 
 ```
@@ -88,7 +95,16 @@ Plymouth theme directory. In the previous ordering those reads sat behind
 `if [ -f ... ]` guards against files that did not exist yet, so they silently did
 nothing and the build stayed green.
 
-## Status
+## The ISO does not go public on its own
 
-The ISO is built and its published bytes are verified against the build. **It is
-not verified booted.** Boot it before announcing it.
+`Naia OS ISO` publishes each build under `builds/<version>.<stamp>/` and stops.
+The public download keeps serving the previous ISO until a person runs
+`Naia OS ISO promote` — which refuses to run unless they confirm they booted the
+build and saw the Naia window render.
+
+That confirmation is not ceremony. Until the session environment set the GTK
+backend, the shell forced itself onto X11 under KDE Wayland and its main window
+mapped at 1x1: the app ran, the agent connected, the sidecar came up, every log
+line was clean, and the screen was empty. Measured on real hardware, not
+inferred — 1x1 before the fix, a rendered window after. No file-level check sees
+the difference.
