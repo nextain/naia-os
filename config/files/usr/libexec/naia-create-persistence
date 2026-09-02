@@ -45,29 +45,45 @@ if [ -n "$ROOT_SRC" ]; then
     [ "/dev/${ROOT_DISK:-none}" != "$DISK" ] || skip "$DISK carries the running root"
 fi
 
-# 5. Enough unallocated space at the end to be worth it. sgdisk reports the
-#    largest free block; below 1GiB there is no point taking the risk.
-END_FREE_MIB=$(( $(sgdisk -E "$DISK" 2>/dev/null || echo 0) * 512 / 1024 / 1024 ))
+# 5. Every tool used below must actually exist in the image. gdisk is NOT in the
+#    Naia OS image (verified: `rpm -q gdisk` → not installed), so an sgdisk-based
+#    implementation would find nothing and refuse on every boot without saying
+#    why. parted, partprobe, mkfs.btrfs, blkid and udevadm are all present.
+for tool in parted partprobe mkfs.btrfs blkid; do
+    command -v "$tool" >/dev/null 2>&1 || skip "$tool is missing from this image"
+done
+
+# 6. An isohybrid image carries a GPT sized to the image rather than the stick,
+#    so the backup header sits just past the ISO. parted repairs that on its own
+#    when it sees the mismatch; feeding it a no-op print with 'Fix' accepted
+#    moves the header to the true end of the device without touching a partition.
+parted -s -f "$DISK" print >/dev/null 2>&1 || true
+
+# 7. Enough unallocated space at the end to be worth it. Below 1GiB there is no
+#    point taking the risk of a partition write.
+#
+#    parted reports free space directly, which is also what a human sees; the
+#    numbers here matched a real 16GB stick (7388MiB free after a 7.6GiB ISO).
+read -r FREE_START_MIB FREE_END_MIB <<<"$(
+    parted -sm "$DISK" unit MiB print free 2>/dev/null |
+    awk -F: '$5 ~ /free/ { gsub(/MiB/,"",$2); gsub(/MiB/,"",$3); s=$2; e=$3 }
+             END { if (s != "") print s, e }'
+)"
+[ -n "${FREE_START_MIB:-}" ] || skip "no free space reported on $DISK"
+END_FREE_MIB=$(( ${FREE_END_MIB%.*} - ${FREE_START_MIB%.*} ))
 [ "$END_FREE_MIB" -ge 1024 ] || skip "only ${END_FREE_MIB}MiB free at the end of $DISK"
 
-# 6. Nothing on this disk may be mounted read-write while its table changes.
+# 7. Nothing on this disk may be mounted read-write while its table changes.
 #    The live ISO partition itself is mounted read-only and is expected.
 BAD="$(lsblk -nrpo NAME,MOUNTPOINT "$DISK" | awk '$2 != "" && $2 != "/run/initramfs/live" { print $1" -> "$2 }')"
 [ -z "$BAD" ] || skip "mounted partitions on $DISK: $BAD"
 
 log "claiming ${END_FREE_MIB}MiB of free space on $DISK for persistent data"
 
-# An isohybrid image carries a protective/GPT table sized to the image, not the
-# stick. Extend it to the full device before adding anything, or the new
-# partition lands outside the table's idea of the disk.
-sgdisk --move-second-header "$DISK" >/dev/null 2>&1 || true
-
-NEXT=$(sgdisk --print "$DISK" 2>/dev/null | awk '/^ +[0-9]+/ { n=$1 } END { print n+1 }')
-[ -n "$NEXT" ] && [ "$NEXT" -ge 2 ] || skip "cannot determine the next partition number"
-
-if ! sgdisk --new="${NEXT}:0:0" --typecode="${NEXT}:8300" \
-            --change-name="${NEXT}:naia-data" "$DISK" >/dev/null 2>&1; then
-    log "ERROR: failed to create partition ${NEXT} on $DISK"
+# Take the free region exactly as reported, leaving the ISO partitions alone.
+if ! parted -s -a optimal "$DISK" \
+        mkpart naia-data btrfs "${FREE_START_MIB}MiB" "${FREE_END_MIB}MiB" >/dev/null 2>&1; then
+    log "ERROR: failed to create the data partition on $DISK"
     exit 1
 fi
 

@@ -167,7 +167,19 @@ for guard in 'lsblk -dno RM' 'lsblk -dno TRAN' 'carries the running root' 'alrea
 done
 grep -q 'ConditionKernelCommandLine=rd.live.image' "${ROOT}/usr/lib/systemd/system/naia-create-persistence.service" \
     || fail "naia-create-persistence is not restricted to live boots — it could run on an installed system"
-ok "first-boot persistence partition present with all guards"
+
+# The helper is useless if the image lacks what it calls. gdisk is not in this
+# image, which is why the first implementation — written around sgdisk — would
+# have refused silently on every boot. Assert the tools it actually uses.
+for tool in parted partprobe mkfs.btrfs blkid; do
+    [ -x "${ROOT}/usr/sbin/$tool" ] || [ -x "${ROOT}/usr/bin/$tool" ] \
+        || fail "$tool missing from the image — naia-create-persistence would refuse silently"
+done
+# Comments still mention sgdisk to record why it is not used, so match calls
+# rather than the word: a line that runs it, not one that explains it.
+grep -vE '^\s*#' "${ROOT}/usr/libexec/naia-create-persistence" | grep -q '\bsgdisk\b' \
+    && fail "naia-create-persistence calls sgdisk, which this image does not ship" || true
+ok "first-boot persistence partition present with all guards and its tools"
 
 # --- Automatic updates ------------------------------------------------------
 # Every Naia OS machine should pick up new images the same way, whether it is an
