@@ -538,52 +538,18 @@ JSEOF
 # ==============================================================================
 
 mkdir -p /etc/xdg/autostart /usr/libexec
-cat > /usr/libexec/naia-live-warning.sh <<'SCRIPT'
-#!/usr/bin/env bash
-# Only show in live session (liveuser account)
-[ "$(whoami)" = "liveuser" ] || exit 0
-
-# Naia autostarts full-screen and would cover this dialog — a user would have to
-# close Naia to discover that installation instructions exist. So Naia goes
-# first (it is the point of the live session), and this waits for it before
-# putting itself on top.
+# The welcome flow ships in the image (/usr/libexec/naia-live-welcome). It asks
+# for a language first, then what this session is for, and only creates the data
+# partition when someone chooses to keep using the USB.
 #
-# The wait is bounded: on slow hardware Naia may take a while, but the dialog
-# must not be lost if it never appears.
-for _ in $(seq 1 40); do
-    pgrep -x naia-shell >/dev/null 2>&1 && break
-    sleep 1
-done
-sleep 6   # let the shell finish mapping and settle before covering it
-
-kdialog --msgbox "Welcome to Naia OS!\n\nRun 'Install to Hard Drive' on the desktop\nto install to your computer.\n\n[ Live USB Usage ]\n1. Connect to Wi-Fi\n2. Sign in to Google in browser\n3. Launch Naia Shell\n\n[ Input Method ]\nKorean input is configured by default (Ctrl+Space to toggle).\nTo use another language (Japanese, Chinese, etc.),\nchange the locale during installation. It will apply automatically.\n\n* Live session resets on reboot." \
-    --title "Naia OS Live" &
-KD=$!
-
-# kdialog has no always-on-top flag, so ask the window manager once the window
-# exists. Without this the shell can raise itself back over the dialog.
-for _ in $(seq 1 20); do
-    if command -v kdotool >/dev/null 2>&1; then
-        WID="$(kdotool search --name "Naia OS Live" 2>/dev/null | head -1)"
-        [ -n "$WID" ] && kdotool windowactivate "$WID" 2>/dev/null && break
-    elif command -v xdotool >/dev/null 2>&1; then
-        WID="$(xdotool search --name "Naia OS Live" 2>/dev/null | head -1)"
-        [ -n "$WID" ] && { xdotool windowactivate "$WID" 2>/dev/null; break; }
-    else
-        break
-    fi
-    sleep 0.5
-done
-wait $KD
-SCRIPT
-chmod +x /usr/libexec/naia-live-warning.sh
-
-# Autostart via system-wide /etc/xdg/autostart/ (script checks for liveuser)
-cat > /etc/xdg/autostart/naia-live-warning.desktop <<'EOF'
+# Naia autostarts full-screen and would cover this, so the welcome waits for the
+# shell before showing itself — the point of the live session is Naia, and the
+# instructions come after.
+cat > /etc/xdg/autostart/naia-live-welcome.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=Naia Live Session Warning
-Exec=/usr/libexec/naia-live-warning.sh
+Name=Naia OS Welcome
+Exec=/usr/libexec/naia-live-welcome
 X-KDE-autostart-phase=2
 X-KDE-autostart-after=naia-shell
 OnlyShowIn=KDE;

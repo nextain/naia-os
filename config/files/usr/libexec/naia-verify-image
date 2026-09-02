@@ -149,24 +149,16 @@ grep -q 'system-connections' "${ROOT}/usr/libexec/naia-persist-system" \
     || fail "naia-persist-system does not persist Wi-Fi profiles"
 ok "Wi-Fi and locale persistence present and correctly ordered"
 
-# --- First-boot persistence partition ---------------------------------------
-# dd reproduces the ISO exactly, so a freshly written stick has unallocated space
-# and no naia-data. Creating it on first boot is what lets a stick written with
-# Rufus or balenaEtcher — on any OS — end up persistent without a Naia-specific
-# flashing tool.
-#
-# This code writes a partition table unattended, so the guards are asserted too.
-# Every one of them is a refusal path, and a missing guard means somebody's disk.
+# --- Welcome flow and user-initiated persistence -----------------------------
+# The partition is created only when someone asks for it, so there is no unit to
+# assert — but the path that offers it has to exist, or a live USB silently never
+# becomes persistent and never says why.
+[ -x "${ROOT}/usr/libexec/naia-live-welcome" ] \
+    || fail "naia-live-welcome missing — nothing would offer persistence or ask for a language"
 [ -x "${ROOT}/usr/libexec/naia-create-persistence" ] \
-    || fail "naia-create-persistence missing — a dd-written stick would never gain persistence"
-[ -f "${ROOT}/usr/lib/systemd/system/naia-create-persistence.service" ] \
-    || fail "naia-create-persistence.service missing"
-for guard in 'lsblk -dno RM' 'lsblk -dno TRAN' 'carries the running root' 'already exists'; do
-    grep -q "$guard" "${ROOT}/usr/libexec/naia-create-persistence" \
-        || fail "naia-create-persistence lost a safety guard: $guard"
-done
-grep -q 'ConditionKernelCommandLine=rd.live.image' "${ROOT}/usr/lib/systemd/system/naia-create-persistence.service" \
-    || fail "naia-create-persistence is not restricted to live boots — it could run on an installed system"
+    || fail "naia-create-persistence missing — the welcome flow would have nothing to call"
+[ -x "${ROOT}/usr/libexec/naia-set-language" ] \
+    || fail "naia-set-language missing — the language choice would go nowhere"
 
 # The helper is useless if the image lacks what it calls. gdisk is not in this
 # image, which is why the first implementation — written around sgdisk — would
@@ -175,11 +167,19 @@ for tool in parted partprobe mkfs.btrfs blkid; do
     [ -x "${ROOT}/usr/sbin/$tool" ] || [ -x "${ROOT}/usr/bin/$tool" ] \
         || fail "$tool missing from the image — naia-create-persistence would refuse silently"
 done
-# Comments still mention sgdisk to record why it is not used, so match calls
-# rather than the word: a line that runs it, not one that explains it.
 grep -vE '^\s*#' "${ROOT}/usr/libexec/naia-create-persistence" | grep -q '\bsgdisk\b' \
     && fail "naia-create-persistence calls sgdisk, which this image does not ship" || true
-ok "first-boot persistence partition present with all guards and its tools"
+
+# Every guard in the helper is a refusal path. A missing one means somebody's disk.
+for guard in 'lsblk -dno RM' 'lsblk -dno TRAN' 'carries the running root' 'already exists'; do
+    grep -q "$guard" "${ROOT}/usr/libexec/naia-create-persistence" \
+        || fail "naia-create-persistence lost a safety guard: $guard"
+done
+
+# The language choice has to reach the installer too, not just the live desktop.
+grep -q 'interactive-defaults.ks' "${ROOT}/usr/libexec/naia-set-language" \
+    || fail "naia-set-language does not preset the installer language"
+ok "welcome flow, language setup and persistence helper present with all guards"
 
 # --- Automatic updates ------------------------------------------------------
 # Every Naia OS machine should pick up new images the same way, whether it is an

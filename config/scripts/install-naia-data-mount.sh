@@ -54,10 +54,14 @@ echo "[naia] System settings persistence registered (naia-persist-system.service
 # A dd-written stick has free space and no naia-data partition. Creating it on
 # first boot means any flashing tool on any OS produces a persistent USB, with no
 # Naia-specific writer to ship for three platforms.
+# The partition helper is NOT enabled as a unit. Repartitioning somebody's stick
+# is not something to do on their behalf while they watch a boot splash — the
+# welcome dialog asks first and calls this when they say yes.
 chmod 0755 /usr/libexec/naia-create-persistence
-systemctl enable naia-create-persistence.service
+chmod 0755 /usr/libexec/naia-live-welcome
+chmod 0755 /usr/libexec/naia-set-language
 
-echo "[naia] First-boot persistence partition registered (naia-create-persistence.service enabled)"
+echo "[naia] Persistence helper and welcome flow installed (user-initiated, no timer)"
 
 # The shell moved from a Flatpak bundle to a layered RPM. Machines updating from
 # an older image still carry the Flatpak in mutable /var/lib/flatpak, which no

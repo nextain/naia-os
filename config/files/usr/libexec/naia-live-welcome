@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# naia-live-welcome — ask what this live session is for, once, on first boot.
+#
+# Three things a person can want from a live USB, and they need different setups:
+#
+#   keep using the USB   → claim the free space after the ISO as a data
+#                          partition, then reboot so it can be mounted as the
+#                          home directory
+#   install to this PC   → point them at the installer; the USB stays untouched
+#   just looking         → change nothing
+#
+# The partition is created only on an explicit choice. Creating it silently and
+# telling people afterwards means the first session's work is already lost by the
+# time they learn the rule, and repartitioning somebody's stick without asking is
+# not ours to do.
+#
+# The reboot is the honest part: the partition has to exist before systemd mounts
+# the home, and by the time this dialog runs the live user is already using one.
+# Rather than swapping a home out from under a running session, we say what has
+# to happen and let the person decide when.
+
+set -uo pipefail
+
+[ "$(whoami)" = "liveuser" ] || exit 0
+
+STAMP="$HOME/.naia-welcome-done"
+[ -e "$STAMP" ] && exit 0
+
+HELPER=/usr/libexec/naia-create-persistence
+
+# Already persistent? Then this stick has been through the flow — say so and stop
+# offering to do it again.
+if blkid -L naia-data >/dev/null 2>&1; then
+    kdialog --title "Naia OS" --msgbox \
+"Welcome back.
+
+This USB has a data partition, so your settings, conversations
+and Naia's memory are kept across reboots.
+
+To install onto this computer, run 'Install to Hard Drive'
+on the desktop."
+    : > "$STAMP"
+    exit 0
+fi
+
+# --- Language first -----------------------------------------------------------
+# Everything after this — this dialog's own follow-ups, the desktop, the
+# installer, and the system it installs — follows the choice made here. Each
+# language is written in itself, so no translation is needed to find your own.
+LANG_CHOICE=$(kdialog --title "Naia OS" --combobox \
+"Choose your language / 언어를 선택하세요" \
+    "English" "한국어" "日本語" "中文" "Français" "Deutsch" "Español" \
+    --default "English" 2>/dev/null)
+
+case "$LANG_CHOICE" in
+"한국어")   LOCALE=ko_KR.UTF-8 ;;
+"日本語")   LOCALE=ja_JP.UTF-8 ;;
+"中文")     LOCALE=zh_CN.UTF-8 ;;
+"Français") LOCALE=fr_FR.UTF-8 ;;
+"Deutsch")  LOCALE=de_DE.UTF-8 ;;
+"Español")  LOCALE=es_ES.UTF-8 ;;
+*)          LOCALE=en_US.UTF-8 ;;
+esac
+
+# Needs root for /etc and the kickstart; the rest of this script does not.
+pkexec /usr/libexec/naia-set-language "$LOCALE" >/tmp/naia-lang.log 2>&1 \
+    || echo "[naia-welcome] language setup failed: $(tail -1 /tmp/naia-lang.log)"
+
+# The dialogs below still read from this script rather than a translation
+# catalogue, so they stay English for now. The choice above is what the desktop,
+# the installer and Naia itself follow.
+
+# --- No data partition yet: offer the three paths -----------------------------
+
+CHOICE=$(kdialog --title "Naia OS" --radiolist \
+"How do you want to use Naia OS?" \
+    keep    "Keep using this USB — save my settings and data on it" on \
+    install "Install onto this computer" off \
+    look    "Just looking around for now" off \
+    2>/dev/null)
+
+case "$CHOICE" in
+keep)
+    if ! pkexec "$HELPER" 2>&1 | tee /tmp/naia-persist.log; then
+        kdialog --title "Naia OS" --sorry \
+"Could not set up the data partition.
+
+$(tail -3 /tmp/naia-persist.log 2>/dev/null)
+
+You can keep using this session; nothing was changed."
+        exit 0
+    fi
+
+    if ! blkid -L naia-data >/dev/null 2>&1; then
+        kdialog --title "Naia OS" --sorry \
+"The data partition was not created.
+
+$(tail -3 /tmp/naia-persist.log 2>/dev/null)
+
+You can keep using this session; nothing was changed."
+        exit 0
+    fi
+
+    : > "$STAMP"
+    if kdialog --title "Naia OS" --warningyesno \
+"Storage is ready on this USB.
+
+It starts being used after a restart, so anything you do in
+this session will not be kept.
+
+Restart now?" ; then
+        systemctl reboot
+    else
+        kdialog --title "Naia OS" --msgbox \
+"Understood — restart whenever you like.
+
+Until then this session behaves as before: nothing is saved."
+    fi
+    ;;
+
+install)
+    : > "$STAMP"
+    kdialog --title "Naia OS" --msgbox \
+"Run 'Install to Hard Drive' on the desktop.
+
+You can pick your language and keyboard during installation,
+and they carry over to the installed system.
+
+This USB is not modified."
+    ;;
+
+*)
+    # Includes an empty choice (dialog dismissed): offer again next boot.
+    kdialog --title "Naia OS" --msgbox \
+"Have a look around.
+
+This session resets when you restart. To keep your settings,
+restart and choose 'Keep using this USB'."
+    ;;
+esac

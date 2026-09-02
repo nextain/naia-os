@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# naia-set-language — apply one language choice everywhere it has to reach.
+#
+# Picking a language once should be enough. Three places have to agree, and they
+# are configured in completely different ways:
+#
+#   the live session   /etc/locale.conf + the live user's plasma-localerc
+#   the installer      a `lang` line in Anaconda's interactive-defaults.ks
+#   the installed OS   Anaconda carries its own locale over, so the same line
+#                      covers it
+#
+# Naia's own onboarding text is a fourth place and is NOT covered here: those
+# strings are hardcoded in the shell (nextain/naia-shell#526) and need a shell
+# release, not an OS setting. Until that lands, the OS follows the choice and
+# Naia does not.
+#
+# usage: naia-set-language <locale>     e.g. ko_KR.UTF-8
+
+set -uo pipefail
+
+LOCALE="${1:-}"
+[ -n "$LOCALE" ] || { echo "usage: $0 <locale>" >&2; exit 2; }
+
+log() { printf '[naia-lang] %s\n' "$*"; }
+
+LANG_CODE="${LOCALE%%_*}"          # ko_KR.UTF-8 → ko
+KS=/usr/share/anaconda/interactive-defaults.ks
+
+# --- The live session ---------------------------------------------------------
+# locale.conf may be a bind mount onto the persistent partition, so write through
+# it rather than replacing the file.
+printf 'LANG="%s"\n' "$LOCALE" > /etc/locale.conf
+log "system locale: $LOCALE"
+
+# KDE reads the display language from the user's config, not from LANG alone.
+LIVE_HOME=/var/home/liveuser
+if [ -d "$LIVE_HOME" ]; then
+    mkdir -p "$LIVE_HOME/.config"
+    cat > "$LIVE_HOME/.config/plasma-localerc" <<EOF
+[Formats]
+LANG=$LOCALE
+
+[Translations]
+LANGUAGE=$LANG_CODE
+EOF
+    chown -R liveuser:liveuser "$LIVE_HOME/.config/plasma-localerc" 2>/dev/null || true
+    log "KDE display language: $LANG_CODE"
+fi
+
+# --- The installer, and through it the installed system -----------------------
+# Anaconda reads interactive-defaults.ks at start. A `lang` line preselects the
+# language so the person does not choose it a second time, and Anaconda writes
+# the same locale into the system it installs.
+if [ -f "$KS" ]; then
+    # Replace any previous choice rather than appending a second one — this runs
+    # again whenever the language is changed.
+    sed -i '/^lang /d' "$KS"
+    printf 'lang %s\n' "$LOCALE" >> "$KS"
+    log "installer language: $LOCALE"
+else
+    log "no interactive-defaults.ks — installer language not preset"
+fi
+
+# Korean needs an input method; other languages get the plain layout. fcitx5 is
+# already in the image, so this only picks which engine starts by default.
+FCITX_DEFAULT=/etc/xdg/fcitx5/profile
+if [ "$LANG_CODE" = "ko" ]; then
+    IM=hangul
+elif [ "$LANG_CODE" = "ja" ]; then
+    IM=anthy
+elif [ "$LANG_CODE" = "zh" ]; then
+    IM=pinyin
+else
+    IM=keyboard-us
+fi
+if [ -f "$FCITX_DEFAULT" ]; then
+    sed -i "s/^DefaultIM=.*/DefaultIM=$IM/" "$FCITX_DEFAULT"
+    log "default input method: $IM"
+fi
+
+log "language applied: $LOCALE"
