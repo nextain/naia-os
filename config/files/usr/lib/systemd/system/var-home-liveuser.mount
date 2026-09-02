@@ -22,6 +22,9 @@ After=dev-disk-by\x2dlabel-naia\x2ddata.device
 Requires=dev-disk-by\x2dlabel-naia\x2ddata.device
 Before=livesys.service
 ConditionPathExists=/dev/disk/by-label/naia-data
+# Live boots only. On an installed system /var/home/liveuser is nobody's home,
+# and without this a visiting Naia USB would be mounted over it.
+ConditionKernelCommandLine=rd.live.image
 
 [Mount]
 What=/dev/disk/by-label/naia-data

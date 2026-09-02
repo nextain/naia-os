@@ -156,6 +156,8 @@ grep -E '^Options=.*(nofail|x-systemd\.)' "${ROOT}/usr/lib/systemd/system/var-ho
     && fail "var-home-liveuser.mount uses fstab-only options (nofail / x-systemd.*) that do nothing in a unit file"
 grep -q 'ConditionPathExists=/dev/disk/by-label/naia-data' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
     || fail "var-home-liveuser.mount has no ConditionPathExists guard on its device"
+grep -q 'ConditionKernelCommandLine=rd.live.image' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
+    || fail "var-home-liveuser.mount is not restricted to live boots — a visiting naia-data USB would be mounted over /var/home/liveuser on an installed system"
 
 RULE="${ROOT}/usr/lib/udev/rules.d/99-naia-data.rules"
 [ -f "${RULE}" ] \
