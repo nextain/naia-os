@@ -20,10 +20,36 @@ chmod 0755 /usr/libexec/naia-adk-link
 # (config/files/usr/lib/tmpfiles.d/naia-data-mount.conf) — /var is regenerated
 # per-deployment on rpm-ostree systems, so we cannot create it at image build.
 
-# Enable the mount unit so systemd attempts to mount on boot
-systemctl enable var-naia.mount
+# Mount the persistent partition at the live user's HOME, not at /var/naia.
+#
+# The whole home persists this way — settings, Wi-Fi is separate (system-wide),
+# conversations, memory and ~/naia-adk — instead of only the ADK directory.
+# livesys-main handles a pre-existing /home/liveuser (useradd -M, then chown +
+# restorecon), so a pre-mounted home is safe and gets its labels fixed each boot.
+#
+# Ordered Before=livesys.service by the unit itself, so the mount is in place
+# before the live user is created. Without that ordering, user data would land
+# on the RAM overlay and vanish on reboot.
+#
+# No naia-data partition (installed system, or a live boot from a USB without
+# one) makes this a no-op via nofail + the device Requires.
+systemctl enable var-home-liveuser.mount
 
-echo "[naia] Persistent data mount registered (var-naia.mount enabled)"
+# Legacy: var-naia.mount + the ~/naia-adk symlink stay in the image but are NOT
+# enabled — superseded by whole-home persistence. The helper stays executable so
+# it remains a harmless no-op if anything still calls it.
+chmod 0755 /usr/libexec/naia-adk-link
+
+echo "[naia] Persistent home mount registered (var-home-liveuser.mount enabled)"
+
+# Wi-Fi profiles and the system locale live in /etc, not in $HOME, so the
+# persistent home does not cover them. Bind-mounting them out of the persistent
+# partition is what stops a demo USB from asking for the Wi-Fi password and the
+# language again on every boot.
+chmod 0755 /usr/libexec/naia-persist-system
+systemctl enable naia-persist-system.service
+
+echo "[naia] System settings persistence registered (naia-persist-system.service enabled)"
 
 # The shell moved from a Flatpak bundle to a layered RPM. Machines updating from
 # an older image still carry the Flatpak in mutable /var/lib/flatpak, which no

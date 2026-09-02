@@ -119,6 +119,36 @@ grep -q 'naia-shell' ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop \
     || fail "autostart entry does not reference naia-shell"
 ok "autostart entry present"
 
+# --- Live USB persistence ---------------------------------------------------
+# The live session keeps user data on a naia-data partition mounted straight at
+# the live user's home. Without this unit the whole live session is a RAM
+# overlay and everything — settings, conversations, memory — vanishes on reboot.
+#
+# This is asserted because it has already been lost once: the whole-home mount
+# landed in June and was dropped when the ISO layer was rebuilt, leaving only
+# the older /var/naia mount that persists the ADK directory alone.
+[ -f "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" ] \
+    || fail "var-home-liveuser.mount missing — the live USB would lose all user data on reboot"
+grep -q 'Where=/var/home/liveuser' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
+    || fail "var-home-liveuser.mount does not mount at the live user's home"
+grep -q 'Before=livesys.service' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
+    || fail "var-home-liveuser.mount is not ordered before livesys — user data would land on the RAM overlay"
+ok "live USB persistence unit present and correctly ordered"
+
+# --- Wi-Fi and locale persistence -------------------------------------------
+# The persistent home covers $HOME only. Wi-Fi profiles and the system locale
+# live in /etc, so without this a demo USB asks for the network password and the
+# language again on every single boot.
+[ -x "${ROOT}/usr/libexec/naia-persist-system" ] \
+    || fail "naia-persist-system missing — Wi-Fi and locale would reset every boot"
+[ -f "${ROOT}/usr/lib/systemd/system/naia-persist-system.service" ] \
+    || fail "naia-persist-system.service missing"
+grep -q 'Before=NetworkManager.service' "${ROOT}/usr/lib/systemd/system/naia-persist-system.service" \
+    || fail "naia-persist-system is not ordered before NetworkManager — saved networks would not be seen"
+grep -q 'system-connections' "${ROOT}/usr/libexec/naia-persist-system" \
+    || fail "naia-persist-system does not persist Wi-Fi profiles"
+ok "Wi-Fi and locale persistence present and correctly ordered"
+
 # --- Automatic updates ------------------------------------------------------
 # Every Naia OS machine should pick up new images the same way, whether it is an
 # NVIDIA desktop or a BC-250. uupd is Bazzite's bootc-aware updater and ships in

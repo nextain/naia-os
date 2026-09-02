@@ -543,8 +543,38 @@ cat > /usr/libexec/naia-live-warning.sh <<'SCRIPT'
 # Only show in live session (liveuser account)
 [ "$(whoami)" = "liveuser" ] || exit 0
 
+# Naia autostarts full-screen and would cover this dialog — a user would have to
+# close Naia to discover that installation instructions exist. So Naia goes
+# first (it is the point of the live session), and this waits for it before
+# putting itself on top.
+#
+# The wait is bounded: on slow hardware Naia may take a while, but the dialog
+# must not be lost if it never appears.
+for _ in $(seq 1 40); do
+    pgrep -x naia-shell >/dev/null 2>&1 && break
+    sleep 1
+done
+sleep 6   # let the shell finish mapping and settle before covering it
+
 kdialog --msgbox "Welcome to Naia OS!\n\nRun 'Install to Hard Drive' on the desktop\nto install to your computer.\n\n[ Live USB Usage ]\n1. Connect to Wi-Fi\n2. Sign in to Google in browser\n3. Launch Naia Shell\n\n[ Input Method ]\nKorean input is configured by default (Ctrl+Space to toggle).\nTo use another language (Japanese, Chinese, etc.),\nchange the locale during installation. It will apply automatically.\n\n* Live session resets on reboot." \
-    --title "Naia OS Live"
+    --title "Naia OS Live" &
+KD=$!
+
+# kdialog has no always-on-top flag, so ask the window manager once the window
+# exists. Without this the shell can raise itself back over the dialog.
+for _ in $(seq 1 20); do
+    if command -v kdotool >/dev/null 2>&1; then
+        WID="$(kdotool search --name "Naia OS Live" 2>/dev/null | head -1)"
+        [ -n "$WID" ] && kdotool windowactivate "$WID" 2>/dev/null && break
+    elif command -v xdotool >/dev/null 2>&1; then
+        WID="$(xdotool search --name "Naia OS Live" 2>/dev/null | head -1)"
+        [ -n "$WID" ] && { xdotool windowactivate "$WID" 2>/dev/null; break; }
+    else
+        break
+    fi
+    sleep 0.5
+done
+wait $KD
 SCRIPT
 chmod +x /usr/libexec/naia-live-warning.sh
 
@@ -555,6 +585,7 @@ Type=Application
 Name=Naia Live Session Warning
 Exec=/usr/libexec/naia-live-warning.sh
 X-KDE-autostart-phase=2
+X-KDE-autostart-after=naia-shell
 OnlyShowIn=KDE;
 EOF
 

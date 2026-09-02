@@ -1,0 +1,19 @@
+[Unit]
+Description=Persist Wi-Fi and locale on the Naia live USB
+Documentation=https://github.com/nextain/naia-shell/issues/262
+# The persistent home must be mounted before anything can be stored in it, and
+# NetworkManager must not read its profile directory before the bind mount is
+# in place — otherwise the first boot after saving a network still comes up
+# without it.
+After=var-home-liveuser.mount
+Requires=var-home-liveuser.mount
+Before=NetworkManager.service systemd-localed.service livesys.service
+ConditionPathIsMountPoint=/var/home/liveuser
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/naia-persist-system
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
