@@ -149,6 +149,26 @@ grep -q 'system-connections' "${ROOT}/usr/libexec/naia-persist-system" \
     || fail "naia-persist-system does not persist Wi-Fi profiles"
 ok "Wi-Fi and locale persistence present and correctly ordered"
 
+# --- First-boot persistence partition ---------------------------------------
+# dd reproduces the ISO exactly, so a freshly written stick has unallocated space
+# and no naia-data. Creating it on first boot is what lets a stick written with
+# Rufus or balenaEtcher — on any OS — end up persistent without a Naia-specific
+# flashing tool.
+#
+# This code writes a partition table unattended, so the guards are asserted too.
+# Every one of them is a refusal path, and a missing guard means somebody's disk.
+[ -x "${ROOT}/usr/libexec/naia-create-persistence" ] \
+    || fail "naia-create-persistence missing — a dd-written stick would never gain persistence"
+[ -f "${ROOT}/usr/lib/systemd/system/naia-create-persistence.service" ] \
+    || fail "naia-create-persistence.service missing"
+for guard in 'lsblk -dno RM' 'lsblk -dno TRAN' 'carries the running root' 'already exists'; do
+    grep -q "$guard" "${ROOT}/usr/libexec/naia-create-persistence" \
+        || fail "naia-create-persistence lost a safety guard: $guard"
+done
+grep -q 'ConditionKernelCommandLine=rd.live.image' "${ROOT}/usr/lib/systemd/system/naia-create-persistence.service" \
+    || fail "naia-create-persistence is not restricted to live boots — it could run on an installed system"
+ok "first-boot persistence partition present with all guards"
+
 # --- Automatic updates ------------------------------------------------------
 # Every Naia OS machine should pick up new images the same way, whether it is an
 # NVIDIA desktop or a BC-250. uupd is Bazzite's bootc-aware updater and ships in

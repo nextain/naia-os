@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# naia-create-persistence — claim the free space after the ISO for user data.
+#
+# `dd if=naia-os-live.iso of=/dev/sdX` reproduces the ISO byte for byte, so a
+# 16GB stick ends up with ~7.6GB of image and the rest unallocated. This adds one
+# partition in that free space, labeled naia-data, which var-home-liveuser.mount
+# then attaches as the live user's home.
+#
+# Doing it here rather than in a flashing tool is what makes it work everywhere:
+# whoever wrote the stick — dd, Rufus, balenaEtcher, on any OS — the persistence
+# appears on first boot.
+#
+# This writes a partition table, so every condition below is a refusal, not a
+# warning. It runs unattended on hardware nobody has inspected.
+
+set -uo pipefail
+
+log()  { printf '[naia-persist] %s\n' "$*"; }
+skip() { printf '[naia-persist] skipping: %s\n' "$*"; exit 0; }
+
+# 1. Already done? The mount unit will pick it up; nothing to do.
+if blkid -L naia-data >/dev/null 2>&1; then
+    skip "naia-data already exists"
+fi
+
+# 2. Only ever touch the medium this system booted from. Anything else is
+#    somebody's disk.
+BOOT_SRC="$(findmnt -no SOURCE /run/initramfs/live 2>/dev/null || true)"
+[ -n "$BOOT_SRC" ] || BOOT_SRC="$(findmnt -no SOURCE /run/rootfsbase 2>/dev/null || true)"
+[ -n "$BOOT_SRC" ] || skip "cannot identify the boot medium — not a live boot"
+
+DISK="/dev/$(lsblk -no PKNAME "$BOOT_SRC" 2>/dev/null | head -1)"
+[ -b "$DISK" ] || skip "cannot resolve the boot disk from $BOOT_SRC"
+
+# 3. Removable only. An internal disk that happens to hold the live image is not
+#    a stick somebody expects to be repartitioned.
+[ "$(lsblk -dno RM "$DISK" 2>/dev/null)" = "1" ] || skip "$DISK is not removable"
+[ "$(lsblk -dno TRAN "$DISK" 2>/dev/null)" = "usb" ] || skip "$DISK is not USB-attached"
+
+# 4. Never the disk holding the running root. Belt and braces with (3): an
+#    installed system must never reach the code below.
+ROOT_SRC="$(findmnt -no SOURCE / 2>/dev/null || true)"
+if [ -n "$ROOT_SRC" ]; then
+    ROOT_DISK="$(lsblk -no PKNAME "$ROOT_SRC" 2>/dev/null | head -1)"
+    [ "/dev/${ROOT_DISK:-none}" != "$DISK" ] || skip "$DISK carries the running root"
+fi
+
+# 5. Enough unallocated space at the end to be worth it. sgdisk reports the
+#    largest free block; below 1GiB there is no point taking the risk.
+END_FREE_MIB=$(( $(sgdisk -E "$DISK" 2>/dev/null || echo 0) * 512 / 1024 / 1024 ))
+[ "$END_FREE_MIB" -ge 1024 ] || skip "only ${END_FREE_MIB}MiB free at the end of $DISK"
+
+# 6. Nothing on this disk may be mounted read-write while its table changes.
+#    The live ISO partition itself is mounted read-only and is expected.
+BAD="$(lsblk -nrpo NAME,MOUNTPOINT "$DISK" | awk '$2 != "" && $2 != "/run/initramfs/live" { print $1" -> "$2 }')"
+[ -z "$BAD" ] || skip "mounted partitions on $DISK: $BAD"
+
+log "claiming ${END_FREE_MIB}MiB of free space on $DISK for persistent data"
+
+# An isohybrid image carries a protective/GPT table sized to the image, not the
+# stick. Extend it to the full device before adding anything, or the new
+# partition lands outside the table's idea of the disk.
+sgdisk --move-second-header "$DISK" >/dev/null 2>&1 || true
+
+NEXT=$(sgdisk --print "$DISK" 2>/dev/null | awk '/^ +[0-9]+/ { n=$1 } END { print n+1 }')
+[ -n "$NEXT" ] && [ "$NEXT" -ge 2 ] || skip "cannot determine the next partition number"
+
+if ! sgdisk --new="${NEXT}:0:0" --typecode="${NEXT}:8300" \
+            --change-name="${NEXT}:naia-data" "$DISK" >/dev/null 2>&1; then
+    log "ERROR: failed to create partition ${NEXT} on $DISK"
+    exit 1
+fi
+
+udevadm settle 2>/dev/null || sleep 2
+partprobe "$DISK" >/dev/null 2>&1 || true
+udevadm settle 2>/dev/null || sleep 2
+
+PART="$(lsblk -nrpo NAME "$DISK" | tail -1)"
+[ -b "$PART" ] || { log "ERROR: partition ${NEXT} did not appear"; exit 1; }
+
+if ! mkfs.btrfs -f -L naia-data "$PART" >/dev/null 2>&1; then
+    log "ERROR: mkfs.btrfs failed on $PART"
+    exit 1
+fi
+
+udevadm settle 2>/dev/null || sleep 2
+
+# Report what the next boot will actually find, not what was intended.
+if blkid -L naia-data >/dev/null 2>&1; then
+    log "created $PART (naia-data) — settings and data persist from the next boot"
+else
+    log "ERROR: naia-data label not visible after mkfs"
+    exit 1
+fi

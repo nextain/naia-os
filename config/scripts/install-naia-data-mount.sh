@@ -51,6 +51,14 @@ systemctl enable naia-persist-system.service
 
 echo "[naia] System settings persistence registered (naia-persist-system.service enabled)"
 
+# A dd-written stick has free space and no naia-data partition. Creating it on
+# first boot means any flashing tool on any OS produces a persistent USB, with no
+# Naia-specific writer to ship for three platforms.
+chmod 0755 /usr/libexec/naia-create-persistence
+systemctl enable naia-create-persistence.service
+
+echo "[naia] First-boot persistence partition registered (naia-create-persistence.service enabled)"
+
 # The shell moved from a Flatpak bundle to a layered RPM. Machines updating from
 # an older image still carry the Flatpak in mutable /var/lib/flatpak, which no
 # image update touches — so without this the user keeps launching the old shell
