@@ -1,0 +1,9 @@
+# Start the persistent-home mount only once the partition actually exists.
+#
+# Enabling the mount instead (WantedBy=local-fs.target) makes every boot from a
+# freshly written USB wait out the device job timeout and fail, because the
+# partition is created by the person's own choice on first boot. Triggering from
+# udev inverts that: no partition, no unit, no wait.
+SUBSYSTEM=="block", ACTION=="add|change", ENV{ID_FS_LABEL}=="naia-data", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="var-home-liveuser.mount", \
+  ENV{SYSTEMD_WANTS}+="naia-persist-system.service"

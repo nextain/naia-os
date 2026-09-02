@@ -5,6 +5,9 @@ Documentation=https://github.com/nextain/naia-shell/issues/262
 # NetworkManager must not read its profile directory before the bind mount is
 # in place — otherwise the first boot after saving a network still comes up
 # without it.
+#
+# Started by 99-naia-data.rules, never enabled: see var-home-liveuser.mount for
+# why nothing may pull either unit into the boot transaction.
 After=var-home-liveuser.mount
 Requires=var-home-liveuser.mount
 Before=NetworkManager.service systemd-localed.service livesys.service
@@ -14,6 +17,3 @@ ConditionPathIsMountPoint=/var/home/liveuser
 Type=oneshot
 ExecStart=/usr/libexec/naia-persist-system
 RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target

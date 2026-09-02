@@ -133,6 +133,39 @@ grep -q 'Where=/var/home/liveuser' "${ROOT}/usr/lib/systemd/system/var-home-live
     || fail "var-home-liveuser.mount does not mount at the live user's home"
 grep -q 'Before=livesys.service' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
     || fail "var-home-liveuser.mount is not ordered before livesys — user data would land on the RAM overlay"
+
+# A freshly written USB has no naia-data partition — it appears only when the
+# person chooses to create it. Anything that pulls the mount into the boot
+# transaction therefore makes systemd wait out the device job timeout and fail,
+# which on real hardware is 45 seconds of black screen that reads as a machine
+# that will not boot. This shipped once (2026-09-02) and no file check saw it,
+# because every file involved existed and was correctly ordered.
+for unit in var-home-liveuser.mount naia-persist-system.service; do
+    grep -q '^\[Install\]' "${ROOT}/usr/lib/systemd/system/${unit}" \
+        && fail "${unit} has an [Install] section — enabling it makes every boot without a naia-data partition hang for the device timeout and fail"
+    found="$(find "${ROOT}/usr/lib/systemd/system" "${ROOT}/usr/etc/systemd/system" "${ROOT}/etc/systemd/system" \
+        -name "${unit}" -type l 2>/dev/null | head -1)"
+    [ -z "${found}" ] \
+        || fail "${unit} is enabled (${found}) — it must be started by udev when the partition exists, never pulled into boot"
+done
+
+# `nofail` and `x-systemd.device-timeout=` are read by systemd-fstab-generator
+# and are silently ignored in a native unit file. Believing they applied is what
+# turned an intended 10-second soft wait into a 45-second hard boot failure.
+grep -E '^Options=.*(nofail|x-systemd\.)' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" >/dev/null \
+    && fail "var-home-liveuser.mount uses fstab-only options (nofail / x-systemd.*) that do nothing in a unit file"
+grep -q 'ConditionPathExists=/dev/disk/by-label/naia-data' "${ROOT}/usr/lib/systemd/system/var-home-liveuser.mount" \
+    || fail "var-home-liveuser.mount has no ConditionPathExists guard on its device"
+
+RULE="${ROOT}/usr/lib/udev/rules.d/99-naia-data.rules"
+[ -f "${RULE}" ] \
+    || fail "99-naia-data.rules missing — nothing would ever start the persistent home mount"
+grep -q 'ID_FS_LABEL}=="naia-data"' "${RULE}" \
+    || fail "99-naia-data.rules does not match the naia-data label"
+for unit in var-home-liveuser.mount naia-persist-system.service; do
+    grep -q "${unit}" "${RULE}" \
+        || fail "99-naia-data.rules does not start ${unit} — persistence would never activate"
+done
 ok "live USB persistence unit present and correctly ordered"
 
 # --- Wi-Fi and locale persistence -------------------------------------------

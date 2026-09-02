@@ -31,25 +31,27 @@ chmod 0755 /usr/libexec/naia-adk-link
 # before the live user is created. Without that ordering, user data would land
 # on the RAM overlay and vanish on reboot.
 #
-# No naia-data partition (installed system, or a live boot from a USB without
-# one) makes this a no-op via nofail + the device Requires.
-systemctl enable var-home-liveuser.mount
+# Deliberately NOT enabled. A freshly written USB has no naia-data partition,
+# and an enabled mount waits out the device job timeout and fails the boot —
+# 45 seconds of black screen that reads as a machine that will not start.
+# 99-naia-data.rules starts it from udev when the partition is really there.
 
 # Legacy: var-naia.mount + the ~/naia-adk symlink stay in the image but are NOT
 # enabled — superseded by whole-home persistence. The helper stays executable so
 # it remains a harmless no-op if anything still calls it.
 chmod 0755 /usr/libexec/naia-adk-link
 
-echo "[naia] Persistent home mount registered (var-home-liveuser.mount enabled)"
+echo "[naia] Persistent home mount registered (udev-triggered on the naia-data label)"
 
 # Wi-Fi profiles and the system locale live in /etc, not in $HOME, so the
 # persistent home does not cover them. Bind-mounting them out of the persistent
 # partition is what stops a demo USB from asking for the Wi-Fi password and the
 # language again on every boot.
+# Started by the same udev rule as the mount, for the same reason: it Requires=
+# the mount, so enabling it would drag the mount back into the boot transaction.
 chmod 0755 /usr/libexec/naia-persist-system
-systemctl enable naia-persist-system.service
 
-echo "[naia] System settings persistence registered (naia-persist-system.service enabled)"
+echo "[naia] System settings persistence registered (udev-triggered)"
 
 # A dd-written stick has free space and no naia-data partition. Creating it on
 # first boot means any flashing tool on any OS produces a persistent USB, with no
