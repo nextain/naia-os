@@ -80,8 +80,8 @@ def main():
     try:
         supported = (gpu/'vendor').read_text().strip() == '0x1002' and (gpu/'device').read_text().strip() == '0x13fe'
     except OSError:
-        supported = False
-    if not supported:
+        supported = None  # Identity may appear late; watch() bounds rediscovery.
+    if supported is False:
         return 0
     return watch(Path('/sys'), Path('/sys/kernel/debug/dri'))
 

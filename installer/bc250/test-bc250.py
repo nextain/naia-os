@@ -56,6 +56,12 @@ class HardwareGuards(unittest.TestCase):
         for cmd in ['nomodeset','quiet naia.bc250.safe','naia.bc250.safe=1']:
             with mock.patch.object(Path,'read_text',return_value=cmd), mock.patch.object(os,'open',side_effect=AssertionError('register access forbidden')):
                 self.assertEqual(audio['main'](),0)
+    def test_main_identity_read_failure_enters_bounded_retry(self):
+        g=audio['main'].__globals__
+        retry=mock.Mock(return_value=1)
+        with mock.patch.object(Path,'read_text',side_effect=['quiet',OSError('enumeration pending')]), mock.patch.dict(g,watch=retry):
+            self.assertEqual(audio['main'](),1)
+            retry.assert_called_once_with(Path('/sys'),Path('/sys/kernel/debug/dri'))
     def test_delayed_device_and_transient_reads_recover(self):
         g=audio['watch'].__globals__
         register=self.debug/'1/amdgpu_regs'
