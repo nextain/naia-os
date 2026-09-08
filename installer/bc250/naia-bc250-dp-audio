@@ -39,34 +39,51 @@ def read(fd, index):
         raise OSError('short GPU register read')
     return int.from_bytes(data, 'little')
 
+def correct_once(fd):
+    before = tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f))
+    value = correction(*before)
+    if value is not None and before == tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f)):
+        if os.pwrite(fd, value.to_bytes(4, 'little'), 0x16f * 4) != 4:
+            raise OSError('short GPU register write')
+        if read(fd, 0x16f) != value:
+            raise OSError('DP audio changed during correction; retry with fresh signature')
+        print('BC250 DP audio: corrected firmware DTO1 clock', flush=True)
+
+def watch(sysroot, debugroot, max_failures=120):
+    failures = 0
+    while failures < max_failures:
+        fd = None
+        try:
+            # Re-resolve after reset/modeset and never reuse a stale register fd.
+            regs = device(sysroot, debugroot)
+            if regs is None:
+                raise OSError('compatible GPU register access not ready')
+            fd = os.open(regs, os.O_RDWR | os.O_CLOEXEC)
+            correct_once(fd)
+            failures = 0
+        except OSError as exc:
+            failures += 1
+            if failures == 1:
+                print(f'BC250 DP audio: {exc}; retrying', flush=True)
+        finally:
+            if fd is not None:
+                os.close(fd)
+        time.sleep(1)
+    print('BC250 DP audio: retry limit reached; skipped for this boot', flush=True)
+    return 1
+
 def main():
     cmdline = Path('/proc/cmdline').read_text().split()
     if {'nomodeset', 'naia.bc250.safe'} & {x.split('=')[0] for x in cmdline}:
         return 0
-    for _ in range(30):
-        regs = device(Path('/sys'), Path('/sys/kernel/debug/dri'))
-        if regs is not None:
-            break
-        time.sleep(1)
-    else:
-        print('BC250 DP audio: register access unavailable; skipped', flush=True)
-        return 0
-    fd = os.open(regs, os.O_RDWR | os.O_CLOEXEC)
+    gpu = Path('/sys/bus/pci/devices/0000:01:00.0')
     try:
-        while True:
-            before = tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f))
-            value = correction(*before)
-            if value is not None:
-                # Recheck the complete signature immediately before a write.
-                if before == tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f)):
-                    if os.pwrite(fd, value.to_bytes(4, 'little'), 0x16f * 4) != 4:
-                        raise OSError('short GPU register write')
-                    if read(fd, 0x16f) != value:
-                        raise OSError('DP audio clock readback mismatch')
-                    print('BC250 DP audio: corrected firmware DTO1 clock', flush=True)
-            time.sleep(1)
-    finally:
-        os.close(fd)
+        supported = (gpu/'vendor').read_text().strip() == '0x1002' and (gpu/'device').read_text().strip() == '0x13fe'
+    except OSError:
+        supported = False
+    if not supported:
+        return 0
+    return watch(Path('/sys'), Path('/sys/kernel/debug/dri'))
 
 if __name__ == '__main__':
     raise SystemExit(main())

@@ -1,4 +1,5 @@
 import os, runpy, tempfile, unittest
+from unittest import mock
 from pathlib import Path
 
 source = Path(__file__).resolve().parent
@@ -51,5 +52,27 @@ class HardwareGuards(unittest.TestCase):
         with open(self.debug/'1/amdgpu_regs','rb') as stream:
             with self.assertRaises(OSError):
                 audio['read'](stream.fileno(),0x16f)
+    def test_recovery_never_opens_registers(self):
+        for cmd in ['nomodeset','quiet naia.bc250.safe','naia.bc250.safe=1']:
+            with mock.patch.object(Path,'read_text',return_value=cmd), mock.patch.object(os,'open',side_effect=AssertionError('register access forbidden')):
+                self.assertEqual(audio['main'](),0)
+    def test_delayed_device_and_transient_reads_recover(self):
+        g=audio['watch'].__globals__
+        register=self.debug/'1/amdgpu_regs'
+        with mock.patch.dict(g,device=mock.Mock(side_effect=[None,None,register,register,register]),correct_once=mock.Mock(side_effect=[OSError('reset'),None,KeyboardInterrupt()])), mock.patch.object(audio['time'],'sleep'):
+            with self.assertRaises(KeyboardInterrupt):
+                audio['watch'](self.sys,self.debug,max_failures=4)
+            self.assertEqual(g['correct_once'].call_count,3)
+    def test_retry_limit_is_bounded(self):
+        g=audio['watch'].__globals__
+        with mock.patch.dict(g,device=mock.Mock(return_value=None)), mock.patch.object(audio['time'],'sleep'):
+            self.assertEqual(audio['watch'](self.sys,self.debug,max_failures=3),1)
+            self.assertEqual(g['device'].call_count,3)
+    def test_modeset_readback_requires_fresh_signature(self):
+        g=audio['correct_once'].__globals__
+        signature=[0x10,240000,7286310,6000]
+        with mock.patch.dict(g,read=mock.Mock(side_effect=signature+signature+[7286310])), mock.patch.object(os,'pwrite',return_value=4) as write:
+            with self.assertRaises(OSError):audio['correct_once'](123)
+            write.assert_called_once_with(123,(6000000).to_bytes(4,'little'),0x16f*4)
 
 if __name__=='__main__': unittest.main()
