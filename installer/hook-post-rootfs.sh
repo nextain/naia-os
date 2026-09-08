@@ -352,7 +352,7 @@ if [ -f "${SRC}/assets/installer/start-here.svg" ]; then
             rsvg-convert -w "$size" -h "$size" \
                 "${SRC}/assets/installer/start-here.svg" -o "$dst" 2>/dev/null || true
         elif command -v convert &>/dev/null; then
-            convert "${SRC}/assets/installer/start-here.svg" \
+            convert -background none "${SRC}/assets/installer/start-here.svg" \
                 -resize "${size}x${size}" "$dst" 2>/dev/null || true
         fi
     done

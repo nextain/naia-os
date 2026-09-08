@@ -1,0 +1,14 @@
+[Unit]
+Description=Naia BC250 DisplayPort audio clock correction
+After=systemd-udev-trigger.service sys-kernel-debug.mount
+ConditionKernelCommandLine=!nomodeset
+ConditionKernelCommandLine=!naia.bc250.safe
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/naia-bc250-dp-audio
+Restart=no
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

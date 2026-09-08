@@ -1,0 +1,58 @@
+#!/usr/bin/python3
+"""Start the bundled governor only on its supported, initialized BC250 device."""
+import os
+import subprocess
+import time
+from pathlib import Path
+
+GPU = '0000:01:00.0'
+
+
+def ready(sysroot, devroot, command_line):
+    tokens = [word.split('=', 1)[0] for word in command_line.split()]
+    if 'nomodeset' in tokens or 'naia.bc250.safe' in tokens:
+        return False
+    gpu = sysroot / 'bus/pci/devices' / GPU
+    try:
+        if (gpu / 'vendor').read_text().strip() != '0x1002':
+            return False
+        if (gpu / 'device').read_text().strip() != '0x13fe':
+            return False
+        if (gpu / 'driver').resolve(strict=True).name != 'amdgpu':
+            return False
+        for render in (sysroot / 'class/drm').glob('renderD*'):
+            if (render / 'device').resolve(strict=True) == gpu.resolve(strict=True):
+                return os.access(devroot / 'dri' / render.name, os.R_OK | os.W_OK)
+    except (OSError, RuntimeError):
+        return False
+    return False
+
+
+def main():
+    for unit in ['cyan-skillfish-governor.service', 'cyan-skillfish-governor-smu.service',
+                 'cyan-skillfish-governor-tt.service', 'oberon-governor.service']:
+        if subprocess.run(['systemctl', 'is-active', '--quiet', unit], check=False).returncode == 0:
+            print('BC250 governor skipped: another GPU governor is already active', flush=True)
+            return 0
+    command_line = Path('/proc/cmdline').read_text()
+    if any(word.split('=', 1)[0] in ('nomodeset', 'naia.bc250.safe') for word in command_line.split()):
+        return 0
+    for _ in range(30):
+        if ready(Path('/sys'), Path('/dev'), command_line):
+            print('BC250 GPU ready; starting bundled governor with capped upstream profile', flush=True)
+            os.execv('/usr/libexec/naia-cyan-skillfish-governor-smu', [
+                '/usr/libexec/naia-cyan-skillfish-governor-smu',
+                '/usr/share/naia/bc250/governor.toml',
+            ])
+        time.sleep(1)
+    gpu = Path('/sys/bus/pci/devices') / GPU
+    try:
+        supported = (gpu / 'vendor').read_text().strip() == '0x1002' and (gpu / 'device').read_text().strip() == '0x13fe'
+    except OSError:
+        supported = False
+    print('BC250 governor skipped: compatible accelerated GPU is not ready', flush=True)
+    return 1 if supported else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,72 @@
+#!/usr/bin/python3
+"""Correct only the observed BC250 DTO1 firmware clock signature.
+
+Adapted from elektricM/amd-bc250-docs issue39, Fleischfrau and Elgar Weijtmans.
+Code under the documentation repository's MIT license. No kernel replacement.
+"""
+import os
+import time
+from pathlib import Path
+
+def correction(src, phase, module, clock):
+    # Act only on the independently measured broken signature, never on an
+    # arbitrary value from another GPU, a newer firmware or a partial read.
+    if ((src >> 4) & 3) == 1 and phase == 240000 and module == 7286310 and clock == 6000:
+        return 6000000
+    return None
+
+def device(sysroot, debugroot):
+    gpu = sysroot / 'bus/pci/devices/0000:01:00.0'
+    try:
+        if (gpu / 'vendor').read_text().strip() != '0x1002' or (gpu / 'device').read_text().strip() != '0x13fe':
+            return None
+        if (gpu / 'driver').resolve(strict=True).name != 'amdgpu':
+            return None
+        for card in (sysroot / 'class/drm').glob('card[0-9]*'):
+            if '-' in card.name:
+                continue
+            if (card / 'device').resolve(strict=True) == gpu.resolve(strict=True):
+                regs = debugroot / card.name[4:] / 'amdgpu_regs'
+                if regs.is_file():
+                    return regs
+    except (OSError, RuntimeError):
+        return None
+    return None
+
+def read(fd, index):
+    data = os.pread(fd, 4, index * 4)
+    if len(data) != 4:
+        raise OSError('short GPU register read')
+    return int.from_bytes(data, 'little')
+
+def main():
+    cmdline = Path('/proc/cmdline').read_text().split()
+    if {'nomodeset', 'naia.bc250.safe'} & {x.split('=')[0] for x in cmdline}:
+        return 0
+    for _ in range(30):
+        regs = device(Path('/sys'), Path('/sys/kernel/debug/dri'))
+        if regs is not None:
+            break
+        time.sleep(1)
+    else:
+        print('BC250 DP audio: register access unavailable; skipped', flush=True)
+        return 0
+    fd = os.open(regs, os.O_RDWR | os.O_CLOEXEC)
+    try:
+        while True:
+            before = tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f))
+            value = correction(*before)
+            if value is not None:
+                # Recheck the complete signature immediately before a write.
+                if before == tuple(read(fd, i) for i in (0x16b, 0x16e, 0x16f, 0x1b27f)):
+                    if os.pwrite(fd, value.to_bytes(4, 'little'), 0x16f * 4) != 4:
+                        raise OSError('short GPU register write')
+                    if read(fd, 0x16f) != value:
+                        raise OSError('DP audio clock readback mismatch')
+                    print('BC250 DP audio: corrected firmware DTO1 clock', flush=True)
+            time.sleep(1)
+    finally:
+        os.close(fd)
+
+if __name__ == '__main__':
+    raise SystemExit(main())
