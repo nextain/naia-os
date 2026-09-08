@@ -2,7 +2,6 @@ import os, runpy, tempfile, unittest
 from pathlib import Path
 
 source = Path(__file__).resolve().parent
-governor = runpy.run_path(str(source/'naia-bc250-governor'))
 audio = runpy.run_path(str(source/'naia-bc250-dp-audio'))
 
 class HardwareGuards(unittest.TestCase):
@@ -28,21 +27,15 @@ class HardwareGuards(unittest.TestCase):
         self.debug = self.sys/'kernel/debug/dri'
         (self.debug/'1').mkdir(parents=True)
         (self.debug/'1/amdgpu_regs').touch()
-    def test_initialized_bc250(self):
-        self.assertTrue(governor['ready'](self.sys,self.dev,'quiet'))
-    def test_recovery_disables_gpu_mutation(self):
-        for cmd in ['nomodeset','quiet naia.bc250.safe','naia.bc250.safe=1']:
-            self.assertFalse(governor['ready'](self.sys,self.dev,cmd))
     def test_wrong_pci_ignored(self):
         (self.gpu/'device').write_text('0x744c')
-        self.assertFalse(governor['ready'](self.sys,self.dev,''))
         self.assertIsNone(audio['device'](self.sys,self.debug))
     def test_missing_driver_ignored(self):
         (self.gpu/'driver').unlink()
-        self.assertFalse(governor['ready'](self.sys,self.dev,''))
-    def test_missing_render_node_ignored(self):
-        (self.dev/'dri/renderD128').unlink()
-        self.assertFalse(governor['ready'](self.sys,self.dev,''))
+        self.assertIsNone(audio['device'](self.sys,self.debug))
+    def test_voltage_controller_not_packaged(self):
+        self.assertNotIn('governor', (source/'install-bc250.sh').read_text())
+        self.assertFalse((source/'naia-bc250-governor.service').exists())
     def test_audio_uses_matching_card_not_first(self):
         (self.debug/'0').mkdir()
         (self.debug/'0/amdgpu_regs').touch()

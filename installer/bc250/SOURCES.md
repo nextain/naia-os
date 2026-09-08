@@ -1,19 +1,17 @@
-# BC250 hardware support
+# BC250 support candidate support2
 
-GPU governor: filippor/cyan-skillfish-governor v0.4.12, MIT.
-https://github.com/filippor/cyan-skillfish-governor/tree/v0.4.12
-Release archive SHA256: 43cf992d4a2078bb4d208c6bf411293c8ba127f5170f4e59cb09e8cc25ec0821
-The profile uses upstream voltage points only through1500MHz, disables D-Bus
-and metrics patching, and retains thermal throttling. Individual board stability
-must be tested. No BIOS/CU unlock/overclock or security-mitigation changes.
-
-DP audio: elektricM/amd-bc250-docs at0524002c3be78e9926a3fc6fb9b40415b7b43b1f,
-docs/troubleshooting/audio.md and issue39 (Fleischfrau; Elgar Weijtmans).
+DP audio adapts MIT code from elektricM/amd-bc250-docs commit
+0524002c3be78e9926a3fc6fb9b40415b7b43b1f, docs/troubleshooting/audio.md.
 https://github.com/elektricM/amd-bc250-docs/issues/39
-Code is MIT; documentation is CC BY-SA4.0. The adapted service changes only
-DTO1 module7286310 to6000000 with phase240000 and hardware counter6000,
-on PCI1002:13fe with amdgpu. It does not apply an unverified kernel patch.
+Credit: Fleischfrau and Elgar Weijtmans. Full MIT license is included.
+Only the measured DTO1 module7286310 / phase240000 / clock6000 signature
+on PCI1002:13fe with amdgpu permits a write of module6000000.
+The same guarded service is included in live and installed systems.
+nomodeset or naia.bc250.safe skips it. No network needed at first boot.
 
-Recovery: add naia.bc250.safe to the kernel command line to skip both services.
-The basic-graphics nomodeset boot entry also skips them. Live and installed
-systems carry the same binaries and service units. No network at first boot.
+The reviewed GPU governor is deliberately absent: per-board voltage stability,
+concurrent governors and upstream error cleanup were not validated. No automatic
+voltage/frequency/BIOS/kernel changes are made by this support package.
+General graphics boot failure remains unresolved; the recovered host currently
+boots with amdgpu and without nomodeset, which does not explain the earlier failure.
+This candidate must undergo actual hardware boot and installation testing.
