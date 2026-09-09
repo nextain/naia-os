@@ -11,6 +11,34 @@ set -euo pipefail
 # only README.md, and `cp` under `set -e` would abort the whole ISO build.
 SRC="/usr/share/naia"
 
+# A disabled home .mount is still pulled in by logind's RequiresMountsFor.
+# Without naia-data that dependency fails the login session (naia-shell#580).
+# Probe blkid too: coldplug may not have published the label symlink yet.
+# These changes apply to the live rootfs, not the embedded installation image.
+command -v blkid >/dev/null
+mkdir -p /usr/lib/systemd/system-generators
+cat > /usr/lib/systemd/system-generators/naia-live-persistence <<'NAIA_PERSIST_GENERATOR'
+#!/bin/bash
+set -euo pipefail
+case " $(cat /proc/cmdline) " in
+    *" rd.live.image "*|*" rd.live.image=1 "*|*" rd.live.image=yes "*)
+        if [ -b /dev/disk/by-label/naia-data ] || blkid -L naia-data >/dev/null 2>&1; then
+            exit 0
+        fi
+        ;;
+esac
+mkdir -p "$1"
+ln -sfn /dev/null "$1/var-home-liveuser.mount"
+ln -sfn /dev/null "$1/naia-persist-system.service"
+NAIA_PERSIST_GENERATOR
+chmod 0755 /usr/lib/systemd/system-generators/naia-live-persistence
+bash -n /usr/lib/systemd/system-generators/naia-live-persistence
+
+# New live users have no password. Existing persistent homes keep their settings.
+mkdir -p /etc/skel/.config
+kwriteconfig6 --file /etc/skel/.config/kscreenlockerrc --group Daemon --key Autolock false
+kwriteconfig6 --file /etc/skel/.config/kscreenlockerrc --group Daemon --key LockOnResume false
+
 # ==============================================================================
 # 1. Install Anaconda + branding
 # ==============================================================================
@@ -139,13 +167,16 @@ echo "[naia] image ref: ${NAIA_IMAGE} (name ${NAIA_IMAGE_NAME})"
 IMAGE_INFO="/usr/share/ublue-os/image-info.json"
 if [ -f "$IMAGE_INFO" ]; then
     # Read current values and replace
-    tmpjson=$(mktemp)
+    tmpjson=$(mktemp "${IMAGE_INFO}.XXXXXX")
     jq --arg name "${NAIA_IMAGE_NAME}" --arg ref "ostree-image-signed:docker://${NAIA_IMAGE}" '
         .["image-name"] = $name |
         .["image-ref"] = $ref |
         .["image-tag"] = "latest" |
         .["image-branch"] = "latest"
-    ' "$IMAGE_INFO" > "$tmpjson" && mv "$tmpjson" "$IMAGE_INFO"
+    ' "$IMAGE_INFO" > "$tmpjson"
+    # mktemp starts at 0600, but user session/profile scripts read this metadata.
+    chmod 0644 "$tmpjson"
+    mv "$tmpjson" "$IMAGE_INFO"
     echo "[naia] image-info.json updated: image-ref → ${NAIA_IMAGE}:latest"
 
     # The installer reads this back. If the write did not take, the machine
