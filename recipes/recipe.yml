@@ -61,6 +61,11 @@ modules:
       enabled:
         - naia-default-hostname.service
 
+  # gh and pinned herdr; asserts brew and tailscale from the base (naia-os#3).
+  - type: script
+    scripts:
+      - install-naia-toolchain.sh
+
   # Asserts that the layered shell, the branding, and the installer assets are
   # all actually present. A build that reaches this point with any of them
   # missing exits non-zero instead of shipping an image whose launcher points
