@@ -1,0 +1,13 @@
+[Unit]
+Description=Naia BC-250 sleep block (s2idle never resumes on this board)
+Documentation=https://github.com/nextain/naia-os/issues/3
+DefaultDependencies=no
+Before=sysinit.target systemd-logind.service display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/naia-bc250-nosleep
+
+[Install]
+WantedBy=sysinit.target

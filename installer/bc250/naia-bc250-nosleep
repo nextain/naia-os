@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+"""Block system sleep on the AMD BC-250, which never resumes from s2idle.
+
+The board exposes only s2idle and its SMU does not come back from it: the
+journal ends at "PM: suspend entry (s2idle)" and only a power cut recovers.
+A per-user KDE setting is lost on reinstall and does not cover the menu, the
+power button or Steam, so the block lives in logind's own sleep policy.
+It is written to /run on every boot and applies only to BC-250 hardware.
+Opt out for experiments with the naia.bc250.allow_sleep kernel argument.
+https://github.com/nextain/naia-os/issues/3
+"""
+import os
+from pathlib import Path
+
+DROPIN = 'systemd/sleep.conf.d/90-naia-bc250-nosleep.conf'
+CONTENT = """\
+# Written at boot by naia-bc250-nosleep: the BC-250 never resumes from s2idle.
+# Boot with naia.bc250.allow_sleep to leave sleep enabled.
+[Sleep]
+AllowSuspend=no
+AllowHibernation=no
+AllowHybridSleep=no
+AllowSuspendThenHibernate=no
+"""
+BOARD = 'AMD BC-250'
+
+def is_bc250(sysroot):
+    # Cyan Skillfish (1002:13fe) ships only on this board; DMI still identifies
+    # it when the GPU is not enumerated.
+    for gpu in (sysroot / 'bus/pci/devices').glob('*'):
+        try:
+            if (gpu / 'vendor').read_text().strip() == '0x1002' and (gpu / 'device').read_text().strip() == '0x13fe':
+                return True
+        except OSError:
+            continue
+    for field in ('board_name', 'product_name'):
+        try:
+            if (sysroot / 'class/dmi/id' / field).read_text().strip() == BOARD:
+                return True
+        except OSError:
+            continue
+    return False
+
+def sleep_allowed(cmdline):
+    return 'naia.bc250.allow_sleep' in {arg.split('=')[0] for arg in cmdline.split()}
+
+def apply(runroot, sysroot, cmdline):
+    target = runroot / DROPIN
+    if sleep_allowed(cmdline) or not is_bc250(sysroot):
+        target.unlink(missing_ok=True)
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + '.tmp')
+    temp.write_text(CONTENT)
+    temp.chmod(0o644)
+    os.replace(temp, target)
+    return True
+
+def main():
+    if apply(Path('/run'), Path('/sys'), Path('/proc/cmdline').read_text()):
+        print('BC-250: system sleep disabled (s2idle never resumes on this board)', flush=True)
+    return 0
+
+if __name__ == '__main__':
+    raise SystemExit(main())

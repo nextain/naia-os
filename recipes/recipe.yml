@@ -55,6 +55,12 @@ modules:
     scripts:
       - install-naia-data-mount.sh
 
+  # Without it a fresh install boots as "bazzite", the Bazzite initramfs default.
+  - type: systemd
+    system:
+      enabled:
+        - naia-default-hostname.service
+
   # Asserts that the layered shell, the branding, and the installer assets are
   # all actually present. A build that reaches this point with any of them
   # missing exits non-zero instead of shipping an image whose launcher points

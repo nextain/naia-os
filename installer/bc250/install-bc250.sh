@@ -11,6 +11,12 @@ for tool in naia-bc250-dp-audio; do
         ln -sfn "/usr/lib/systemd/system/$tool.service" "$base/systemd/system/multi-user.target.wants/$tool.service"
     done
 done
+# Sleep block: a vendor-level wants link in /usr, so no /etc state (reinstall,
+# 3-way merge, systemctl disable) can bring back a suspend that never resumes.
+install -Dm0755 "$src/naia-bc250-nosleep" /usr/libexec/naia-bc250-nosleep
+install -Dm0644 "$src/naia-bc250-nosleep.service" /usr/lib/systemd/system/naia-bc250-nosleep.service
+mkdir -p /usr/lib/systemd/system/sysinit.target.wants
+ln -sfn ../naia-bc250-nosleep.service /usr/lib/systemd/system/sysinit.target.wants/naia-bc250-nosleep.service
 install -Dm0644 "$src/SOURCES.md" /usr/share/naia/bc250/SOURCES.md
 install -Dm0644 "$src/LICENSE.audio" /usr/share/licenses/naia-bc250/audio-LICENSE
 # Preserve SVG alpha in every raster launcher size, including installed OS.

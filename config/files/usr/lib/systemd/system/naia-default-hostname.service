@@ -1,0 +1,16 @@
+[Unit]
+Description=Name the machine naiaos when no hostname is configured
+Documentation=https://github.com/nextain/naia-os/issues/3
+DefaultDependencies=no
+After=local-fs.target systemd-remount-fs.service
+Before=sysinit.target systemd-hostnamed.service bazzite-hardware-setup.service NetworkManager.service avahi-daemon.service display-manager.service
+ConditionPathIsReadWrite=/etc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Through the interpreter: the files module does not keep the executable bit.
+ExecStart=/usr/bin/python3 /usr/libexec/naia-default-hostname
+
+[Install]
+WantedBy=sysinit.target

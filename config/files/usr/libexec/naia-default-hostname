@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+"""Name a Naia OS machine "naiaos" when nobody has chosen a hostname.
+
+The initramfs comes from the Bazzite base, so without /etc/hostname the kernel
+keeps the base default "bazzite" for the whole boot. This runs before hostnamed,
+NetworkManager and Bazzite's hardware setup, writes the Naia name once as the
+static hostname, and never touches a name the owner, the installer or a kernel
+argument already set. Change it later with hostnamectl as usual.
+"""
+import os
+import shutil
+import socket
+import subprocess
+from pathlib import Path
+
+NAME = 'naiaos'
+# Names that only mean "nothing was configured": the base image defaults.
+UNCONFIGURED = {'', 'bazzite', 'fedora', 'localhost', 'localhost.localdomain'}
+
+def configured(etc):
+    try:
+        lines = (etc / 'hostname').read_text().splitlines()
+    except FileNotFoundError:
+        return ''
+    for line in lines:
+        line = line.strip()
+        if line and not line.startswith('#'):
+            return line
+    return ''
+
+def apply(etc, current, sethostname, relabel):
+    if configured(etc) or current.strip() not in UNCONFIGURED:
+        return False
+    target = etc / 'hostname'
+    temp = etc / '.hostname.naia-tmp'
+    with open(temp, 'w') as stream:
+        stream.write(NAME + '\n')
+        stream.flush()
+        os.fsync(stream.fileno())
+    temp.chmod(0o644)
+    os.replace(temp, target)
+    relabel(target)
+    sethostname(NAME)
+    return True
+
+def relabel(path):
+    # hostnamed is confined; keep the file's policy label (hostname_etc_t).
+    if shutil.which('restorecon'):
+        subprocess.run(['restorecon', str(path)], check=False)
+
+def main():
+    if apply(Path('/etc'), socket.gethostname(), socket.sethostname, relabel):
+        print(f'Hostname set to {NAME} (none was configured)', flush=True)
+    return 0
+
+if __name__ == '__main__':
+    raise SystemExit(main())
