@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+"""Keep PowerDevil off DDC/CI on the AMD BC-250, where a DP drop wedges it.
+
+When the DisplayPort output disappears, libddcutil's display watch aborts
+PowerDevil on an assertion (dw_add_display_by_businfo: dref->flags &
+DREF_REMOVED) and the restarted process re-enters a redetect loop that
+reopens /dev/i2c-* every second while amdgpu is still rebuilding the pipe.
+On 2026-09-16 that sequence ended in dcn20_program_front_end_for_ctx
+warning, the screen frozen with only the cursor moving, sshd unreachable
+and the journal silent until a power cycle.
+
+POWERDEVIL_NO_DDCUTIL keeps that loop out of a half-torn-down display.
+Only external-monitor brightness from the Plasma UI is lost; the monitor's
+own buttons still work, and the board has no internal panel to dim.
+It is written to /run on every boot and applies only to BC-250 hardware.
+Opt out for experiments with the naia.bc250.allow_ddc kernel argument.
+"""
+import os
+from pathlib import Path
+
+DROPIN = 'environment.d/90-naia-bc250-noddc.conf'
+CONTENT = """\
+# Written at boot by naia-bc250-noddc: libddcutil's display watch aborts
+# PowerDevil when this board's DisplayPort link drops.
+# Boot with naia.bc250.allow_ddc to leave DDC/CI brightness enabled.
+POWERDEVIL_NO_DDCUTIL=1
+"""
+BOARD = 'AMD BC-250'
+
+def is_bc250(sysroot):
+    # Cyan Skillfish (1002:13fe) ships only on this board; DMI still identifies
+    # it when the GPU is not enumerated.
+    for gpu in (sysroot / 'bus/pci/devices').glob('*'):
+        try:
+            if (gpu / 'vendor').read_text().strip() == '0x1002' and (gpu / 'device').read_text().strip() == '0x13fe':
+                return True
+        except OSError:
+            continue
+    for field in ('board_name', 'product_name'):
+        try:
+            if (sysroot / 'class/dmi/id' / field).read_text().strip() == BOARD:
+                return True
+        except OSError:
+            continue
+    return False
+
+def ddc_allowed(cmdline):
+    return 'naia.bc250.allow_ddc' in {arg.split('=')[0] for arg in cmdline.split()}
+
+def apply(runroot, sysroot, cmdline):
+    target = runroot / DROPIN
+    if ddc_allowed(cmdline) or not is_bc250(sysroot):
+        target.unlink(missing_ok=True)
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + '.tmp')
+    temp.write_text(CONTENT)
+    temp.chmod(0o644)
+    os.replace(temp, target)
+    return True
+
+def main():
+    if apply(Path('/run'), Path('/sys'), Path('/proc/cmdline').read_text()):
+        print('BC-250: PowerDevil DDC/CI disabled (its display watch aborts on DP link drops)', flush=True)
+    return 0
+
+if __name__ == '__main__':
+    raise SystemExit(main())

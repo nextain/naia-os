@@ -17,6 +17,11 @@ install -Dm0755 "$src/naia-bc250-nosleep" /usr/libexec/naia-bc250-nosleep
 install -Dm0644 "$src/naia-bc250-nosleep.service" /usr/lib/systemd/system/naia-bc250-nosleep.service
 mkdir -p /usr/lib/systemd/system/sysinit.target.wants
 ln -sfn ../naia-bc250-nosleep.service /usr/lib/systemd/system/sysinit.target.wants/naia-bc250-nosleep.service
+# DDC block: same vendor-level placement, so no /etc state can restore the
+# libddcutil display watch that aborts PowerDevil when the DP link drops.
+install -Dm0755 "$src/naia-bc250-noddc" /usr/libexec/naia-bc250-noddc
+install -Dm0644 "$src/naia-bc250-noddc.service" /usr/lib/systemd/system/naia-bc250-noddc.service
+ln -sfn ../naia-bc250-noddc.service /usr/lib/systemd/system/sysinit.target.wants/naia-bc250-noddc.service
 install -Dm0644 "$src/SOURCES.md" /usr/share/naia/bc250/SOURCES.md
 install -Dm0644 "$src/LICENSE.audio" /usr/share/licenses/naia-bc250/audio-LICENSE
 # Preserve SVG alpha in every raster launcher size, including installed OS.

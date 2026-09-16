@@ -5,6 +5,7 @@ from pathlib import Path
 source = Path(__file__).resolve().parent
 audio = runpy.run_path(str(source/'naia-bc250-dp-audio'))
 nosleep = runpy.run_path(str(source/'naia-bc250-nosleep'))
+noddc = runpy.run_path(str(source/'naia-bc250-noddc'))
 
 class SleepBlock(unittest.TestCase):
     def setUp(self):
@@ -73,6 +74,79 @@ class SleepBlock(unittest.TestCase):
         self.assertIn('WantedBy=sysinit.target', unit)
         installer = (source/'install-bc250.sh').read_text()
         self.assertIn('/usr/lib/systemd/system/sysinit.target.wants/naia-bc250-nosleep.service', installer)
+
+class DdcBlock(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        root = Path(self.temp.name)
+        self.sys, self.run = root/'sys', root/'run'
+        (self.sys/'bus/pci/devices').mkdir(parents=True)
+        (self.sys/'class/dmi/id').mkdir(parents=True)
+        self.dropin = self.run/noddc['DROPIN']
+    def gpu(self, slot, vendor, device):
+        path = self.sys/'bus/pci/devices'/slot
+        path.mkdir()
+        (path/'vendor').write_text(vendor + '\n')
+        (path/'device').write_text(device + '\n')
+    def dmi(self, board, product):
+        (self.sys/'class/dmi/id/board_name').write_text(board + '\n')
+        (self.sys/'class/dmi/id/product_name').write_text(product + '\n')
+    def apply(self, cmdline='quiet'):
+        return noddc['apply'](self.run, self.sys, cmdline)
+    def test_cyan_skillfish_on_any_slot_disables_ddc(self):
+        self.gpu('0000:00:01.0', '0x8086', '0x1234')
+        self.gpu('0000:03:00.0', '0x1002', '0x13fe')
+        self.assertTrue(self.apply())
+        text = self.dropin.read_text()
+        self.assertIn('\nPOWERDEVIL_NO_DDCUTIL=1\n', text)
+        self.assertTrue(text.startswith('#'))
+        self.assertEqual(self.dropin.stat().st_mode & 0o777, 0o644)
+        self.assertFalse(self.dropin.with_name(self.dropin.name + '.tmp').exists())
+    def test_dropin_lands_in_a_systemd_environment_d_search_path(self):
+        # environment.d(5) reads /run/environment.d/*.conf, and the user manager
+        # that starts PowerDevil is spawned long after sysinit.target.
+        self.assertEqual(Path(noddc['DROPIN']).parent.name, 'environment.d')
+        self.assertEqual(Path(noddc['DROPIN']).suffix, '.conf')
+    def test_bc250_dmi_disables_without_the_gpu(self):
+        self.dmi('AMD BC-250', 'Default string')
+        self.assertTrue(self.apply())
+    def test_other_amd_hardware_keeps_ddc(self):
+        self.gpu('0000:01:00.0', '0x1002', '0x744c')
+        self.dmi('ROG STRIX B650E-F', 'System Product Name')
+        self.assertFalse(self.apply())
+        self.assertFalse(self.dropin.exists())
+    def test_similar_board_names_do_not_match(self):
+        self.dmi('AMD BC-2500', 'BC-250')
+        self.assertFalse(self.apply())
+    def test_opt_out_removes_an_existing_block(self):
+        self.gpu('0000:01:00.0', '0x1002', '0x13fe')
+        self.assertTrue(self.apply())
+        for cmdline in ['quiet naia.bc250.allow_ddc', 'naia.bc250.allow_ddc=1']:
+            self.assertFalse(self.apply(cmdline))
+            self.assertFalse(self.dropin.exists())
+            self.assertTrue(self.apply())
+    def test_sleep_opt_out_does_not_re_enable_ddc(self):
+        self.gpu('0000:01:00.0', '0x1002', '0x13fe')
+        self.assertTrue(self.apply('quiet naia.bc250.allow_sleep'))
+    def test_unreadable_identity_is_skipped_not_fatal(self):
+        (self.sys/'bus/pci/devices/0000:02:00.0').mkdir()
+        self.gpu('0000:01:00.0', '0x1002', '0x13fe')
+        self.assertTrue(self.apply())
+    def test_rewrite_replaces_stale_content(self):
+        self.gpu('0000:01:00.0', '0x1002', '0x13fe')
+        self.dropin.parent.mkdir(parents=True)
+        self.dropin.write_text('POWERDEVIL_NO_DDCUTIL=0\n')
+        self.assertTrue(self.apply())
+        self.assertNotIn('POWERDEVIL_NO_DDCUTIL=0', self.dropin.read_text())
+    def test_unit_runs_before_logind_and_is_installed_in_usr(self):
+        unit = (source/'naia-bc250-noddc.service').read_text()
+        self.assertIn('DefaultDependencies=no', unit)
+        self.assertRegex(unit, r'Before=.*systemd-logind\.service')
+        self.assertIn('WantedBy=sysinit.target', unit)
+        installer = (source/'install-bc250.sh').read_text()
+        self.assertIn('/usr/lib/systemd/system/sysinit.target.wants/naia-bc250-noddc.service', installer)
+        self.assertIn('install -Dm0755 "$src/naia-bc250-noddc" /usr/libexec/naia-bc250-noddc', installer)
 
 class HardwareGuards(unittest.TestCase):
     def setUp(self):
