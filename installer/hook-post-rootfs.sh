@@ -48,6 +48,16 @@ kwriteconfig6 --file /etc/skel/.config/kscreenlockerrc --group Daemon --key Lock
 dnf -qy versionlock clear 2>/dev/null || true
 rm -f /etc/dnf/repos.override.d/99-config_manager.repo 2>/dev/null || true
 
+# Keep the image firefox shim if present. `dnf install firefox` overwrites
+# /usr/bin/firefox with the Fedora RPM launcher, which then fails on ostree
+# (no /usr/lib64/firefox) — that is why Anaconda WebUI and Naia login died.
+FIREFOX_SHIM=
+if [ -x /usr/bin/firefox ] && grep -q 'org.mozilla.firefox\|com.google.Chrome' /usr/bin/firefox; then
+    FIREFOX_SHIM=$(mktemp)
+    cp -a /usr/bin/firefox "$FIREFOX_SHIM"
+    echo "[naia] preserving image firefox shim"
+fi
+
 # Critical packages (must succeed)
 dnf install -y --allowerasing anaconda-live libblockdev-btrfs libblockdev-lvm libblockdev-dm
 
@@ -55,20 +65,18 @@ dnf install -y --allowerasing anaconda-live libblockdev-btrfs libblockdev-lvm li
 mkdir -p /var/lib/rpm-state
 dnf install -y anaconda-webui || true
 
-# Optional packages
-dnf install -y --allowerasing git firefox || true
+# Optional packages. Do not install the Firefox RPM: it replaces the shim.
+dnf install -y --allowerasing git || true
 
-# Fallback: if Firefox RPM is unavailable (Bazzite excludes it in favor of
-# Flatpak), create a wrapper at /usr/bin/firefox that delegates to the Flatpak.
-# Anaconda WebUI hardcodes /usr/bin/firefox in webui-desktop; without this shim
-# the installer silently fails with "No such file or directory".
-if [ ! -x /usr/bin/firefox ]; then
-    echo "[naia] Firefox RPM not available — creating Flatpak wrapper at /usr/bin/firefox"
+if [ -n "${FIREFOX_SHIM:-}" ] && [ -f "$FIREFOX_SHIM" ]; then
+    cp -a "$FIREFOX_SHIM" /usr/bin/firefox
+    chmod 0755 /usr/bin/firefox
+    rm -f "$FIREFOX_SHIM"
+    echo "[naia] restored image firefox shim after dnf"
+elif [ ! -x /usr/bin/firefox ] || ! grep -q 'org.mozilla.firefox\|com.google.Chrome' /usr/bin/firefox; then
+    echo "[naia] installing Flatpak firefox shim at /usr/bin/firefox"
     cat > /usr/bin/firefox <<'FIREFOXWRAP'
 #!/bin/bash
-# Bridge /usr/bin/firefox → Flatpak Firefox for Anaconda WebUI compatibility.
-# --filesystem grants access to Anaconda's custom Firefox profile directory
-# and the cockpit web server socket.
 exec flatpak run \
     --filesystem=/run/user \
     --filesystem=/tmp \
@@ -594,6 +602,10 @@ for f in /etc/xdg/autostart/*[Pp]ortal*.desktop \
          /etc/xdg/autostart/*yafti*.desktop \
          /usr/etc/xdg/autostart/*[Pp]ortal*.desktop \
          /usr/etc/xdg/autostart/*yafti*.desktop \
+         /etc/skel/.config/autostart/*[Pp]ortal*.desktop \
+         /etc/skel/.config/autostart/*yafti*.desktop \
+         /usr/etc/skel/.config/autostart/*[Pp]ortal*.desktop \
+         /usr/etc/skel/.config/autostart/*yafti*.desktop \
          /usr/share/applications/bazzite-portal.desktop \
          /usr/share/applications/yafti.desktop; do
     case "$f" in

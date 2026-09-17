@@ -110,6 +110,10 @@ for f in /usr/etc/xdg/autostart/*[Pp]ortal*.desktop \
          /usr/etc/xdg/autostart/*yafti*.desktop \
          /etc/xdg/autostart/*[Pp]ortal*.desktop \
          /etc/xdg/autostart/*yafti*.desktop \
+         /etc/skel/.config/autostart/*[Pp]ortal*.desktop \
+         /etc/skel/.config/autostart/*yafti*.desktop \
+         /usr/etc/skel/.config/autostart/*[Pp]ortal*.desktop \
+         /usr/etc/skel/.config/autostart/*yafti*.desktop \
          /usr/share/applications/bazzite-portal.desktop \
          /usr/share/applications/yafti.desktop; do
     case "$f" in *naia*) continue ;; esac

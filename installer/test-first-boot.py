@@ -32,6 +32,12 @@ class FirstBoot(unittest.TestCase):
         self.assertIn("bazzite-portal.desktop", branding)
         self.assertIn("bazzite-portal.desktop", hook)
         self.assertIn("yafti", branding)
+        self.assertIn("/etc/skel/.config/autostart", branding)
+        self.assertIn("/etc/skel/.config/autostart", hook)
+
+    def test_iso_hook_does_not_let_rpm_firefox_replace_shim(self):
+        self.assertIn("preserving image firefox shim", hook)
+        self.assertNotIn("dnf install -y --allowerasing git firefox", hook)
 
     def test_firefox_shim_and_flatpaks(self):
         self.assertIn("org.mozilla.firefox", firefox)
