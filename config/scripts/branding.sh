@@ -103,6 +103,21 @@ done
 # Refresh icon cache so KDE picks up the new start-here icon
 gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
 
+# Bazzite Portal / yafti first-boot UI. Naia has naia-live-welcome. Drop
+# autostart copies so an installed system does not open a second wizard.
+shopt -s nullglob
+for f in /usr/etc/xdg/autostart/*[Pp]ortal*.desktop \
+         /usr/etc/xdg/autostart/*yafti*.desktop \
+         /etc/xdg/autostart/*[Pp]ortal*.desktop \
+         /etc/xdg/autostart/*yafti*.desktop \
+         /usr/share/applications/bazzite-portal.desktop \
+         /usr/share/applications/yafti.desktop; do
+    case "$f" in *naia*) continue ;; esac
+    rm -f "$f"
+    echo "[branding] removed first-boot leftover: $f"
+done
+shopt -u nullglob
+
 # ============================================================
 # KDE Plasma: Override Kickoff icon from bazzite → start-here
 # ============================================================

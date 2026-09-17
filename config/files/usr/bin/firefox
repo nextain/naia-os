@@ -1,0 +1,17 @@
+#!/bin/bash
+# Anaconda WebUI and Naia login hardcode /usr/bin/firefox. Bazzite excludes the
+# Firefox RPM, so the image ships Flatpak Firefox/Chrome and this shim.
+set -euo pipefail
+if command -v flatpak >/dev/null 2>&1; then
+    if flatpak info org.mozilla.firefox >/dev/null 2>&1; then
+        exec flatpak run \
+            --filesystem=/run/user \
+            --filesystem=/tmp \
+            --filesystem=/run/anaconda \
+            org.mozilla.firefox "$@"
+    fi
+    if flatpak info com.google.Chrome >/dev/null 2>&1; then
+        exec flatpak run com.google.Chrome "$@"
+    fi
+fi
+exec xdg-open "$@"

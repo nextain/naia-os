@@ -83,5 +83,7 @@ modules:
           title: Flathub
         install:
           - com.discordapp.Discord
+          - org.mozilla.firefox
+          - com.google.Chrome
 
   - type: signing

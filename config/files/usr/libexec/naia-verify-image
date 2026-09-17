@@ -113,6 +113,19 @@ ok "GTK backend selection present and resolves correctly for both session types"
     || fail "naia-flatpak-migration.service missing"
 ok "Flatpak retirement path present"
 
+# --- Browser shim (Anaconda + Naia login) -----------------------------------
+[ -x "${ROOT}/usr/bin/firefox" ] || fail "/usr/bin/firefox shim missing — installer WebUI and Naia login have no browser"
+grep -q 'org.mozilla.firefox\|com.google.Chrome' "${ROOT}/usr/bin/firefox" \
+    || fail "/usr/bin/firefox does not launch a Flatpak browser"
+ok "firefox shim launches Flatpak Firefox or Chrome"
+
+# --- First-boot copy (naia-os#4) --------------------------------------------
+grep -q 'USB로 쓰기' "${ROOT}/usr/libexec/naia-live-welcome" \
+    || fail "naia-live-welcome has no Korean three-way labels"
+grep -q 'gpt-bak-to-end' "${ROOT}/usr/libexec/naia-create-persistence" \
+    || fail "naia-create-persistence does not expand isohybrid GPT leftover space"
+ok "welcome is localized and persistence claims leftover USB space"
+
 # --- Autostart --------------------------------------------------------------
 [ -f ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop ] || fail "autostart entry missing"
 grep -q 'naia-shell' ${ROOT}/usr/etc/xdg/autostart/naia-shell.desktop \

@@ -1,0 +1,12 @@
+[Unit]
+Description=Naia BC-250 DDC/CI block (PowerDevil's display watch aborts on this board)
+DefaultDependencies=no
+Before=sysinit.target systemd-logind.service display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/naia-bc250-noddc
+
+[Install]
+WantedBy=sysinit.target

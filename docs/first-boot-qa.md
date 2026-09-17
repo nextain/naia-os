@@ -27,3 +27,18 @@
 13. 데모 한 턴: 마이크 인식(Korea Foundry Fast STT) + 첫 절 TTS.
 
 추적: nextain/naia-os#4
+
+## 갭 (2026-09-17 실기 → 이 이미지)
+
+| 증상 | 층 | 조치 |
+|---|---|---|
+| Bazzite Portal | 공통 이미지+ISO | autostart 삭제 (branding.sh + hook) |
+| 한국어 다음 영어 3선택 | 공통 | `naia-live-welcome` 언어별 카피 |
+| USB 영속, ISO가 디스크를 채움 | 공통 | isohybrid GPT를 스틱 끝으로 이동 |
+| 설치 실패 / 흰 화면 | 공통 | `/usr/bin/firefox` 심 + ostree Flatpak Firefox/Chrome (Anaconda WebUI) |
+| 설치본에 브라우저 없음 | 공통 | 위와 동일. live `dnf firefox \|\| true` 만으로는 ostree에 안 남음 |
+| VRM 없이 다음 | 셸 | naia-shell `f20994b8` (다음 이미지 RPM 핀 필요) |
+| grok/codex/claude/agy | 공통 | 아직 이미지에 안 넣음. brew 첫 부팅 이후에 설치. ostree에 npm 글로벌을 굽지 않음 |
+| BC-250 절전 | 서버 | `install-bc250.sh` 가 AMD 레시피에 없었음 → 추가. 보드 아니면 no-op |
+
+셸 VRM 수정은 이미지 RPM이 아직 v0.2.2라 이번 ISO에 안 들어간다. 다음 셸 릴리스 URL을 recipe에 핀해야 한다.

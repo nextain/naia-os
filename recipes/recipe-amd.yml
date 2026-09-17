@@ -79,6 +79,11 @@ modules:
     scripts:
       - install-naia-toolchain.sh
 
+  # BC-250 sleep/DDC/DP-audio. No-op on other AMD machines (DMI/GPU probe).
+  - type: script
+    scripts:
+      - install-bc250.sh
+
   # Asserts that the layered shell, the branding, and the installer assets are
   # all actually present. A build that reaches this point with any of them
   # missing exits non-zero instead of shipping an image whose launcher points
@@ -96,5 +101,7 @@ modules:
           title: Flathub
         install:
           - com.discordapp.Discord
+          - org.mozilla.firefox
+          - com.google.Chrome
 
   - type: signing
