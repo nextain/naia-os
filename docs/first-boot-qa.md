@@ -16,15 +16,15 @@
 7. Naia 로그인: 브라우저가 있어 콜백이 된다.
 8. 내장 브라우저 창이 화면 안에 있다.
 
-## 서버 (BC-250 음성 호스트)
+## 서버 (BC-250 백본 — 보드당 워크로드 하나)
 
-공통 1–8이 막히면 여기서 멈춘다.
+공통 1–8이 막히면 여기서 멈춘다. 한 보드에 음성·립싱크·가창을 동시에 올리지 않는다. 새 보드는 DEV 게이트웨이·DEV 어드민에 먼저 붙인다 (nextain/naia-os#5, naia-model-infra#25).
 
 9. 설치 후 `loginctl show-session` / `busctl get-property org.freedesktop.login1 … CanSuspend` → `na`. `systemctl suspend`가 기기를 죽이지 않는다.
 10. hostname은 기본 `naiaos` (원하면 `bc250`으로 변경).
-11. `NAIA_DEVICE_ID=bc250-0 profiles/naia-0.9-voice-bc250/scripts/provision.sh` 가 통과.
-12. `check.sh`: 로컬 `:8892` `:8910` + 터널 헬스.
-13. 데모 한 턴: 마이크 인식(Korea Foundry Fast STT) + 첫 절 TTS.
+11. 이미지에 `naia-voice-host` 쿼들렛이 **있고 enable 되어 있지 않다.**
+12. `NAIA_DEVICE_ID=bc250-N NAIA_WORKLOAD=voice` provision 한 번. 운영 `bc250-0`을 건드리지 말 것.
+13. DEV any-llm 슬롯 + 어드민 `/model-infra`에 그 보드가 보인다. 라이브 청취는 크레딧 정리 후.
 
 추적: nextain/naia-os#4
 

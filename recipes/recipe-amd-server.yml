@@ -1,0 +1,79 @@
+# AMD server backbone — same as recipe-amd.yml plus the inactive workload
+# quadlet. One BC-250 starts one workload after provision; more boards scale
+# the fleet. Secrets are not in this image. nextain/naia-os#5
+#
+# Separate image repository: ghcr.io/nextain/naia-os-amd-server.
+
+name: naia-os-amd-server
+description: Naia cloud AI backbone (AMD BC-250). Workloads start after provision.
+base-image: ghcr.io/ublue-os/bazzite
+image-version: latest
+
+modules:
+  - type: rpm-ostree
+    install:
+      - https://github.com/nextain/naia-shell/releases/download/v0.2.2/Naia-0.2.2-1.x86_64.rpm
+      - flatpak
+      - fcitx5
+      - fcitx5-hangul
+      - fcitx5-configtool
+      - fcitx5-gtk
+      - fcitx5-qt
+      - google-noto-sans-cjk-vf-fonts
+      - jq
+      - sqlite
+      - podman
+
+  - type: files
+    files:
+      - source: usr
+        destination: /usr
+
+  - type: files
+    files:
+      - source: variant/amd-server/usr
+        destination: /usr
+
+  - type: script
+    scripts:
+      - branding.sh
+
+  - type: script
+    scripts:
+      - install-naia-data-mount.sh
+
+  - type: systemd
+    system:
+      enabled:
+        - naia-default-hostname.service
+
+  - type: script
+    scripts:
+      - install-naia-toolchain.sh
+
+  - type: script
+    scripts:
+      - install-bc250.sh
+
+  # Quadlet present, not enabled. Secrets must be absent.
+  - type: script
+    scripts:
+      - install-naia-server-workloads.sh
+
+  - type: script
+    scripts:
+      - verify-naia-image.sh
+
+  - type: default-flatpaks
+    configurations:
+      - scope: system
+        repo:
+          url: https://flathub.org/repo/flathub.flatpakrepo
+          name: flathub
+          title: Flathub
+        install:
+          - com.discordapp.Discord
+          - org.mozilla.firefox
+          - com.google.Chrome
+
+  - type: signing
