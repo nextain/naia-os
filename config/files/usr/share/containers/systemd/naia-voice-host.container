@@ -1,7 +1,7 @@
 # Quadlet template. Present in the server image, not enabled.
 # Device id and the state volume come from provision. nextain/naia-os#5
 [Unit]
-Description=Naia voice host (VoxCPM2 Vulkan container)
+Description=Naia voice host (Vulkan container)
 After=network-online.target
 Wants=network-online.target
 
@@ -12,7 +12,6 @@ GroupAdd=keep-groups
 PublishPort=127.0.0.1:8910:8910
 Volume=/var/lib/naia-voice/models:/opt/naia-voice/models:ro
 Volume=/var/lib/naia-voice/state:/opt/naia-voice/state
-Environment=VOXCPM_BIND_HOST=127.0.0.1
 ReadOnly=true
 NoNewPrivileges=true
 

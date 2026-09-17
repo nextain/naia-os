@@ -57,6 +57,24 @@ class ServerRecipe(unittest.TestCase):
             if path.is_file() and path.name in SECRETS:
                 self.fail(path)
 
+    def test_readme_lists_server_variant(self) -> None:
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("recipe-amd-server.yml", text)
+        self.assertIn("naia-os-amd-server", text)
+        self.assertIn("present and not enabled", text)
+
+    def test_desktop_amd_recipe_has_no_server_workload(self) -> None:
+        desktop = (ROOT / "recipes" / "recipe-amd.yml").read_text(encoding="utf-8")
+        self.assertNotIn("install-naia-server-workloads.sh", desktop)
+        self.assertNotIn("naia-os-amd-server", desktop)
+
+    def test_quadlet_description_is_generic(self) -> None:
+        text = QUADLET.read_text(encoding="utf-8")
+        self.assertIn("Description=Naia voice host", text)
+        lowered = text.lower()
+        for needle in ("voxcpm", "whisper", "gemma"):
+            self.assertNotIn(needle, lowered)
+
 
 if __name__ == "__main__":
     raise SystemExit(0 if unittest.main(verbosity=2, exit=False).result.wasSuccessful() else 1)

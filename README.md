@@ -30,17 +30,22 @@ Naia-X.Y.Z-1.x86_64.rpm  →  recipes/recipe.yml
                             titanoboa live ISO           →  R2 download
 ```
 
-## Two variants
+## Three variants
 
 | recipe | base | image | for |
 | --- | --- | --- | --- |
 | `recipes/recipe.yml` | `bazzite-nvidia-open` | `ghcr.io/nextain/naia-os` | NVIDIA desktops |
-| `recipes/recipe-amd.yml` | `bazzite` | `ghcr.io/nextain/naia-os-amd` | AMD, first target the BC-250 |
+| `recipes/recipe-amd.yml` | `bazzite` | `ghcr.io/nextain/naia-os-amd` | AMD desktops |
+| `recipes/recipe-amd-server.yml` | `bazzite` | `ghcr.io/nextain/naia-os-amd-server` | BC-250 backbone (nextain/naia-os#5) |
 
 They are separate repositories, not tags, because an installed machine pins the
 repository it came from. Each ships its own `/usr/share/naia/image-ref`, and the
 ISO hook reads it rather than hardcoding a name — otherwise a BC-250 installed
 from the AMD ISO would spend the rest of its life pulling the NVIDIA image.
+
+The server image is the desktop AMD image plus a voice-host container unit that
+is **present and not enabled**. Secrets are not in the image. After provision,
+one board starts one workload; more boards scale the fleet.
 
 The AMD variant exists because the NVIDIA image carries a driver stack with
 nothing to bind to on AMD hardware, and its akmods and nvidia services fail at
