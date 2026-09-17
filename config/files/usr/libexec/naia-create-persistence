@@ -49,7 +49,7 @@ fi
 #    Naia OS image (verified: `rpm -q gdisk` → not installed), so an sgdisk-based
 #    implementation would find nothing and refuse on every boot without saying
 #    why. parted, partprobe, mkfs.btrfs, blkid and udevadm are all present.
-for tool in parted partprobe mkfs.btrfs blkid; do
+for tool in parted partprobe mkfs.btrfs blkid sfdisk; do
     command -v "$tool" >/dev/null 2>&1 || skip "$tool is missing from this image"
 done
 
@@ -69,6 +69,26 @@ read -r FREE_START_MIB FREE_END_MIB <<<"$(
     awk -F: '$5 ~ /free/ { gsub(/MiB/,"",$2); gsub(/MiB/,"",$3); s=$2; e=$3 }
              END { if (s != "") print s, e }'
 )"
+# Isohybrid GPT is sized to the ISO, so "print free" can be empty even when the
+# stick still has tens of GiB after the image. Grow the table to the real
+# device, then take disk-size minus last partition end.
+if [ -z "${FREE_START_MIB:-}" ]; then
+    log "no free region in the ISO-sized GPT — expanding the table to the device"
+    # gdisk is not in the image. sfdisk relocates the backup GPT to the real end.
+    sfdisk --relocate gpt-bak-to-end "$DISK" >/dev/null 2>&1 || true
+    parted -s -f "$DISK" print >/dev/null 2>&1 || true
+    partprobe "$DISK" >/dev/null 2>&1 || true
+    DISK_MIB="$(lsblk -bno SIZE "$DISK" | awk '{print int($1/1024/1024)}')"
+    LAST_END_MIB="$(
+        parted -sm "$DISK" unit MiB print 2>/dev/null |
+        awk -F: 'NR>2 && $1+0>0 { gsub(/MiB/,"",$3); e=$3 } END { print int(e+0) }'
+    )"
+    if [ -n "$DISK_MIB" ] && [ -n "$LAST_END_MIB" ] && [ $((DISK_MIB - LAST_END_MIB)) -ge 1024 ]; then
+        FREE_START_MIB=$LAST_END_MIB
+        FREE_END_MIB=$DISK_MIB
+        log "using leftover after ISO: ${FREE_START_MIB}MiB–${FREE_END_MIB}MiB"
+    fi
+fi
 [ -n "${FREE_START_MIB:-}" ] || skip "no free space reported on $DISK"
 END_FREE_MIB=$(( ${FREE_END_MIB%.*} - ${FREE_START_MIB%.*} ))
 [ "$END_FREE_MIB" -ge 1024 ] || skip "only ${END_FREE_MIB}MiB free at the end of $DISK"

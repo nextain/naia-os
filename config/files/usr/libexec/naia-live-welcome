@@ -32,13 +32,13 @@ HELPER=/usr/libexec/naia-create-persistence
 # offering to do it again.
 if blkid -L naia-data >/dev/null 2>&1; then
     kdialog --title "Naia OS" --msgbox \
-"Welcome back.
+"Welcome back / 다시 오셨습니다.
 
-This USB has a data partition, so your settings, conversations
-and Naia's memory are kept across reboots.
+This USB keeps settings across reboots (naia-data).
+이 USB는 재부팅 뒤에도 설정을 남깁니다 (naia-data).
 
-To install onto this computer, run 'Install to Hard Drive'
-on the desktop."
+Install: desktop → Install to Hard Drive
+설치: 바탕화면 → Install to Hard Drive"
     : > "$STAMP"
     exit 0
 fi
@@ -61,80 +61,149 @@ case "$LANG_CHOICE" in
 "Español")  LOCALE=es_ES.UTF-8 ;;
 *)          LOCALE=en_US.UTF-8 ;;
 esac
+LANG_CODE="${LOCALE%%_*}"
 
 # Needs root for /etc and the kickstart; the rest of this script does not.
 pkexec /usr/libexec/naia-set-language "$LOCALE" >/tmp/naia-lang.log 2>&1 \
     || echo "[naia-welcome] language setup failed: $(tail -1 /tmp/naia-lang.log)"
 
-# The dialogs below still read from this script rather than a translation
-# catalogue, so they stay English for now. The choice above is what the desktop,
-# the installer and Naia itself follow.
+# Follow-up copy must match the language just chosen. kdialog has no catalogue;
+# keep the strings here so a Korean (etc.) pick is not followed by English.
+case "$LANG_CODE" in
+ko)
+    W_TITLE="Naia OS"
+    W_ASK="이 USB를 어떻게 쓸까요?"
+    W_KEEP="USB로 쓰기 — 설정과 데이터를 이 USB에 저장"
+    W_INSTALL="이 컴퓨터에 설치"
+    W_LOOK="그냥 둘러보기"
+    W_KEEP_FAIL_TITLE="데이터 파티션을 만들지 못했습니다."
+    W_KEEP_READY="이 USB에 저장 공간이 준비됐습니다.
 
-# --- No data partition yet: offer the three paths -----------------------------
+다시 시작한 뒤에 쓰이므로, 지금 세션에서 한 일은 남지 않습니다.
 
-CHOICE=$(kdialog --title "Naia OS" --radiolist \
-"How do you want to use Naia OS?" \
-    keep    "Keep using this USB — save my settings and data on it" on \
-    install "Install onto this computer" off \
-    look    "Just looking around for now" off \
-    2>/dev/null)
+지금 다시 시작할까요?"
+    W_KEEP_LATER="알겠습니다. 원할 때 다시 시작하세요.
 
-case "$CHOICE" in
-keep)
-    if ! pkexec "$HELPER" 2>&1 | tee /tmp/naia-persist.log; then
-        kdialog --title "Naia OS" --sorry \
-"Could not set up the data partition.
+그 전까지는 지금처럼, 아무것도 저장되지 않습니다."
+    W_INSTALL_HINT="바탕화면의 'Install to Hard Drive'(하드 디스크에 설치)를 실행하세요.
 
-$(tail -3 /tmp/naia-persist.log 2>/dev/null)
+언어와 키보드는 설치 중에 고르면 설치된 시스템에도 이어집니다.
 
-You can keep using this session; nothing was changed."
-        exit 0
-    fi
+이 USB는 바뀌지 않습니다."
+    W_LOOK_HINT="둘러보세요.
 
-    if ! blkid -L naia-data >/dev/null 2>&1; then
-        kdialog --title "Naia OS" --sorry \
-"The data partition was not created.
+다시 시작하면 이 세션은 초기화됩니다. 설정을 남기려면
+다시 시작해서 'USB로 쓰기'를 고르세요."
+    W_BACK="다시 오셨습니다.
 
-$(tail -3 /tmp/naia-persist.log 2>/dev/null)
+이 USB에는 데이터 파티션이 있어 설정·대화·기억이 재부팅 뒤에도 남습니다.
 
-You can keep using this session; nothing was changed."
-        exit 0
-    fi
-
-    : > "$STAMP"
-    if kdialog --title "Naia OS" --warningyesno \
-"Storage is ready on this USB.
+이 컴퓨터에 설치하려면 바탕화면의 'Install to Hard Drive'를 실행하세요."
+    ;;
+ja)
+    W_TITLE="Naia OS"
+    W_ASK="このUSBをどう使いますか？"
+    W_KEEP="USBで使う — 設定とデータをこのUSBに保存"
+    W_INSTALL="このコンピュータにインストール"
+    W_LOOK="ちょっと見てみる"
+    W_KEEP_FAIL_TITLE="データ領域を作れませんでした。"
+    W_KEEP_READY="このUSBに保存領域を用意しました。再起動後に使います。今すぐ再起動しますか？"
+    W_KEEP_LATER="必要なときに再起動してください。それまでは保存されません。"
+    W_INSTALL_HINT="デスクトップの 'Install to Hard Drive' を実行してください。このUSBは変更しません。"
+    W_LOOK_HINT="見て回ってください。再起動するとこのセッションは消えます。"
+    W_BACK="おかえりなさい。このUSBにはデータ領域があります。インストールはデスクトップのインストーラから。"
+    ;;
+zh)
+    W_TITLE="Naia OS"
+    W_ASK="要怎么使用这支 USB？"
+    W_KEEP="用 USB — 把设置和数据保存在这支 USB"
+    W_INSTALL="安装到这台电脑"
+    W_LOOK="先看看"
+    W_KEEP_FAIL_TITLE="无法创建数据分区。"
+    W_KEEP_READY="已在 USB 上准备好存储。重启后才会使用。现在重启吗？"
+    W_KEEP_LATER="想重启时再重启。在此之前不会保存。"
+    W_INSTALL_HINT="请运行桌面上的 'Install to Hard Drive'。不会改动这支 USB。"
+    W_LOOK_HINT="先看看即可。重启后本次会话会清空。"
+    W_BACK="欢迎回来。这支 USB 已有数据分区。安装请用桌面上的安装程序。"
+    ;;
+*)
+    W_TITLE="Naia OS"
+    W_ASK="How do you want to use this USB?"
+    W_KEEP="Use this USB — save settings and data on it"
+    W_INSTALL="Install onto this computer"
+    W_LOOK="Just look around"
+    W_KEEP_FAIL_TITLE="Could not set up the data partition."
+    W_KEEP_READY="Storage is ready on this USB.
 
 It starts being used after a restart, so anything you do in
 this session will not be kept.
 
-Restart now?" ; then
-        systemctl reboot
-    else
-        kdialog --title "Naia OS" --msgbox \
-"Understood — restart whenever you like.
+Restart now?"
+    W_KEEP_LATER="Understood — restart whenever you like.
 
 Until then this session behaves as before: nothing is saved."
-    fi
-    ;;
-
-install)
-    : > "$STAMP"
-    kdialog --title "Naia OS" --msgbox \
-"Run 'Install to Hard Drive' on the desktop.
+    W_INSTALL_HINT="Run 'Install to Hard Drive' on the desktop.
 
 You can pick your language and keyboard during installation,
 and they carry over to the installed system.
 
 This USB is not modified."
+    W_LOOK_HINT="Have a look around.
+
+This session resets when you restart. To keep your settings,
+restart and choose 'Use this USB'."
+    W_BACK="Welcome back.
+
+This USB has a data partition, so your settings, conversations
+and Naia's memory are kept across reboots.
+
+To install onto this computer, run 'Install to Hard Drive'
+on the desktop."
+    ;;
+esac
+
+# --- No data partition yet: offer the three paths -----------------------------
+
+CHOICE=$(kdialog --title "$W_TITLE" --radiolist \
+"$W_ASK" \
+    keep    "$W_KEEP" on \
+    install "$W_INSTALL" off \
+    look    "$W_LOOK" off \
+    2>/dev/null)
+
+case "$CHOICE" in
+keep)
+    if ! pkexec "$HELPER" 2>&1 | tee /tmp/naia-persist.log; then
+        kdialog --title "$W_TITLE" --sorry \
+"$W_KEEP_FAIL_TITLE
+
+$(tail -3 /tmp/naia-persist.log 2>/dev/null)"
+        exit 0
+    fi
+
+    if ! blkid -L naia-data >/dev/null 2>&1; then
+        kdialog --title "$W_TITLE" --sorry \
+"$W_KEEP_FAIL_TITLE
+
+$(tail -3 /tmp/naia-persist.log 2>/dev/null)"
+        exit 0
+    fi
+
+    : > "$STAMP"
+    if kdialog --title "$W_TITLE" --warningyesno "$W_KEEP_READY" ; then
+        systemctl reboot
+    else
+        kdialog --title "$W_TITLE" --msgbox "$W_KEEP_LATER"
+    fi
+    ;;
+
+install)
+    : > "$STAMP"
+    kdialog --title "$W_TITLE" --msgbox "$W_INSTALL_HINT"
     ;;
 
 *)
     # Includes an empty choice (dialog dismissed): offer again next boot.
-    kdialog --title "Naia OS" --msgbox \
-"Have a look around.
-
-This session resets when you restart. To keep your settings,
-restart and choose 'Keep using this USB'."
+    kdialog --title "$W_TITLE" --msgbox "$W_LOOK_HINT"
     ;;
 esac

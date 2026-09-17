@@ -586,6 +586,24 @@ X-KDE-autostart-after=naia-shell
 OnlyShowIn=KDE;
 EOF
 
+# Bazzite's first-boot portal still ships and shows next to Naia. Hide it so the
+# only first-boot UI is naia-live-welcome (localized). Do not delete the binary;
+# just stop autostart copies under /etc and /usr/etc.
+shopt -s nullglob
+for f in /etc/xdg/autostart/*[Pp]ortal*.desktop \
+         /etc/xdg/autostart/*yafti*.desktop \
+         /usr/etc/xdg/autostart/*[Pp]ortal*.desktop \
+         /usr/etc/xdg/autostart/*yafti*.desktop \
+         /usr/share/applications/bazzite-portal.desktop \
+         /usr/share/applications/yafti.desktop; do
+    case "$f" in
+        *naia*) continue ;;
+    esac
+    rm -f "$f"
+    echo "[naia] removed first-boot leftover: $f"
+done
+shopt -u nullglob
+
 # ==============================================================================
 # 9. Live session — Naia Shell is already present
 #    The shell is layered into the image as an RPM (/usr/bin/naia-shell), so the
