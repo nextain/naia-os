@@ -42,7 +42,7 @@ curl --fail --location --retry 3 --silent --show-error -o "$tmp/LICENSE" "$HERDR
 install -Dm0644 "$tmp/LICENSE" /usr/share/licenses/herdr/LICENSE
 
 echo "[naia] toolchain: nodejs and npm"
-if ! rpm -q nodejs >/dev/null 2>&1 || ! rpm -q npm >/dev/null 2>&1; then
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
     if command -v dnf5 >/dev/null 2>&1; then
         dnf5 -y install nodejs npm
         dnf5 clean all
@@ -50,7 +50,7 @@ if ! rpm -q nodejs >/dev/null 2>&1 || ! rpm -q npm >/dev/null 2>&1; then
         rpm-ostree install -y nodejs npm
     fi
 fi
-rpm -q nodejs npm
+rpm -q nodejs npm >/dev/null 2>&1 || rpm -q nodejs22 nodejs22-npm >/dev/null 2>&1 || (command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1)
 
 echo "[naia] toolchain: google-chrome"
 if ! rpm -q google-chrome-stable >/dev/null 2>&1; then
