@@ -53,6 +53,7 @@ fi
 rpm -q nodejs npm >/dev/null 2>&1 || rpm -q nodejs22 nodejs22-npm >/dev/null 2>&1 || (command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1)
 
 echo "[naia] toolchain: google-chrome"
+mkdir -p /var/opt
 if ! rpm -q google-chrome-stable >/dev/null 2>&1; then
     if command -v dnf5 >/dev/null 2>&1; then
         dnf5 -y install https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
@@ -62,6 +63,13 @@ if ! rpm -q google-chrome-stable >/dev/null 2>&1; then
     fi
 fi
 rpm -q google-chrome-stable
+
+if [ -d /var/opt/google ] && [ ! -d /usr/lib/opt/google ]; then
+    mkdir -p /usr/lib/opt
+    cp -a /var/opt/google /usr/lib/opt/
+    mkdir -p /usr/lib/tmpfiles.d
+    echo "C /var/opt/google - - - - /usr/lib/opt/google" > /usr/lib/tmpfiles.d/naia-google-chrome.conf
+fi
 
 echo "[naia] toolchain: brew and tailscale from the base"
 test -s /usr/share/homebrew.tar.zst
