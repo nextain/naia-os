@@ -41,6 +41,28 @@ install -Dm0755 "$tmp/herdr" /usr/bin/herdr
 curl --fail --location --retry 3 --silent --show-error -o "$tmp/LICENSE" "$HERDR_LICENSE_URL"
 install -Dm0644 "$tmp/LICENSE" /usr/share/licenses/herdr/LICENSE
 
+echo "[naia] toolchain: nodejs and npm"
+if ! rpm -q nodejs >/dev/null 2>&1 || ! rpm -q npm >/dev/null 2>&1; then
+    if command -v dnf5 >/dev/null 2>&1; then
+        dnf5 -y install nodejs npm
+        dnf5 clean all
+    else
+        rpm-ostree install -y nodejs npm
+    fi
+fi
+rpm -q nodejs npm
+
+echo "[naia] toolchain: google-chrome"
+if ! rpm -q google-chrome-stable >/dev/null 2>&1; then
+    if command -v dnf5 >/dev/null 2>&1; then
+        dnf5 -y install https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+        dnf5 clean all
+    else
+        rpm-ostree install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+    fi
+fi
+rpm -q google-chrome-stable
+
 echo "[naia] toolchain: brew and tailscale from the base"
 test -s /usr/share/homebrew.tar.zst
 test -f /usr/lib/systemd/system/brew-setup.service
@@ -48,4 +70,12 @@ test -x /usr/bin/tailscale
 test -f /usr/lib/systemd/system/tailscaled.service
 systemctl enable tailscaled.service brew-setup.service
 
-echo "[naia] toolchain ready: $(gh --version | head -1); herdr ${HERDR_VERSION}; brew (first boot); tailscale $(rpm -q --qf '%{VERSION}' tailscale)"
+mkdir -p /usr/etc/profile.d
+cat > /usr/etc/profile.d/00-naia-brew.sh <<'BREWEOF'
+if [ -d /home/linuxbrew/.linuxbrew/bin ]; then
+    export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
+fi
+BREWEOF
+chmod 0644 /usr/etc/profile.d/00-naia-brew.sh
+
+echo "[naia] toolchain ready: $(gh --version | head -1); herdr ${HERDR_VERSION}; node $(node --version); npm $(npm --version); chrome $(rpm -q --qf '%{VERSION}' google-chrome-stable); brew (first boot); tailscale $(rpm -q --qf '%{VERSION}' tailscale)"
