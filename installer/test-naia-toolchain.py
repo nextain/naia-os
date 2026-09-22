@@ -23,7 +23,7 @@ class Toolchain(unittest.TestCase):
         self.assertNotIn('|| true', script)
         for needle in ['rpm -q gh', '/usr/bin/herdr', 'rpm -q nodejs npm', 'rpm -q google-chrome-stable',
                        '/usr/share/homebrew.tar.zst', 'brew-setup.service',
-                       '/usr/bin/tailscale', 'systemctl enable tailscaled.service', '00-naia-brew.sh']:
+                       '/usr/bin/tailscale', 'systemctl enable tailscaled.service', 'sshd.service', '00-naia-brew.sh']:
             self.assertIn(needle, script)
     def test_both_recipes_run_the_script(self):
         for recipe in ['recipe.yml', 'recipe-amd.yml', 'recipe-amd-server.yml']:

@@ -68,7 +68,8 @@ test -s /usr/share/homebrew.tar.zst
 test -f /usr/lib/systemd/system/brew-setup.service
 test -x /usr/bin/tailscale
 test -f /usr/lib/systemd/system/tailscaled.service
-systemctl enable tailscaled.service brew-setup.service
+test -f /usr/lib/systemd/system/sshd.service
+systemctl enable tailscaled.service brew-setup.service sshd.service
 
 mkdir -p /usr/etc/profile.d
 cat > /usr/etc/profile.d/00-naia-brew.sh <<'BREWEOF'
