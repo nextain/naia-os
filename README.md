@@ -154,3 +154,10 @@ mapped at 1x1: the app ran, the agent connected, the sidecar came up, every log
 line was clean, and the screen was empty. Measured on real hardware, not
 inferred — 1x1 before the fix, a rendered window after. No file-level check sees
 the difference.
+
+## License & Patent Notice
+
+- **Code (`Apache-2.0`):** Licensed under the [Apache License 2.0 (`Apache-2.0`)](LICENSE). Free to use, modify, and distribute—including for commercial purposes, paid hosted or managed services (SaaS), and organizations of any size. Section 3 of the Apache License 2.0 includes a patent license for the code contained in this repository.
+- **Patents:** [`PATENTS.md`](PATENTS.md) explains the claim boundary split, lists Nextain's patent applications, and grants an additional conditional patent covenant (beyond the scope already licensed under Section 3 of the Apache License 2.0) for individuals, non-profits, and conforming Naia ecosystem developers. That additional covenant does not cover practicing a Listed Patent through a method or module not contained in this repository in paid hosted services for third parties, closed/OEM products, or enterprise-wide deployments meeting or exceeding the revenue or seat thresholds in [`PATENTS.md`](PATENTS.md) Section 2; see [`PATENTS.md`](PATENTS.md) Sections 2 and 3.
+- **Commercial:** [`LICENSE-COMMERCIAL.md`](LICENSE-COMMERCIAL.md) covers proprietary Nextain Tier-2 modules and cloud pipelines not published in this repository, commercial patent licenses for methods not contained here, and enterprise support and indemnification.
+- **Contributing:** see [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests are accepted under [`CLA.md`](CLA.md) (or [`CLA-CORPORATE.md`](CLA-CORPORATE.md) for corporate contributions).
